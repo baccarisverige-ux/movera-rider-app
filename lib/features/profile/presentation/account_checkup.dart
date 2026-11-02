@@ -99,55 +99,57 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
                     );
                   },
                 ),
-                AccountTile(
-                  mark: const AccountIcon(Icons.security_outlined),
-                  title: context.l10n.twoStep,
-                  body: security == null
-                      ? context.l10n.securityStatusUnavailable
-                      : security.capabilities.twoStep
-                      ? (twoStepEnabled ? context.l10n.on : context.l10n.off)
-                      : context.l10n.unavailable,
-                  trailing: Icon(
-                    twoStepEnabled
-                        ? Icons.check_circle_rounded
-                        : Icons.circle_outlined,
-                    color: twoStepEnabled ? kAccountAccent : kAccountMuted,
+                if (_security.built)
+                  AccountTile(
+                    mark: const AccountIcon(Icons.security_outlined),
+                    title: context.l10n.twoStep,
+                    body: security == null
+                        ? context.l10n.securityStatusUnavailable
+                        : security.capabilities.twoStep
+                        ? (twoStepEnabled ? context.l10n.on : context.l10n.off)
+                        : context.l10n.unavailable,
+                    trailing: Icon(
+                      twoStepEnabled
+                          ? Icons.check_circle_rounded
+                          : Icons.circle_outlined,
+                      color: twoStepEnabled ? kAccountAccent : kAccountMuted,
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        RightToLeftTransition(
+                          SecurityPage(securityController: _security),
+                        ),
+                      );
+                    },
                   ),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      RightToLeftTransition(
-                        SecurityPage(securityController: _security),
-                      ),
-                    );
-                  },
-                ),
-                AccountTile(
-                  mark: const AccountIcon(Icons.phone_iphone_outlined),
-                  title: context.l10n.recoveryPhone,
-                  body: security == null
-                      ? context.l10n.recoveryStatusUnavailable
-                      : security.capabilities.recoveryPhone
-                      ? (recoveryPhone ?? context.l10n.notConfigured)
-                      : context.l10n.unavailable,
-                  showDivider: false,
-                  trailing: Icon(
-                    recoveryPhone?.isNotEmpty == true
-                        ? Icons.check_circle_rounded
-                        : Icons.circle_outlined,
-                    color: recoveryPhone?.isNotEmpty == true
-                        ? kAccountAccent
-                        : kAccountMuted,
+                if (_security.built)
+                  AccountTile(
+                    mark: const AccountIcon(Icons.phone_iphone_outlined),
+                    title: context.l10n.recoveryPhone,
+                    body: security == null
+                        ? context.l10n.recoveryStatusUnavailable
+                        : security.capabilities.recoveryPhone
+                        ? (recoveryPhone ?? context.l10n.notConfigured)
+                        : context.l10n.unavailable,
+                    showDivider: false,
+                    trailing: Icon(
+                      recoveryPhone?.isNotEmpty == true
+                          ? Icons.check_circle_rounded
+                          : Icons.circle_outlined,
+                      color: recoveryPhone?.isNotEmpty == true
+                          ? kAccountAccent
+                          : kAccountMuted,
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        RightToLeftTransition(
+                          SecurityPage(securityController: _security),
+                        ),
+                      );
+                    },
                   ),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      RightToLeftTransition(
-                        SecurityPage(securityController: _security),
-                      ),
-                    );
-                  },
-                ),
               ],
             ),
         ],

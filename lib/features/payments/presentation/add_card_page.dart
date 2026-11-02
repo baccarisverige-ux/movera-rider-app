@@ -1,8 +1,8 @@
+import 'package:movera_rider/features/payments/presentation/card_brand_label.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/widgets/keyboard_anchor.dart';
@@ -281,11 +281,7 @@ class _AddCardPageState extends State<AddCardPage> {
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: _line),
         ),
-        child: Image.asset(
-          excludeFromSemantics: true,
-          brand == 'mastercard' ? AppAssets.mastercard : AppAssets.visa,
-          fit: BoxFit.contain,
-        ),
+        child: CardBrandLabel(brand),
       ),
     );
   }
@@ -366,11 +362,7 @@ class _AddCardPageState extends State<AddCardPage> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Image.asset(
-                  excludeFromSemantics: true,
-                  brand == 'mastercard' ? AppAssets.mastercard : AppAssets.visa,
-                  height: 14,
-                ),
+                child: SizedBox(height: 14, child: CardBrandLabel(brand)),
               ),
             ],
           ),

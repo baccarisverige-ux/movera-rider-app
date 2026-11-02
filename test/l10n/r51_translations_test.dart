@@ -417,9 +417,13 @@ void main() {
           );
           final titles = spots.map((s) => s.title).toList();
           expect(titles, [
-            L10n.current.pickupSpotMainEntrance,
-            L10n.current.pickupSpotSideEntrance,
-            L10n.current.pickupSpotParking,
+            L10n.current.pickupSpotApproximate(
+              L10n.current.pickupSpotMainEntrance,
+            ),
+            L10n.current.pickupSpotApproximate(
+              L10n.current.pickupSpotSideEntrance,
+            ),
+            L10n.current.pickupSpotApproximate(L10n.current.pickupSpotParking),
             L10n.current.pickupSpotNearHome,
           ]);
           expect(titles, isNot(contains('Main entrance')));
@@ -430,8 +434,8 @@ void main() {
           expect(
             pickupSpotLabel('Klockarvägen 37, Huddinge', spots.first),
             code == 'fr'
-                ? 'Klockarvägen 37 – Entrée principale'
-                : 'Klockarvägen 37 – Huvudentré',
+                ? 'Klockarvägen 37 – Entrée principale (approximatif)'
+                : 'Klockarvägen 37 – Huvudentré (ungefärlig)',
           );
         },
       );

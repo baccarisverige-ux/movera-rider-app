@@ -1,3 +1,4 @@
+import 'package:movera_rider/app/config/demo_features.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
@@ -19,6 +20,8 @@ class PrivacyPage extends StatefulWidget {
 }
 
 class _PrivacyPageState extends State<PrivacyPage> {
+  bool get _promoSwitches => DemoFeatures.on;
+
   late final ProfileController _profile;
 
   @override
@@ -98,6 +101,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
                 mark: const AccountIcon(Icons.notifications_none_rounded),
                 title: context.l10n.rideUpdates,
                 body: context.l10n.rideUpdatesBody,
+                showDivider: _promoSwitches,
                 trailing: Switch.adaptive(
                   value: ride.rideUpdates,
                   activeThumbColor: adaptiveSwitchThumbColor(
@@ -112,43 +116,47 @@ class _PrivacyPageState extends State<PrivacyPage> {
                       _save(_profile.profile.copyWith(rideUpdates: on)),
                 ),
               ),
-              AccountTile(
-                mark: const AccountIcon(Icons.mail_outline_rounded),
-                title: context.l10n.email,
-                body: context.l10n.emailBody,
-                trailing: Switch.adaptive(
-                  value: ride.emailUpdates,
-                  activeThumbColor: adaptiveSwitchThumbColor(
-                    context,
-                    kAccountAccent,
+              // Audit M6 / G13 Q-C: nothing sends e-mail updates or offers
+              // yet (promotions are hidden until later): demo builds only.
+              if (_promoSwitches)
+                AccountTile(
+                  mark: const AccountIcon(Icons.mail_outline_rounded),
+                  title: context.l10n.email,
+                  body: context.l10n.emailBody,
+                  trailing: Switch.adaptive(
+                    value: ride.emailUpdates,
+                    activeThumbColor: adaptiveSwitchThumbColor(
+                      context,
+                      kAccountAccent,
+                    ),
+                    activeTrackColor: adaptiveSwitchTrackColor(
+                      context,
+                      kAccountAccent,
+                    ),
+                    onChanged: (on) =>
+                        _save(_profile.profile.copyWith(emailUpdates: on)),
                   ),
-                  activeTrackColor: adaptiveSwitchTrackColor(
-                    context,
-                    kAccountAccent,
-                  ),
-                  onChanged: (on) =>
-                      _save(_profile.profile.copyWith(emailUpdates: on)),
                 ),
-              ),
-              AccountTile(
-                mark: const AccountIcon(Icons.local_offer_outlined),
-                title: context.l10n.offers,
-                body: context.l10n.offersBody,
-                showDivider: false,
-                trailing: Switch.adaptive(
-                  value: ride.promotions,
-                  activeThumbColor: adaptiveSwitchThumbColor(
-                    context,
-                    kAccountAccent,
+              if (_promoSwitches)
+                AccountTile(
+                  mark: const AccountIcon(Icons.local_offer_outlined),
+                  title: context.l10n.offers,
+                  body: context.l10n.offersBody,
+                  showDivider: false,
+                  trailing: Switch.adaptive(
+                    value: ride.promotions,
+                    activeThumbColor: adaptiveSwitchThumbColor(
+                      context,
+                      kAccountAccent,
+                    ),
+                    activeTrackColor: adaptiveSwitchTrackColor(
+                      context,
+                      kAccountAccent,
+                    ),
+                    onChanged: (on) =>
+                        _save(_profile.profile.copyWith(promotions: on)),
                   ),
-                  activeTrackColor: adaptiveSwitchTrackColor(
-                    context,
-                    kAccountAccent,
-                  ),
-                  onChanged: (on) =>
-                      _save(_profile.profile.copyWith(promotions: on)),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 18),

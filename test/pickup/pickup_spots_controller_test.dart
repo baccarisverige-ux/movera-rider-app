@@ -24,9 +24,9 @@ void main() {
       final controller = PickupSpotsController(store: _MemoryStore());
       final spots = await controller.forAddress(at: at, address: address);
       expect(spots.map((s) => s.title), [
-        'Main entrance',
-        'Side entrance',
-        'Parking',
+        'Main entrance (approximate)',
+        'Side entrance (approximate)',
+        'Parking (approximate)',
       ]);
       expect(spots.map((s) => s.kind), [
         PickupSpotKind.entrance,
@@ -100,9 +100,9 @@ void main() {
     expect(spots.map((s) => s.title), [
       'Previously used',
       'Previously used',
-      'Main entrance',
-      'Side entrance',
-      'Parking',
+      'Main entrance (approximate)',
+      'Side entrance (approximate)',
+      'Parking (approximate)',
       'Near Home',
     ]);
     expect(spots[0].position, c);

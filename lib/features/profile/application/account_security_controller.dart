@@ -4,10 +4,16 @@ import 'package:movera_rider/features/profile/domain/account_security.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 class AccountSecurityController extends ChangeNotifier {
-  AccountSecurityController({required AccountSecurityRepository repository})
-    : _repository = repository;
+  AccountSecurityController({
+    required AccountSecurityRepository repository,
+    this.built = true,
+  }) : _repository = repository;
 
   final AccountSecurityRepository _repository;
+
+  /// Audit M3: movera-server has no /account/security yet. Off, nothing is
+  /// asked of the server and the Security screen's entries are hidden.
+  final bool built;
 
   AccountSecurityState? state;
   bool loading = false;
@@ -36,6 +42,7 @@ class AccountSecurityController extends ChangeNotifier {
   }
 
   Future<void> load() async {
+    if (!built) return;
     final session = _session;
     loading = true;
     _error = null;

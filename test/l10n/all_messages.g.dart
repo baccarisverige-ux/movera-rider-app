@@ -512,7 +512,12 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'tripDetailsUnavailable': l.tripDetailsUnavailable,
   'tripDetailsUnavailableBody': l.tripDetailsUnavailableBody,
   'pickupLocation': l.pickupLocation,
-  'droppedPinLabel': l.droppedPinLabel('<lat>', '<latSide>', '<lng>', '<lngSide>'),
+  'droppedPinLabel': l.droppedPinLabel(
+    '<lat>',
+    '<latSide>',
+    '<lng>',
+    '<lngSide>',
+  ),
   'compassNorth': l.compassNorth,
   'compassSouth': l.compassSouth,
   'compassEast': l.compassEast,
@@ -1188,7 +1193,10 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'supportExit': l.supportExit,
   'supportFailed': l.supportFailed,
   'supportPriceCancelled': l.supportPriceCancelled('<price>'),
-  'supportPriceCancelledExtra': l.supportPriceCancelledExtra('<price>', '<extra>'),
+  'supportPriceCancelledExtra': l.supportPriceCancelledExtra(
+    '<price>',
+    '<extra>',
+  ),
   'supportIssueAck': l.supportIssueAck,
   'supportFollowUp': l.supportFollowUp,
   'supportWelcomeRide': l.supportWelcomeRide,
@@ -1606,6 +1614,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'receiptDebtIncluded': l.receiptDebtIncluded,
   'receiptTip': l.receiptTip,
   'receiptRefunded': l.receiptRefunded,
+  'pickupSpotApproximate': l.pickupSpotApproximate('<name>'),
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -1813,6 +1822,7 @@ const messagePlaceholders = <String, List<String>>{
   'g7StopFree': ['min', 'perMin'],
   'g7MaxStopsShown': ['max'],
   'tipMax': ['amount'],
+  'pickupSpotApproximate': ['name'],
 };
 
 /// The count placeholders (rendered as 37) of each message, by key.
@@ -2851,7 +2861,12 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get pickupLocation => '';
   @override
-  String droppedPinLabel(String lat, String latSide, String lng, String lngSide) => '';
+  String droppedPinLabel(
+    String lat,
+    String latSide,
+    String lng,
+    String lngSide,
+  ) => '';
   @override
   String get compassNorth => '';
   @override
@@ -5038,4 +5053,6 @@ class _Exhaustive implements AppLocalizations {
   String get receiptTip => '';
   @override
   String get receiptRefunded => '';
+  @override
+  String pickupSpotApproximate(String name) => '';
 }

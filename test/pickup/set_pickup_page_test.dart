@@ -107,9 +107,9 @@ void main() {
     expect(find.text('Pickup spot'), findsOneWidget);
     expect(find.text('Klockarvägen 37'), findsOneWidget);
     expect(find.text('Your current location'), findsOneWidget);
-    expect(find.text('Main entrance'), findsOneWidget);
-    expect(find.text('Side entrance'), findsOneWidget);
-    expect(find.text('Parking'), findsOneWidget);
+    expect(find.text('Main entrance (approximate)'), findsOneWidget);
+    expect(find.text('Side entrance (approximate)'), findsOneWidget);
+    expect(find.text('Parking (approximate)'), findsOneWidget);
     expect(find.text('Near Home'), findsNothing);
     expect(find.text('On map'), findsOneWidget);
     expect(find.text('Bags?'), findsOneWidget);
@@ -257,9 +257,17 @@ void main() {
     await openPage(tester, home: const LatLng(59.3300, 18.0686))();
     final row = find.byKey(const ValueKey('set-pickup-spots'));
     expect(row, findsOneWidget);
-    expect(find.text('Main entrance').hitTestable(), findsOneWidget);
+    expect(
+      find.text('Main entrance (approximate)').hitTestable(),
+      findsOneWidget,
+    );
     // The row scrolls sideways; later chips come into view.
-    for (final label in ['Side entrance', 'Parking', 'Near Home', 'On map']) {
+    for (final label in [
+      'Side entrance (approximate)',
+      'Parking (approximate)',
+      'Near Home',
+      'On map',
+    ]) {
       await tester.ensureVisible(find.text(label));
       await tester.pump();
       expect(find.text(label).hitTestable(), findsOneWidget, reason: label);
@@ -276,9 +284,12 @@ void main() {
     await openPage(tester, store: store, box: box)();
     expect(find.text('Klockarvägen 37'), findsOneWidget);
 
-    await tester.tap(find.text('Main entrance'));
+    await tester.tap(find.text('Main entrance (approximate)'));
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Klockarvägen 37 – Main entrance'), findsOneWidget);
+    expect(
+      find.text('Klockarvägen 37 – Main entrance (approximate)'),
+      findsOneWidget,
+    );
     expect(find.text('Front of the building'), findsOneWidget);
     final chipKey = const ValueKey('set-pickup-spot-entrance-main');
     final chip = tester.widget<Material>(
@@ -298,15 +309,21 @@ void main() {
     expect(parkingChip.color, isNot(const Color(0xFF11181D)));
 
     // Another chip takes over.
-    await tester.ensureVisible(find.text('Parking'));
+    await tester.ensureVisible(find.text('Parking (approximate)'));
     await tester.pump();
-    await tester.tap(find.text('Parking'));
+    await tester.tap(find.text('Parking (approximate)'));
     await tester.pump(const Duration(milliseconds: 300));
     // The old label fades out over two frames.
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Klockarvägen 37 – Parking'), findsOneWidget);
+    expect(
+      find.text('Klockarvägen 37 – Parking (approximate)'),
+      findsOneWidget,
+    );
     expect(find.text('Short walk'), findsOneWidget);
-    expect(find.text('Klockarvägen 37 – Main entrance'), findsNothing);
+    expect(
+      find.text('Klockarvägen 37 – Main entrance (approximate)'),
+      findsNothing,
+    );
 
     await tester.tap(find.text('Confirm and search'));
     for (var i = 0; i < 8; i++) {
@@ -316,11 +333,14 @@ void main() {
     // The spot itself is the pickup point, ~60 m east of the address.
     final result = box.value;
     expect(result, isNotNull);
-    expect(result!.address, 'Klockarvägen 37 – Parking');
+    expect(result!.address, 'Klockarvägen 37 – Parking (approximate)');
     expect(result.position.longitude, greaterThan(18.0686));
     expect(result.position.latitude, closeTo(59.3293, 1e-6));
     // Confirming remembers the spot for next time.
-    expect(store.items.single.address, 'Klockarvägen 37 – Parking');
+    expect(
+      store.items.single.address,
+      'Klockarvägen 37 – Parking (approximate)',
+    );
     expect(store.items.single.position, result.position);
   });
 

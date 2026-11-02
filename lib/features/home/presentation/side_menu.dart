@@ -1,3 +1,4 @@
+import 'package:movera_rider/app/config/demo_features.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -536,29 +537,33 @@ class RiderMenuPage extends StatelessWidget {
             '${promotion.ridesTotal}',
             '${promotion.ridesLeft}',
           );
+    // Audit M2 / QO-3: promotions are hidden until later, and Family,
+    // Invite friends and Business are not built: demo builds only.
+    final demo = DemoFeatures.on;
     final cards = <_FeatureCard>[
-      _FeatureCard(
-        title: context.l10n.menuYourPromos,
-        body: promoBody,
-        picture: 'discount',
-        isNew: promotion != null,
-        onTap: () {
-          if (promotion != null) {
-            PromotionDetailsSheet.open(context, promotion);
-          } else {
-            // Audit 2026-11-01: no offer → say so here; it opened the
-            // wallet, which is not where offers are.
-            ScaffoldMessenger.maybeOf(context)
-              ?..hideCurrentSnackBar()
-              ..showSnackBar(
-                SnackBar(
-                  key: const ValueKey('menu-no-promos'),
-                  content: Text(context.l10n.menuNoPromosNow),
-                ),
-              );
-          }
-        },
-      ),
+      if (demo)
+        _FeatureCard(
+          title: context.l10n.menuYourPromos,
+          body: promoBody,
+          picture: 'discount',
+          isNew: promotion != null,
+          onTap: () {
+            if (promotion != null) {
+              PromotionDetailsSheet.open(context, promotion);
+            } else {
+              // Audit 2026-11-01: no offer → say so here; it opened the
+              // wallet, which is not where offers are.
+              ScaffoldMessenger.maybeOf(context)
+                ?..hideCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(
+                    key: const ValueKey('menu-no-promos'),
+                    content: Text(context.l10n.menuNoPromosNow),
+                  ),
+                );
+            }
+          },
+        ),
       _FeatureCard(
         title: context.l10n.menuSafetyCheckup,
         body: context.l10n.menuSafetyCheckupBody,
@@ -567,38 +572,41 @@ class RiderMenuPage extends StatelessWidget {
         onTap: () =>
             _pushPage(context, const SafetyHub(), name: AppRoutes.safety),
       ),
-      _FeatureCard(
-        title: context.l10n.menuFamily,
-        body: context.l10n.menuFamilyBody,
-        picture: 'family',
-        onTap: () => _pushPage(
-          context,
-          HelpArticle(
-            title: context.l10n.menuFamily,
-            body: context.l10n.menuFamilyArticle,
+      if (demo)
+        _FeatureCard(
+          title: context.l10n.menuFamily,
+          body: context.l10n.menuFamilyBody,
+          picture: 'family',
+          onTap: () => _pushPage(
+            context,
+            HelpArticle(
+              title: context.l10n.menuFamily,
+              body: context.l10n.menuFamilyArticle,
+            ),
           ),
         ),
-      ),
-      _FeatureCard(
-        title: context.l10n.menuInviteFriends,
-        // FLOW-16: no reward exists yet, so the card promises none.
-        body: context.l10n.menuInviteFriendsBody,
-        picture: 'referral',
-        onTap: () => _pushPage(context, const ReferAndEarn()),
-      ),
-      _FeatureCard(
-        title: context.l10n.menuBusiness,
-        body: context.l10n.menuBusinessBody,
-        picture: 'travel_mode',
-        pictureWidth: 96,
-        onTap: () => _pushPage(
-          context,
-          HelpArticle(
-            title: context.l10n.menuBusiness,
-            body: context.l10n.menuBusinessArticle,
+      if (demo)
+        _FeatureCard(
+          title: context.l10n.menuInviteFriends,
+          // FLOW-16: no reward exists yet, so the card promises none.
+          body: context.l10n.menuInviteFriendsBody,
+          picture: 'referral',
+          onTap: () => _pushPage(context, const ReferAndEarn()),
+        ),
+      if (demo)
+        _FeatureCard(
+          title: context.l10n.menuBusiness,
+          body: context.l10n.menuBusinessBody,
+          picture: 'travel_mode',
+          pictureWidth: 96,
+          onTap: () => _pushPage(
+            context,
+            HelpArticle(
+              title: context.l10n.menuBusiness,
+              body: context.l10n.menuBusinessArticle,
+            ),
           ),
         ),
-      ),
       _FeatureCard(
         title: context.l10n.menuGreener,
         body: context.l10n.menuGreenerBody,
@@ -705,12 +713,13 @@ class RiderMenuPage extends StatelessWidget {
         AppScope.instance.language.language.label,
         () => unawaited(pickAppLanguage(context, profile: profile)),
       ),
-      (
-        AppAssets.solarShieldCheck,
-        context.l10n.accountSecurity,
-        context.l10n.accountSecurityBody,
-        () => _pushPage(context, SecurityPage(securityController: security)),
-      ),
+      if (security.built)
+        (
+          AppAssets.solarShieldCheck,
+          context.l10n.accountSecurity,
+          context.l10n.accountSecurityBody,
+          () => _pushPage(context, SecurityPage(securityController: security)),
+        ),
       (
         AppAssets.solarLock,
         context.l10n.accountPrivacy,

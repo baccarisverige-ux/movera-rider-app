@@ -2587,10 +2587,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                           ),
                         ),
                       );
+                      // Audit H1 / G15: Book for later is built later; a
+                      // build without it shows none of its entry points.
+                      final bookLater = AppScope.instance.bookLaterAvailable;
                       final premiumWhereToCard = WhereToCard(
                         destinationAddress: _destinationAddress,
                         onDestinationTap: _handleDestinationTap,
-                        onOpenSchedule: _openSchedule,
+                        onOpenSchedule: bookLater ? _openSchedule : null,
                       );
                       // Owner round 1: one gap between every section of
                       // the expanded sheet (HomeSheetLayout).
@@ -2613,11 +2616,16 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                         children: [
                           // v0.10.0: the admin's rider banners (Content).
                           ContentBanners(controller: AppScope.instance.content),
-                          AdvanceBookingCard(onOpenSchedule: _openSchedule),
-                          SizedBox(height: HomeSheetLayout.sectionGap),
+                          if (bookLater) ...[
+                            AdvanceBookingCard(onOpenSchedule: _openSchedule),
+                            SizedBox(height: HomeSheetLayout.sectionGap),
+                          ],
                           HomeJourneySection(
                             onDestinationTap: _handleDestinationTap,
-                            onOpenSchedule: _openSchedule,
+                            // "Catch a flight" books now without Book for later.
+                            onOpenSchedule: bookLater
+                                ? _openSchedule
+                                : _handleDestinationTap,
                             onRideTypeTap: (rideId) =>
                                 _handleDestinationTap(initialRideId: rideId),
                           ),
@@ -2853,11 +2861,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                               label: context.l10n.navPayment,
                               onTap: _openPayment,
                             ),
-                            LiquidGlassNavEntry(
-                              iconAsset: AppAssets.solarCalendar,
-                              label: context.l10n.navScheduleRide,
-                              onTap: () => unawaited(_openSchedule()),
-                            ),
+                            if (AppScope.instance.bookLaterAvailable)
+                              LiquidGlassNavEntry(
+                                iconAsset: AppAssets.solarCalendar,
+                                label: context.l10n.navScheduleRide,
+                                onTap: () => unawaited(_openSchedule()),
+                              ),
                             LiquidGlassNavEntry(
                               iconAsset: AppAssets.solarUser,
                               label: context.l10n.navAccount,

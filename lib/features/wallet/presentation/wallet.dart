@@ -1,3 +1,5 @@
+import 'package:movera_rider/app/config/demo_features.dart';
+import 'package:movera_rider/features/payments/presentation/card_brand_label.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
@@ -11,7 +13,6 @@ import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
-import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/wallet/application/top_up_message.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
@@ -200,7 +201,7 @@ class _WalletHomeState extends State<WalletHome> {
   /// zone's; the chips switch between the zones' currencies.
   String _currency = Money.defaultCurrency;
   WalletController get _wallet => _baseWallet.forCurrency(_currency);
-  bool get _demoPayments => AppScope.instance.environment.allowsMockTransport;
+  bool get _demoPayments => DemoFeatures.on;
 
   /// Demo top-up amounts in whole units of the shown currency.
   static const _topUpAmounts = <String, List<int>>{
@@ -400,11 +401,18 @@ class _WalletHomeState extends State<WalletHome> {
                       context.l10n.addFunds,
                       style: _style(20, weight: FontWeight.w700),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      context.l10n.demoTopUpNote,
-                      style: _style(12, weight: FontWeight.w400, color: _muted),
-                    ),
+                    // Audit M1: the simulated top-up is the demo's only.
+                    if (_demoPayments) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        context.l10n.demoTopUpNote,
+                        style: _style(
+                          12,
+                          weight: FontWeight.w400,
+                          color: _muted,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     Row(
                       children: [
@@ -1456,11 +1464,7 @@ class _WalletScreenState extends State<WalletScreen> {
 
     final savedCard = _cards.byMethodBrand(brand);
     if (savedCard != null) {
-      logo = Image.asset(
-        excludeFromSemantics: true,
-        savedCard.brand == 'mastercard' ? AppAssets.mastercard : AppAssets.visa,
-        fit: BoxFit.contain,
-      );
+      logo = CardBrandLabel(savedCard.brand);
     } else if (brand == 'apple') {
       // Owner rules (G8): no Apple logo; Apple Pay is named as text.
       logo = const Icon(
@@ -1469,24 +1473,11 @@ class _WalletScreenState extends State<WalletScreen> {
         size: 22,
       );
     } else if (brand == 'cards') {
-      logo = Row(
-        children: [
-          Expanded(
-            child: Image.asset(
-              excludeFromSemantics: true,
-              AppAssets.visa,
-              fit: BoxFit.contain,
-            ),
-          ),
-          const SizedBox(width: 2),
-          Expanded(
-            child: Image.asset(
-              excludeFromSemantics: true,
-              AppAssets.mastercard,
-              fit: BoxFit.contain,
-            ),
-          ),
-        ],
+      // Branding rule: no Visa/Mastercard logos.
+      logo = const Icon(
+        Icons.credit_card_rounded,
+        color: Color(0xFF11181D),
+        size: 22,
       );
     } else if (brand == 'wallet' || brand.startsWith('wallet')) {
       background = const Color(0xFF11181D);
@@ -1503,10 +1494,10 @@ class _WalletScreenState extends State<WalletScreen> {
         size: 20,
       );
     } else {
-      logo = Image.asset(
-        excludeFromSemantics: true,
-        AppAssets.mastercard,
-        fit: BoxFit.contain,
+      logo = const Icon(
+        Icons.credit_card_rounded,
+        color: Color(0xFF11181D),
+        size: 22,
       );
     }
 

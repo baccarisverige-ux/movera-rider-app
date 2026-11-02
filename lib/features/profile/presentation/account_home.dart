@@ -166,12 +166,14 @@ class _AccountHomePageState extends State<AccountHomePage> {
                   ),
                 ),
               ),
-              AccountTile(
-                mark: const AccountIcon.asset(AppAssets.solarShieldCheck),
-                title: context.l10n.accountSecurity,
-                body: context.l10n.accountSecurityBody,
-                onTap: () => _open(SecurityPage(securityController: _security)),
-              ),
+              if (_security.built)
+                AccountTile(
+                  mark: const AccountIcon.asset(AppAssets.solarShieldCheck),
+                  title: context.l10n.accountSecurity,
+                  body: context.l10n.accountSecurityBody,
+                  onTap: () =>
+                      _open(SecurityPage(securityController: _security)),
+                ),
               AccountTile(
                 mark: const AccountIcon.asset(AppAssets.solarLock),
                 title: context.l10n.accountPrivacy,

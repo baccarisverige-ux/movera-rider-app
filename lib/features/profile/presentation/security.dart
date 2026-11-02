@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/domain/account_security.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
@@ -155,7 +154,8 @@ class _SecurityPageState extends State<SecurityPage> {
           AccountGroup(
             children: [
               AccountTile(
-                mark: Image.asset(AppAssets.google, height: 20),
+                // Branding rule: no Google logo outside its sign-in button.
+                mark: const AccountIcon(Icons.link_rounded),
                 title: 'Google',
                 body: caps.connectedAccounts
                     ? (security.googleConnected
@@ -164,7 +164,8 @@ class _SecurityPageState extends State<SecurityPage> {
                     : context.l10n.comingSoon,
               ),
               AccountTile(
-                mark: Image.asset(AppAssets.apple, height: 20),
+                // Branding rule: no Apple logo outside its sign-in button.
+                mark: const AccountIcon(Icons.link_rounded),
                 title: 'Apple',
                 body: caps.connectedAccounts
                     ? (security.appleConnected
