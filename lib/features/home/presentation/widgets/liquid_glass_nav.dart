@@ -291,7 +291,12 @@ class LiquidGlassNavRowState extends State<LiquidGlassNavRow>
 
         // Lens: only a little bigger than the icon and label.
         final lensWidth = math.min(_slotWidth * 0.86, 68.0);
-        final lensHeight = widget.itemHeight + 4;
+        // The lens reaches 2 px past the item where the bar has room for it
+        // (floating bar). On the docked bar (sheet open, no hitSlop) it
+        // would hang past the bar and the bottom of the screen, so it stays
+        // inside the bar there.
+        final lensOverhang = kGlassAlways ? math.min(2.0, widget.hitSlop) : 2.0;
+        final lensHeight = widget.itemHeight + 2 * lensOverhang;
         // Resting capsule: the selected tab's grey pill when the bar floats;
         // smaller and lighter on the docked bar.
         final capsuleWidth = ui.lerpDouble(
@@ -376,7 +381,7 @@ class LiquidGlassNavRowState extends State<LiquidGlassNavRow>
                   Positioned(
                     left: centre - lensWidth / 2,
                     width: lensWidth,
-                    top: widget.hitSlop - 2,
+                    top: widget.hitSlop - lensOverhang,
                     height: lensHeight,
                     child: IgnorePointer(
                       child: AnimatedOpacity(
@@ -391,7 +396,9 @@ class LiquidGlassNavRowState extends State<LiquidGlassNavRow>
                             scaleY: (1 - stretch * 0.5) * (0.92 + 0.08 * lift),
                             child: _GlassLens(
                               key: const ValueKey('liquid-glass-lens'),
-                              strength: 1 - floating,
+                              // Owner 2026-11-02: the same glass with the
+                              // sheet open as with it down.
+                              strength: kGlassAlways ? 0 : 1 - floating,
                             ),
                           ),
                         ),
