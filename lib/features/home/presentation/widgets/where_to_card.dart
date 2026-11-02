@@ -15,7 +15,7 @@ class WhereToCard extends StatelessWidget {
     super.key,
     required this.destinationAddress,
     required this.onDestinationTap,
-    this.onOpenSchedule,
+    required this.onOpenSchedule,
   });
 
   static const Color _premiumInk = Color(0xFF1D252C);
@@ -23,9 +23,7 @@ class WhereToCard extends StatelessWidget {
 
   final String? destinationAddress;
   final VoidCallback onDestinationTap;
-
-  /// Null when Book for later is not in this build: no Later button.
-  final VoidCallback? onOpenSchedule;
+  final VoidCallback onOpenSchedule;
 
   @override
   Widget build(BuildContext context) {
@@ -93,62 +91,59 @@ class WhereToCard extends StatelessWidget {
               ),
             ),
           ),
-          if (onOpenSchedule != null)
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onOpenSchedule,
-                borderRadius: BorderRadius.circular(18),
-                child: Semantics(
-                  button: true,
-                  excludeSemantics: true,
-                  label: context.l10n.scheduleForLater,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      minWidth: 48,
-                      minHeight: 48,
-                    ),
-                    child: Center(
-                      child: Container(
-                        height: ResSize.h * 28.4,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: ResSize.w * 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColor.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _premiumLine, width: 0.8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.045),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AppIconAsset(
-                              AppAssets.solarCalendar,
-                              size: ResSize.w * 18,
-                              color: _premiumInk,
-                            ),
-                            4.width,
-                            TextWidget(
-                              text: context.l10n.later,
-                              color: _premiumInk,
-                              fontSize: 9.2,
-                              fontWeight: fwSemiBold,
-                            ),
-                          ],
-                        ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onOpenSchedule,
+              borderRadius: BorderRadius.circular(18),
+              child: Semantics(
+                button: true,
+                excludeSemantics: true,
+                label: context.l10n.scheduleForLater,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
+                  ),
+                  child: Center(
+                    child: Container(
+                      height: ResSize.h * 28.4,
+                      padding: EdgeInsets.symmetric(horizontal: ResSize.w * 8),
+                      decoration: BoxDecoration(
+                        color: AppColor.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _premiumLine, width: 0.8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.045),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AppIconAsset(
+                            AppAssets.solarCalendar,
+                            size: ResSize.w * 18,
+                            color: _premiumInk,
+                          ),
+                          4.width,
+                          TextWidget(
+                            text: context.l10n.later,
+                            color: _premiumInk,
+                            fontSize: 9.2,
+                            fontWeight: fwSemiBold,
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
               ),
             ),
+          ),
         ],
       ),
     );
