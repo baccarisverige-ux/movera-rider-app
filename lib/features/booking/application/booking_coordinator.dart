@@ -188,11 +188,15 @@ class BookingCoordinator {
               ),
           ],
       'kind': 'live',
-      'paymentMethod': contractPaymentMethod(paymentMethod),
+      // v0.18.10: the wallet is not a PaymentMethod; it pays first
+      // (walletFirst) and the rest is paid in the car.
+      'paymentMethod': paymentMethod == 'wallet'
+          ? 'cash'
+          : contractPaymentMethod(paymentMethod),
       // A saved card is a method of its own (`card:<id>`).
       if (paymentMethod.startsWith('card:'))
         'paymentMethodId': paymentMethod.substring(5),
-      if (walletFirst) 'walletFirst': true,
+      if (walletFirst || paymentMethod == 'wallet') 'walletFirst': true,
       // Bags, pet, baby and child: the driver reads them before accepting.
       if (note.isNotEmpty) 'notes': note,
     };
@@ -201,7 +205,6 @@ class BookingCoordinator {
   /// The contract `PaymentMethod` for a Select Ride payment brand.
   static String contractPaymentMethod(String brand) => switch (brand) {
     'apple' || 'apple_pay' => 'apple_pay',
-    'google' || 'google_pay' => 'google_pay',
     'cards' || 'card' => 'card',
     _ when brand.startsWith('card:') => 'card',
     _ => brand,

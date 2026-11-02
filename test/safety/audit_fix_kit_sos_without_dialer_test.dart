@@ -52,9 +52,19 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Contact 112'));
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 50)),
-    );
+    // The SOS goes through the mock transport and prefs on real async
+    // work; a fixed 50 ms wait raced it on a busy machine (G8 root cause:
+    // the POST had not landed yet, not a lost SOS). Wait until it lands.
+    await tester.runAsync(() async {
+      for (var i = 0; i < 100; i++) {
+        if (store.rideCheckEvents.any(
+          (e) => e.rideId == 'ride_u215' && e.payload['kind'] == 'sos',
+        )) {
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+    });
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     return store;

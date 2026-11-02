@@ -5,10 +5,9 @@ import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 void main() {
   test('ride catalog has fourteen Movera types', () {
     expect(RideSelectionController().rides().length, 14);
-    // Tests run as Android: Google Pay, Card, Cash (no Apple Pay, and
+    // Tests run as Android: Card, Cash (no Apple Pay, no Google Pay, and
     // the wallet only with a balance). PayPal, Swish and Klarna were removed.
     expect(RideSelectionController().payments().map((p) => p.brand), [
-      'google',
       'cards',
       'cash',
     ]);

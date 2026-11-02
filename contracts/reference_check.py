@@ -677,4 +677,26 @@ for _e in _ot['errors']:
     if not re.match(r'^[a-z][a-z0-9_]*$', _e): bad += 1; print('ON TRIP error code', _e)
 if set(_ot['routeChange']['statuses']) - set(c['tripStatus']['values'] if isinstance(c['tripStatus'], dict) else c['tripStatus']): bad += 1; print('ROUTE CHANGE statuses')
 
+
+# v0.18.10 (CONTRACT.md §36, contract.json#finish): no Google Pay, tips per country, early-end repricing defaults, texts in sv / fr / en.
+_fi = c['finish']
+if 'google_pay' in c['paymentMethods'] or 'google_pay' in c['zonePaymentMethods']['values'] or 'google' in c['paymentMethodAliases']: bad += 1; print('GOOGLE PAY still listed')
+if c['zonePaymentMethods']['values'] != ['cash', 'card', 'apple_pay'] or _fi['paymentMethods']['values'] != c['zonePaymentMethods']['values']: bad += 1; print('PAYMENT METHODS v0.18.10')
+for _d in (rcfg, dcfg):
+    if not set(_d['paymentMethods']) <= set(c['zonePaymentMethods']['values']): bad += 1; print('FIXTURE payment methods')
+if [t['amountMinor'] for t in c['configDefaults']['countries']['SE']['tips']] != [1000, 2000, 3000] or [t['amountMinor'] for t in c['configDefaults']['countries']['FR']['tips']] != [100, 200, 500]: bad += 1; print('TIP defaults SE 10/20/30 kr, FR 1/2/5 EUR')
+if c['configDefaults']['earlyEnd'] != {'repriceOverKm': 2, 'repriceOverMin': 8} or dcfg['cancelFees']['earlyEnd'] != c['configDefaults']['earlyEnd']: bad += 1; print('EARLY END defaults (owner G8 Q2: 2 km / 8 min)')
+for _k, (_lo, _hi) in _fi['earlyEnd']['settings']['ranges'].items():
+    if not (_lo <= c['configDefaults']['earlyEnd'][_k] <= _hi): bad += 1; print('EARLY END range', _k)
+if _fi['paymentMethods']['texts']['cash'] != {'sv': 'Betala i bilen', 'fr': 'Payer dans la voiture', 'en': 'Pay in car'}: bad += 1; print('CASH label (owner G8 item 2)')
+for _sec in ('paymentMethods', 'tips', 'earlyEnd', 'receipt', 'driverMoney', 'debt'):
+    for _name, _t in _fi[_sec]['texts'].items():
+        if set(_t) != {'sv', 'fr', 'en'} or any(not v.strip() for v in _t.values()): bad += 1; print('FINISH text langs', _sec, _name)
+        if 'passagerare' in _t['sv'].lower(): bad += 1; print('FINISH sv says passagerare', _name)
+for _e in _fi['errors']:
+    if not re.match(r'^[a-z][a-z0-9_]*$', _e): bad += 1; print('FINISH error code', _e)
+if rcfg['tipRules']['customMax'] != c['configDefaults']['tipRules']['customMax']['SE'] or c['configDefaults']['tipRules']['customMax']['FR'] != {'amountMinor': 2000, 'currency': 'EUR'}: bad += 1; print('TIP RULES defaults')
+for _sec in ('tips', 'receipt', 'driverMoney'):
+    if not set(_fi[_sec]['errors']) <= set(_fi['errors']): bad += 1; print('FINISH errors listed', _sec)
+
 print('OK' if not bad else f'{bad} mismatches'); sys.exit(1 if bad else 0)

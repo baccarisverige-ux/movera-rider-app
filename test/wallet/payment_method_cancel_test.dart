@@ -32,7 +32,7 @@ void main() {
       expect(find.text('PayPal'), findsNothing);
       expect(find.text('Klarna'), findsNothing);
       expect(find.text('Swish'), findsNothing);
-      expect(find.text('Cash'), findsOneWidget);
+      expect(find.text('Pay in car'), findsOneWidget);
 
       final addPayment = find.text('Add card');
       await tester.ensureVisible(addPayment);

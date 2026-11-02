@@ -130,7 +130,6 @@ class ApiPaymentMethodRepository
 
   static String _contractMethod(String brand) => switch (brand) {
     'apple' => 'apple_pay',
-    'google' => 'google_pay',
     'cards' => 'card',
     _ when brand.startsWith('card:') => 'card',
     _ => brand,
@@ -144,7 +143,6 @@ class ApiPaymentMethodRepository
     final kind = switch (kindRaw) {
       'wallet' => PaymentMethodKind.wallet,
       'applePay' || 'apple_pay' => PaymentMethodKind.applePay,
-      'googlePay' || 'google_pay' => PaymentMethodKind.googlePay,
       'card' => PaymentMethodKind.card,
       'cash' => PaymentMethodKind.cash,
       _ => null,
@@ -162,7 +160,6 @@ class ApiPaymentMethodRepository
     'cash' => 'Cash',
     'card' => 'Card',
     'apple_pay' => 'Apple Pay',
-    'google_pay' => 'Google Pay',
     'wallet' => 'Movera Wallet',
     _ => null,
   };

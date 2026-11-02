@@ -27,13 +27,7 @@ void main() {
       final names = [
         for (final item in RideSelectionRepository().payments()) item.name,
       ];
-      expect(names, [
-        'Movera Wallet',
-        'Apple Pay',
-        'Google Pay',
-        'Card',
-        'Cash',
-      ]);
+      expect(names, ['Movera Wallet', 'Apple Pay', 'Card', 'Cash']);
       for (final item in RideSelectionRepository().payments()) {
         expect(
           '${item.name} ${item.detail}'.toLowerCase(),
@@ -45,30 +39,26 @@ void main() {
     test('a method the zone config leaves out is not offered', () {
       final selection = RideSelectionController(flags: const FeatureFlags());
       addTearDown(selection.dispose);
-      // Tests run as Android: Google Pay, Card, Cash.
-      expect(selection.payments().map((p) => p.brand), [
-        'google',
-        'cards',
-        'cash',
-      ]);
+      // Tests run as Android: Card, Cash (no Google Pay since G8).
+      expect(selection.payments().map((p) => p.brand), ['cards', 'cash']);
 
       selection.setZonePaymentMethods(const ['cash', 'card']);
       expect(selection.payments().map((p) => p.brand), ['cards', 'cash']);
       expect(selection.selectedPaymentItem()?.brand, 'cash');
 
-      selection.setZonePaymentMethods(const ['card', 'google_pay']);
-      expect(selection.payments().map((p) => p.brand), ['google', 'cards']);
+      selection.setZonePaymentMethods(const ['card']);
+      expect(selection.payments().map((p) => p.brand), ['cards']);
       // Cash is gone, so the choice falls back to the first offered.
-      expect(selection.selectedPaymentItem()?.brand, 'google');
+      expect(selection.selectedPaymentItem()?.brand, 'cards');
     });
 
     test('an old booking that said Swish or Pay in car books Cash', () {
       final selection = RideSelectionController(flags: const FeatureFlags());
       addTearDown(selection.dispose);
-      selection.selectPaymentByBrand('google');
+      selection.selectPaymentByBrand('cards');
       selection.selectPaymentNamed('Swish');
       expect(selection.selectedPaymentItem()?.name, 'Cash');
-      selection.selectPaymentByBrand('google');
+      selection.selectPaymentByBrand('cards');
       selection.selectPaymentNamed('Pay in car');
       expect(selection.selectedPaymentItem()?.name, 'Cash');
     });

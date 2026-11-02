@@ -85,7 +85,7 @@ class RideSelectionController {
   bool get walletMatchesTrip => walletCurrency == currency;
 
   /// Q7 FINAL: the contract payment methods the pickup zone's config
-  /// offers (`cash`, `card`, `apple_pay`, `google_pay`). Select Ride sets
+  /// offers (`cash`, `card`, `apple_pay`; v0.18.10 no Google Pay). Select Ride sets
   /// it from the zone's config; the wallet is separate.
   List<String> zonePaymentMethods = ZoneDefaults.paymentMethods;
 
@@ -95,8 +95,42 @@ class RideSelectionController {
     if (brand == 'cash') return 'cash';
     if (brand == 'cards' || brand.startsWith('card')) return 'card';
     if (brand == 'apple') return 'apple_pay';
-    if (brand == 'google') return 'google_pay';
     return null;
+  }
+
+  /// v0.18.10 (owner G8 item 2): the server's `paymentOptions` (method →
+  /// `available | coming_soon`); null from an older server.
+  Map<String, String>? paymentOptions;
+
+  /// The server says which methods it takes: from then on only those are
+  /// picked, the ones still coming are shown greyed ([comingSoonPayments])
+  /// and anything not listed (Google Pay, the wallet as a method) is hidden.
+  bool get _served => paymentOptions != null;
+
+  /// [brand]'s state from [paymentOptions]: `available`, `coming_soon`, or
+  /// null when not listed.
+  String? paymentStatusOf(String brand) {
+    final method = zoneMethodOf(brand);
+    if (method == null) return null;
+    return paymentOptions?[method];
+  }
+
+  /// The methods on in admin that the server does not take yet (card and
+  /// Apple Pay until a payment company is chosen): shown "Coming soon",
+  /// never picked. Empty before the server says.
+  List<RidePaymentItem> comingSoonPayments() {
+    if (!_served) return const [];
+    return _store
+        .payments()
+        .where((item) => item.brand == 'cards' || item.brand == 'apple')
+        .where((item) => paymentStatusOf(item.brand) == 'coming_soon')
+        .toList();
+  }
+
+  /// v0.18.10: sets [paymentOptions], keeping the chosen method when it is
+  /// still taken.
+  void setPaymentOptions(Map<String, String>? options) {
+    _keepPayment(() => paymentOptions = options);
   }
 
   /// Whether this build offers the wallet at all.
@@ -304,20 +338,24 @@ class RideSelectionController {
           return [item];
         })
         .where((item) {
+          // The wallet is not a payment method of its own (it pays first,
+          // the rest in the car) and stays under its own rules below.
+          if (_served &&
+              item.brand != 'wallet' &&
+              paymentStatusOf(item.brand) != 'available') {
+            return false;
+          }
           final zoneMethod = zoneMethodOf(item.brand);
           if (zoneMethod != null && !zonePaymentMethods.contains(zoneMethod)) {
             return false;
           }
           if (item.brand == 'cash') return _flags.enableCash;
-          // Apple Pay on iPhone, Google Pay on Android (both elsewhere).
+          // Apple Pay on iPhone (and the web). No Google Pay (G8).
           if (item.brand == 'apple') {
             return _flags.enableApplePay &&
                 (!mobile || platform == TargetPlatform.iOS);
           }
-          if (item.brand == 'google') {
-            return _flags.enableGooglePay &&
-                (!mobile || platform == TargetPlatform.android);
-          }
+          if (item.brand == 'google') return false;
           if (item.brand == 'wallet') {
             // Q8: the balance of the trip's own currency; no conversion.
             return _flags.enableWallet &&

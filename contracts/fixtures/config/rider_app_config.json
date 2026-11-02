@@ -85,8 +85,7 @@
   "paymentMethods": [
     "cash",
     "card",
-    "apple_pay",
-    "google_pay"
+    "apple_pay"
   ],
   "wallet": {
     "usedFirst": true
@@ -420,5 +419,14 @@
     "answerSeconds": 60,
     "beforePickup": true,
     "fixedPriceTrips": "block"
+  },
+  "tipRules": {
+    "cashAfterTrip": false,
+    "cashInCarMinutes": 5,
+    "customAmount": false,
+    "customMax": {
+      "amountMinor": 20000,
+      "currency": "SEK"
+    }
   }
 }

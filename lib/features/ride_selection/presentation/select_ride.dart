@@ -11,7 +11,6 @@ import 'package:movera_rider/features/payments/presentation/pay_with_page.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/features/promotions/presentation/promotion_details_sheet.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
@@ -433,6 +432,7 @@ class _SelectRideState extends State<SelectRide>
       setState(() {
         _zoneConfig = config;
         _selection.setZonePaymentMethods(config.paymentMethods);
+        _selection.setPaymentOptions(config.paymentOptions);
       });
     } catch (error) {
       AppLog.warning(
@@ -1389,6 +1389,14 @@ class _SelectRideState extends State<SelectRide>
             name: item.name,
             detail: item.detail,
           ),
+        // v0.18.10 (owner G8 item 2): on in admin, not taken yet.
+        for (final item in _selection.comingSoonPayments())
+          PayWithMethod(
+            brand: item.brand,
+            name: item.name,
+            detail: item.detail,
+            comingSoon: true,
+          ),
       ],
       selectedBrand: current?.brand,
       walletBalance: _selection.walletBalance,
@@ -1408,6 +1416,35 @@ class _SelectRideState extends State<SelectRide>
     final index = _selection.payments().indexWhere((p) => p.brand == brand);
     if (index < 0) return;
     setState(() => _selection.selectPayment(index));
+  }
+
+  /// v0.18.10 `finish.paymentMethods.booking`: the server refused the
+  /// trip's payment method. A box says why (`texts[reason]`), cash is
+  /// chosen when it is taken, and the payment choice opens.
+  Future<void> _paymentMethodRefused(String reason) async {
+    final l10n = context.l10n;
+    final text = switch (reason) {
+      'payment_method_off' => l10n.paymentMethodOff,
+      'payment_method_coming_soon' => l10n.paymentMethodComingSoon,
+      _ => l10n.paymentMethodNotAvailable,
+    };
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const ValueKey('payment-method-refused'),
+        semanticLabel: text,
+        content: Text(text),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.gotIt),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _selection.selectPaymentByBrand('cash'));
+    await _showPaymentPicker();
   }
 
   /// rider-74: the wallet alone cannot pay a fare above its balance. Says
@@ -2068,6 +2105,13 @@ class _SelectRideState extends State<SelectRide>
           if (!mounted) return;
           if (error is ApiError && error.detail == 'active_trip_exists') {
             await _openRideAlreadyGoing();
+            return;
+          }
+          // v0.18.10 (owner G8 item 2): a payment method the server does
+          // not take is said plainly, then back to the payment choice;
+          // never a silent return to Select Ride.
+          if (error is ApiError && error.detail.startsWith('payment_method_')) {
+            await _paymentMethodRefused(error.detail);
             return;
           }
           // RC-09: a booking that may exist on the server is not "refused".
@@ -3247,39 +3291,12 @@ class _SelectRideState extends State<SelectRide>
         savedCard.brand == 'mastercard' ? AppAssets.mastercard : AppAssets.visa,
         fit: BoxFit.contain,
       );
-    } else if (brand == 'apple') {
-      logo = SvgPicture.asset(
-        'assets/images/apple_pay_brand.svg',
-        fit: BoxFit.contain,
-      );
-    } else if (brand == 'google') {
-      logo = Transform.scale(
-        scale: 1.18,
-        child: Image.asset(
-          excludeFromSemantics: true,
-          'assets/images/google_pay_brand.png',
-          fit: BoxFit.contain,
-        ),
-      );
-    } else if (brand == 'cards') {
-      logo = Row(
-        children: [
-          Expanded(
-            child: Image.asset(
-              excludeFromSemantics: true,
-              AppAssets.visa,
-              fit: BoxFit.contain,
-            ),
-          ),
-          const SizedBox(width: 2),
-          Expanded(
-            child: Image.asset(
-              excludeFromSemantics: true,
-              AppAssets.mastercard,
-              fit: BoxFit.contain,
-            ),
-          ),
-        ],
+    } else if (brand == 'apple' || brand == 'cards') {
+      // Owner rules: no other company's logo (Apple Pay is named as text).
+      logo = const Icon(
+        Icons.credit_card_rounded,
+        color: Color(0xFF11181D),
+        size: 22,
       );
     } else if (brand == 'cash') {
       background = const Color(0xFFEEF6F0);

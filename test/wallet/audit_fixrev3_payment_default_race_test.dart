@@ -119,6 +119,7 @@ void main() {
   testWidgets('a method tapped before the default loads stays marked', (
     tester,
   ) async {
+    // G8: no Google Pay; Apple Pay (iPhone) is the other method here.
     final store = _SlowDefaultStore('cash');
     await tester.pumpWidget(
       MaterialApp(
@@ -128,23 +129,23 @@ void main() {
     await tester.pumpAndSettle();
     expect(defaultOn('cash'), findsOneWidget, reason: 'nothing loaded yet');
 
-    await tester.tap(tile('google'));
+    await tester.tap(tile('apple'));
     await tester.pumpAndSettle();
-    expect(store.saves, ['google']);
-    expect(defaultOn('google'), findsOneWidget);
+    expect(store.saves, ['apple']);
+    expect(defaultOn('apple'), findsOneWidget);
 
     // The server's old answer lands after the tap.
     store.release();
     await tester.pumpAndSettle();
-    expect(defaultOn('google'), findsOneWidget);
+    expect(defaultOn('apple'), findsOneWidget);
     expect(defaultOn('cash'), findsNothing);
-    expect(store.saves, ['google']);
-  });
+    expect(store.saves, ['apple']);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets('the Business toggle does not re-save the default method', (
     tester,
   ) async {
-    final store = _SlowDefaultStore('google');
+    final store = _SlowDefaultStore('apple');
     await tester.pumpWidget(
       MaterialApp(
         home: WalletScreen(
@@ -157,12 +158,12 @@ void main() {
     await tester.tap(find.text('Business'));
     await tester.pumpAndSettle();
     expect(store.saves, isEmpty, reason: 'only the business flag is saved');
-    expect(store.serverValue, 'google');
+    expect(store.serverValue, 'apple');
 
     store.release();
     await tester.pumpAndSettle();
-    expect(defaultOn('google'), findsOneWidget);
+    expect(defaultOn('apple'), findsOneWidget);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool('movera_payment_business'), isTrue);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 }

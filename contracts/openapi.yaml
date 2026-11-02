@@ -1,11 +1,11 @@
-# Movera API v0.18.9 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.10 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.9
+  version: 0.18.10
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.9 in this folder; this file must agree with them.
+    v0.18.10 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -82,7 +82,7 @@ tags:
 - name: Driver · Home
 x-contract:
   name: movera
-  version: 0.18.9
+  version: 0.18.10
   source: contract.json
 paths:
   /auth/otp/request:
@@ -602,7 +602,12 @@ paths:
         '503':
           $ref: '#/components/responses/Unavailable'
       description: ' v0.18.9: POST /quotes, POST /trips and POST /trips/{tripId}/route-quote with more stops → 400 invalid_request,
-        reason too_many_stops, details ["maxStops=N"].'
+        reason too_many_stops, details ["maxStops=N"]. v0.18.10: POST /trips (the trip''s paymentMethod, in the quote''s zone;
+        POST /quotes only records it): a method the admin turned off in that zone → 400 invalid_request, reason payment_method_off;
+        on in admin but not taken by the server → 400 invalid_request, reason payment_method_coming_soon; anything else (google_pay,
+        wallet, unknown) → 400 invalid_request, reason payment_method_not_available. The app shows texts[reason] and goes
+        back to the payment choice, never a silent fail. Changing the method of a booked trip stays unavailable (PATCH answers
+        route_change_not_available, as before).'
   /trips/{tripId}:
     get:
       operationId: getTrip
@@ -852,6 +857,13 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: ' v0.18.10: Owner G8 Q1 ''Cash screen + rating (Recommended)'': when the rider ends early (POST /trips/{tripId}/end-early)
+        the driver gets the normal finish: TripProjection.finish (driver and admin views; rider view without the driver''s
+        money) with endedEarly true, endedBy rider, the amount for the distance driven (finish.total), the cash to collect
+        (finish.cashToCollect), his money (finish.driverTotal + earningsBreakdown) and ratingAllowed true; driverRatingStatus
+        is pending, so POST /driver/trips/{tripId}/rating works on a cancelled_by_rider trip ended by end_early. The driver
+        app shows the cash sheet with this amount (texts.driverRiderEnded), then the rating, never straight Home. Stop waiting
+        already charged is kept.'
   /trips/{tripId}/cancel-reason:
     post:
       operationId: setCancelReason
@@ -5147,7 +5159,13 @@ paths:
       summary: Refund (full or partial)
       description: 'Not a lifecycle transition (status unchanged; paymentStatus/fare change and emit payment_updated / trip_projection).
         v0.7.2 (owner 2026-10-28, one admin is enough): 200 / 201 at once for every admin with the permission, written in
-        the audit.'
+        the audit. v0.18.10: For the admin trip page (Give money back): POST /admin/trips/{tripId}/refund { expectedVersion,
+        amount: Money, reason, fromDriver? } (payments.refund) → 201 Refund (or 202 PendingApproval over the role limit).
+        At most what the rider paid (cash + wallet) less earlier refunds (400 refund_too_large); only a paid ended trip (409
+        not_paid). fromDriver true (''take from driver'', owner decision 31): the driver loses his share of the refunded money
+        (an earnings adjustment − share), now also in driverTotal / driverAdjustments. The rider chooses where the money goes
+        (POST /rider/refunds/{refundId}/destination); the admin marks a Swish / bank refund paid (POST /admin/refunds/{refundId}/paid,
+        finance.edit). Lists: GET /admin/refunds/payouts.'
       tags:
       - Admin · Trips
       x-actor:
@@ -12343,6 +12361,285 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /trips/{tripId}/tip:
+    post:
+      operationId: tipTrip
+      summary: Rider tips the driver (100 % to the driver)
+      description: 'v0.18.10: POST /trips/{tripId}/tip { amount: Money, method: cash | card | apple_pay } (rider; Idempotency-Key)
+        → 201 TripTip { amount, method, driverShare, at }. Also accepted as RatingRequest.tip (+ tipMethod, default cash)
+        with the rating: the same rules. One tip per trip. Allowed when the trip is completed, or ended early by the rider
+        (end_early). amount must be one of the zone''s enabled tip amounts, in the trip''s currency. method cash: the rider
+        gives the tip in the driver''s hand; card / apple_pay only when that method is available (finish.paymentMethods.served),
+        else payment_method_coming_soon / payment_method_off. 100 % to the driver (owner item 1): an earnings entry kind tip
+        of the full amount; Movera keeps nothing. A cash tip is also counted as cash the driver already holds (cashCollected),
+        so the weekly payout does not pay it a second time. Errors (reason): tips_not_available, tip_amount_not_allowed, tip_already_given,
+        tip_not_allowed, tip_cash_after_trip_off, tip_above_max, payment_method_off, payment_method_coming_soon.'
+      tags:
+      - Rider · Booking
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TipRequest'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripTip'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /trips/{tripId}/receipt:
+    get:
+      operationId: tripReceipt
+      summary: The receipt of the rider's ended trip
+      description: 'v0.18.10: GET /trips/{tripId}/receipt (rider, own trip) → Receipt; the driver reads GET /driver/trips/{tripId}/receipt
+        (own trip, without the rider''s wallet), the admin GET /admin/trips/{tripId}/receipt (trips.read). Only for an ended
+        trip that was paid (payment_status captured / partially_refunded / refunded) or a fee trip; else 409 invalid_transition,
+        reason receipt_not_ready.'
+      tags:
+      - Rider · Booking
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Receipt'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/trips/{tripId}/receipt:
+    get:
+      operationId: driverTripReceipt
+      summary: The receipt of the driver's ended trip
+      description: 'v0.18.10: GET /trips/{tripId}/receipt (rider, own trip) → Receipt; the driver reads GET /driver/trips/{tripId}/receipt
+        (own trip, without the rider''s wallet), the admin GET /admin/trips/{tripId}/receipt (trips.read). Only for an ended
+        trip that was paid (payment_status captured / partially_refunded / refunded) or a fee trip; else 409 invalid_transition,
+        reason receipt_not_ready.'
+      tags:
+      - Driver · Trip
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Receipt'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/trips/{tripId}/receipt:
+    get:
+      operationId: adminTripReceipt
+      summary: The receipt of an ended trip
+      description: 'v0.18.10: GET /trips/{tripId}/receipt (rider, own trip) → Receipt; the driver reads GET /driver/trips/{tripId}/receipt
+        (own trip, without the rider''s wallet), the admin GET /admin/trips/{tripId}/receipt (trips.read). Only for an ended
+        trip that was paid (payment_status captured / partially_refunded / refunded) or a fee trip; else 409 invalid_transition,
+        reason receipt_not_ready.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Receipt'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/trips/{tripId}/receipt/resend:
+    post:
+      operationId: adminResendReceipt
+      summary: Send the receipt to the rider again
+      description: 'v0.18.10: POST /admin/trips/{tripId}/receipt/resend { reason } (trips.intervene) → 200 { tripId, notificationId,
+        sentAt }: the rider gets a bell notice + push kind receipt (texts.resendTitle / resendBody in the rider''s language,
+        deep link movera-rider://trip/{tripId}/receipt); audit trip.receipt_resend with the reason. receipt_not_ready as above.
+        E-mail receipts wait for the owner''s choice of an e-mail company.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: trips.intervene
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReceiptResendCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiptResent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/trips/{tripId}/driver-pay:
+    post:
+      operationId: adminChangeDriverPay
+      summary: Change the driver's pay for an ended trip (audited)
+      description: 'v0.18.10: POST /admin/trips/{tripId}/driver-pay { change: Money (non-zero, the trip currency), reason
+        } (finance.edit, Idempotency-Key) on an ended trip with a driver → 200 TripProjection (admin): an earnings entry kind
+        adjustment of change (paid with the next payout), trip.driverAdjustments += change, driverTotal moves; audit trip.driver_pay
+        with before / after / reason; the driver gets a bell notice kind driver_pay_changed (texts.payChanged). Errors: driver_pay_not_ended,
+        driver_pay_no_driver, driver_pay_below_zero (driverTotal would go below 0), currency_mismatch. Checker: the size of
+        one change (plus or minus) is at most CountryRules.driverPayChangeMax of the trip''s zone (Admin › Tips & limits,
+        per zone or country; default SE 1000 kr, FR 100 €) → else 400 driver_pay_above_max. A refund taken from the driver
+        never takes more than his one number on the trip (never below 0).'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: finance.edit
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverPayCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripProjection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -12867,12 +13164,10 @@ components:
       enum:
       - card
       - apple_pay
-      - google_pay
       - cash
       - wallet
       x-aliases:
         apple: apple_pay
-        google: google_pay
       description: Payment method kind. A saved card is `card` + `paymentMethodId`. `wallet` is the rider's balance in one
         currency (used first); v0.3 ids are accepted on read as x-aliases for one release.
     ZonePaymentMethod:
@@ -12881,10 +13176,10 @@ components:
       - cash
       - card
       - apple_pay
-      - google_pay
-      description: 'Owner Q7 (final): every country offers exactly these methods, in this order; config paymentMethods is
-        a subset. No swish, no d17. The wallet is not a method here: it is one balance per currency, used first (features.wallet,
-        wallet.usedFirst).'
+      description: 'Owner Q7, changed by owner G8 item 2 (2026-10-29, v0.18.10): every country offers at most these methods,
+        in this order: cash (shown as ''Pay in car''), card, Apple Pay. Google Pay is removed everywhere. config paymentMethods
+        is the admin''s per-country / per-zone on list (a subset); the server adds what it can take today (finish.paymentMethods.served).
+        No swish, no d17. The wallet is not a method here: it is one balance per currency, used first (features.wallet, wallet.usedFirst).'
     Language:
       type: string
       enum:
@@ -13755,12 +14050,92 @@ components:
             it.'
         rideCheck:
           $ref: '#/components/schemas/TripRideCheck'
+        moneySend:
+          type: object
+          description: 'Answer of POST /admin/trips/{tripId}/driver-bonus with applyTo only: who got an offer with the money
+            at once.'
+          required:
+          - exclusiveTo
+          - radarTo
+          properties:
+            exclusiveTo:
+              oneOf:
+              - $ref: '#/components/schemas/Id'
+              - type: 'null'
+            radarTo:
+              type: array
+              items:
+                $ref: '#/components/schemas/Id'
+        driverBonusByKind:
+          type: object
+          description: 'Admin view only (owner bug 2026-11-01): Owner bug 2026-11-01 (admin "Add money", Apply to: Exclusive
+            arrived on a Radar offer). Optional applyTo on driver-bonus, assign and radar-group says which kind of offer the
+            money and the Priority badge are for: exclusive = exclusive offers (admin assign kind=assigned and automatic kind=exclusive),
+            radar = radar offers, both = both. Default: driver-bonus both (older callers unchanged); assign exclusive; radar-group
+            radar. Open offers of the chosen kind get offer_updated at once; the other kind keeps its money. Owner decision
+            2026-11-01: driver-bonus WITH applyTo also sends at once (same rules and timers as the admin''s Exclusive / Radar
+            sends; a driver who cannot take it is skipped): exclusive → if no exclusive offer is out, an exclusive (assigned)
+            offer to the nearest free driver of the trip''s category; radar → the trip''s open exclusive offers become radar
+            offers and, if no radar offer is out, the nearest free drivers (up to the radar group size) get one; both → exclusive
+            to the nearest and radar to the others. The answer adds moneySend { exclusiveTo: driverId | null, radarTo: [driverId]
+            }. Nobody free → 200, the money waits for the next offer of that kind. Without applyTo (older callers) nothing
+            is sent. The limit counts per kind (a driver gets one kind). On accept the trip keeps the money of the kind he
+            took (driverBonus, commission). A driver kept in a radar-group send with an open automatic exclusive offer has
+            it turned into a radar offer (offer_updated). Once a driver took the trip, driver-bonus goes to him whatever applyTo
+            says. Admin view only: TripProjection.driverBonusByKind { exclusive, radar: amountMinor, currency, priority }
+            while money or the badge is set; TripProjection.driverBonus is the larger of the two until accept.'
+          required:
+          - exclusive
+          - radar
+          properties:
+            exclusive:
+              $ref: '#/components/schemas/DriverBonusOfKind'
+            radar:
+              $ref: '#/components/schemas/DriverBonusOfKind'
         routeChange:
           $ref: '#/components/schemas/TripRouteChange'
         adminFlag:
           allOf:
           - $ref: '#/components/schemas/AdminTripFlag'
           description: 'v0.18.9: admin view only.'
+        tip:
+          $ref: '#/components/schemas/TripTip'
+        finish:
+          $ref: '#/components/schemas/TripFinish'
+        driverTotal:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.10: driver and admin views. Owner G8 Q3 ''One number (Recommended)'': everywhere the server
+            sends the driver''s money for a trip it also sends driverTotal = driverEarnings + pickupPay + driverBonus + tip
+            + Movera''s changes (adjustments, incl. a refund taken from the driver), with earningsBreakdown [{ code: trip
+            | pickup_pay | bonus | tip | adjustment, amount }] (only lines that are not 0, trip always). Apps show driverTotal
+            as ''Your share'' (texts.yourShare) on the offer-free screens: cash sheet (CompletePreview.driverTotal), finished
+            screen, trip history, admin; the breakdown under it. driverEarnings keeps its old meaning (the fare part only)
+            for older apps.'
+        earningsBreakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/EarningsLine'
+          description: 'v0.18.10: driver and admin views.'
+        driverAdjustments:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.10: driver and admin views: Movera''s changes to the driver''s pay on this trip (driver-pay,
+            refunds taken from the driver).'
+        debtCollected:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.10: driver and admin views. commission = fare − debtCollected − driverEarnings − pickupPay −
+            driverBonus, where debtCollected = the trip''s outstanding_fee line (an earlier fee the rider pays with this trip;
+            it settles the old trip''s fee, whose driver share was already credited then). TripProjection.debtCollected (driver
+            and admin views) and Receipt.debtIncluded show it as its own line (texts.debtLine). Server migration 0045 corrects
+            commission on stored trips.'
+        moneySplit:
+          $ref: '#/components/schemas/MoneySplit'
+        sosAvailable:
+          type: boolean
+          description: 'v0.18.10: TripProjection.sosAvailable (rider and driver views): true while the status is in safety.sos.riderStatuses
+            / driverStatuses. The rider app shows SOS only when true, else only Call 112.'
     DriverSilentAlert:
       type: object
       description: 'v0.7.0: documents the server''s alert of 2026-10-26: no position for 30 min with the rider on board; the
@@ -14926,6 +15301,8 @@ components:
         comment:
           type: string
           maxLength: 2000
+        tipError:
+          $ref: '#/components/schemas/RatingTipError'
     RatingTag:
       type: string
       enum:
@@ -16160,6 +16537,11 @@ components:
             $ref: '#/components/schemas/AmountOption'
         driverBonus:
           $ref: '#/components/schemas/DriverBonusLimits'
+        driverPayChangeMax:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.10 checker: the largest single change of a driver''s pay on a trip (POST /admin/trips/{tripId}/driver-pay).
+            Default SE 1000 kr, FR 100 €.'
       x-server-only: true
     FeeRule:
       type: object
@@ -16235,6 +16617,12 @@ components:
           description: 'DriverAppConfig only. v0.8.0 (owner 2026-10-27): DriverAppConfig.cancelFees.driverSharePct, set in
             Admin › Dispatch per zone: the driver''s share of a rider''s cancel fee, 0–100, default 100. Movera keeps the
             rest.'
+        earlyEnd:
+          allOf:
+          - $ref: '#/components/schemas/EarlyEndSettings'
+          description: 'DriverAppConfig only. v0.18.10 (owner G8 Q2, 2026-11-01): DriverAppConfig.cancelFees.earlyEnd { repriceOverKm
+            (default 2, 0–50), repriceOverMin (default 8, 0–120) }, Admin › Cancellation, per zone (or the country standard).
+            See finish.earlyEnd.driver.'
     LocalizedLine:
       type: object
       description: 'v0.7.1: a short text in each app language.'
@@ -17425,6 +17813,19 @@ components:
           allOf:
           - $ref: '#/components/schemas/RouteChangeSettings'
           description: 'v0.18.9: copied from the zone''s driver document when served (GET /rider/config).'
+        paymentOptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentOption'
+          description: 'v0.18.10: written by the server when it serves the document. GET /rider/config and GET /driver/config
+            add paymentOptions: [{ method, status: available | coming_soon }] in the admin''s order, one per method the admin
+            turned on: available = the server takes it now, coming_soon = on in admin but not taken yet. A method the admin
+            turned off is not listed. The rider app shows available methods to pick and coming_soon ones greyed with texts.comingSoon;
+            it never shows a method that is not listed. The server takes only the methods of its own list (today: cash only;
+            card and Apple Pay need a payment company, owner ''Coming soon until a payment company is chosen''). It is not
+            an admin setting: it changes when Movera connects a payment company.'
+        tipRules:
+          $ref: '#/components/schemas/TipRules'
     DriverAppConfig:
       type: object
       description: Per-zone driver document built by Admin exporters. Unknown keys are ignored; missing keys fall back to
@@ -17668,6 +18069,17 @@ components:
           $ref: '#/components/schemas/PickupPinSettings'
         routeChange:
           $ref: '#/components/schemas/RouteChangeSettings'
+        paymentOptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentOption'
+          description: 'v0.18.10: written by the server when it serves the document. GET /rider/config and GET /driver/config
+            add paymentOptions: [{ method, status: available | coming_soon }] in the admin''s order, one per method the admin
+            turned on: available = the server takes it now, coming_soon = on in admin but not taken yet. A method the admin
+            turned off is not listed. The rider app shows available methods to pick and coming_soon ones greyed with texts.comingSoon;
+            it never shows a method that is not listed. The server takes only the methods of its own list (today: cash only;
+            card and Apple Pay need a payment company, owner ''Coming soon until a payment company is chosen''). It is not
+            an admin setting: it changes when Movera connects a payment company.'
     CategoryPricingWaiting:
       type: object
       description: Waiting at pickup for one category; RiderAppConfig / DriverAppConfig waiting.byCategory carry the same
@@ -18885,6 +19297,37 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FareLine'
+        driverTotal:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.10: Owner G8 Q3 ''One number (Recommended)'': everywhere the server sends the driver''s money
+            for a trip it also sends driverTotal = driverEarnings + pickupPay + driverBonus + tip + Movera''s changes (adjustments,
+            incl. a refund taken from the driver), with earningsBreakdown [{ code: trip | pickup_pay | bonus | tip | adjustment,
+            amount }] (only lines that are not 0, trip always). Apps show driverTotal as ''Your share'' (texts.yourShare)
+            on the offer-free screens: cash sheet (CompletePreview.driverTotal), finished screen, trip history, admin; the
+            breakdown under it. driverEarnings keeps its old meaning (the fare part only) for older apps.'
+        earningsBreakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/EarningsLine'
+        repriced:
+          type: boolean
+          description: 'v0.18.10: Owner G8 Q2: the driver completes farther than pricing.completeNearDropoffMeters (300 m)
+            from the drop-off. Paid stop waiting (fee and minutes) is always kept. The price is worked out again only when
+            the trip is shorter than booked by MORE than DriverAppConfig.cancelFees.earlyEnd.repriceOverKm km (default 2)
+            OR MORE than repriceOverMin minutes (default 8): then the rider pays what was driven (never more than booked)
+            plus the stop waiting; otherwise the booked price stands (plus the stop waiting) and the trip is still marked
+            ended early. Distance short = booked distance − km on board (trip trace); time short = booked minutes − minutes
+            on board. The numbers are kept on the trip at booking (bookingSnapshot earlyEnd), read from the zone''s live driver
+            document (or the country standard), out of range = default. The same rule applies when the driver cancels with
+            the rider on board (builder question 4, one rule): re-priced only over the limits, else the booked price (+ stop
+            waiting).'
+        shortKm:
+          type: number
+          description: 'v0.18.10: booked km − km on board (early end only).'
+        shortMin:
+          type: number
+          description: 'v0.18.10: booked minutes − minutes on board (early end only).'
       additionalProperties: false
     RouteRequest:
       type: object
@@ -20205,7 +20648,13 @@ components:
         tip:
           allOf:
           - $ref: '#/components/schemas/Money'
-          description: Rider only; creates a tip PaymentIntent.
+          description: 'v0.18.10: rider only; POST /trips/{tripId}/tip { amount: Money, method: cash | card | apple_pay }
+            (rider; Idempotency-Key) → 201 TripTip { amount, method, driverShare, at }. Also accepted as RatingRequest.tip
+            (+ tipMethod, default cash) with the rating: the same rules.'
+        tipMethod:
+          allOf:
+          - $ref: '#/components/schemas/TipMethod'
+          description: 'v0.18.10: with tip; default cash.'
     AvailabilityRequest:
       type: object
       required:
@@ -20551,6 +21000,28 @@ components:
         priority:
           type: boolean
           description: Show the Priority badge on the offer.
+        applyTo:
+          type: string
+          enum:
+          - exclusive
+          - radar
+          - both
+          description: 'Owner bug 2026-11-01 (admin "Add money", Apply to: Exclusive arrived on a Radar offer). Optional applyTo
+            on driver-bonus, assign and radar-group says which kind of offer the money and the Priority badge are for: exclusive
+            = exclusive offers (admin assign kind=assigned and automatic kind=exclusive), radar = radar offers, both = both.
+            Default: driver-bonus both (older callers unchanged); assign exclusive; radar-group radar. Open offers of the
+            chosen kind get offer_updated at once; the other kind keeps its money. Owner decision 2026-11-01: driver-bonus
+            WITH applyTo also sends at once (same rules and timers as the admin''s Exclusive / Radar sends; a driver who cannot
+            take it is skipped): exclusive → if no exclusive offer is out, an exclusive (assigned) offer to the nearest free
+            driver of the trip''s category; radar → the trip''s open exclusive offers become radar offers and, if no radar
+            offer is out, the nearest free drivers (up to the radar group size) get one; both → exclusive to the nearest and
+            radar to the others. The answer adds moneySend { exclusiveTo: driverId | null, radarTo: [driverId] }. Nobody free
+            → 200, the money waits for the next offer of that kind. Without applyTo (older callers) nothing is sent. The limit
+            counts per kind (a driver gets one kind). On accept the trip keeps the money of the kind he took (driverBonus,
+            commission). A driver kept in a radar-group send with an open automatic exclusive offer has it turned into a radar
+            offer (offer_updated). Once a driver took the trip, driver-bonus goes to him whatever applyTo says. Admin view
+            only: TripProjection.driverBonusByKind { exclusive, radar: amountMinor, currency, priority } while money or the
+            badge is set; TripProjection.driverBonus is the larger of the two until accept.'
     AdminRadarGroupCommand:
       type: object
       description: 'Radar group: one radar offer per chosen driver on the zone''s normal timer; the first to accept wins.
@@ -20581,6 +21052,28 @@ components:
         priority:
           type: boolean
           description: Show the Priority badge on the offer.
+        applyTo:
+          type: string
+          enum:
+          - exclusive
+          - radar
+          - both
+          description: 'Owner bug 2026-11-01 (admin "Add money", Apply to: Exclusive arrived on a Radar offer). Optional applyTo
+            on driver-bonus, assign and radar-group says which kind of offer the money and the Priority badge are for: exclusive
+            = exclusive offers (admin assign kind=assigned and automatic kind=exclusive), radar = radar offers, both = both.
+            Default: driver-bonus both (older callers unchanged); assign exclusive; radar-group radar. Open offers of the
+            chosen kind get offer_updated at once; the other kind keeps its money. Owner decision 2026-11-01: driver-bonus
+            WITH applyTo also sends at once (same rules and timers as the admin''s Exclusive / Radar sends; a driver who cannot
+            take it is skipped): exclusive → if no exclusive offer is out, an exclusive (assigned) offer to the nearest free
+            driver of the trip''s category; radar → the trip''s open exclusive offers become radar offers and, if no radar
+            offer is out, the nearest free drivers (up to the radar group size) get one; both → exclusive to the nearest and
+            radar to the others. The answer adds moneySend { exclusiveTo: driverId | null, radarTo: [driverId] }. Nobody free
+            → 200, the money waits for the next offer of that kind. Without applyTo (older callers) nothing is sent. The limit
+            counts per kind (a driver gets one kind). On accept the trip keeps the money of the kind he took (driverBonus,
+            commission). A driver kept in a radar-group send with an open automatic exclusive offer has it turned into a radar
+            offer (offer_updated). Once a driver took the trip, driver-bonus goes to him whatever applyTo says. Admin view
+            only: TripProjection.driverBonusByKind { exclusive, radar: amountMinor, currency, priority } while money or the
+            badge is set; TripProjection.driverBonus is the larger of the two until accept.'
         groupId:
           $ref: '#/components/schemas/Id'
         radarZoneId:
@@ -20637,6 +21130,28 @@ components:
         note:
           type: string
           maxLength: 1000
+        applyTo:
+          type: string
+          enum:
+          - exclusive
+          - radar
+          - both
+          description: 'Owner bug 2026-11-01 (admin "Add money", Apply to: Exclusive arrived on a Radar offer). Optional applyTo
+            on driver-bonus, assign and radar-group says which kind of offer the money and the Priority badge are for: exclusive
+            = exclusive offers (admin assign kind=assigned and automatic kind=exclusive), radar = radar offers, both = both.
+            Default: driver-bonus both (older callers unchanged); assign exclusive; radar-group radar. Open offers of the
+            chosen kind get offer_updated at once; the other kind keeps its money. Owner decision 2026-11-01: driver-bonus
+            WITH applyTo also sends at once (same rules and timers as the admin''s Exclusive / Radar sends; a driver who cannot
+            take it is skipped): exclusive → if no exclusive offer is out, an exclusive (assigned) offer to the nearest free
+            driver of the trip''s category; radar → the trip''s open exclusive offers become radar offers and, if no radar
+            offer is out, the nearest free drivers (up to the radar group size) get one; both → exclusive to the nearest and
+            radar to the others. The answer adds moneySend { exclusiveTo: driverId | null, radarTo: [driverId] }. Nobody free
+            → 200, the money waits for the next offer of that kind. Without applyTo (older callers) nothing is sent. The limit
+            counts per kind (a driver gets one kind). On accept the trip keeps the money of the kind he took (driverBonus,
+            commission). A driver kept in a radar-group send with an open automatic exclusive offer has it turned into a radar
+            offer (offer_updated). Once a driver took the trip, driver-bonus goes to him whatever applyTo says. Admin view
+            only: TripProjection.driverBonusByKind { exclusive, radar: amountMinor, currency, priority } while money or the
+            badge is set; TripProjection.driverBonus is the larger of the two until accept.'
     NearbyDriver:
       type: object
       required:
@@ -24348,6 +24863,22 @@ components:
           allOf:
           - $ref: '#/components/schemas/Money'
           description: 'Driver and admin views only: new − current earnings.'
+    DriverBonusOfKind:
+      type: object
+      description: The admin's money and Priority badge for one kind of offer.
+      required:
+      - amountMinor
+      - currency
+      - priority
+      properties:
+        amountMinor:
+          type: integer
+          minimum: 0
+        currency:
+          type: string
+          pattern: ^[A-Z]{3}$
+        priority:
+          type: boolean
     AdminTripFlag:
       type: object
       description: 'v0.18.9: POST /admin/trips/{tripId}/flag { flagged, reason? } (trips.annotate) → AdminTripFlag { flagged,
@@ -24383,7 +24914,10 @@ components:
     RideCheckRow:
       type: object
       description: 'v0.18.9: RideCheckRow { tripId, zoneId, side: rider | driver, checkId, origin: server | app, trigger,
-        shownAt?, answer?: ok | need_help, answeredAt?, noAnswerAt?, incidentId?, position?, createdAt }, newest first; nextCursor.'
+        shownAt?, answer?: ok | need_help, answeredAt?, noAnswerAt?, incidentId?, position?, measured?: { value, unit: min
+        | km | m } (server checks: minutes stopped, km off the route, metres from the drop-off when asked), answerSeconds?
+        (the zone''s noAnswerSeconds when asked), createdAt }, newest first; nextCursor. A served DriverAppConfig / RiderAppConfig
+        rideCheck never carries the pre-v0.18.9 finishFarFromDropoffKm; endFarMeters is the one setting.'
       required:
       - tripId
       - zoneId
@@ -24580,4 +25114,356 @@ components:
           - critical
         note:
           type: string
+          maxLength: 1000
+    PaymentOption:
+      type: object
+      description: 'v0.18.10: GET /rider/config and GET /driver/config add paymentOptions: [{ method, status: available |
+        coming_soon }] in the admin''s order, one per method the admin turned on: available = the server takes it now, coming_soon
+        = on in admin but not taken yet. A method the admin turned off is not listed. The rider app shows available methods
+        to pick and coming_soon ones greyed with texts.comingSoon; it never shows a method that is not listed.'
+      required:
+      - method
+      - status
+      properties:
+        method:
+          $ref: '#/components/schemas/ZonePaymentMethod'
+        status:
+          type: string
+          enum:
+          - available
+          - coming_soon
+    EarlyEndSettings:
+      type: object
+      description: 'v0.18.10: DriverAppConfig.cancelFees.earlyEnd { repriceOverKm, repriceOverMin } — Admin › Cancellation,
+        per zone or country standard.'
+      properties:
+        repriceOverKm:
+          type: number
+          minimum: 0
+          maximum: 50
+          description: 'v0.18.10: Owner G8 Q2: the driver completes farther than pricing.completeNearDropoffMeters (300 m)
+            from the drop-off. Paid stop waiting (fee and minutes) is always kept. The price is worked out again only when
+            the trip is shorter than booked by MORE than DriverAppConfig.cancelFees.earlyEnd.repriceOverKm km (default 2)
+            OR MORE than repriceOverMin minutes (default 8): then the rider pays what was driven (never more than booked)
+            plus the stop waiting; otherwise the booked price stands (plus the stop waiting) and the trip is still marked
+            ended early. Distance short = booked distance − km on board (trip trace); time short = booked minutes − minutes
+            on board. The numbers are kept on the trip at booking (bookingSnapshot earlyEnd), read from the zone''s live driver
+            document (or the country standard), out of range = default. The same rule applies when the driver cancels with
+            the rider on board (builder question 4, one rule): re-priced only over the limits, else the booked price (+ stop
+            waiting).'
+          default: 2
+        repriceOverMin:
+          type: number
+          minimum: 0
+          maximum: 120
+          default: 8
+    TipRules:
+      type: object
+      description: 'v0.18.10: RiderAppConfig.tipRules { cashAfterTrip (default false), cashInCarMinutes (default 5, 0–60),
+        customAmount (default false), customMax: Money (default SE 200 kr, FR 20 €) }, Admin › Tips & limits, per zone or
+        country standard; missing / out of range = default. cashAfterTrip false: a cash tip is only accepted while the rider
+        is still in the car = within cashInCarMinutes after the trip ended (the finish screen); later → 409 tip_cash_after_trip_off
+        (card / Apple Pay tips are not limited). customAmount true: besides the preset amounts the rider may type any whole
+        amount from 1 up to customMax (above → 400 tip_above_max); false: presets only (400 tip_amount_not_allowed). customMax
+        never unlimited: a document without one uses the country default, else 20 × the highest preset amount.'
+      properties:
+        cashAfterTrip:
+          type: boolean
+          default: false
+        cashInCarMinutes:
+          type: integer
+          minimum: 0
+          maximum: 60
+          default: 5
+        customAmount:
+          type: boolean
+          default: false
+        customMax:
+          $ref: '#/components/schemas/Money'
+    RatingTipError:
+      type: object
+      description: 'v0.18.10: RatingRequest.tip: the rating is saved first; a tip that cannot be given does not lose the stars:
+        the answer is the rating (201, or 200 with only tipError for a skip) with tipError { code, reason, message } and no
+        tip.'
+      required:
+      - code
+      - reason
+      properties:
+        code:
+          type: string
+        reason:
+          type: string
+        message:
+          type: string
+    TipMethod:
+      type: string
+      enum:
+      - cash
+      - card
+      - apple_pay
+      description: 'v0.18.10: One tip per trip. Allowed when the trip is completed, or ended early by the rider (end_early).
+        amount must be one of the zone''s enabled tip amounts, in the trip''s currency. method cash: the rider gives the tip
+        in the driver''s hand; card / apple_pay only when that method is available (finish.paymentMethods.served), else payment_method_coming_soon
+        / payment_method_off.'
+    TripTip:
+      type: object
+      description: 'v0.18.10: TripProjection.tip { amount, method, at } on the rider, driver and admin views once given (event
+        tip_added as a trip_projection event without a version change, also sent after the trip ended).'
+      required:
+      - amount
+      - method
+      - at
+      properties:
+        amount:
+          $ref: '#/components/schemas/Money'
+        method:
+          $ref: '#/components/schemas/TipMethod'
+        driverShare:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: '100 % to the driver (owner item 1): an earnings entry kind tip of the full amount; Movera keeps nothing.
+            A cash tip is also counted as cash the driver already holds (cashCollected), so the weekly payout does not pay
+            it a second time.'
+        at:
+          $ref: '#/components/schemas/Timestamp'
+    TipRequest:
+      type: object
+      description: 'v0.18.10: POST /trips/{tripId}/tip { amount: Money, method: cash | card | apple_pay } (rider; Idempotency-Key)
+        → 201 TripTip { amount, method, driverShare, at }. Also accepted as RatingRequest.tip (+ tipMethod, default cash)
+        with the rating: the same rules. One tip per trip. Allowed when the trip is completed, or ended early by the rider
+        (end_early). amount must be one of the zone''s enabled tip amounts, in the trip''s currency. method cash: the rider
+        gives the tip in the driver''s hand; card / apple_pay only when that method is available (finish.paymentMethods.served),
+        else payment_method_coming_soon / payment_method_off.'
+      required:
+      - amount
+      - method
+      properties:
+        amount:
+          $ref: '#/components/schemas/Money'
+        method:
+          $ref: '#/components/schemas/TipMethod'
+    EarningsLine:
+      type: object
+      description: 'v0.18.10: one line of driverTotal. Owner G8 Q3 ''One number (Recommended)'': everywhere the server sends
+        the driver''s money for a trip it also sends driverTotal = driverEarnings + pickupPay + driverBonus + tip + Movera''s
+        changes (adjustments, incl. a refund taken from the driver), with earningsBreakdown [{ code: trip | pickup_pay | bonus
+        | tip | adjustment, amount }] (only lines that are not 0, trip always). Apps show driverTotal as ''Your share'' (texts.yourShare)
+        on the offer-free screens: cash sheet (CompletePreview.driverTotal), finished screen, trip history, admin; the breakdown
+        under it. driverEarnings keeps its old meaning (the fare part only) for older apps.'
+      required:
+      - code
+      - amount
+      properties:
+        code:
+          type: string
+          enum:
+          - trip
+          - pickup_pay
+          - bonus
+          - tip
+          - adjustment
+        amount:
+          $ref: '#/components/schemas/Money'
+    TripFinish:
+      type: object
+      description: 'v0.18.10: TripProjection.finish { endedEarly, endedBy?: rider | driver, reasonCode?, repriced?: boolean,
+        total, cashToCollect, driverTotal?, earningsBreakdown?, ratingAllowed } on every ended trip with a fare (completed,
+        end_early, driver cancel on board). driverTotal and earningsBreakdown only on the driver and admin views. CompletePreview
+        gains earlyEnd details: repriced, shortKm, shortMin. Owner G8 Q1 ''Cash screen + rating (Recommended)'': when the
+        rider ends early (POST /trips/{tripId}/end-early) the driver gets the normal finish: TripProjection.finish (driver
+        and admin views; rider view without the driver''s money) with endedEarly true, endedBy rider, the amount for the distance
+        driven (finish.total), the cash to collect (finish.cashToCollect), his money (finish.driverTotal + earningsBreakdown)
+        and ratingAllowed true; driverRatingStatus is pending, so POST /driver/trips/{tripId}/rating works on a cancelled_by_rider
+        trip ended by end_early. The driver app shows the cash sheet with this amount (texts.driverRiderEnded), then the rating,
+        never straight Home. Stop waiting already charged is kept.'
+      required:
+      - endedEarly
+      - total
+      - cashToCollect
+      - ratingAllowed
+      properties:
+        endedEarly:
+          type: boolean
+        endedBy:
+          type: string
+          enum:
+          - rider
+          - driver
+        reasonCode:
+          type: string
+        repriced:
+          type: boolean
+          description: 'Driver ended early: the price was worked out again (more than repriceOverKm / repriceOverMin shorter).'
+        total:
+          $ref: '#/components/schemas/Money'
+        cashToCollect:
+          $ref: '#/components/schemas/Money'
+        driverTotal:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Driver and admin views only.
+        earningsBreakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/EarningsLine'
+          description: Driver and admin views only.
+        ratingAllowed:
+          type: boolean
+          description: The viewer may still rate (its rating status is pending).
+    MoneySplit:
+      type: object
+      description: 'v0.18.10: admin view only. Admin view only: TripProjection.moneySplit { riderPaid, driverTotal, movera,
+        debtCollected, tip?, refunded } — ''Who gets what''. riderPaid = fare + tip − refunded; driverTotal is the driver''s
+        one number (incl. tip, Movera''s pay changes and refunds taken from him); movera = riderPaid − driverTotal − debtCollected,
+        so driverTotal + movera + debtCollected = riderPaid always (a refund Movera pays and a pay change lower Movera''s
+        part; the tip is never Movera''s).'
+      required:
+      - riderPaid
+      - driverTotal
+      - movera
+      - debtCollected
+      - refunded
+      properties:
+        riderPaid:
+          $ref: '#/components/schemas/Money'
+        driverTotal:
+          $ref: '#/components/schemas/Money'
+        movera:
+          $ref: '#/components/schemas/Money'
+        debtCollected:
+          $ref: '#/components/schemas/Money'
+        tip:
+          $ref: '#/components/schemas/Money'
+        refunded:
+          $ref: '#/components/schemas/Money'
+    ReceiptRefund:
+      type: object
+      required:
+      - refundId
+      - amount
+      - at
+      properties:
+        refundId:
+          $ref: '#/components/schemas/Id'
+        amount:
+          $ref: '#/components/schemas/Money'
+        at:
+          $ref: '#/components/schemas/Timestamp'
+    Receipt:
+      type: object
+      description: 'v0.18.10: Receipt { tripId, issuedAt, zoneId, country, currency, categoryId, pickup, dropoff, stops, paymentMethod,
+        fareLines (the rider''s lines), total, walletPaid, cashPaid, debtIncluded? (an old unpaid fee paid with this trip),
+        tip?, refunds [{ refundId, amount, at }], refunded, endedEarly, endedBy?, endedEarlyReason? (reasonCode), distanceMeters?
+        }. endedEarly true when the rider ended early or the driver ended before the drop-off (finish.endedEarly); endedBy
+        rider | driver and the reason code. Apps print texts.endedEarly + finish.earlyEnd.texts.riderEnded / driverEnded.'
+      required:
+      - tripId
+      - issuedAt
+      - zoneId
+      - country
+      - currency
+      - paymentMethod
+      - fareLines
+      - total
+      - refunds
+      - refunded
+      - endedEarly
+      properties:
+        tripId:
+          $ref: '#/components/schemas/Id'
+        issuedAt:
+          $ref: '#/components/schemas/Timestamp'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        categoryId:
+          $ref: '#/components/schemas/CategoryId'
+        pickup:
+          $ref: '#/components/schemas/Place'
+        dropoff:
+          $ref: '#/components/schemas/Place'
+        stops:
+          type: array
+          items:
+            $ref: '#/components/schemas/Place'
+        paymentMethod:
+          $ref: '#/components/schemas/PaymentMethod'
+        fareLines:
+          type: array
+          items:
+            $ref: '#/components/schemas/FareLine'
+        total:
+          $ref: '#/components/schemas/Money'
+        walletPaid:
+          $ref: '#/components/schemas/Money'
+        cashPaid:
+          $ref: '#/components/schemas/Money'
+        debtIncluded:
+          $ref: '#/components/schemas/Money'
+        tip:
+          type: object
+          required:
+          - amount
+          - method
+          properties:
+            amount:
+              $ref: '#/components/schemas/Money'
+            method:
+              $ref: '#/components/schemas/TipMethod'
+        refunds:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReceiptRefund'
+        refunded:
+          $ref: '#/components/schemas/Money'
+        endedEarly:
+          type: boolean
+        endedBy:
+          type: string
+          enum:
+          - rider
+          - driver
+        endedEarlyReason:
+          type: string
+        distanceMeters:
+          type: integer
+          minimum: 0
+    ReceiptResendCommand:
+      type: object
+      required:
+      - reason
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+    ReceiptResent:
+      type: object
+      required:
+      - tripId
+      - notificationId
+      - sentAt
+      properties:
+        tripId:
+          $ref: '#/components/schemas/Id'
+        notificationId:
+          $ref: '#/components/schemas/Id'
+        sentAt:
+          $ref: '#/components/schemas/Timestamp'
+    DriverPayCommand:
+      type: object
+      required:
+      - change
+      - reason
+      properties:
+        change:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'Signed, not 0: + pays the driver more, − takes back.'
+        reason:
+          type: string
+          minLength: 1
           maxLength: 1000

@@ -162,8 +162,8 @@ class RideSelectionRepository {
     ),
   ];
 
-  /// Ride payment methods (owner Q7 FINAL): Cash, Card, Apple Pay and
-  /// Google Pay in every country, as the zone's config lists them, plus the
+  /// Ride payment methods (owner Q7 FINAL, G8 item 2): Cash ("Pay in
+  /// car"), Card and Apple Pay in every country, as the zone's config lists them, plus the
   /// Movera Wallet balance. No Swish, Klarna or PayPal anywhere.
   List<RidePaymentItem> payments() => const [
     RidePaymentItem(
@@ -174,11 +174,6 @@ class RideSelectionRepository {
     RidePaymentItem(
       brand: 'apple',
       name: 'Apple Pay',
-      detail: 'Pays when the search starts',
-    ),
-    RidePaymentItem(
-      brand: 'google',
-      name: 'Google Pay',
       detail: 'Pays when the search starts',
     ),
     RidePaymentItem(brand: 'cards', name: 'Card', detail: 'Visa, Mastercard'),

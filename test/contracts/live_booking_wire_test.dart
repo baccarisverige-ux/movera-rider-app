@@ -356,7 +356,7 @@ void main() {
     test('the payment brands map to contract PaymentMethod values', () {
       expect(BookingCoordinator.contractPaymentMethod('cash'), 'cash');
       expect(BookingCoordinator.contractPaymentMethod('apple'), 'apple_pay');
-      expect(BookingCoordinator.contractPaymentMethod('google'), 'google_pay');
+      expect(BookingCoordinator.contractPaymentMethod('google'), 'google');
       expect(BookingCoordinator.contractPaymentMethod('card:pm_1'), 'card');
       final body = BookingCoordinator.contractTripBody(
         quoteId: 'qte_unknown',

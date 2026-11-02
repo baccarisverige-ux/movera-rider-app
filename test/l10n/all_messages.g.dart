@@ -1586,6 +1586,26 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'g7RouteLeavesFixedPrice': l.g7RouteLeavesFixedPrice,
   'g7RouteFixedRoute': l.g7RouteFixedRoute,
   'g7RouteBeforePickupOff': l.g7RouteBeforePickupOff,
+  'paymentComingSoon': l.paymentComingSoon,
+  'paymentMethodOff': l.paymentMethodOff,
+  'paymentMethodComingSoon': l.paymentMethodComingSoon,
+  'paymentMethodNotAvailable': l.paymentMethodNotAvailable,
+  'tipCustomAmount': l.tipCustomAmount,
+  'tipMax': l.tipMax('<amount>'),
+  'tipAmountNotAllowed': l.tipAmountNotAllowed,
+  'tipAboveMax': l.tipAboveMax,
+  'tipAllToDriver': l.tipAllToDriver,
+  'tipCashInHand': l.tipCashInHand,
+  'tipsNotOnHere': l.tipsNotOnHere,
+  'tipAlreadyGiven': l.tipAlreadyGiven,
+  'tipNotAllowed': l.tipNotAllowed,
+  'tipCashAfterTripOff': l.tipCashAfterTripOff,
+  'receiptDriverEnded': l.receiptDriverEnded,
+  'receiptRiderEnded': l.receiptRiderEnded,
+  'endedEarlyReason': l.endedEarlyReason,
+  'receiptDebtIncluded': l.receiptDebtIncluded,
+  'receiptTip': l.receiptTip,
+  'receiptRefunded': l.receiptRefunded,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -1792,6 +1812,7 @@ const messagePlaceholders = <String, List<String>>{
   'g7StopPrice': ['perMin'],
   'g7StopFree': ['min', 'perMin'],
   'g7MaxStopsShown': ['max'],
+  'tipMax': ['amount'],
 };
 
 /// The count placeholders (rendered as 37) of each message, by key.
@@ -4977,4 +4998,44 @@ class _Exhaustive implements AppLocalizations {
   String get g7RouteFixedRoute => '';
   @override
   String get g7RouteBeforePickupOff => '';
+  @override
+  String get paymentComingSoon => '';
+  @override
+  String get paymentMethodOff => '';
+  @override
+  String get paymentMethodComingSoon => '';
+  @override
+  String get paymentMethodNotAvailable => '';
+  @override
+  String get tipCustomAmount => '';
+  @override
+  String tipMax(String amount) => '';
+  @override
+  String get tipAmountNotAllowed => '';
+  @override
+  String get tipAboveMax => '';
+  @override
+  String get tipAllToDriver => '';
+  @override
+  String get tipCashInHand => '';
+  @override
+  String get tipsNotOnHere => '';
+  @override
+  String get tipAlreadyGiven => '';
+  @override
+  String get tipNotAllowed => '';
+  @override
+  String get tipCashAfterTripOff => '';
+  @override
+  String get receiptDriverEnded => '';
+  @override
+  String get receiptRiderEnded => '';
+  @override
+  String get endedEarlyReason => '';
+  @override
+  String get receiptDebtIncluded => '';
+  @override
+  String get receiptTip => '';
+  @override
+  String get receiptRefunded => '';
 }

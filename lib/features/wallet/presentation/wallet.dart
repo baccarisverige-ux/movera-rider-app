@@ -4,7 +4,6 @@ import 'package:movera_rider/features/payments/application/saved_cards_controlle
 import 'package:movera_rider/features/payments/application/card_entry_policy.dart';
 import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/config/zone_settings.dart';
@@ -718,6 +717,28 @@ class WalletScreen extends StatefulWidget {
   State<WalletScreen> createState() => _WalletScreenState();
 }
 
+/// How the Payments tab shows a contract payment method (v0.18.10, owner
+/// G8 item 2).
+enum WalletMethodState { hidden, comingSoon, available }
+
+/// [method] on the Payments tab: hidden when the zone or the server does
+/// not offer it, coming soon (greyed, never the default) when the server
+/// does not take it yet. Without [options] (an older server) every zone
+/// method is available, as before.
+WalletMethodState walletMethodState(
+  String method,
+  List<String> zoneMethods,
+  Map<String, String>? options,
+) {
+  if (!zoneMethods.contains(method)) return WalletMethodState.hidden;
+  if (options == null) return WalletMethodState.available;
+  return switch (options[method]) {
+    'available' => WalletMethodState.available,
+    'coming_soon' => WalletMethodState.comingSoon,
+    _ => WalletMethodState.hidden,
+  };
+}
+
 class _WalletScreenState extends State<WalletScreen> {
   static const Color _ink = Color(0xFF171C1F);
   static const Color _muted = Color(0xFF5C656C);
@@ -733,15 +754,28 @@ class _WalletScreenState extends State<WalletScreen> {
   String _currency = Money.defaultCurrency;
   List<String> _zoneMethods = ZoneDefaults.paymentMethods;
   WalletController get _wallet => _homeWallet.forCurrency(_currency);
-  bool _offers(String method) => _zoneMethods.contains(method);
+
+  /// v0.18.10 `paymentOptions` (owner G8 item 2): null from an older
+  /// server.
+  Map<String, String>? _paymentOptions;
+  bool _offers(String method) =>
+      walletMethodState(method, _zoneMethods, _paymentOptions) !=
+      WalletMethodState.hidden;
+
+  /// On in admin but not taken by the server yet: shown "Kommer snart",
+  /// never the default.
+  bool _soon(String method) =>
+      walletMethodState(method, _zoneMethods, _paymentOptions) ==
+      WalletMethodState.comingSoon;
 
   Future<void> _loadZone() async {
     final zone = await currentRiderZone();
     List<String>? methods;
+    Map<String, String>? options;
     try {
-      methods = (await AppScope.instance.riderConfig.forZone(
-        zone.id,
-      )).paymentMethods;
+      final config = await AppScope.instance.riderConfig.forZone(zone.id);
+      methods = config.paymentMethods;
+      options = config.paymentOptions;
     } catch (_) {
       methods = null;
     }
@@ -749,6 +783,7 @@ class _WalletScreenState extends State<WalletScreen> {
     setState(() {
       _currency = zone.currency;
       if (methods != null) _zoneMethods = methods;
+      _paymentOptions = options;
     });
     await _reloadBalance();
   }
@@ -763,7 +798,6 @@ class _WalletScreenState extends State<WalletScreen> {
   int _methodEdits = 0;
   int _profileEdits = 0;
 
-  bool get _isIos => defaultTargetPlatform == TargetPlatform.iOS;
   bool get _isAndroid => defaultTargetPlatform == TargetPlatform.android;
   List<Map<String, String>> _extraMethods = [];
 
@@ -1012,19 +1046,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               title: 'Apple Pay',
                               detail: context.l10n.paysWhenSearchStarts,
                               brand: 'apple',
-                            ),
-                          const Divider(
-                            height: 1,
-                            indent: 62,
-                            endIndent: 16,
-                            color: _line,
-                          ),
-                          if (!_isIos && _offers('google_pay'))
-                            _paymentTile(
-                              id: 'google',
-                              title: 'Google Pay',
-                              detail: context.l10n.paysWhenSearchStarts,
-                              brand: 'google',
+                              comingSoon: _soon('apple_pay'),
                             ),
                           const Divider(
                             height: 1,
@@ -1053,8 +1075,23 @@ class _WalletScreenState extends State<WalletScreen> {
                               brand: method['id']!,
                             ),
                           ],
+                          if (_soon('card')) ...[
+                            const Divider(
+                              height: 1,
+                              indent: 62,
+                              endIndent: 16,
+                              color: _line,
+                            ),
+                            _paymentTile(
+                              id: 'cards',
+                              title: context.l10n.payCard,
+                              detail: '',
+                              brand: 'cards',
+                              comingSoon: true,
+                            ),
+                          ],
                           for (final card
-                              in _offers('card')
+                              in _offers('card') && !_soon('card')
                                   ? _cards.list()
                                   : const <SavedCard>[]) ...[
                             const Divider(
@@ -1073,7 +1110,9 @@ class _WalletScreenState extends State<WalletScreen> {
                               onRemove: () => _confirmRemoveCard(card),
                             ),
                           ],
-                          if (CardEntryPolicy.enabled && _offers('card')) ...[
+                          if (CardEntryPolicy.enabled &&
+                              _offers('card') &&
+                              !_soon('card')) ...[
                             const Divider(
                               height: 1,
                               indent: 62,
@@ -1301,7 +1340,40 @@ class _WalletScreenState extends State<WalletScreen> {
     required String detail,
     required String brand,
     VoidCallback? onRemove,
+    bool comingSoon = false,
   }) {
+    if (comingSoon) {
+      return Opacity(
+        key: ValueKey('wallet-method-$id-soon'),
+        opacity: 0.5,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              _brandMark(brand),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: _style(12.5, weight: FontWeight.w600)),
+                    const SizedBox(height: 2),
+                    Text(
+                      context.l10n.paymentComingSoon,
+                      style: _style(
+                        9.3,
+                        weight: FontWeight.w400,
+                        color: _muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     final selected = _selectedMethod == id;
     return Material(
       key: ValueKey('wallet-method-$id'),
@@ -1390,15 +1462,11 @@ class _WalletScreenState extends State<WalletScreen> {
         fit: BoxFit.contain,
       );
     } else if (brand == 'apple') {
-      logo = SvgPicture.asset(
-        'assets/images/apple_pay_brand.svg',
-        fit: BoxFit.contain,
-      );
-    } else if (brand == 'google') {
-      logo = Image.asset(
-        excludeFromSemantics: true,
-        'assets/images/google_pay_brand.png',
-        fit: BoxFit.contain,
+      // Owner rules (G8): no Apple logo; Apple Pay is named as text.
+      logo = const Icon(
+        Icons.credit_card_rounded,
+        color: Color(0xFF11181D),
+        size: 22,
       );
     } else if (brand == 'cards') {
       logo = Row(

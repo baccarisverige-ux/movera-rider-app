@@ -13,6 +13,7 @@ import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/widgets/keyboard_anchor.dart';
+import 'package:movera_rider/features/ride_complete/presentation/server_receipt_lines.dart';
 
 class RideCompletedTripDetail extends StatelessWidget {
   const RideCompletedTripDetail({super.key, this.controller, this.rideId});
@@ -85,6 +86,13 @@ class RideCompletedTripDetail extends StatelessWidget {
                         : paymentLabelFor(trip.method),
                   ),
                   8.height,
+                  // v0.18.10 (owner G8): the server's receipt: ended early
+                  // and by whom, an earlier fee, the tip, refunds.
+                  if (rideId != null && rideId!.trim().isNotEmpty)
+                    ServerReceiptLines(
+                      rideId: rideId!,
+                      showEndedEarly: !trip.endedEarly,
+                    ),
                   // RC5: a Ride check on this trip, with its answers.
                   RideCheckTripEntry(rideId: rideId, topSpacing: 4),
                   if (rideId != null && rideId!.trim().isNotEmpty) ...[

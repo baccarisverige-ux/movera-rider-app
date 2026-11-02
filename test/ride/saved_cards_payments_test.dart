@@ -29,20 +29,16 @@ void main() {
     final selection = RideSelectionController(savedCards: cards);
     // Before loading: no cards yet, so the generic Card row.
     expect(selection.hasSavedCard, isFalse);
-    expect(selection.payments().map((p) => p.brand), [
-      'google',
-      'cards',
-      'cash',
-    ]);
+    expect(selection.payments().map((p) => p.brand), ['cards', 'cash']);
 
     await selection.loadSavedCards();
     expect(selection.hasSavedCard, isTrue);
     final items = selection.payments();
-    expect(items.map((p) => p.brand), ['google', 'card:c1', 'card:c2', 'cash']);
-    expect(items[1].name, 'Visa •••• 4242');
-    expect(items[1].detail, 'Expires 08/28');
-    expect(items[2].name, 'Mastercard •••• 4444');
-    expect(items[2].detail, 'Expires 01/30');
+    expect(items.map((p) => p.brand), ['card:c1', 'card:c2', 'cash']);
+    expect(items[0].name, 'Visa •••• 4242');
+    expect(items[0].detail, 'Expires 08/28');
+    expect(items[1].name, 'Mastercard •••• 4444');
+    expect(items[1].detail, 'Expires 01/30');
     expect(selection.savedCardFor('card:c2')?.brand, 'mastercard');
     expect(selection.savedCardFor('cards'), isNull);
   });
@@ -86,11 +82,7 @@ void main() {
 
     await cards.remove('c1');
     expect(selection.hasSavedCard, isFalse);
-    expect(selection.payments().map((p) => p.brand), [
-      'google',
-      'cards',
-      'cash',
-    ]);
+    expect(selection.payments().map((p) => p.brand), ['cards', 'cash']);
     expect(selection.selectedPaymentItem(), isNotNull);
   });
 }
