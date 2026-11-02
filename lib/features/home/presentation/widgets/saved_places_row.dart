@@ -10,6 +10,10 @@ import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
+/// Owner 2026-11-02: every card in the row is the Home card's size.
+const double _cardIconSize = 12.3;
+const double _cardIconGap = 8;
+
 /// The horizontally-scrolling Home / Work / Add / custom-place row.
 class SavedPlacesRow extends StatelessWidget {
   const SavedPlacesRow({
@@ -243,10 +247,10 @@ class _CustomPlaceCard extends StatelessWidget {
             children: [
               Icon(
                 _placeIcon(place.type),
-                size: ResSize.h * 13,
+                size: ResSize.w * _cardIconSize,
                 color: _premiumAccent,
               ),
-              7.width,
+              _cardIconGap.width,
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -256,6 +260,8 @@ class _CustomPlaceCard extends StatelessWidget {
                       text: savedPlaceTitle(place.title, place.type),
                       color: _premiumInk,
                       fontSize: 10.5,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       fontWeight: fwSemiBold,
                     ),
                     2.height,
@@ -264,6 +270,8 @@ class _CustomPlaceCard extends StatelessWidget {
                       // UI-6: full strength (the 0.82 alpha gave 3.96:1).
                       color: _premiumMuted,
                       fontSize: 7.8,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       fontWeight: fwNormal,
                     ),
                   ],
@@ -332,10 +340,10 @@ class _QuickPlaceCard extends StatelessWidget {
             children: [
               AppIconAsset(
                 iconAsset,
-                size: ResSize.w * 12.3,
+                size: ResSize.w * _cardIconSize,
                 color: const Color(0xFF1D252C),
               ),
-              8.width,
+              _cardIconGap.width,
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -345,6 +353,8 @@ class _QuickPlaceCard extends StatelessWidget {
                       text: title,
                       color: _premiumInk,
                       fontSize: 11.5,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       fontWeight: fwSemiBold,
                     ),
                     2.height,
@@ -353,6 +363,8 @@ class _QuickPlaceCard extends StatelessWidget {
                       // UI-6: full strength (the 0.82 alpha gave 3.96:1).
                       color: _premiumMuted,
                       fontSize: 8.25,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       fontWeight: fwNormal,
                     ),
                   ],
