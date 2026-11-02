@@ -521,10 +521,10 @@ class _RideHistoryState extends State<RideHistory> {
             ),
             const SizedBox(height: 18),
             Text(
-              ride.status.isCompleted
-                  ? context.l10n.completedRide
-                  : ride.endedEarly
+              ride.endedEarly
                   ? context.l10n.endedEarly
+                  : ride.status.isCompleted
+                  ? context.l10n.completedRide
                   : context.l10n.cancelledRide,
               style: _text(21, weight: FontWeight.w700),
             ),
