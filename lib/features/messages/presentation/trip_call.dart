@@ -23,11 +23,16 @@ Future<void> callTripPeer(
   required String? rideId,
   required TripCallTransport? transport,
   TripCallDialer dial = _launchDialer,
+  void Function(String text)? onSay,
 }) async {
+  // In Chat the text shows above the write field ([onSay]) so it never
+  // covers the field or the send button (G9 live 2026-11-02).
+  void say(String text) =>
+      onSay != null ? onSay(text) : MoveraToast.show(context, text);
   final id = rideId?.trim() ?? '';
   final unavailable = L10n.current.chatCallUnavailable;
   if (id.isEmpty || transport == null) {
-    MoveraToast.show(context, unavailable);
+    say(unavailable);
     return;
   }
   try {
@@ -41,9 +46,9 @@ Future<void> callTripPeer(
     if (!context.mounted) return;
     if (error is ApiError && error.reason == 'chat_closed') {
       MessagesController.closeRide(id);
-      MoveraToast.show(context, L10n.current.chatClosedAfterTrip);
+      say(L10n.current.chatClosedAfterTrip);
       return;
     }
-    MoveraToast.show(context, unavailable);
+    say(unavailable);
   }
 }

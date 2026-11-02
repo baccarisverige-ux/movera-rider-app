@@ -133,7 +133,7 @@ void main() {
     await tester.tap(find.byTooltip('Call'));
     await tester.pump();
     expect(call.calls, 1);
-    expect(find.text("Calls aren't available yet – use the chat"), findsOne);
+    expect(find.text('Calls coming soon – use the chat'), findsOne);
     await tester.pump(const Duration(seconds: 5));
   });
 
@@ -173,7 +173,7 @@ void main() {
     await callTripPeer(ctx, rideId: null, transport: null);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text("Calls aren't available yet – use the chat"), findsOne);
+    expect(find.text('Calls coming soon – use the chat'), findsOne);
     await tester.pump(const Duration(seconds: 5));
   });
 

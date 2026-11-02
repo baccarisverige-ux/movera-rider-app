@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
@@ -44,6 +46,21 @@ class _ChatState extends State<Chat> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   late final MessagesController _chat;
+
+  /// The call answer ("Calls coming soon – use the chat"), above the write
+  /// field for a few seconds: never over the field or the send button.
+  String? _callNotice;
+  Timer? _callNoticeTimer;
+
+  void _showCallNotice(String text) {
+    if (!mounted) return;
+    _callNoticeTimer?.cancel();
+    setState(() => _callNotice = text);
+    _callNoticeTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted) setState(() => _callNotice = null);
+    });
+  }
+
   late final bool _ownsController = widget.controller == null;
   int _shownCount = 0;
 
@@ -75,6 +92,7 @@ class _ChatState extends State<Chat> {
     _chat.removeListener(_onConversationChanged);
     _chat.onSendFailed = null;
     if (_ownsController) _chat.dispose();
+    _callNoticeTimer?.cancel();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -135,6 +153,7 @@ class _ChatState extends State<Chat> {
             context,
             rideId: widget.rideId,
             transport: widget.callTransport ?? _defaultCallTransport(),
+            onSay: _showCallNotice,
           ),
         ),
       ),
@@ -181,6 +200,25 @@ class _ChatState extends State<Chat> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (_callNotice case final notice?) ...[
+                  Container(
+                    key: const ValueKey<String>('chat-call-notice'),
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF252E3A),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      notice,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                    ),
+                  ),
+                  8.height,
+                ],
                 if (closed || !canSend) ...[
                   Container(
                     width: double.infinity,

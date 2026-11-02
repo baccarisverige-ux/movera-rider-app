@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.10",
+  "version": "0.18.12",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -764,7 +764,7 @@
           "radar",
           "both"
         ],
-        "note": "Owner bug 2026-11-01 (admin \"Add money\", Apply to: Exclusive arrived on a Radar offer). Optional applyTo on driver-bonus, assign and radar-group says which kind of offer the money and the Priority badge are for: exclusive = exclusive offers (admin assign kind=assigned and automatic kind=exclusive), radar = radar offers, both = both. Default: driver-bonus both (older callers unchanged); assign exclusive; radar-group radar. Open offers of the chosen kind get offer_updated at once; the other kind keeps its money. Owner decision 2026-11-01: driver-bonus WITH applyTo also sends at once (same rules and timers as the admin's Exclusive / Radar sends; a driver who cannot take it is skipped): exclusive → if no exclusive offer is out, an exclusive (assigned) offer to the nearest free driver of the trip's category; radar → the trip's open exclusive offers become radar offers and, if no radar offer is out, the nearest free drivers (up to the radar group size) get one; both → exclusive to the nearest and radar to the others. The answer adds moneySend { exclusiveTo: driverId | null, radarTo: [driverId] }. Nobody free → 200, the money waits for the next offer of that kind. Without applyTo (older callers) nothing is sent. The limit counts per kind (a driver gets one kind). On accept the trip keeps the money of the kind he took (driverBonus, commission). A driver kept in a radar-group send with an open automatic exclusive offer has it turned into a radar offer (offer_updated). Once a driver took the trip, driver-bonus goes to him whatever applyTo says. Admin view only: TripProjection.driverBonusByKind { exclusive, radar: amountMinor, currency, priority } while money or the badge is set; TripProjection.driverBonus is the larger of the two until accept."
+        "note": "Owner bug 2026-11-01 (admin \"Add money\", Apply to: Exclusive arrived on a Radar offer). Optional applyTo on driver-bonus, assign and radar-group says which kind of offer the money and the Priority badge are for: exclusive = exclusive offers (admin assign kind=assigned and automatic kind=exclusive), radar = radar offers, both = both. Default: driver-bonus both (older callers unchanged); assign exclusive; radar-group radar. Open offers of the chosen kind get offer_updated at once; the other kind keeps its money. Owner decision 2026-11-01: driver-bonus WITH applyTo also sends at once (same rules and timers as the admin's Exclusive / Radar sends; a driver who cannot take it is skipped): exclusive → if no exclusive offer is out, an exclusive (assigned) offer to the nearest free driver of the trip's category; radar → the trip's open exclusive offers become radar offers and, if no radar offer is out, the nearest free drivers (up to the radar group size) get one; both → exclusive to the nearest and radar to the others. The answer adds moneySend { exclusiveTo: driverId | null, radarTo: [driverId] }. Live fix 2026-11-02 (additive, same version): moneySend also has skipped { expired, busy, far } (free drivers left out: expired = declined or let an offer of this trip expire, never asked again, same as automatic dispatch; busy = refused when sent; far = beyond the reach) and reachKm (the widest reach used for this send in km, null = no limit), so the admin can say honestly when nobody got the offer. How the counts combine (checker PR #200): each count is of drivers, each driver once — expired and far are the larger count of the kinds looked at (Exclusive and Radar look at the same nearby drivers, so Both never counts a driver twice); busy is the sum over the sends (Both sends Exclusive and Radar to different drivers, so the sum is each driver once). Nobody free → 200, the money waits for the next offer of that kind. Without applyTo (older callers) nothing is sent. The limit counts per kind (a driver gets one kind). On accept the trip keeps the money of the kind he took (driverBonus, commission). A driver kept in a radar-group send with an open automatic exclusive offer has it turned into a radar offer (offer_updated). Once a driver took the trip, driver-bonus goes to him whatever applyTo says. Admin view only: TripProjection.driverBonusByKind { exclusive, radar: amountMinor, currency, priority } while money or the badge is set; TripProjection.driverBonus is the larger of the two until accept. v0.18.11 (owner rule 16): the nearest free drivers of the immediate send follow the zone's dispatch settings: in-zone drivers first, drivers of same-country neighbour zones (neighbours on) only when no in-zone driver is free; never beyond the widest step of that kind (exclusive.steps / radar.steps, else radius.steps), limits.maxPickupKm or limits.maxPickupEtaMin (km / 24 km/h)."
       }
     },
     "nearbyScopes": [
@@ -1329,10 +1329,17 @@
         1,
         5
       ],
-      "other": "auto needs both modes on; manual main must be on; every on time rule needs from != to (HH:MM) and its mode on",
+      "other": "auto needs both modes on; manual main must be on; every on time rule needs from != to (HH:MM) and its mode on; start both / byDistance need both modes on",
       "raisePrice.maxFactor": [
         1,
         3
+      ],
+      "start.nearKm": "> 0 and <= 50",
+      "radar.steps / exclusive.steps": "1-5 values, > 0 and <= 50 km, strictly increasing",
+      "limits.maxPickupKm": "> 0 and <= 50",
+      "limits.maxPickupEtaMin": [
+        0,
+        60
       ]
     },
     "distance": "km = round1(equirectangular distance × 111.32 × roadFactor); a driver finishing a ride: km from the drop-off. round1(x) = floor(x × 10 + 0.5) / 10",
@@ -1340,7 +1347,7 @@
     "busy": "busy = round1(waiting / max(1, free)) once at search start: waiting = trips in the zone in requested, searching or offered (the new one included); free = online drivers in the zone with no rider and no trip",
     "reasonCodes": "Exclusive Offer.reasonCode: favourite when the favourite factor gave points; else finishing-nearby; else best-match for the top-ranked driver in range at that moment; else nearby",
     "rules": [
-      "mode at search start, first match: control.paused → no automatic offers; control.mode; the first on time rule (zone-local HH:MM in timeZone, [from, to), wraps midnight) whose mode is on; choose.how auto (both modes on) → radar when busy >= radarAbove else exclusive; else choose.main if on, else the mode that is on. choose.backup and rulesFrom are ignored (the pickup zone's document governs the search).",
+      "mode at search start, first match: control.paused → no automatic offers; control.mode; the first on time rule (zone-local HH:MM in timeZone, [from, to), wraps midnight) whose mode is on; start.mode radar / exclusive / both / byDistance (v0.18.11, contract.json#dispatch.start); choose.how auto (both modes on) → radar when busy >= radarAbove else exclusive; else choose.main if on, else the mode that is on. choose.backup (deprecated, optional) and rulesFrom are ignored (the pickup zone's document governs the search).",
       "candidates at each offer, ranked again each time: eligible first (category allowed, km <= widest step, a driver on a ride only when finishing within finishing.withinMin and withinKm and the finishing factor is on), then score descending, km ascending, driverId ascending. Radar never goes to a driver with a rider; Exclusive does only when finishing.exclusive and exclusiveWhileDriving.on.",
       "score = sum over the factors that are on of round(weight / (sum of on weights) × 100 × clamp01(ratio)): eta 1 − etaMin / etaFullMin; rating (rating − ratingFloor) / ratingSpan; acceptance pct / 100; cancel 1 − pct / cancelZeroPct; idle idleMin / idleFullMin; finishing 1 when finishing nearby; favourite 1 when the rider favourited the driver, favourite.on and km <= favourite.maxKm. A factor that does not apply still counts in the sum of weights.",
       "Radar round: the top radar.drivers in range at the current step, all at once, for radar.seconds; the first accept wins (others claimed_elsewhere). Radar adds nobody to asked: a driver who declined or missed may see the trip again on a later round (owner decision 23).",
@@ -1377,6 +1384,34 @@
         1,
         3
       ]
+    },
+    "start": {
+      "modes": [
+        "auto",
+        "radar",
+        "exclusive",
+        "both",
+        "byDistance"
+      ],
+      "default": {
+        "mode": "auto",
+        "nearKm": 2
+      },
+      "note": "v0.18.11 (owner 2026-11-01, rule 16, dispatch start/order): per zone, optional DispatchDocument.start { mode, nearKm }. Missing = { auto, 2 } = the behaviour before. auto: choose decides (busy level / manual main). radar / exclusive: that mode starts. byDistance: the NEAREST driver in range not yet asked (smallest km, not the top score) within nearKm → Exclusive first, else Radar first. both: the first round sends an Exclusive offer to the best ranked driver and, at the same moment, a Radar round to the next radar.drivers (the Exclusive driver left out), both for their own seconds; the first accept wins and every other open offer is withdrawn (offer_withdrawn, claimed_elsewhere); after it the search goes on as Exclusive (then of exclusive); a driver who had the Radar offer of that first round may still get an Exclusive offer later in the search. A paused zone, a forced control.mode and an on time rule still win over start. A mode that is off cannot start: both and byDistance need both modes on, else the mode that is on."
+    },
+    "modeSteps": "v0.18.11: radar.steps / exclusive.steps (optional, 1-5 km values, strictly increasing, each <= 50): that mode's own search steps; missing = radius.steps. The step index is shared: step i of the search uses steps[min(i, len-1)] of the mode that is offering; the steps are used up when the index passes the longest list. The two lists may have different lengths: a mode whose list is shorter keeps using its last (widest) value.",
+    "limits": {
+      "default": {
+        "maxPickupEtaMin": 0
+      },
+      "note": "v0.18.11: optional DispatchDocument.limits { maxPickupKm, maxPickupEtaMin }. A driver farther than maxPickupKm (missing = the widest step) or with etaMin above maxPickupEtaMin (0 / missing = off) is never offered the trip. maxPickupKm can only narrow the search: a value above the widest step has no effect (the widest step stays the limit). etaMin here is an approximation (km ÷ the fixed score speed pickupKmh, 24 km/h), not the routing service's ETA."
+    },
+    "neighbours": {
+      "default": {
+        "on": false,
+        "zoneIds": []
+      },
+      "note": "v0.18.11: optional DispatchDocument.neighbours { on, zoneIds, afterStep }. on: from search step afterStep (1-based, missing = the last step) free drivers whose zones include one of zoneIds are candidates too (same ranking, same distance limits). Off / missing = only drivers of the pickup zone (as before). Only zones of the same country and currency as the pickup zone lend drivers; other listed zones are ignored (a Swedish zone never borrows French drivers)."
     }
   },
   "maps": {
@@ -3799,7 +3834,7 @@
     "arrive": "POST /driver/trips/{tripId}/stops/{stopIndex}/arrive { expectedVersion }: the assigned driver, trip in_trip or approaching_dropoff (else 409 invalid_transition, not_on_trip), stopIndex 0-based into TripProjection.stops; sets stops[i].arrivedAt (server time); version + 1, trip_projection. Again on the same stop: 409 invalid_transition (stop_already_arrived). Stops are taken in order: arriving at i while an earlier stop has no arrivedAt is 409 (stop_out_of_order).",
     "leave": "POST /driver/trips/{tripId}/stops/{stopIndex}/leave { expectedVersion }: sets stops[i].leftAt; before arrive: 409 invalid_transition (stop_not_arrived); twice: 409 (stop_already_left). version + 1.",
     "charge": "stop_waiting = Σ (leftAt − arrivedAt) seconds / 60 × stopWaitPerMin; an arrived stop with no leftAt counts until complete. A stop the driver never arrived at counts 0.",
-    "projection": "TripProjection.stops[i] gains arrivedAt?, leftAt? (Timestamp)."
+    "projection": "TripProjection.stops[i] gains arrivedAt?, leftAt? (Timestamp). This is the field the apps read (also after a reopen). Live fix 2026-11-02: the server also mirrors the same taps as TripProjection.stopVisits [{ stopIndex, arrivedAt, leftAt? }] for older readers; stops[i] is canonical."
   },
   "smartSurge": {
     "note": "v0.7.1 (owner 2026-10-27): smart surge as the admin demo's Surge tab describes it, run by the server per zone; OFF until the admin switches pricing.surge.smart.enabled on. Applies to every category of the zone. v0.7.2 (owner 2026-10-28): free drivers are only those in the zone now.",

@@ -21,9 +21,19 @@ abstract final class RideNavigator {
     return Navigator.push(context, RightToLeftTransition(page));
   }
 
+  /// G9 live 2026-11-02: after the rating screen of a finished trip the
+  /// rider went Home although another trip of theirs was active (a reload
+  /// showed it). Asks the server for an active trip once Home shows and
+  /// opens it in place of Home. A seam for tests.
+  static Future<void> Function() openActiveTripAfterHome = () async {
+    await RideSnapshotStore.clear();
+    await RideRestoreCoordinator.instance.resumeIfNeeded();
+  };
+
   static void home(
     BuildContext? context, {
     RideStatus status = RideStatus.cancelledByRider,
+    bool openActiveTrip = false,
   }) {
     final ride = AppScope.instance.ride;
     if (ride.status != status) {
@@ -54,6 +64,7 @@ abstract final class RideNavigator {
       coordinator.goHome(replaceRoot: rootWasRestoredRide);
       final atRoot = nav == null || !nav.canPop();
       setWebHomeLock(atRoot);
+      if (openActiveTrip) unawaited(openActiveTripAfterHome());
     }
 
     if (nav == null) {
