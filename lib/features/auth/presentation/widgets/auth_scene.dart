@@ -18,6 +18,16 @@ class AuthScene extends StatefulWidget {
 
   static const designSize = Size(390, 230);
 
+  /// The top of the skyline's tall blocks on the design canvas (the spire
+  /// reaches higher). Owner 2026-11-02: the sign-in picture shows the city
+  /// skyline whole, so the scene is at least this tall.
+  static const skylineTop = 86.0;
+
+  /// Whether a scene of [size] shows the skyline's blocks whole.
+  static bool showsSkyline(Size size) =>
+      size.height + 0.5 >=
+      (designSize.height - skylineTop) * size.width / designSize.width;
+
   /// Where a point of the design canvas lands in a scene of [size]: the
   /// canvas is scaled to the width and anchored to the bottom, as painted.
   static Offset designToLocal(Size size, Offset design) {

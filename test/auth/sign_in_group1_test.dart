@@ -250,6 +250,11 @@ void main() {
         ),
       );
       await tester.pump(const Duration(seconds: 6));
+      expect(find.byKey(const ValueKey('auth-test-accounts')), findsNothing);
+      final button = find.byKey(const ValueKey('auth-test-numbers-button'));
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pump();
       expect(find.byKey(const ValueKey('auth-test-accounts')), findsOneWidget);
       expect(find.text(L10n.current.testStatusNew), findsOneWidget);
       expect(find.text(L10n.current.testStatusActive), findsOneWidget);

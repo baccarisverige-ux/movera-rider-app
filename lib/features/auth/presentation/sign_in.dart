@@ -107,6 +107,10 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
   /// Owner decision 6: the test numbers (test builds only).
   List<TestAccount> _testAccounts = const [];
 
+  /// Owner 2026-11-02 (as the driver app, PR #443): the test numbers sit
+  /// behind one button; closed, the picture and "Need help?" stay visible.
+  bool _testListOpen = false;
+
   /// Owner round 3: the terms box must be ticked before any sign-in path.
   bool _agreed = false;
   bool _consentNudge = false;
@@ -123,9 +127,10 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
 
   Future<void> _loadTestAccounts() async {
     final env = AppEnv.current;
+    // Never on a store build, whatever the caller asks.
     final show =
-        widget.showTestAccounts ??
-        (!env.isProduction && !env.allowsMockTransport);
+        !env.isProduction &&
+        (widget.showTestAccounts ?? !env.allowsMockTransport);
     if (!show) return;
     try {
       final accounts = await _auth.testAccounts();
@@ -432,11 +437,31 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
             ),
           ),
           if (_providerError != null) AuthErrorText(_providerError!),
-          if (_testAccounts.isNotEmpty) _testAccountList(),
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: NeedHelpLink(),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: _testAccounts.isEmpty
+                ? const NeedHelpLink()
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const NeedHelpLink(),
+                      TextButton(
+                        key: const ValueKey('auth-test-numbers-button'),
+                        onPressed: () =>
+                            setState(() => _testListOpen = !_testListOpen),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AuthColors.muted,
+                          minimumSize: const Size(0, 36),
+                        ),
+                        child: Text(
+                          context.l10n.testNumbersButton,
+                          style: AuthText.small(),
+                        ),
+                      ),
+                    ],
+                  ),
           ),
+          if (_testAccounts.isNotEmpty && _testListOpen) _testAccountList(),
         ],
       ),
     );
@@ -490,11 +515,10 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
   Widget _testAccountList() {
     return Padding(
       key: const ValueKey('auth-test-accounts'),
-      padding: const EdgeInsets.only(top: 18),
+      padding: const EdgeInsets.only(top: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(context.l10n.testNumbersTitle, style: AuthText.small()),
           for (final account in _testAccounts)
             InkWell(
               key: ValueKey('auth-test-${account.phone}'),

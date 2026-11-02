@@ -1521,6 +1521,7 @@
   "joinWaitlist": "Gå med i väntelistan",
   "waitlistSaved": "Du står på väntelistan. Vi hör av oss när inloggningen öppnar för ditt nummer.",
   "testNumbersTitle": "Testnummer (endast testversion)",
+  "testNumbersButton": "Testnummer",
   "testStatusNew": "Test · inget konto än",
   "testStatusActive": "Aktiv",
   "testStatusSuspended": "Avstängd",
