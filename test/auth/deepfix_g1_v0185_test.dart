@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -389,25 +390,51 @@ void main() {
   });
 
   group('G1-B5 / B6 sign-in words and labels', () {
-    testWidgets('consent words, "or", separate links, field labels', (
+    testWidgets('consent words: checkbox plus two links for screen readers', (
       tester,
     ) async {
       _phone(tester);
       final handle = tester.ensureSemantics();
-      String? opened;
       await tester.pumpWidget(
-        _app(Scaffold(body: LegalLinksRow(onOpen: (k) => opened = k))),
+        _app(
+          SignIn(
+            controller: AuthController(
+              auth: AuthRepository(
+                api: ApiClient(
+                  env: _env,
+                  client: MockClient((_) async => _json(404, {})),
+                  tokens: MemoryTokenStore(),
+                ),
+                tokens: MemoryTokenStore(),
+              ),
+            ),
+            showTestAccounts: false,
+          ),
+        ),
       );
+      await tester.pump(const Duration(milliseconds: 50));
       expect(
-        find.bySemanticsLabel(L10n.current.legalTermsLink),
-        findsOneWidget,
+        tester.getSemantics(find.byKey(const ValueKey('auth-consent'))),
+        matchesSemantics(
+          label: L10n.current.consentLabel,
+          hasCheckedState: true,
+          hasTapAction: true,
+        ),
       );
-      expect(
-        find.bySemanticsLabel(L10n.current.legalPrivacyLink),
-        findsOneWidget,
+      final text = tester.getSemantics(
+        find.byKey(const ValueKey('auth-consent-text')),
       );
-      await tester.tap(find.byKey(const ValueKey('auth-legal-privacy')));
-      expect(opened, 'privacy');
+      final links = <String>[];
+      void visit(SemanticsNode node) {
+        if (node.flagsCollection.isLink) links.add(node.label);
+        node.visitChildren((child) {
+          visit(child);
+          return true;
+        });
+      }
+
+      visit(text);
+      expect(links, [L10n.current.consentTerms, L10n.current.consentPrivacy]);
       handle.dispose();
     });
 

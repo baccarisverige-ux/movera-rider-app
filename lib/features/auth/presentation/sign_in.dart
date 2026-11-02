@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/config/env.dart';
@@ -87,9 +88,14 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
     });
   }
 
-  /// FLOW-16 / G1-B6: the consent line names the Terms and the Privacy
-  /// policy; they open from their own links under it ([LegalLinksRow]), so
-  /// a tap anywhere on the line only ticks the box.
+  /// FLOW-16 / G1-B6, owner 2026-11-02: the words "terms" and "privacy
+  /// policy" in the consent sentence are links that open those pages; a tap
+  /// anywhere else on the line ticks the box.
+  late final _termsTap = TapGestureRecognizer()
+    ..onTap = () => _openLegal('terms');
+  late final _privacyTap = TapGestureRecognizer()
+    ..onTap = () => _openLegal('privacy');
+
   void _openLegal(String kind) {
     Navigator.of(
       context,
@@ -107,6 +113,10 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
   /// Owner decision 6: the test numbers (test builds only).
   List<TestAccount> _testAccounts = const [];
 
+  /// Owner 2026-11-02 (as the driver app, PR #443): the test numbers sit
+  /// behind one button; closed, the picture and "Need help?" stay visible.
+  bool _testListOpen = false;
+
   /// Owner round 3: the terms box must be ticked before any sign-in path.
   bool _agreed = false;
   bool _consentNudge = false;
@@ -123,9 +133,10 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
 
   Future<void> _loadTestAccounts() async {
     final env = AppEnv.current;
+    // Never on a store build, whatever the caller asks.
     final show =
-        widget.showTestAccounts ??
-        (!env.isProduction && !env.allowsMockTransport);
+        !env.isProduction &&
+        (widget.showTestAccounts ?? !env.allowsMockTransport);
     if (!show) return;
     try {
       final accounts = await _auth.testAccounts();
@@ -169,6 +180,8 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
     _story.dispose();
     _phone.dispose();
     _phoneFocus.dispose();
+    _termsTap.dispose();
+    _privacyTap.dispose();
     super.dispose();
   }
 
@@ -306,19 +319,21 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
           const SizedBox(height: 16),
           // Owner round 3: the rider must tick the box before Continue,
           // Apple or Google work (stores expect an explicit consent).
-          Semantics(
-            key: const ValueKey('auth-consent'),
-            checked: _agreed,
-            label: context.l10n.consentLabel,
+          // Owner 2026-11-02: "terms" and "privacy policy" are links inside
+          // the sentence; screen readers reach the checkbox and both links.
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: _toggleAgreed,
-            excludeSemantics: true,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: _toggleAgreed,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AnimatedContainer(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Semantics(
+                  key: const ValueKey('auth-consent'),
+                  checked: _agreed,
+                  label: context.l10n.consentLabel,
+                  onTap: _toggleAgreed,
+                  excludeSemantics: true,
+                  child: AnimatedContainer(
                     duration: const Duration(milliseconds: 160),
                     width: 24,
                     height: 24,
@@ -340,37 +355,39 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
                           )
                         : null,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text.rich(
-                      TextSpan(
-                        text: context.l10n.consentPrefix,
-                        children: [
-                          TextSpan(
-                            text: context.l10n.consentTerms,
-                            style: GoogleFonts.urbanist(
-                              fontWeight: FontWeight.w700,
-                              color: AuthColors.ink,
-                            ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text.rich(
+                    key: const ValueKey('auth-consent-text'),
+                    TextSpan(
+                      text: context.l10n.consentPrefix,
+                      children: [
+                        TextSpan(
+                          text: context.l10n.consentTerms,
+                          recognizer: _termsTap,
+                          style: GoogleFonts.urbanist(
+                            fontWeight: FontWeight.w700,
+                            color: AuthColors.ink,
+                            decoration: TextDecoration.underline,
                           ),
-                          TextSpan(text: context.l10n.consentAnd),
-                          TextSpan(
-                            text: context.l10n.consentPrivacy,
-                            style: GoogleFonts.urbanist(
-                              fontWeight: FontWeight.w700,
-                              color: AuthColors.ink,
-                            ),
+                        ),
+                        TextSpan(text: context.l10n.consentAnd),
+                        TextSpan(
+                          text: context.l10n.consentPrivacy,
+                          recognizer: _privacyTap,
+                          style: GoogleFonts.urbanist(
+                            fontWeight: FontWeight.w700,
+                            color: AuthColors.ink,
+                            decoration: TextDecoration.underline,
                           ),
-                        ],
-                      ),
-                      style: AuthText.small().copyWith(
-                        fontSize: 13,
-                        height: 1.4,
-                      ),
+                        ),
+                      ],
                     ),
+                    style: AuthText.small().copyWith(fontSize: 13, height: 1.4),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           if (_consentNudge)
@@ -384,10 +401,6 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
                 ),
               ),
             ),
-          // G1-B2 / G1-B6: Terms and Privacy as two separate links, each
-          // its own button for screen readers (the consent row is one
-          // checkbox to them).
-          LegalLinksRow(onOpen: _openLegal),
           const SizedBox(height: 12),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -432,11 +445,31 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
             ),
           ),
           if (_providerError != null) AuthErrorText(_providerError!),
-          if (_testAccounts.isNotEmpty) _testAccountList(),
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: NeedHelpLink(),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: _testAccounts.isEmpty
+                ? const NeedHelpLink()
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const NeedHelpLink(),
+                      TextButton(
+                        key: const ValueKey('auth-test-numbers-button'),
+                        onPressed: () =>
+                            setState(() => _testListOpen = !_testListOpen),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AuthColors.muted,
+                          minimumSize: const Size(0, 36),
+                        ),
+                        child: Text(
+                          context.l10n.testNumbersButton,
+                          style: AuthText.small(),
+                        ),
+                      ),
+                    ],
+                  ),
           ),
+          if (_testAccounts.isNotEmpty && _testListOpen) _testAccountList(),
         ],
       ),
     );
@@ -490,11 +523,10 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
   Widget _testAccountList() {
     return Padding(
       key: const ValueKey('auth-test-accounts'),
-      padding: const EdgeInsets.only(top: 18),
+      padding: const EdgeInsets.only(top: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(context.l10n.testNumbersTitle, style: AuthText.small()),
           for (final account in _testAccounts)
             InkWell(
               key: ValueKey('auth-test-${account.phone}'),
@@ -585,50 +617,6 @@ class SignedOutBanner extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-/// G1-B2 / G1-B6: "Terms of use" and "Privacy policy", two separate links.
-class LegalLinksRow extends StatelessWidget {
-  const LegalLinksRow({super.key, required this.onOpen});
-
-  /// `terms` or `privacy`.
-  final ValueChanged<String> onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget link(String kind, String label) => Semantics(
-      link: true,
-      button: true,
-      label: label,
-      excludeSemantics: true,
-      onTap: () => onOpen(kind),
-      child: InkWell(
-        key: ValueKey('auth-legal-$kind'),
-        onTap: () => onOpen(kind),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
-          child: Text(
-            label,
-            style: AuthText.small().copyWith(
-              fontSize: 13,
-              color: AuthColors.ink,
-              decoration: TextDecoration.underline,
-            ),
-          ),
-        ),
-      ),
-    );
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Wrap(
-        spacing: 18,
-        children: [
-          link('terms', context.l10n.legalTermsLink),
-          link('privacy', context.l10n.legalPrivacyLink),
-        ],
-      ),
     );
   }
 }

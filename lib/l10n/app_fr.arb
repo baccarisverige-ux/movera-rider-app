@@ -1521,6 +1521,7 @@
   "joinWaitlist": "Rejoindre la liste d’attente",
   "waitlistSaved": "Vous êtes sur la liste d’attente. Nous vous préviendrons quand la connexion ouvrira pour votre numéro.",
   "testNumbersTitle": "Numéros de test (version de test uniquement)",
+  "testNumbersButton": "Numéros de test",
   "testStatusNew": "Test · pas encore de compte",
   "testStatusActive": "Actif",
   "testStatusSuspended": "Suspendu",
