@@ -1626,6 +1626,21 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'routeChangeRefused': l.routeChangeRefused,
   'g7RouteExpired': l.g7RouteExpired,
   'receiptHeading': l.receiptHeading,
+  'errLockedToday': l.errLockedToday,
+  'contactChangePhone': l.contactChangePhone,
+  'contactChangeEmail': l.contactChangeEmail,
+  'contactNewPhone': l.contactNewPhone,
+  'contactNewEmail': l.contactNewEmail,
+  'contactSendCode': l.contactSendCode,
+  'contactCodeSentPhone': l.contactCodeSentPhone,
+  'contactCodeSentEmail': l.contactCodeSentEmail,
+  'contactCode': l.contactCode,
+  'contactSave': l.contactSave,
+  'contactPhoneSaved': l.contactPhoneSaved,
+  'contactEmailSaved': l.contactEmailSaved,
+  'contactPhoneTaken': l.contactPhoneTaken,
+  'contactEmailTaken': l.contactEmailTaken,
+  'contactChangeFailed': l.contactChangeFailed,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -5089,4 +5104,34 @@ class _Exhaustive implements AppLocalizations {
   String get g7RouteExpired => '';
   @override
   String get receiptHeading => '';
+  @override
+  String get errLockedToday => '';
+  @override
+  String get contactChangePhone => '';
+  @override
+  String get contactChangeEmail => '';
+  @override
+  String get contactNewPhone => '';
+  @override
+  String get contactNewEmail => '';
+  @override
+  String get contactSendCode => '';
+  @override
+  String get contactCodeSentPhone => '';
+  @override
+  String get contactCodeSentEmail => '';
+  @override
+  String get contactCode => '';
+  @override
+  String get contactSave => '';
+  @override
+  String get contactPhoneSaved => '';
+  @override
+  String get contactEmailSaved => '';
+  @override
+  String get contactPhoneTaken => '';
+  @override
+  String get contactEmailTaken => '';
+  @override
+  String get contactChangeFailed => '';
 }
