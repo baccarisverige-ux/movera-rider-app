@@ -280,7 +280,6 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
     final idle = _busy == null && _agreed;
     return AuthScaffold(
       step: 1,
-      compactCard: true,
       headline: '',
       headlineAccent: '',
       hero: BalloonBrandIntro(progress: _story, wordmarkKey: _wordmarkKey),
@@ -298,7 +297,7 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
           Text(context.l10n.enterPhone, style: AuthText.cardTitle()),
           const SizedBox(height: 2),
           Text(context.l10n.textFourDigitCode, style: AuthText.cardSub()),
-          const SizedBox(height: 4),
+          const SizedBox(height: 14),
           AuthPhoneField(
             controller: _phone,
             focusNode: _phoneFocus,
@@ -309,7 +308,7 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
           ),
           if (_phoneError != null) AuthErrorText(_phoneError!),
           if (_restrictedNumber != null) _waitlistRow(),
-          const SizedBox(height: 4),
+          const SizedBox(height: 16),
           // Owner round 3: the rider must tick the box before Continue,
           // Apple or Google work (stores expect an explicit consent).
           Semantics(
@@ -394,7 +393,7 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
           // its own button for screen readers (the consent row is one
           // checkbox to them).
           LegalLinksRow(onOpen: _openLegal),
-          const SizedBox(height: 4),
+          const SizedBox(height: 12),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: _agreed ? null : _nudgeConsent,
@@ -405,9 +404,9 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
             ),
           ),
           SlowServerNote(busy: _busy != null || _waitlistBusy),
-          const SizedBox(height: 4),
+          const SizedBox(height: 14),
           const AuthOrDivider(),
-          const SizedBox(height: 4),
+          const SizedBox(height: 10),
           GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTap: _agreed ? null : _nudgeConsent,
@@ -439,7 +438,7 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
           ),
           if (_providerError != null) AuthErrorText(_providerError!),
           Padding(
-            padding: const EdgeInsets.only(top: 0),
+            padding: const EdgeInsets.only(top: 8),
             child: _testAccounts.isEmpty
                 ? const NeedHelpLink()
                 : Row(
@@ -646,7 +645,7 @@ class LegalLinksRow extends StatelessWidget {
       ),
     );
     return Padding(
-      padding: const EdgeInsets.only(top: 0),
+      padding: const EdgeInsets.only(top: 4),
       child: Wrap(
         spacing: 18,
         children: [
