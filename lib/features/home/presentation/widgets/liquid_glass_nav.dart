@@ -118,6 +118,8 @@ class LiquidGlassNavRowState extends State<LiquidGlassNavRow>
   /// spring settles.
   @visibleForTesting
   double get lift {
+    // Owner 2026-11-02: the selected tab always looks touched (glass up).
+    if (kGlassAlways && !_reduced) return 1;
     if (_dragging || _pressed) return 1;
     if (!_position.isAnimating) return 0;
     final distance = (_position.value - _target).abs();
@@ -412,6 +414,10 @@ class LiquidGlassNavRowState extends State<LiquidGlassNavRow>
 /// Owner 2026-11-02: the glass bubble is 10% lighter ("10% less blur");
 /// set back to 1.0 to return to the previous look.
 const double kGlassFrost = 0.9;
+
+/// Owner 2026-11-02: the glass bubble always shows on the selected tab, as
+/// when touched. Set to false to return to the grey resting pill.
+const bool kGlassAlways = true;
 
 class _GlassLens extends StatelessWidget {
   const _GlassLens({super.key, required this.strength});
