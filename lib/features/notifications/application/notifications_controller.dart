@@ -22,7 +22,9 @@ class NotificationsController {
     if (fetch == null) return;
     try {
       _store.syncServer(await fetch(serverPath));
-    } catch (_) {}
+    } catch (_) {
+      // Saved / kept as it is: the next read shows the server's state.
+    }
   }
 
   List<AppNotification> feed() => _store.all();

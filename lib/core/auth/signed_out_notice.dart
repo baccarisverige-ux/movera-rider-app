@@ -50,6 +50,9 @@ abstract final class SignedOutNotice {
     'session_ended': SignedOutKind.revoked,
     'refresh_token_reused': SignedOutKind.revoked,
     'refresh_token_unknown': SignedOutKind.revoked,
+    // v0.18.14: drivers only (riders keep several phones); kept as the
+    // contract lists it.
+    'signed_in_elsewhere': SignedOutKind.revoked,
   };
 
   /// The notice for a refused refresh with [reason].

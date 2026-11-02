@@ -16,7 +16,7 @@ void main() {
     final sent = <(String, Map<String, dynamic>)>[];
     await tester.pumpWidget(
       MaterialApp(
-        locale: const Locale('sv'),
+        locale: const Locale('en'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: ContactChangePage(
@@ -50,10 +50,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('contact-submit')));
     await tester.pumpAndSettle();
     expect(sent.single.$1, '/api/v1/account/phone/change');
-    expect(
-      find.text('Vi har skickat en kod till det nya numret.'),
-      findsOneWidget,
-    );
+    expect(find.text('We sent a code to the new number.'), findsOneWidget);
     await tester.enterText(find.byKey(const ValueKey('contact-code')), '1234');
     await tester.tap(find.byKey(const ValueKey('contact-submit')));
     await tester.pumpAndSettle();
@@ -64,7 +61,7 @@ void main() {
       'code': '1234',
     });
     expect(saved, 1);
-    expect(find.text('Telefonnumret har ändrats'), findsOneWidget);
+    expect(find.text('Phone number changed'), findsOneWidget);
   });
 
   testWidgets('an e-mail: change → challenge → verify; a used number says so', (
@@ -105,7 +102,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('contact-submit')));
     await tester.pumpAndSettle();
     expect(
-      find.text('Numret används redan av ett annat konto'),
+      find.text('This number is already used by another account'),
       findsOneWidget,
     );
   });

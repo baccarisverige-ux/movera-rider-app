@@ -119,7 +119,9 @@ class _ContactChangePageState extends State<ContactChangePage> {
     }
     try {
       await widget.onSaved?.call();
-    } catch (_) {}
+    } catch (_) {
+      // Saved / kept as it is: the next read shows the server's state.
+    }
     if (!mounted) return;
     final l10n = context.l10n;
     ScaffoldMessenger.of(context).showSnackBar(

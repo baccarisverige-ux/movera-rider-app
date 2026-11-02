@@ -1620,7 +1620,7 @@
   "contactSendCode": "Envoyer le code",
   "contactCodeSentPhone": "Nous avons envoyé un code au nouveau numéro.",
   "contactCodeSentEmail": "Nous envoyons un code au nouvel e-mail.",
-  "contactCode": "Code",
+  "contactCode": "Code reçu",
   "contactSave": "Enregistrer",
   "contactPhoneSaved": "Numéro de téléphone modifié",
   "contactEmailSaved": "E-mail modifié",

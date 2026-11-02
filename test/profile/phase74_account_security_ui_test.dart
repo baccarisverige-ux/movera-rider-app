@@ -10,6 +10,7 @@ import 'package:movera_rider/features/profile/application/profile_controller.dar
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
 import 'package:movera_rider/features/profile/presentation/account_checkup.dart';
+import 'package:movera_rider/features/profile/presentation/contact_change.dart';
 import 'package:movera_rider/features/profile/presentation/personal_info.dart';
 import 'package:movera_rider/features/profile/presentation/security.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -148,13 +149,11 @@ void main() {
     expect(find.text('rider@example.test · Verified'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
 
+    // Decision driver-g1 (v0.18.14): a tap opens the server's change flow
+    // (a code to the new number), never a local edit of the field.
     await tester.tap(find.text('Phone'));
     await tester.pumpAndSettle();
-    expect(find.byType(TextField), findsNothing);
-
-    await tester.tap(find.text('Email'));
-    await tester.pumpAndSettle();
-    expect(find.byType(TextField), findsNothing);
+    expect(find.byType(ContactChangePage), findsOneWidget);
   });
 
   testWidgets('fresh reauth allows server-verified session revocation', (
