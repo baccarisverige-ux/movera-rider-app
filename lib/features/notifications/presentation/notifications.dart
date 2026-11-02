@@ -33,7 +33,9 @@ class NotificationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final notificationController = controller ?? NotificationsController();
+    final notificationController =
+        controller ?? NotificationsController(fetch: _serverFetch());
+    _ServerRead.once(notificationController);
 
     return Scaffold(
       backgroundColor: AppColor.secondary,
@@ -162,12 +164,20 @@ class NotificationScreen extends StatelessWidget {
               color: const Color(0xFFF5F5F5),
               borderRadius: BorderRadius.circular(8),
             ),
+            // v0.18.14: a refund notice (money back) has its own mark.
             child: Center(
-              child: Image.asset(
-                AppAssets.standard,
-                color: AppColor.subtitle,
-                height: ResSize.h * 24,
-              ),
+              child: notification.kind == 'refund'
+                  ? Icon(
+                      Icons.currency_exchange_rounded,
+                      key: const ValueKey('notification-refund'),
+                      color: AppColor.subtitle,
+                      size: ResSize.h * 24,
+                    )
+                  : Image.asset(
+                      AppAssets.standard,
+                      color: AppColor.subtitle,
+                      height: ResSize.h * 24,
+                    ),
             ),
           ),
           8.width,
@@ -222,5 +232,38 @@ class NotificationScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// The signed-in rider's `GET`, or null before the app scope exists.
+Future<Map<String, dynamic>> Function(String)? _serverFetch() {
+  try {
+    final scope = AppScope.instance;
+    final api = scope.api;
+    if (!api.contractWire) return null;
+    return (path) async {
+      // Signed out: nothing to read.
+      if ((await scope.tokens.readAccess()) == null) return const {};
+      return api.get(path);
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+/// One server read per opening of the screen (v0.18.14 account language).
+abstract final class _ServerRead {
+  static NotificationsController? _last;
+  static DateTime? _at;
+
+  static void once(NotificationsController controller) {
+    final now = DateTime.now();
+    if (identical(_last, controller) ||
+        (_at != null && now.difference(_at!) < const Duration(seconds: 2))) {
+      return;
+    }
+    _last = controller;
+    _at = now;
+    controller.refreshFromServer();
   }
 }

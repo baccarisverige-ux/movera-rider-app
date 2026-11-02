@@ -1612,5 +1612,19 @@
   "routeChangeRefused": "Movera n’a pas pu faire ce changement pour le moment. La course garde son itinéraire.",
   "g7RouteExpired": "Le chauffeur n’a pas répondu à temps. La course continue vers la première destination.",
   "receiptHeading": "Reçu",
-  "errLockedToday": "Trop de codes erronés aujourd’hui. Réessayez plus tard."
+  "errLockedToday": "Trop de codes erronés aujourd’hui. Réessayez plus tard.",
+  "contactChangePhone": "Changer de numéro de téléphone",
+  "contactChangeEmail": "Changer d’e-mail",
+  "contactNewPhone": "Nouveau numéro de téléphone",
+  "contactNewEmail": "Nouvel e-mail",
+  "contactSendCode": "Envoyer le code",
+  "contactCodeSentPhone": "Nous avons envoyé un code au nouveau numéro.",
+  "contactCodeSentEmail": "Nous envoyons un code au nouvel e-mail.",
+  "contactCode": "Code",
+  "contactSave": "Enregistrer",
+  "contactPhoneSaved": "Numéro de téléphone modifié",
+  "contactEmailSaved": "E-mail modifié",
+  "contactPhoneTaken": "Ce numéro est déjà utilisé par un autre compte",
+  "contactEmailTaken": "Cet e-mail est déjà utilisé par un autre compte",
+  "contactChangeFailed": "Impossible de le modifier. Réessayez."
 }

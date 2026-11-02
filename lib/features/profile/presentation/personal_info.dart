@@ -9,6 +9,7 @@ import 'package:movera_rider/features/profile/application/account_security_contr
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
+import 'package:movera_rider/features/profile/presentation/contact_change.dart';
 import 'package:movera_rider/features/profile/presentation/language_picker.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -78,6 +79,22 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     return verified
         ? context.l10n.valueVerified(value)
         : context.l10n.valueNotVerified(value);
+  }
+
+  /// Decision driver-g1: phone / e-mail changed by the rider (code to the
+  /// new one), then the account read again.
+  Future<void> _changeContact(ContactKind kind) async {
+    final api = AppScope.instance.api;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ContactChangePage(
+          kind: kind,
+          post: (path, body) => api.post(path, body: body),
+          onSaved: _security.load,
+        ),
+      ),
+    );
+    _refresh();
   }
 
   @override
@@ -172,6 +189,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                   verified: account?.phoneVerified == true,
                   unavailableLabel: context.l10n.serverPhoneUnavailable,
                 ),
+                onTap: () => _changeContact(ContactKind.phone),
               ),
               AccountTile(
                 mark: const AccountIcon.asset(AppAssets.solarLetter),
@@ -181,6 +199,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                   verified: account?.emailVerified == true,
                   unavailableLabel: context.l10n.serverEmailStatusUnavailable,
                 ),
+                onTap: () => _changeContact(ContactKind.email),
               ),
               AccountTile(
                 mark: const AccountIcon.asset(AppAssets.solarGlobal),

@@ -1612,5 +1612,19 @@
   "routeChangeRefused": "Movera kunde inte göra ändringen just nu. Resan behåller sin rutt.",
   "g7RouteExpired": "Föraren svarade inte i tid. Resan fortsätter till den första destinationen.",
   "receiptHeading": "Kvitto",
-  "errLockedToday": "För många fel koder i dag. Försök igen senare."
+  "errLockedToday": "För många fel koder i dag. Försök igen senare.",
+  "contactChangePhone": "Ändra telefonnummer",
+  "contactChangeEmail": "Ändra e-post",
+  "contactNewPhone": "Nytt telefonnummer",
+  "contactNewEmail": "Ny e-postadress",
+  "contactSendCode": "Skicka kod",
+  "contactCodeSentPhone": "Vi har skickat en kod till det nya numret.",
+  "contactCodeSentEmail": "Vi skickar en kod till den nya e-postadressen.",
+  "contactCode": "Kod",
+  "contactSave": "Spara",
+  "contactPhoneSaved": "Telefonnumret har ändrats",
+  "contactEmailSaved": "E-postadressen har ändrats",
+  "contactPhoneTaken": "Numret används redan av ett annat konto",
+  "contactEmailTaken": "E-postadressen används redan av ett annat konto",
+  "contactChangeFailed": "Det gick inte att ändra. Försök igen."
 }
