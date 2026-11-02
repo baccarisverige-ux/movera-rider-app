@@ -1641,6 +1641,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'supportReplySend': l.supportReplySend,
   'supportTicketClosedNote': l.supportTicketClosedNote,
   'supportReplyFailed': l.supportReplyFailed,
+  'supportNewTicket': l.supportNewTicket,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -5146,4 +5147,6 @@ class _Exhaustive implements AppLocalizations {
   String get supportTicketClosedNote => '';
   @override
   String get supportReplyFailed => '';
+  @override
+  String get supportNewTicket => '';
 }

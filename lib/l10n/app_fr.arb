@@ -1633,6 +1633,7 @@
   "supportAgentLine": "{name} · Support Movera",
   "supportReplyHint": "Écrire un message",
   "supportReplySend": "Envoyer",
-  "supportTicketClosedNote": "Cette conversation est fermée. Écrivez un nouveau message à Movera si vous avez encore besoin d'aide.",
-  "supportReplyFailed": "Le message n'a pas été envoyé. Réessayez."
+  "supportTicketClosedNote": "Ce ticket est résolu. Ouvrez un nouveau ticket si vous avez encore besoin d'aide.",
+  "supportReplyFailed": "Le message n'a pas été envoyé. Réessayez.",
+  "supportNewTicket": "Nouveau ticket"
 }

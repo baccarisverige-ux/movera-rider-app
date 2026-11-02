@@ -215,6 +215,32 @@ void main() {
     expect(supportSenderLine(l, message), 'Movera Support');
   });
 
+  testWidgets(
+    'owner "Can\'t write": a solved ticket has no box and offers New ticket',
+    (tester) async {
+      final solved = ApiClient(
+        env: staging,
+        client: MockClient(
+          (request) async =>
+              http.Response(jsonEncode({...thread, 'status': 'resolved'}), 200),
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SupportTicketThread(
+            ticketId: 'tkt_1',
+            repository: SupportTicketRepository(api: solved),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('support-ticket-reply')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('support-ticket-new')));
+      await tester.pumpAndSettle();
+      expect(find.byType(SupportChat), findsOneWidget);
+    },
+  );
+
   testWidgets('a closed ticket has no reply box', (tester) async {
     final closed = ApiClient(
       env: staging,

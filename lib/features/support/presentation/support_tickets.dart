@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/contracts/status_words.g.dart';
 import 'package:movera_rider/features/support/application/support_ticket_repository.dart';
+import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// Contract v0.9.0 (owner, 2026-10-27): the rider's support tickets and
@@ -220,11 +221,28 @@ class _SupportTicketThreadState extends State<SupportTicketThread> {
                   ],
                 ),
               ),
-              if (ticket.status == 'closed')
+              // Owner 2026-11-02 "Can't write": solved and closed tickets take
+              // no more messages; the rider opens a new one.
+              if (ticket.status == 'closed' || ticket.status == 'resolved')
                 Padding(
                   key: const ValueKey('support-ticket-closed'),
                   padding: const EdgeInsets.all(16),
-                  child: Text(l.supportTicketClosedNote),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(l.supportTicketClosedNote),
+                      const SizedBox(height: 8),
+                      FilledButton(
+                        key: const ValueKey('support-ticket-new'),
+                        onPressed: () => Navigator.of(context).pushReplacement(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const SupportChat(),
+                          ),
+                        ),
+                        child: Text(l.supportNewTicket),
+                      ),
+                    ],
+                  ),
                 )
               else
                 SafeArea(

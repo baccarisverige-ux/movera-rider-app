@@ -3277,6 +3277,7 @@
   "@supportAgentLine": {"placeholders": {"name": {"type": "String"}}},
   "supportReplyHint": "Write a message",
   "supportReplySend": "Send",
-  "supportTicketClosedNote": "This conversation is closed. Write a new message to Movera if you need more help.",
-  "supportReplyFailed": "The message was not sent. Try again."
+  "supportTicketClosedNote": "This conversation is solved. Open a new ticket if you need more help.",
+  "supportReplyFailed": "The message was not sent. Try again.",
+  "supportNewTicket": "New ticket"
 }
