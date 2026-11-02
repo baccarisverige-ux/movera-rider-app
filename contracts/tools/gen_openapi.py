@@ -828,13 +828,14 @@ S["PricingDocument"] = obj(OrderedDict([
     "Server-only (contract.json#configDocs): the zone's prices, read by the server's quote engine. Never served to the apps. " + PR["note"] + " Sample: fixtures/config/pricing_document.json.",
     **{"x-server-only": True})
 S["DispatchModeRules"] = obj({"on": b(), "drivers": i(minimum=1, maximum=30, description="radar: shown at once (1-30); exclusive: tried one after the other per radius step (1-10)."),
-                              "seconds": i(minimum=5, maximum=120, description="radar 5-120, exclusive 5-60."), "then": s(enum=sorted(set(DP["then"]["radar"] + DP["then"]["exclusive"])))},
+                              "seconds": i(minimum=5, maximum=120, description="radar 5-120, exclusive 5-60."), "then": s(enum=sorted(set(DP["then"]["radar"] + DP["then"]["exclusive"]))),
+                              "steps": arr(n(exclusiveMinimum=0, maximum=50), minItems=1, maxItems=5, description="v0.18.11 dispatch start: optional own search steps (km, strictly increasing) for this mode. Missing = radius.steps.")},
                              ["on", "drivers", "seconds", "then"], "Radar: then is widen | exclusive | widen_then_exclusive. Exclusive: then is radar | widen | widen_then_radar.")
 S["DispatchTimeRule"] = obj({"id": s(minLength=1), "on": b(), "from": s(pattern=r"^\d\d:\d\d$"), "to": s(pattern=r"^\d\d:\d\d$"), "mode": s(enum=DP["modes"])},
                             ["id", "on", "from", "to", "mode"], "Zone-local [from, to); wraps midnight when from > to.")
 S["DispatchChoose"] = obj({"how": s(enum=DP["chooseHow"]), "radarAbove": n("Busy level (requests per free driver) from which Auto uses Radar.", exclusiveMinimum=0, maximum=10),
-                           "main": s(enum=DP["modes"]), "backup": s(enum=DP["modes"] + ["none"], description="Ignored in v0.5.1: `then` decides fallbacks."),
-                           "times": arr(ref("DispatchTimeRule"))}, ["how", "radarAbove", "main", "backup", "times"])
+                           "main": s(enum=DP["modes"]), "backup": s(enum=DP["modes"] + ["none"], description="Deprecated (v0.18.11 dispatch start): optional, ignored; `then` decides fallbacks. The admin no longer shows it.", deprecated=True),
+                           "times": arr(ref("DispatchTimeRule"))}, ["how", "radarAbove", "main", "times"])
 S["DispatchFactor"] = obj({"id": s(enum=["eta", "rating", "acceptance", "cancel", "idle", "finishing", "favourite"]), "on": b(), "weight": n(minimum=0)}, ["id", "on", "weight"])
 S["DispatchWaitingStep"] = obj({"id": s(minLength=1), "kind": s(enum=DP["waitingKinds"], **{"x-skipped-in-test-week": DP["skippedWaitingKinds"]}), "on": b(),
                                 "afterMin": n("From search start.", minimum=0, maximum=30), "message": s(), "extraMin": {"type": ["number", "null"], "description": "keep_waiting: minutes added on Keep waiting."}},
@@ -853,6 +854,14 @@ S["DispatchDocument"] = obj(OrderedDict([
     ("raisePrice", obj({"maxFactor": n("v0.18.6 (owner G4-E4 '2×, admin can change'): the rider may raise the fare to at most maxFactor × the booked fare in this zone (default 2). "
                                        "Missing = 2. The server copies it into RiderAppConfig.raisePrice.maxFactor.",
                                        minimum=C["dispatch"]["raisePrice"]["range"][0], maximum=C["dispatch"]["raisePrice"]["range"][1])}, ["maxFactor"])),
+    ("start", obj({"mode": s("Which offer goes out first (contract.json#dispatch.start). Missing = auto (choose decides, as before).", enum=DP["start"]["modes"]),
+                   "nearKm": n("byDistance: the nearest driver (smallest km) within nearKm gets Exclusive first, else Radar first. Default 2.", exclusiveMinimum=0, maximum=50)}, ["mode"],
+                  DP["start"]["note"])),
+    ("limits", obj({"maxPickupKm": n("No offer to a driver farther than this (km). Missing = the widest search step.", exclusiveMinimum=0, maximum=50),
+                    "maxPickupEtaMin": n("No offer to a driver whose pickup ETA (minutes, contract.json#dispatch.eta) is above this. 0 or missing = off.", minimum=0, maximum=60)}, [],
+                   DP["limits"]["note"])),
+    ("neighbours", obj({"on": b(), "zoneIds": arr(ref("Id"), uniqueItems=True), "afterStep": i("1-based search step from which drivers of zoneIds are also asked. Missing = the last step.", minimum=1)},
+                       ["on", "zoneIds"], DP["neighbours"]["note"])),
     ("usesStandard", b("v0.8.0: set by the server when it serves or uses the country standard for this zone (contract.json#configDocs.standard).")),
 ]), ["version", "publishedAt", "zoneId", "country", "timeZone", "radar", "exclusive", "choose", "radius", "factors", "finishing", "favourite", "exclusiveWhileDriving", "waiting"],
     "Server-only (contract.json#configDocs): the zone's automatic dispatch rules (admin Dispatch, a subset of the movera.dispatch.rules export, admin field names). "
@@ -1099,7 +1108,8 @@ S["AddPaymentMethodRequest"] = obj({"method": ref("PaymentMethod"), "pspToken": 
 S["DefaultPaymentMethodRequest"] = obj({"method": ref("PaymentMethod"), "paymentMethodId": ref("Id")}, ["method"])
 S["RiderProfileUpdate"] = obj(dict(EV, firstName=s(minLength=1), email=s(format="email"), language=s(pattern="^[a-z]{2}(-[A-Z]{2})?$"),
                                    consents=obj({"rideUpdates": b(), "emailUpdates": b(), "promotions": b()})), ["expectedVersion"])
-S["DriverProfileUpdate"] = obj(dict(EV, firstName=s(minLength=1), vehicleId=ref("Id"), categoryIds=arr(ref("CategoryId"))), ["expectedVersion"])
+S["DriverProfileUpdate"] = obj(dict(EV, firstName=s(minLength=1), vehicleId=ref("Id"), categoryIds=arr(ref("CategoryId")),
+                                    language=s(enum=["sv", "fr", "en"], description="v0.18.12: the driver app's language, saved to the account when the driver picks one (server notices follow it).")), ["expectedVersion"])
 S["SavedPlaceRequest"] = obj({"label": s(minLength=1, maxLength=80), "kind": s(enum=["home", "work", "other"]), "place": ref("Place")},
                              ["label", "kind", "place"])
 S["VehicleRequest"] = obj({"make": s(), "model": s(), "year": i(minimum=1950, maximum=2100), "color": s(), "plate": s(),
@@ -1486,7 +1496,7 @@ op("get", "/driver/payouts", "listDriverPayouts", "Payout history", ["driver"], 
 op("get", "/driver/profile", "getDriverProfile", "Own driver profile and status", ["driver"], "Driver · Account", ok=(200, "Driver"))
 op("patch", "/driver/profile", "updateDriverProfile", "Update own profile / active vehicle", ["driver"], "Driver · Account",
    body="DriverProfileUpdate", ok=(200, "Driver"), mutation=True,
-   desc="v0.14.0: picking a car (vehicleId) whose Vehicle.requiredDocuments are not all approved → 409 documents_not_approved (reason vehicle_documents_not_approved, details vehicle:<type>).")
+   desc="v0.18.12: language (sv | fr | en) saves the app language to the account, as the rider's PATCH /rider/profile does. v0.14.0: picking a car (vehicleId) whose Vehicle.requiredDocuments are not all approved → 409 documents_not_approved (reason vehicle_documents_not_approved, details vehicle:<type>).")
 op("get", "/driver/vehicles", "listDriverVehicles", "Own vehicles", ["driver"], "Driver · Account",
    params=[pref("Cursor"), pref("Limit")], ok=(200, "VehiclePage"))
 op("post", "/driver/vehicles", "addDriverVehicle", "Register a vehicle (status pending)", ["driver"], "Driver · Account",
@@ -2367,7 +2377,7 @@ S["TripRouteChange"] = obj(OrderedDict([
 ]), ["changeId", "status", "dropoff", "stops", "total", "difference", "askedAt", "answerBy"], "v0.18.9: " + _RX["projection"] + " " + _RX["price"])
 S["TripProjection"]["properties"]["rideCheck"] = ref("TripRideCheck")
 S["DriverBonusOfKind"] = obj({"amountMinor": i(minimum=0), "currency": s(pattern="^[A-Z]{3}$"), "priority": b()}, ["amountMinor", "currency", "priority"], "The admin's money and Priority badge for one kind of offer.")
-S["TripProjection"]["properties"]["moneySend"] = obj({"exclusiveTo": {"oneOf": [ref("Id"), {"type": "null"}]}, "radarTo": arr(ref("Id"))}, ["exclusiveTo", "radarTo"], "Answer of POST /admin/trips/{tripId}/driver-bonus with applyTo only: who got an offer with the money at once.")
+S["TripProjection"]["properties"]["moneySend"] = obj({"exclusiveTo": {"oneOf": [ref("Id"), {"type": "null"}]}, "radarTo": arr(ref("Id")), "skipped": obj({"expired": {"type": "integer", "minimum": 0}, "busy": {"type": "integer", "minimum": 0}, "far": {"type": "integer", "minimum": 0}}, ["expired", "busy", "far"], "Live fix 2026-11-02 (additive): free drivers left out. expired = declined or let an offer of this trip expire; busy = refused when sent; far = beyond reachKm."), "reachKm": {"oneOf": [{"type": "number", "minimum": 0}, {"type": "null"}], "description": "Live fix 2026-11-02 (additive): the widest reach used in km; null = no limit."}}, ["exclusiveTo", "radarTo"], "Answer of POST /admin/trips/{tripId}/driver-bonus with applyTo only: who got an offer with the money at once.")
 S["TripProjection"]["properties"]["driverBonusByKind"] = obj({"exclusive": ref("DriverBonusOfKind"), "radar": ref("DriverBonusOfKind")}, ["exclusive", "radar"], "Admin view only (owner bug 2026-11-01): " + C["adminDispatch"]["driverBonus"]["applyTo"]["note"])
 S["TripProjection"]["properties"]["routeChange"] = ref("TripRouteChange")
 S["AdminTripFlag"] = obj({"flagged": b(), "reason": s(maxLength=500), "by": ref("Id"), "at": ref("Timestamp")}, ["flagged", "by", "at"], "v0.18.9: " + OT["adminTrip"]["new"]["flag"])

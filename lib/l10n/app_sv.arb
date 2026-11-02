@@ -1236,7 +1236,7 @@
   "chatSendHint": "Skicka meddelande...",
   "chatSendUnavailableSemantics": "Det går inte att skicka meddelanden",
   "chatSystemMessage": "Systemmeddelande: {text}",
-  "chatCallUnavailable": "Samtal är inte tillgängliga än – använd chatten",
+  "chatCallUnavailable": "Samtal kommer snart – använd chatten",
   "chatClosedAfterTrip": "Chatten är stängd efter resan",
   "chatCall": "Ring",
   "chatSendSemantics": "Skicka meddelande",
