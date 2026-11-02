@@ -81,6 +81,18 @@ class SupportTicketView {
       );
 }
 
+/// v0.18.15 (contract.json#supportDesk, owner QO-4): the same seven topics as
+/// the driver app; the server says which are on for the rider's country.
+const supportTopics = <String>[
+  'ride_dispute',
+  'help',
+  'lost_item',
+  'payment',
+  'account',
+  'safety',
+  'other',
+];
+
 /// Contract v0.9.0 §16 (owner, 2026-10-27): ride disputes and help requests
 /// are support tickets (`POST /support/tickets`); Movera's answer comes back
 /// on the ticket (`GET /support/tickets/{ticketId}`).
@@ -164,6 +176,22 @@ class SupportTicketRepository {
     );
     _mutation.succeeded(intent);
     return SupportTicketView.fromJson(answer);
+  }
+
+  /// v0.18.15: the topics that are on (contract order); all seven when the
+  /// server is older, does not answer, or this is the demo transport.
+  Future<List<String>> topics() async {
+    if (!available) return supportTopics;
+    try {
+      final answer = await _api.get('/api/v1/support/topics');
+      final on = [
+        for (final item in (answer['topics'] as List? ?? const []))
+          if (supportTopics.contains(item)) item.toString(),
+      ];
+      return on.isEmpty ? supportTopics : on;
+    } catch (_) {
+      return supportTopics;
+    }
   }
 
   /// One ticket with its messages (Movera's answers included).

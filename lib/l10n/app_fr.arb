@@ -1638,5 +1638,12 @@
   "supportNewTicket": "Nouveau ticket",
   "supportCommentHint": "Un commentaire ou une idée pour nous ? (facultatif)",
   "supportCommentSend": "Envoyer le commentaire",
-  "supportCommentThanks": "Merci pour votre commentaire."
+  "supportCommentThanks": "Merci pour votre commentaire.",
+  "supportTopicRideDispute": "Problème avec une course",
+  "supportTopicHelp": "Aide avec l'application",
+  "supportTopicLostItem": "Objet perdu",
+  "supportTopicPayment": "Paiement",
+  "supportTopicAccount": "Compte",
+  "supportTopicSafety": "Sécurité",
+  "supportTopicOther": "Autre chose"
 }

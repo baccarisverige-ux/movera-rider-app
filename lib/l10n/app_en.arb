@@ -3282,5 +3282,12 @@
   "supportNewTicket": "New ticket",
   "supportCommentHint": "Any comment or idea for us? (optional)",
   "supportCommentSend": "Send comment",
-  "supportCommentThanks": "Thanks for your comment."
+  "supportCommentThanks": "Thanks for your comment.",
+  "supportTopicRideDispute": "Problem with a ride",
+  "supportTopicHelp": "Help with the app",
+  "supportTopicLostItem": "Lost item",
+  "supportTopicPayment": "Payment",
+  "supportTopicAccount": "Account",
+  "supportTopicSafety": "Safety",
+  "supportTopicOther": "Something else"
 }

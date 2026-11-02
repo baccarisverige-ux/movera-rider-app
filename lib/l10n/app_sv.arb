@@ -1638,5 +1638,12 @@
   "supportNewTicket": "Nytt ärende",
   "supportCommentHint": "Har du en kommentar eller idé till oss? (valfritt)",
   "supportCommentSend": "Skicka kommentar",
-  "supportCommentThanks": "Tack för din kommentar."
+  "supportCommentThanks": "Tack för din kommentar.",
+  "supportTopicRideDispute": "Problem med en resa",
+  "supportTopicHelp": "Hjälp med appen",
+  "supportTopicLostItem": "Borttappad sak",
+  "supportTopicPayment": "Betalning",
+  "supportTopicAccount": "Konto",
+  "supportTopicSafety": "Säkerhet",
+  "supportTopicOther": "Något annat"
 }
