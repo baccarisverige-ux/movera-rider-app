@@ -1,3 +1,5 @@
+import 'package:movera_rider/features/payments/presentation/card_brand_label.dart';
+
 import 'dart:async';
 
 import 'dart:math' as math;
@@ -3286,11 +3288,7 @@ class _SelectRideState extends State<SelectRide>
     Color background = Colors.white;
     final savedCard = _selection.savedCardFor(brand);
     if (savedCard != null) {
-      logo = Image.asset(
-        excludeFromSemantics: true,
-        savedCard.brand == 'mastercard' ? AppAssets.mastercard : AppAssets.visa,
-        fit: BoxFit.contain,
-      );
+      logo = CardBrandLabel(savedCard.brand);
     } else if (brand == 'apple' || brand == 'cards') {
       // Owner rules: no other company's logo (Apple Pay is named as text).
       logo = const Icon(

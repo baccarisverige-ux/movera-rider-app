@@ -107,7 +107,11 @@ class RideCatalogController extends ChangeNotifier {
   Future<List<RideCatalogItem>?> _loadFromConfig() async {
     try {
       final config = await configSource!();
-      final items = fromConfig(config.categories, _builtIn);
+      final items = fromConfig(
+        config.categories,
+        _builtIn,
+        currency: config.currency,
+      );
       if (items.isEmpty) return null;
       _set(items, RideCatalogSource.server);
       return _current;
@@ -124,14 +128,22 @@ class RideCatalogController extends ChangeNotifier {
   /// with the admin's label and seats over the built-in item of the same
   /// id (picture, note, list price); a category the app does not know gets
   /// the generic car.
+  ///
+  /// [currency] is the zone's (audit M5): a France zone's rows are in EUR
+  /// even for a category the app does not know, never the built-in SEK; a
+  /// built-in list price in another currency is not used (0 until quoted).
   static List<RideCatalogItem> fromConfig(
     List<RiderConfigCategory> categories,
-    List<RideCatalogItem> builtIn,
-  ) {
+    List<RideCatalogItem> builtIn, {
+    String? currency,
+  }) {
+    final zone = currency == null || currency.trim().isEmpty
+        ? null
+        : currency.trim().toUpperCase();
     final sorted = [...categories]..sort((a, b) => a.sort.compareTo(b.sort));
     return [
       for (final category in sorted)
-        _withConfig(category, _builtInFor(category.id, builtIn)),
+        _withConfig(category, _builtInFor(category.id, builtIn), zone),
     ];
   }
 
@@ -155,26 +167,33 @@ class RideCatalogController extends ChangeNotifier {
   static RideCatalogItem _withConfig(
     RiderConfigCategory category,
     RideCatalogItem? known,
-  ) => RideCatalogItem(
-    // The catalog's id; the built-in item's own spelling only when it is
-    // the same category (an alias such as `movera`).
-    id:
-        known != null &&
-            (CategoryIds.tryCanonical(known.id) ?? known.id) == category.id
-        ? known.id
-        : category.id,
-    image: known?.image ?? RideCatalogJson.fallbackImage,
-    name: category.label,
-    note: known?.note ?? '',
-    arrival: known?.arrival ?? '',
-    etaMin: known?.etaMin ?? 0,
-    price: known?.price ?? 0,
-    seats: category.seats,
-    badge: known?.badge,
-    glyph: known?.glyph,
-    currency: known?.currency ?? 'SEK',
-    line: category.line,
-  );
+    String? zoneCurrency,
+  ) {
+    final currency = zoneCurrency ?? known?.currency ?? Money.defaultCurrency;
+    final knownPrice = known != null && known.currency == currency
+        ? known.price
+        : 0.0;
+    return RideCatalogItem(
+      // The catalog's id; the built-in item's own spelling only when it is
+      // the same category (an alias such as `movera`).
+      id:
+          known != null &&
+              (CategoryIds.tryCanonical(known.id) ?? known.id) == category.id
+          ? known.id
+          : category.id,
+      image: known?.image ?? RideCatalogJson.fallbackImage,
+      name: category.label,
+      note: known?.note ?? '',
+      arrival: known?.arrival ?? '',
+      etaMin: known?.etaMin ?? 0,
+      price: knownPrice,
+      seats: category.seats,
+      badge: known?.badge,
+      glyph: known?.glyph,
+      currency: currency,
+      line: category.line,
+    );
+  }
 
   Future<List<RideCatalogItem>> _loadFallback() async {
     // Only the built-in list is replaced by the cache. A list the server

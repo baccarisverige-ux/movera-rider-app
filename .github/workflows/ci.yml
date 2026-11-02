@@ -95,6 +95,11 @@ jobs:
             echo "::error::Journey tests must exercise behavior, not read implementation source."
             exit 1
           fi
+          # Live clean-up H7 (owner branding rule): no card or Google/Apple marks outside sign-in.
+          if grep -R -nE 'AppAssets\.(visa|mastercard|google|apple)\b' lib --include='*.dart' | grep -v '/auth/'; then
+            echo "::error::Brand marks (Visa/Mastercard/Google/Apple) are allowed only on the sign-in buttons."
+            exit 1
+          fi
           python3 - <<'PY'
           from pathlib import Path
           import re, sys

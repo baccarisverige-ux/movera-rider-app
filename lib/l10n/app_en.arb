@@ -3215,5 +3215,7 @@
   "receiptTip": "Tip",
   "@receiptTip": {"description": "Rider G8 (contract 0.18.10 finish)"},
   "receiptRefunded": "Refunded",
-  "@receiptRefunded": {"description": "Rider G8 (contract 0.18.10 finish)"}
+  "@receiptRefunded": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "pickupSpotApproximate": "{name} (approximate)",
+  "@pickupSpotApproximate": {"description": "Owner full-audit Q6: invented pickup spot chips are labelled approximate (also in the driver's pickup label).", "placeholders": {"name": {"type": "String"}}}
 }

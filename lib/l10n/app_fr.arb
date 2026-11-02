@@ -1600,5 +1600,6 @@
   "endedEarlyReason": "Motif",
   "receiptDebtIncluded": "Anciens frais impayés",
   "receiptTip": "Pourboire",
-  "receiptRefunded": "Remboursé"
+  "receiptRefunded": "Remboursé",
+  "pickupSpotApproximate": "{name} (approximatif)"
 }

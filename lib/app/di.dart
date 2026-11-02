@@ -221,6 +221,8 @@ class AppScope {
 
     accountSecurity = AccountSecurityController(
       repository: AccountSecurityRepository(api: api),
+      // Audit M3: the server has no /account/security yet (demo only).
+      built: environment.allowsMockTransport,
     );
 
     geocoding = AppGeocoding(

@@ -72,26 +72,27 @@ class PickupSpotsController {
     LatLng? home,
   }) async {
     // rider-55: titles and subtitles in the app language; a chosen spot's
-    // title is also the booked pickup label's suffix.
+    // title is also the booked pickup label's suffix. Owner (full audit Q6):
+    // the invented spots stay, labelled approximate, so the driver sees it.
     final l10n = L10n.current;
     final generated = <PickupSpot>[
       PickupSpot(
         id: 'entrance-main',
-        title: l10n.pickupSpotMainEntrance,
+        title: l10n.pickupSpotApproximate(l10n.pickupSpotMainEntrance),
         subtitle: l10n.pickupSpotFrontOfBuilding,
         kind: PickupSpotKind.entrance,
         position: pickupSpotOffset(at, northM: 25),
       ),
       PickupSpot(
         id: 'entrance-side',
-        title: l10n.pickupSpotSideEntrance,
+        title: l10n.pickupSpotApproximate(l10n.pickupSpotSideEntrance),
         subtitle: l10n.pickupSpotAroundCorner,
         kind: PickupSpotKind.entrance,
         position: pickupSpotOffset(at, northM: -30),
       ),
       PickupSpot(
         id: 'parking',
-        title: l10n.pickupSpotParking,
+        title: l10n.pickupSpotApproximate(l10n.pickupSpotParking),
         subtitle: l10n.pickupSpotShortWalk,
         kind: PickupSpotKind.parking,
         position: pickupSpotOffset(at, eastM: 60),
