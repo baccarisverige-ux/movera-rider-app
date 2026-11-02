@@ -1608,6 +1608,12 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'receiptTip': l.receiptTip,
   'receiptRefunded': l.receiptRefunded,
   'pickupSpotApproximate': l.pickupSpotApproximate('<name>'),
+  'supportMovera': l.supportMovera,
+  'supportAgentLine': l.supportAgentLine('<name>'),
+  'supportReplyHint': l.supportReplyHint,
+  'supportReplySend': l.supportReplySend,
+  'supportTicketClosedNote': l.supportTicketClosedNote,
+  'supportReplyFailed': l.supportReplyFailed,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -1816,6 +1822,7 @@ const messagePlaceholders = <String, List<String>>{
   'g7MaxStopsShown': ['max'],
   'tipMax': ['amount'],
   'pickupSpotApproximate': ['name'],
+  'supportAgentLine': ['name'],
 };
 
 /// The count placeholders (rendered as 37) of each message, by key.
@@ -5045,4 +5052,16 @@ class _Exhaustive implements AppLocalizations {
   String get receiptRefunded => '';
   @override
   String pickupSpotApproximate(String name) => '';
+  @override
+  String get supportMovera => '';
+  @override
+  String supportAgentLine(String name) => '';
+  @override
+  String get supportReplyHint => '';
+  @override
+  String get supportReplySend => '';
+  @override
+  String get supportTicketClosedNote => '';
+  @override
+  String get supportReplyFailed => '';
 }

@@ -49,7 +49,8 @@ void main() {
         'from': 'support',
         'text': 'We found it, call us.',
         'at': '2026-10-27T10:00:00Z',
-        'adminName': 'Nora Lind',
+        'adminName': 'Nora',
+        'supportName': 'Nora',
       },
     ],
   };
@@ -105,7 +106,7 @@ void main() {
     expect(mine.single.status, 'pending');
     final one = await s.repo.one('tkt_1');
     expect(one.messages.last.fromSupport, isTrue);
-    expect(one.messages.last.adminName, 'Nora Lind');
+    expect(one.messages.last.adminName, 'Nora');
     expect(s.calls, [
       'POST /api/v1/support/tickets',
       'GET /api/v1/support/tickets',
@@ -179,6 +180,59 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('support-ticket-tkt_1')));
     await tester.pumpAndSettle();
     expect(find.text('We found it, call us.'), findsOneWidget);
-    expect(find.text('Nora Lind'), findsOneWidget);
+    // v0.18.15 (owner QO-2): first name · Movera Support.
+    expect(find.text('Nora · Movera Support'), findsOneWidget);
+  });
+
+  testWidgets('v0.18.15 (owner QO-1): the rider answers in the ticket', (
+    tester,
+  ) async {
+    final s = server();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SupportTicketThread(ticketId: 'tkt_1', repository: s.repo),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('support-ticket-reply')),
+      ' Thanks, I will call. ',
+    );
+    await tester.tap(find.byKey(const ValueKey('support-ticket-reply-send')));
+    await tester.pumpAndSettle();
+    expect(s.calls.last, 'POST /api/v1/support/tickets/tkt_1/messages');
+    expect(s.bodies.last, {'text': 'Thanks, I will call.'});
+  });
+
+  test('v0.18.15 (owner QO-2): never an e-mail as the support name', () {
+    final l = L10n.current;
+    final message = SupportTicketMessage.fromJson({
+      'from': 'support',
+      'text': 'x',
+      'at': '2026-10-27T10:00:00Z',
+      'adminName': 'nora@movera.se',
+    });
+    expect(supportSenderLine(l, message), 'Movera Support');
+  });
+
+  testWidgets('a closed ticket has no reply box', (tester) async {
+    final closed = ApiClient(
+      env: staging,
+      client: MockClient(
+        (request) async =>
+            http.Response(jsonEncode({...thread, 'status': 'closed'}), 200),
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SupportTicketThread(
+          ticketId: 'tkt_1',
+          repository: SupportTicketRepository(api: closed),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('support-ticket-closed')), findsOneWidget);
+    expect(find.byKey(const ValueKey('support-ticket-reply')), findsNothing);
   });
 }

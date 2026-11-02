@@ -1601,5 +1601,11 @@
   "receiptDebtIncluded": "Anciens frais impayés",
   "receiptTip": "Pourboire",
   "receiptRefunded": "Remboursé",
-  "pickupSpotApproximate": "{name} (approximatif)"
+  "pickupSpotApproximate": "{name} (approximatif)",
+  "supportMovera": "Support Movera",
+  "supportAgentLine": "{name} · Support Movera",
+  "supportReplyHint": "Écrire un message",
+  "supportReplySend": "Envoyer",
+  "supportTicketClosedNote": "Cette conversation est fermée. Écrivez un nouveau message à Movera si vous avez encore besoin d'aide.",
+  "supportReplyFailed": "Le message n'a pas été envoyé. Réessayez."
 }

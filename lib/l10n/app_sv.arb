@@ -1601,5 +1601,11 @@
   "receiptDebtIncluded": "Tidigare obetald avgift",
   "receiptTip": "Dricks",
   "receiptRefunded": "Återbetalt",
-  "pickupSpotApproximate": "{name} (ungefärlig)"
+  "pickupSpotApproximate": "{name} (ungefärlig)",
+  "supportMovera": "Movera Support",
+  "supportAgentLine": "{name} · Movera Support",
+  "supportReplyHint": "Skriv ett meddelande",
+  "supportReplySend": "Skicka",
+  "supportTicketClosedNote": "Den här konversationen är stängd. Skriv ett nytt meddelande till Movera om du behöver mer hjälp.",
+  "supportReplyFailed": "Meddelandet skickades inte. Försök igen."
 }

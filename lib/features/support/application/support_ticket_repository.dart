@@ -10,6 +10,7 @@ class SupportTicketMessage {
     required this.text,
     required this.at,
     this.adminName,
+    this.supportName,
   });
 
   /// `rider` or `support`.
@@ -17,6 +18,10 @@ class SupportTicketMessage {
   final String text;
   final DateTime at;
   final String? adminName;
+
+  /// v0.18.15 (owner QO-2 "Agent first name"): the answering admin's first
+  /// name only; never an e-mail.
+  final String? supportName;
 
   bool get fromSupport => from == 'support';
 
@@ -26,6 +31,7 @@ class SupportTicketMessage {
         text: json['text']?.toString() ?? '',
         at: DateTime.tryParse(json['at']?.toString() ?? '') ?? DateTime(0),
         adminName: json['adminName']?.toString(),
+        supportName: json['supportName']?.toString(),
       );
 }
 
@@ -123,6 +129,21 @@ class SupportTicketRepository {
         if (item is Map)
           SupportTicketView.fromJson(Map<String, dynamic>.from(item)),
     ];
+  }
+
+  /// v0.18.15 (owner QO-1, chat-style): the rider writes again on the ticket;
+  /// the answer is the ticket with every message.
+  Future<SupportTicketView> write(String ticketId, String text) async {
+    final body = text.trim();
+    if (body.isEmpty) throw ArgumentError.value(text, 'text');
+    final intent = 'msg|$ticketId|$body';
+    final answer = await _api.post(
+      '/api/v1/support/tickets/${Uri.encodeComponent(ticketId)}/messages',
+      body: {'text': body},
+      idempotencyKey: _mutation.keyFor(intent),
+    );
+    _mutation.succeeded(intent);
+    return SupportTicketView.fromJson(answer);
   }
 
   /// One ticket with its messages (Movera's answers included).

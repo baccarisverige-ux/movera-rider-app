@@ -36,6 +36,8 @@ void main() {
       'chatSupportSender',
     },
     'sv': {
+      // v0.18.15 (owner QO-2): the brand line "<first name> · Movera Support".
+      'supportMovera', 'supportAgentLine',
       'appTitle', 'menuSupport', 'menuBusiness', 'placeGym', 'destination',
       'homeCo2Kg', 'perMinRate', 'menuAppVersion', 'destinationLabel',
       'minLineBreak', 'genderMan', 'durMin', 'durH', 'durHMin',
