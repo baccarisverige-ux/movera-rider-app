@@ -332,7 +332,12 @@ class _RideCompletedState extends State<RideCompleted> {
       return;
     }
     if (!mounted) return;
-    RideNavigator.home(context, status: RideStatus.closed);
+    // G9 live 2026-11-02: another active trip opens instead of Home.
+    RideNavigator.home(
+      context,
+      status: RideStatus.closed,
+      openActiveTrip: true,
+    );
   }
 
   void _stayWithError([Object? error]) {

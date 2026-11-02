@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:movera_rider/features/messages/data/chat_read_marks.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
@@ -174,6 +175,8 @@ Future<void> bootstrap() async {
   // server's is read again (startServerReads) and on config_published doc
   // zones.
   await bootStep('zones.cached', AppScope.instance.zones.loadCached);
+  // G9 live 2026-11-02: read chats stay read after a reload.
+  await bootStep('chat.read_marks', ChatReadMarks.load);
   // Q48 / v0.18.2 auth.firstLanguage: the saved language, else the phone's
   // language (sv, fr, en), else the start country's default; a later good
   // fix in another zone moves that default with it.

@@ -2500,7 +2500,7 @@
       }
     }
   },
-  "chatCallUnavailable": "Calls aren't available yet – use the chat",
+  "chatCallUnavailable": "Calls coming soon – use the chat",
   "chatClosedAfterTrip": "The chat is closed after the trip",
   "chatCall": "Call",
   "chatSendSemantics": "Send message",

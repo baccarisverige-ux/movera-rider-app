@@ -1236,7 +1236,7 @@
   "chatSendHint": "Envoyer un message...",
   "chatSendUnavailableSemantics": "Envoi de message indisponible",
   "chatSystemMessage": "Message système : {text}",
-  "chatCallUnavailable": "Les appels ne sont pas encore disponibles – utilisez le chat",
+  "chatCallUnavailable": "Appels bientôt disponibles – utilisez le chat",
   "chatClosedAfterTrip": "Le chat est fermé après la course",
   "chatCall": "Appeler",
   "chatSendSemantics": "Envoyer le message",

@@ -1,10 +1,14 @@
 import 'package:flutter/foundation.dart';
+import 'package:movera_rider/features/messages/data/chat_read_marks.dart';
 import 'package:movera_rider/features/messages/domain/messages.dart';
 
 /// One ride's conversation as this app holds it. Notifies on every change
 /// so the Chat screen and the trip screen's unread badge follow it.
 class MessagesRepository extends ChangeNotifier {
-  MessagesRepository();
+  MessagesRepository({String? rideId}) : _rideId = rideId;
+
+  /// The ride this conversation belongs to; null for a screen-only one.
+  final String? _rideId;
 
   static final Map<String, MessagesRepository> _rideSessions =
       <String, MessagesRepository>{};
@@ -20,7 +24,10 @@ class MessagesRepository extends ChangeNotifier {
     if (key.isEmpty) return MessagesRepository();
     // An ended trip's chat stays closed and empty (v0.18.5 chat.appStorage).
     if (_endedRides.contains(key)) return MessagesRepository().._closed = true;
-    return _rideSessions.putIfAbsent(key, MessagesRepository.new);
+    return _rideSessions.putIfAbsent(
+      key,
+      () => MessagesRepository(rideId: key),
+    );
   }
 
   /// Trips whose chat ended in this process (ids only, never a message).
@@ -31,6 +38,7 @@ class MessagesRepository extends ChangeNotifier {
   static void clearAllSessions() {
     _rideSessions.clear();
     _endedRides.clear();
+    ChatReadMarks.forgetAll();
   }
 
   /// Contract v0.18.5 `chat.appStorage` (owner 2026-10-30: "Never store
@@ -42,6 +50,7 @@ class MessagesRepository extends ChangeNotifier {
     final key = rideId.trim();
     if (key.isEmpty) return;
     _endedRides.add(key);
+    ChatReadMarks.forget(key);
     final session = _rideSessions.remove(key);
     session?._end();
   }
@@ -50,6 +59,7 @@ class MessagesRepository extends ChangeNotifier {
   static void endAllRides() {
     final sessions = _rideSessions.values.toList();
     _endedRides.addAll(_rideSessions.keys);
+    _rideSessions.keys.forEach(ChatReadMarks.forget);
     _rideSessions.clear();
     for (final session in sessions) {
       session._end();
@@ -118,7 +128,7 @@ class MessagesRepository extends ChangeNotifier {
           localId: _messages[pending].localId,
         );
       } else {
-        _messages.add(message);
+        _messages.add(_readBefore(message));
       }
       changed = true;
     }
@@ -153,13 +163,35 @@ class MessagesRepository extends ChangeNotifier {
 
   void markAllRead(DateTime at) {
     var changed = false;
+    DateTime? newest;
     for (var i = 0; i < _messages.length; i += 1) {
       final message = _messages[i];
+      final sent = message.sentAt;
+      if (message.sender != ChatMessageSender.rider &&
+          sent != null &&
+          (newest == null || sent.isAfter(newest))) {
+        newest = sent;
+      }
       if (!message.isUnreadForRider) continue;
       _messages[i] = message.copyWith(readAt: at);
       changed = true;
     }
+    // G9 live 2026-11-02: kept over a reload (a time only, no message).
+    if (_rideId case final ride? when newest != null) {
+      ChatReadMarks.mark(ride, newest);
+    }
     if (changed) notifyListeners();
+  }
+
+  /// A message from the server the rider already read before a reload
+  /// ([ChatReadMarks]) comes in read.
+  ChatMessage _readBefore(ChatMessage message) {
+    final ride = _rideId;
+    if (ride == null || !message.isUnreadForRider) return message;
+    final mark = ChatReadMarks.of(ride);
+    final sent = message.sentAt;
+    if (mark == null || sent == null || sent.isAfter(mark)) return message;
+    return message.copyWith(readAt: mark);
   }
 
   int _indexOfId(String messageId) =>
