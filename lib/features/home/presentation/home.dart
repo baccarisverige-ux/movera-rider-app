@@ -2791,8 +2791,14 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
               Positioned(
                 left: ResSize.w * (18 + (12 * (1 - sheetProgress))),
                 right: ResSize.w * (18 + (12 * (1 - sheetProgress))),
+                // Owner 2026-11-02 ("Yes, move it up"): with the sheet open
+                // the docked bar sits just above the bottom safe area (home
+                // indicator), so the tabs are fully tappable. Unchanged with
+                // the sheet down.
                 top:
-                    sheetHeight - ResSize.h * (63 + (30 * (1 - sheetProgress))),
+                    sheetHeight -
+                    ResSize.h * (63 + (30 * (1 - sheetProgress))) -
+                    MediaQuery.paddingOf(context).bottom * sheetProgress,
                 child: Transform.scale(
                   scale: 0.84 + (0.16 * sheetProgress),
                   alignment: Alignment.bottomCenter,

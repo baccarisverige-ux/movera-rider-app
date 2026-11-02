@@ -129,6 +129,25 @@ void main() {
           reason: 'the sheet really is fully open',
         );
         await expectGlass(tester, open: true);
+        // Owner "Yes, move it up": the docked bar sits above the bottom
+        // safe area and the lower half of every tab takes the tap.
+        final row = tester.getRect(find.byType(LiquidGlassNavRow));
+        expect(row.bottom, lessThanOrEqualTo(844 - inset + 0.01));
+        final items = find.byType(PremiumBottomNavItem);
+        expect(items, findsNWidgets(4));
+        for (var i = 0; i < 4; i++) {
+          final item = items.at(i);
+          final r = tester.getRect(item);
+          final point = Offset(r.center.dx, r.top + r.height * 0.8);
+          expect(point.dy, lessThan(844 - inset));
+          final target = tester.renderObject(item);
+          final hits = tester.hitTestOnBinding(point).path.map((e) => e.target);
+          expect(
+            hits.contains(target),
+            isTrue,
+            reason: 'tab $i lower half is tappable',
+          );
+        }
       } finally {
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump(const Duration(seconds: 2));
