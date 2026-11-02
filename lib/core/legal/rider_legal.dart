@@ -58,7 +58,14 @@ class LegalTexts {
     required this.privacy,
     this.source = 'default',
     this.reacceptFrom,
+    this.company = const {},
   });
+
+  /// The admin's company and support details (Content › Legal,
+  /// `LegalCompany { companyName, orgNumber, address, supportEmail,
+  /// supportPhone }`) when the server sends them with the texts; empty
+  /// otherwise. "Need help?" shows them (owner G1).
+  final Map<String, String> company;
 
   final String country;
 
@@ -98,6 +105,14 @@ class LegalTexts {
           : null,
       terms: terms,
       privacy: privacy,
+      company: {
+        if (raw['company'] case final Map company)
+          for (final e in company.entries)
+            if (e.key is String &&
+                e.value is String &&
+                (e.value as String).trim().isNotEmpty)
+              e.key as String: (e.value as String).trim(),
+      },
     );
   }
 
@@ -109,6 +124,7 @@ class LegalTexts {
     'reacceptFrom': reacceptFrom,
     'terms': terms.toJson(),
     'privacy': privacy.toJson(),
+    if (company.isNotEmpty) 'company': company,
   };
 }
 

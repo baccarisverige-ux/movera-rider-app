@@ -24,6 +24,9 @@ abstract final class ReservationFormat {
     switch (ride.status) {
       case ReservationStatus.completed:
         if (ride.paymentFailed) return L10n.current.resPaymentFailed;
+        // Deep-fix H-4: a paid early end is listed as completed, labelled
+        // "Ended early".
+        if (ride.endedEarly) return L10n.current.endedEarly;
         // v0.10.4: the contract word (statusWords tripStatus.completed).
         return statusWord(L10n.current, 'tripStatus', 'completed');
       case ReservationStatus.cancelled:

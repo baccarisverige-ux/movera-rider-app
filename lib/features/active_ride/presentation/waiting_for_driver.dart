@@ -1317,6 +1317,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         ),
       );
     }
+    // v0.18.13 (deep re-check M5): the server waives the fee while the
+    // driver is not heading to the pickup; the preview says so.
+    if (_tracking.headingFreeCancel &&
+        _tracking.status != RideStatus.driverWaiting) {
+      return L10n.current.noFeeToCancel;
+    }
     final ownNote = widget.cancelFeeNote;
     if (ownNote != null) {
       try {
@@ -2271,6 +2277,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       unawaited(_adoptAcceptedRoute(outcome));
     } else if (outcome.status == 'withdrawn') {
       text = context.l10n.g7RouteWithdrawn;
+    } else if (outcome.status == 'expired') {
+      // Deep-fix 2026-11-02: no answer in time is not a refusal.
+      text = context.l10n.g7RouteExpired;
     } else {
       text = context.l10n.g7RouteRefused;
     }

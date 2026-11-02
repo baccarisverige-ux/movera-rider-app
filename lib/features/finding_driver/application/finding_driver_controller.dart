@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/search_step.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -180,6 +181,41 @@ class FindingDriverController {
 
   RideSession get ride => _ride ?? AppScope.instance.ride;
   ApiClient get api => _api ?? AppScope.instance.api;
+
+  /// The admin's search step to show (contract `TripProjection.searchStep`),
+  /// or null; a keep_waiting step already answered is not shown again.
+  TripSearchStep? searchStep;
+  final Set<String> _answeredSteps = {};
+  bool keepWaitingInFlight = false;
+
+  /// `POST /trips/{tripId}/keep-waiting { answer: wait | stop }`: wait
+  /// moves the search end by the step's minutes; stop is the normal free
+  /// cancel, which the trip's own events then end. False when it failed
+  /// (the step stays so the rider can try again).
+  Future<bool> answerKeepWaiting({required bool wait}) async {
+    final step = searchStep;
+    final id = ride.rideId;
+    if (step == null || id == null || keepWaitingInFlight) return false;
+    keepWaitingInFlight = true;
+    try {
+      await api.post(
+        api.tripPath(id, 'keep-waiting'),
+        body: {'answer': wait ? 'wait' : 'stop'},
+        idempotencyKey: 'keep-waiting-${step.id}-${wait ? 'wait' : 'stop'}',
+      );
+      _answeredSteps.add(step.id);
+      if (identical(searchStep, step)) searchStep = null;
+      return true;
+    } catch (error) {
+      AppLog.warning(
+        'ride.keep_waiting_failed',
+        extra: {'rideId': id, 'error': '$error'},
+      );
+      return false;
+    } finally {
+      keepWaitingInFlight = false;
+    }
+  }
 
   /// Stable identity captured when this Finding owner started. Unlike the
   /// process-wide RideSession, this cannot be overwritten by a concurrent
@@ -454,6 +490,12 @@ class FindingDriverController {
       // The server answers again and the ride is still searching: send the
       // queued cancel now (never for a ride a driver already accepted).
       if (_cancelQueued && event.status.isSearching) _flushQueuedCancel();
+      // Deep-fix 2026-11-02: the admin's search step (its message, and
+      // Keep waiting / Stop for keep_waiting) is shown while searching.
+      if (event.searchStep case final step?
+          when event.status.isSearching && !_answeredSteps.contains(step.id)) {
+        searchStep = step;
+      }
       if (_assigned && event.status == RideStatus.driverAssigned) return;
       if (event.driver != null) matchedDriver = event.driver;
 

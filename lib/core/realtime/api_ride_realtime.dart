@@ -542,7 +542,16 @@ class ApiRideRealtime implements RideRealtime {
     final location = _location(ride);
     final eta = ride['eta'];
     final etaAt = eta is Map ? _date(eta['at']) : null;
+    final step = ride['searchStep'];
+    final stepId = step is Map && step['id'] is String
+        ? step['id'] as String
+        : null;
+    final heading = ride['headingCheck'];
+    final headingFree = heading is Map ? heading['freeCancel'] : null;
     if (poll.version == version &&
+        // v0.5.1: a search step fires without a version change.
+        poll.lastSearchStepId == stepId &&
+        poll.lastHeadingFree == headingFree &&
         poll.updatedAt == updatedAt &&
         poll.lastStatus == status &&
         poll.lastLat == location.lat &&
@@ -566,6 +575,8 @@ class ApiRideRealtime implements RideRealtime {
     poll.lastLng = location.lng;
     poll.lastLocationAt = location.at;
     poll.lastEtaAt = etaAt;
+    poll.lastSearchStepId = stepId;
+    poll.lastHeadingFree = headingFree;
     _shown[poll.id] = (
       status: status,
       // A matched projection without a driver keeps the one shown.
@@ -635,6 +646,11 @@ class ApiRideRealtime implements RideRealtime {
           // v0.18.9: the server's ride check and the route change.
           if (ride['rideCheck'] is Map) rideCheckKey: ride['rideCheck'],
           if (ride['routeChange'] is Map) routeChangeKey: ride['routeChange'],
+          // v0.18.13: the smart late rule (a free cancel the server grants).
+          if (ride['headingCheck'] is Map)
+            headingCheckKey: ride['headingCheck'],
+          // v0.5.1: the admin's search step (its message and keep_waiting).
+          if (ride['searchStep'] is Map) searchStepKey: ride['searchStep'],
           if (dropped) 'kind': 'driver_cancelled',
           if (byAdmin) reassignedByKey: reassignedByAdmin,
         },
@@ -903,6 +919,12 @@ class _RidePoll {
   double? lastLng;
   DateTime? lastLocationAt;
   DateTime? lastEtaAt;
+
+  /// The admin search step last passed on (it fires without a version).
+  String? lastSearchStepId;
+
+  /// `headingCheck.freeCancel` last passed on (no version change either).
+  Object? lastHeadingFree;
 }
 
 /// The trip stream went silent past its heartbeat.

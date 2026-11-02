@@ -32,6 +32,23 @@ void main() {
       }
     });
 
+    test('v0.18.14 otp_locked_today: too many wrong codes today, with the '
+        'wait', () {
+      const locked = ApiError(
+        code: 'rate_limited',
+        reason: 'otp_locked_today',
+        message: 'x',
+        statusCode: 429,
+        retryAfter: Duration(minutes: 42),
+      );
+      expect(isLockedToday(locked), isTrue);
+      expect(
+        authErrorMessage(locked, AuthAction.sendCode),
+        startsWith('Too many wrong codes today. Try again later.'),
+      );
+      expect(authErrorMessage(locked, AuthAction.sendCode), contains('42'));
+    });
+
     test('a wrong code and an expired code are told apart', () {
       expect(
         authErrorMessage(

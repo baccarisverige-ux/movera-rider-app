@@ -14,6 +14,7 @@ class RideQuote {
     this.bookingFeeMinor = 0,
     this.surgeMinor = 0,
     this.discountMinor = 0,
+    this.outstandingFeeMinor = 0,
     this.signedPayload,
     this.serverHeld = false,
   });
@@ -29,6 +30,11 @@ class RideQuote {
   final int bookingFeeMinor;
   final int surgeMinor;
   final int discountMinor;
+
+  /// Live sweep 2026-11-02 M-1: an earlier unpaid fee (cancel or no-show)
+  /// the server adds to this price (`fareLines.outstanding_fee`), shown as
+  /// its own line so it is never hidden in the total.
+  final int outstandingFeeMinor;
   final String? signedPayload;
 
   /// A contract `Quote` (openapi v0.5): the server stores it and binds the

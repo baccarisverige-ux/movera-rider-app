@@ -15,6 +15,19 @@ class SupportDetails {
   /// Company details as they should read: name, org. number, address.
   final String company;
 
+  /// From the admin's `LegalCompany` (Content › Legal): support e-mail and
+  /// phone, and the company's name, org. number and address.
+  factory SupportDetails.fromLegalCompany(Map<String, String> company) =>
+      SupportDetails(
+        email: company['supportEmail'] ?? '',
+        phone: company['supportPhone'] ?? '',
+        company: [
+          company['companyName'],
+          company['orgNumber'],
+          company['address'],
+        ].whereType<String>().where((s) => s.trim().isNotEmpty).join('\n'),
+      );
+
   bool get isEmpty =>
       email.trim().isEmpty && phone.trim().isEmpty && company.trim().isEmpty;
 }

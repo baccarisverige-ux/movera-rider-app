@@ -10,7 +10,12 @@ class ServerReceiptLines extends StatefulWidget {
     required this.rideId,
     this.loader,
     this.showEndedEarly = true,
+    this.showTotal = false,
   });
+
+  /// History (live sweep M-11): the receipt's total comes first, under a
+  /// "Receipt" heading.
+  final bool showTotal;
 
   final String rideId;
   final Future<ServerReceipt?> Function(String rideId)? loader;
@@ -69,6 +74,19 @@ class _ServerReceiptLinesState extends State<ServerReceiptLines> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (widget.showTotal) ...[
+          Text(
+            l10n.receiptHeading,
+            key: const ValueKey('receipt-heading'),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+          if (receipt.total case final total?)
+            _line(
+              l10n.total,
+              formatMoney(total),
+              key: const ValueKey('receipt-total'),
+            ),
+        ],
         if (receipt.endedEarly && widget.showEndedEarly)
           _line(
             l10n.endedEarly,

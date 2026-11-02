@@ -2112,6 +2112,16 @@ class _SelectRideState extends State<SelectRide>
           // v0.18.10 (owner G8 item 2): a payment method the server does
           // not take is said plainly, then back to the payment choice;
           // never a silent return to Select Ride.
+          // G16-1: a paused account cannot book; it is said plainly.
+          if (error is ApiError && error.detail == 'account_suspended') {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                key: const ValueKey('booking-account-suspended'),
+                content: Text(context.l10n.accountSuspended),
+              ),
+            );
+            return;
+          }
           if (error is ApiError && error.detail.startsWith('payment_method_')) {
             await _paymentMethodRefused(error.detail);
             return;
@@ -2984,6 +2994,8 @@ class _SelectRideState extends State<SelectRide>
                           _walletLine(price),
                         if (selected && _walletOtherCurrency)
                           _walletCurrencyNote(),
+                        if (_outstandingFeeOf(ride) case final fee?)
+                          _outstandingFeeLine(ride, fee),
                         // Description and badge come in as the sheet opens
                         // fully.
                         _reveal(
@@ -3048,6 +3060,25 @@ class _SelectRideState extends State<SelectRide>
       _selection.walletBalance > 0 &&
       !_selection.walletMatchesTrip &&
       _selection.walletEnabled;
+
+  /// Live sweep 2026-11-02 M-1: the old unpaid fee inside this price
+  /// (`fareLines.outstanding_fee`), or null.
+  Money? _outstandingFeeOf(_RideOption ride) {
+    final quote = _selection.authoritativeQuotes[ride.id];
+    if (quote == null || quote.outstandingFeeMinor <= 0) return null;
+    return Money(quote.outstandingFeeMinor, quote.currency);
+  }
+
+  Widget _outstandingFeeLine(_RideOption ride, Money fee) => Padding(
+    key: ValueKey('select-ride-outstanding-fee-${ride.id}'),
+    padding: const EdgeInsets.only(top: 4),
+    child: Text(
+      context.l10n.priceIncludesUnpaidFee(formatMoneyShort(fee)),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: _text(12, color: _muted),
+    ),
+  );
 
   Widget _walletCurrencyNote() => Padding(
     key: const ValueKey('select-ride-wallet-currency-note'),
