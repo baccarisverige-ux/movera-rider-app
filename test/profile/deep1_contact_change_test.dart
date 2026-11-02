@@ -106,4 +106,33 @@ void main() {
       findsOneWidget,
     );
   });
+
+  for (final (status, reason, text) in [
+    (
+      403,
+      'reauth_required',
+      'Sign in again first, then change your number/e-mail',
+    ),
+    (429, 'change_too_many', 'Too many changes — try again in an hour'),
+  ]) {
+    testWidgets('$status $reason has its own message', (tester) async {
+      await open(
+        tester,
+        ContactKind.email,
+        (_) => throw ApiError(
+          code: 'refused',
+          reason: reason,
+          message: 'x',
+          statusCode: status,
+        ),
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('contact-value')),
+        'new@example.test',
+      );
+      await tester.tap(find.byKey(const ValueKey('contact-submit')));
+      await tester.pumpAndSettle();
+      expect(find.text(text), findsOneWidget);
+    });
+  }
 }

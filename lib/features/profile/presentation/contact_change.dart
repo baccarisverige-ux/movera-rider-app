@@ -64,6 +64,10 @@ class _ContactChangePageState extends State<ContactChangePage> {
           return l10n.errWrongCode;
         case 'otp_expired' || 'invalid_otp_session':
           return l10n.codeExpired;
+        case 'reauth_required':
+          return l10n.contactReauthRequired;
+        case 'change_too_many':
+          return l10n.contactChangeTooMany;
       }
     }
     if (riderErrorKind(error) == RiderErrorKind.offline) return l10n.errOffline;

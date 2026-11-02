@@ -1641,6 +1641,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'contactPhoneTaken': l.contactPhoneTaken,
   'contactEmailTaken': l.contactEmailTaken,
   'contactChangeFailed': l.contactChangeFailed,
+  'contactReauthRequired': l.contactReauthRequired,
+  'contactChangeTooMany': l.contactChangeTooMany,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -5134,4 +5136,8 @@ class _Exhaustive implements AppLocalizations {
   String get contactEmailTaken => '';
   @override
   String get contactChangeFailed => '';
+  @override
+  String get contactReauthRequired => '';
+  @override
+  String get contactChangeTooMany => '';
 }

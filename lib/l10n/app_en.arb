@@ -3267,5 +3267,9 @@
   "contactEmailTaken": "This e-mail is already used by another account",
   "@contactEmailTaken": {"description": "Decision driver-g1 phone / e-mail change, riders too (contract v0.18.14 accountChange)."},
   "contactChangeFailed": "Could not change it. Try again.",
-  "@contactChangeFailed": {"description": "Decision driver-g1 phone / e-mail change, riders too (contract v0.18.14 accountChange)."}
+  "@contactChangeFailed": {"description": "Decision driver-g1 phone / e-mail change, riders too (contract v0.18.14 accountChange)."},
+  "contactReauthRequired": "Sign in again first, then change your number/e-mail",
+  "contactChangeTooMany": "Too many changes — try again in an hour",
+  "@contactReauthRequired": {"description": "403 reauth_required on phone/e-mail change."},
+  "@contactChangeTooMany": {"description": "429 change_too_many on phone/e-mail change."}
 }

@@ -1626,5 +1626,7 @@
   "contactEmailSaved": "E-postadressen har ändrats",
   "contactPhoneTaken": "Numret används redan av ett annat konto",
   "contactEmailTaken": "E-postadressen används redan av ett annat konto",
-  "contactChangeFailed": "Det gick inte att ändra. Försök igen."
+  "contactChangeFailed": "Det gick inte att ändra. Försök igen.",
+  "contactReauthRequired": "Logga in igen först och ändra sedan ditt nummer/din e-post",
+  "contactChangeTooMany": "För många ändringar – försök igen om en timme"
 }

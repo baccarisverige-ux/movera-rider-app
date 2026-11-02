@@ -12914,11 +12914,15 @@ paths:
     post:
       operationId: startPhoneChange
       summary: 'Change my phone number: send a code to the new one'
-      description: 'v0.18.14: POST /account/phone/change { phone } → OtpChallenge (code to the new number; 409 phone_taken);
-        POST /account/phone/verify { phone, sessionId, code } → { phone } and a notice phone_changed. POST /account/email/change
-        { email } → { challengeId, expiresAt, delivery: pending_provider } (code to the new address once an e-mail provider
-        is connected); POST /account/email/verify { challengeId, code } → { email } and a notice email_changed. Wrong code
-        400 invalid_otp_code, 5 tries, 5 minutes (auth.otp).'
+      description: 'v0.18.14: POST /account/phone/change { phone } → OtpChallenge; POST /account/phone/verify { phone, sessionId,
+        code } → { phone }. POST /account/email/change { email } → { challengeId, expiresAt, delivery: pending_provider };
+        POST /account/email/verify { challengeId, code } → { email }. Only within 10 minutes of signing in on this phone (403
+        reauth_required: sign in again first); at most 3 starts per hour per account and kind (429 change_too_many). A number
+        or address that already has any account (rider or driver) gets the same answer and no code, and the verify fails like
+        a wrong session (invalid_otp_session / invalid_email_challenge) — the answer never tells. Wrong tries carry over a
+        restart (5 per hour, auth.otp). After the change: a notice to the OLD number / OLD address (sent by SMS / e-mail once
+        a provider is connected; recorded as pending until then), an in-app notice (phone_changed / email_changed), and every
+        other session of the account ends.'
       tags:
       - Account
       x-actor:
@@ -12961,11 +12965,15 @@ paths:
     post:
       operationId: verifyPhoneChange
       summary: Save the new phone number with its code
-      description: 'v0.18.14: POST /account/phone/change { phone } → OtpChallenge (code to the new number; 409 phone_taken);
-        POST /account/phone/verify { phone, sessionId, code } → { phone } and a notice phone_changed. POST /account/email/change
-        { email } → { challengeId, expiresAt, delivery: pending_provider } (code to the new address once an e-mail provider
-        is connected); POST /account/email/verify { challengeId, code } → { email } and a notice email_changed. Wrong code
-        400 invalid_otp_code, 5 tries, 5 minutes (auth.otp).'
+      description: 'v0.18.14: POST /account/phone/change { phone } → OtpChallenge; POST /account/phone/verify { phone, sessionId,
+        code } → { phone }. POST /account/email/change { email } → { challengeId, expiresAt, delivery: pending_provider };
+        POST /account/email/verify { challengeId, code } → { email }. Only within 10 minutes of signing in on this phone (403
+        reauth_required: sign in again first); at most 3 starts per hour per account and kind (429 change_too_many). A number
+        or address that already has any account (rider or driver) gets the same answer and no code, and the verify fails like
+        a wrong session (invalid_otp_session / invalid_email_challenge) — the answer never tells. Wrong tries carry over a
+        restart (5 per hour, auth.otp). After the change: a notice to the OLD number / OLD address (sent by SMS / e-mail once
+        a provider is connected; recorded as pending until then), an in-app notice (phone_changed / email_changed), and every
+        other session of the account ends.'
       tags:
       - Account
       x-actor:
@@ -13004,11 +13012,15 @@ paths:
     post:
       operationId: startEmailChange
       summary: 'Change my e-mail: send a code to the new one'
-      description: 'v0.18.14: POST /account/phone/change { phone } → OtpChallenge (code to the new number; 409 phone_taken);
-        POST /account/phone/verify { phone, sessionId, code } → { phone } and a notice phone_changed. POST /account/email/change
-        { email } → { challengeId, expiresAt, delivery: pending_provider } (code to the new address once an e-mail provider
-        is connected); POST /account/email/verify { challengeId, code } → { email } and a notice email_changed. Wrong code
-        400 invalid_otp_code, 5 tries, 5 minutes (auth.otp).'
+      description: 'v0.18.14: POST /account/phone/change { phone } → OtpChallenge; POST /account/phone/verify { phone, sessionId,
+        code } → { phone }. POST /account/email/change { email } → { challengeId, expiresAt, delivery: pending_provider };
+        POST /account/email/verify { challengeId, code } → { email }. Only within 10 minutes of signing in on this phone (403
+        reauth_required: sign in again first); at most 3 starts per hour per account and kind (429 change_too_many). A number
+        or address that already has any account (rider or driver) gets the same answer and no code, and the verify fails like
+        a wrong session (invalid_otp_session / invalid_email_challenge) — the answer never tells. Wrong tries carry over a
+        restart (5 per hour, auth.otp). After the change: a notice to the OLD number / OLD address (sent by SMS / e-mail once
+        a provider is connected; recorded as pending until then), an in-app notice (phone_changed / email_changed), and every
+        other session of the account ends.'
       tags:
       - Account
       x-actor:
@@ -13051,11 +13063,15 @@ paths:
     post:
       operationId: verifyEmailChange
       summary: Save the new e-mail with its code
-      description: 'v0.18.14: POST /account/phone/change { phone } → OtpChallenge (code to the new number; 409 phone_taken);
-        POST /account/phone/verify { phone, sessionId, code } → { phone } and a notice phone_changed. POST /account/email/change
-        { email } → { challengeId, expiresAt, delivery: pending_provider } (code to the new address once an e-mail provider
-        is connected); POST /account/email/verify { challengeId, code } → { email } and a notice email_changed. Wrong code
-        400 invalid_otp_code, 5 tries, 5 minutes (auth.otp).'
+      description: 'v0.18.14: POST /account/phone/change { phone } → OtpChallenge; POST /account/phone/verify { phone, sessionId,
+        code } → { phone }. POST /account/email/change { email } → { challengeId, expiresAt, delivery: pending_provider };
+        POST /account/email/verify { challengeId, code } → { email }. Only within 10 minutes of signing in on this phone (403
+        reauth_required: sign in again first); at most 3 starts per hour per account and kind (429 change_too_many). A number
+        or address that already has any account (rider or driver) gets the same answer and no code, and the verify fails like
+        a wrong session (invalid_otp_session / invalid_email_challenge) — the answer never tells. Wrong tries carry over a
+        restart (5 per hour, auth.otp). After the change: a notice to the OLD number / OLD address (sent by SMS / e-mail once
+        a provider is connected; recorded as pending until then), an in-app notice (phone_changed / email_changed), and every
+        other session of the account ends.'
       tags:
       - Account
       x-actor:
@@ -15306,7 +15322,8 @@ components:
             the driver''s active car (Driver.vehicleId) first even when it is not one of his fleet''s cars; every item has
             active: true|false. Dispatch offers a trip only when the active car is approved and has the trip''s category (a
             Komfort trip needs a Komfort car); re-approving a car without a ride type removes it from the chosen types of
-            its drivers.'
+            its drivers. An approved car with no categories stored does not narrow the driver''s chosen types (older rows;
+            the admin should re-approve it with its categories).'
     DriverAccountType:
       type: string
       enum:

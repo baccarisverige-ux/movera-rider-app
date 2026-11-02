@@ -1626,5 +1626,7 @@
   "contactEmailSaved": "E-mail modifié",
   "contactPhoneTaken": "Ce numéro est déjà utilisé par un autre compte",
   "contactEmailTaken": "Cet e-mail est déjà utilisé par un autre compte",
-  "contactChangeFailed": "Impossible de le modifier. Réessayez."
+  "contactChangeFailed": "Impossible de le modifier. Réessayez.",
+  "contactReauthRequired": "Reconnectez-vous d'abord, puis modifiez votre numéro/e-mail",
+  "contactChangeTooMany": "Trop de modifications — réessayez dans une heure"
 }
