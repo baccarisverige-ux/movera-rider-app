@@ -2553,6 +2553,32 @@ op("post", "/admin/refunds/{refundId}/paid", "adminMarkRefundPaid", "Mark a Swis
    params=[{"name": "refundId", "in": "path", "required": True, "schema": ref("Id")}], body="RefundPaidCommand", ok=(200, "Refund"), mutation=True, permission="finance.edit",
    desc="v0.18.13 (audit M4: served since v0.18.10, now in the paths). 409 conflict reason already_paid or no_payout (the rider has not chosen Swish or bank). Written in the audit (refund.paid).")
 
+# ---------------------------------------------------------------- v0.18.14 (deep fix round 1, fix list 2026-11-02)
+_CL = C["countryLimits"]
+S["CountryLimits"] = obj(OrderedDict([(k, {**i(_CL["fields"][k] + f" Range {_CL['ranges'][k][0]}–{_CL['ranges'][k][1]}.", minimum=_CL["ranges"][k][0], maximum=_CL["ranges"][k][1]), "default": _CL["defaults"][k]}) for k in _CL["defaults"]]), (), "v0.18.14: " + _CL["note"])
+S["CountryRules"]["properties"]["limits"] = {"allOf": [ref("CountryLimits")], "description": "v0.18.14: read from the country standard only."}
+S["DriverAppConfig"]["properties"]["offers"]["properties"]["autoOffline"]["properties"]["on"] = {**b("v0.18.14 (g1-g3 M8): false = the server never sets a driver of this zone offline for missed offers nor for no position (missedExclusive and noFixMinutes are then ignored). Default true."), "default": True}
+_RCP = C["onTrip"]["routeChange"]["driverPush"]
+PATHS["/trips/{tripId}"]["patch"]["description"] = (PATHS["/trips/{tripId}"]["patch"].get("description", "") + " v0.18.14: " + _RCP["note"]).strip()
+_D1 = C["deepFix1"]
+PATHS["/driver/earnings"]["get"]["parameters"].append(q("currency", {"type": "string", "pattern": "^[A-Z]{3}$"}, "v0.18.14: the report's currency (default the driver's first zone's)."))
+S["EarningsReport"]["properties"]["currency"] = s("v0.18.14: every amount of this report is in it.", pattern="^[A-Z]{3}$")
+S["EarningsReport"]["properties"]["currencies"] = arr(s(pattern="^[A-Z]{3}$"), description="v0.18.14: " + _D1["earnings"])
+S["Vehicle"]["properties"]["active"] = b("v0.18.14 (GET /driver/vehicles): this is the driver's active car. " + _D1["vehicles"])
+S["LegalTexts"]["properties"]["company"] = {"allOf": [ref("LegalCompany")], "description": "v0.18.14: " + _D1["legal"]}
+PATHS["/notifications"]["get"]["description"] = (PATHS["/notifications"]["get"].get("description", "") + " v0.18.14: " + _D1["notifications"]).strip()
+PATHS["/auth/refresh"]["post"]["description"] = (PATHS["/auth/refresh"]["post"].get("description", "") + " v0.18.14: " + _D1["signIn"]).strip()
+S["AccountPhoneChange"] = obj({"phone": ref("PhoneE164")}, ["phone"])
+S["AccountPhoneVerify"] = obj({"phone": ref("PhoneE164"), "sessionId": ref("Id"), "code": s(pattern=r"^[0-9]{%d}$" % AU["otp"]["codeLength"])}, ["phone", "sessionId", "code"])
+S["AccountEmailChange"] = obj({"email": s(maxLength=200)}, ["email"])
+S["AccountEmailChallenge"] = obj({"challengeId": ref("Id"), "expiresAt": ref("Timestamp"), "delivery": s(enum=["pending_provider", "sent"])}, ["challengeId", "expiresAt", "delivery"])
+S["AccountEmailVerify"] = obj({"challengeId": ref("Id"), "code": s()}, ["challengeId", "code"])
+S["SignInUnlock"] = obj({"phone": ref("PhoneE164")}, ["phone"])
+op("post", "/admin/auth/sign-in-locks/unlock", "unlockSignIn", "Lift a number's wrong-code lock", ["admin"], "Admin · Auth", body="SignInUnlock", ok=(200, None), desc="v0.18.14: " + AU["otp"]["note"])
+op("post", "/account/phone/change", "startPhoneChange", "Change my phone number: send a code to the new one", ["rider", "driver"], "Account", body="AccountPhoneChange", ok=(200, "OtpChallenge"), desc="v0.18.14: " + _D1["accountChange"])
+op("post", "/account/phone/verify", "verifyPhoneChange", "Save the new phone number with its code", ["rider", "driver"], "Account", body="AccountPhoneVerify", ok=(200, None), desc="v0.18.14: " + _D1["accountChange"])
+op("post", "/account/email/change", "startEmailChange", "Change my e-mail: send a code to the new one", ["rider", "driver"], "Account", body="AccountEmailChange", ok=(200, "AccountEmailChallenge"), desc="v0.18.14: " + _D1["accountChange"])
+op("post", "/account/email/verify", "verifyEmailChange", "Save the new e-mail with its code", ["rider", "driver"], "Account", body="AccountEmailVerify", ok=(200, None), desc="v0.18.14: " + _D1["accountChange"])
 doc = OrderedDict()
 doc["openapi"] = "3.1.0"
 doc["info"] = {

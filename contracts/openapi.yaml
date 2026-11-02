@@ -1,11 +1,11 @@
-# Movera API v0.18.13 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.14 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.13
+  version: 0.18.14
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.13 in this folder; this file must agree with them.
+    v0.18.14 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -82,7 +82,7 @@ tags:
 - name: Driver · Home
 x-contract:
   name: movera
-  version: 0.18.13
+  version: 0.18.14
   source: contract.json
 paths:
   /auth/otp/request:
@@ -246,7 +246,12 @@ paths:
         session ends (401 unauthenticated, reason refresh_token_reused). Apps send one refresh at a time and retry a lost
         one at once. v0.18.5 (owner G1-D3 "Show a message (Recommended)"): when POST /auth/refresh answers 401 the app signs
         out and its sign-in screen shows why, in sv / fr / en. The 401 reason says which. Reasons: session_expired = expired,
-        session_ended = revoked, refresh_token_reused = revoked, refresh_token_unknown = revoked.'
+        session_ended = revoked, refresh_token_reused = revoked, refresh_token_unknown = revoked, signed_in_elsewhere = revoked.
+        v0.18.14: Codes stay 4 digits (owner). otp_locked_today per number + address; admin unlock; countryLimits (wrongCodesPerDay,
+        codesPerAddressPerHour, codesPerPhonePerHour, uploadsPerHour). One phone at a time for drivers: a new driver sign-in
+        ends his other sessions — their calls and POST /auth/refresh answer 401 reason signed_in_elsewhere (auth.signedOut.reasons);
+        the old phone is set offline (the driver goes online again from the new phone) and a notice kind signed_in_elsewhere
+        is sent. Riders keep several phones.'
       tags:
       - Auth
       x-actor:
@@ -694,7 +699,12 @@ paths:
           $ref: '#/components/responses/Unavailable'
       description: 'v0.18.9: 2. Rider confirms: PATCH /trips/{tripId} { expectedVersion, routeQuoteId } → 200 TripProjection
         with routeChange { status: pending } (version + 1, trip_projection event). With driverCanRefuse false the route changes
-        in the same call. v0.18.7: { expectedVersion, pickup } moves the pickup.'
+        in the same call. v0.18.7: { expectedVersion, pickup } moves the pickup. v0.18.14: v0.18.14 (live sweep H-1): a pending
+        change is also pushed to the driver (bell false, not sent after answerBy) so it reaches him with the app in the background.
+        Root cause of ''the driver never sees the change'' was in the driver app: its trip stream dropped every trip_projection
+        whose status equals one the driver himself set (an ''own echo'', e.g. in_trip after Start), and the change keeps the
+        trip''s status. Driver app rule: a trip_projection whose version is higher than the version of this phone''s own last
+        command is never an echo; it must reach the trip screen.'
   /trips/{tripId}/route-quote:
     post:
       operationId: quoteRouteChange
@@ -1972,6 +1982,10 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: 'v0.18.14: GET /notifications shows title and body in the account''s current language when the notice was
+        stored with every language (data.texts, taken out of the answer): set_offline, signed_in_elsewhere, phone/email changed,
+        rider trip moments. Rider trip moments (riderTripPush) are now also kept in the list (bell true). A refund sends the
+        rider a notice kind refund (bell + push).'
   /notifications/{notificationId}/read:
     post:
       operationId: markNotificationRead
@@ -3078,6 +3092,13 @@ paths:
       - $ref: '#/components/parameters/To'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
+      - name: currency
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: ^[A-Z]{3}$
+        description: 'v0.18.14: the report''s currency (default the driver''s first zone''s).'
       responses:
         '200':
           description: OK
@@ -12842,6 +12863,233 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/auth/sign-in-locks/unlock:
+    post:
+      operationId: unlockSignIn
+      summary: Lift a number's wrong-code lock
+      description: 'v0.18.14: POST /auth/otp/request → { requestId, sessionId, expiresAt, retryAfterSeconds }; POST /auth/otp/verify
+        { phone, sessionId, code } → tokens. A wrong code is 400 invalid_request (reason invalid_otp_code), an expired session
+        410 otp_expired, too many attempts 429 rate_limited (reason otp_too_many_attempts). v0.15.0: see auth.signInErrors.
+        v0.18.5 (G1-B3): the wrong code that reaches maxAttempts is itself answered 429 otp_too_many_attempts (the server
+        counts before it answers), so the 5th wrong code shows "Too many wrong tries". v0.18.14 (deep fix 2026-11-02, g1-g3
+        H2; owner "Keep 4 digits"): wrong codes are locked per number AND source (client address): after countryLimits.wrongCodesPerDay
+        wrong codes in 24 h from one address for one number, that address gets 429 rate_limited reason otp_locked_today for
+        that number (Retry-After = until the oldest leaves the 24 h window), on request and verify; an admin can lift it (POST
+        /admin/auth/sign-in-locks/unlock { phone }). Codes per number per hour and per address per hour are admin settings
+        (countryLimits).'
+      tags:
+      - Admin · Auth
+      x-actor:
+      - admin
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInUnlock'
+      responses:
+        '200':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /account/phone/change:
+    post:
+      operationId: startPhoneChange
+      summary: 'Change my phone number: send a code to the new one'
+      description: 'v0.18.14: POST /account/phone/change { phone } → OtpChallenge (code to the new number; 409 phone_taken);
+        POST /account/phone/verify { phone, sessionId, code } → { phone } and a notice phone_changed. POST /account/email/change
+        { email } → { challengeId, expiresAt, delivery: pending_provider } (code to the new address once an e-mail provider
+        is connected); POST /account/email/verify { challengeId, code } → { email } and a notice email_changed. Wrong code
+        400 invalid_otp_code, 5 tries, 5 minutes (auth.otp).'
+      tags:
+      - Account
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountPhoneChange'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpChallenge'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /account/phone/verify:
+    post:
+      operationId: verifyPhoneChange
+      summary: Save the new phone number with its code
+      description: 'v0.18.14: POST /account/phone/change { phone } → OtpChallenge (code to the new number; 409 phone_taken);
+        POST /account/phone/verify { phone, sessionId, code } → { phone } and a notice phone_changed. POST /account/email/change
+        { email } → { challengeId, expiresAt, delivery: pending_provider } (code to the new address once an e-mail provider
+        is connected); POST /account/email/verify { challengeId, code } → { email } and a notice email_changed. Wrong code
+        400 invalid_otp_code, 5 tries, 5 minutes (auth.otp).'
+      tags:
+      - Account
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountPhoneVerify'
+      responses:
+        '200':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /account/email/change:
+    post:
+      operationId: startEmailChange
+      summary: 'Change my e-mail: send a code to the new one'
+      description: 'v0.18.14: POST /account/phone/change { phone } → OtpChallenge (code to the new number; 409 phone_taken);
+        POST /account/phone/verify { phone, sessionId, code } → { phone } and a notice phone_changed. POST /account/email/change
+        { email } → { challengeId, expiresAt, delivery: pending_provider } (code to the new address once an e-mail provider
+        is connected); POST /account/email/verify { challengeId, code } → { email } and a notice email_changed. Wrong code
+        400 invalid_otp_code, 5 tries, 5 minutes (auth.otp).'
+      tags:
+      - Account
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountEmailChange'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountEmailChallenge'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /account/email/verify:
+    post:
+      operationId: verifyEmailChange
+      summary: Save the new e-mail with its code
+      description: 'v0.18.14: POST /account/phone/change { phone } → OtpChallenge (code to the new number; 409 phone_taken);
+        POST /account/phone/verify { phone, sessionId, code } → { phone } and a notice phone_changed. POST /account/email/change
+        { email } → { challengeId, expiresAt, delivery: pending_provider } (code to the new address once an e-mail provider
+        is connected); POST /account/email/verify { challengeId, code } → { email } and a notice email_changed. Wrong code
+        400 invalid_otp_code, 5 tries, 5 minutes (auth.otp).'
+      tags:
+      - Account
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountEmailVerify'
+      responses:
+        '200':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -14897,6 +15145,7 @@ components:
           - fleet_removed
           - account_status
           - admin
+          - documents_expired
           description: 'v0.18.6 (owner ''Send the real reason''): why the server set the driver offline; only while onlineStatus
             is offline, cleared on going online. v0.18.6 (owner 2026-10-31 ''Send the real reason'', Rules decisions/driver-g3.md):
             every time the SERVER sets a driver offline it stores why: Driver.offlineReason (no_position | missed_offers |
@@ -15051,6 +15300,13 @@ components:
             $ref: '#/components/schemas/CategoryId'
           description: 'v0.18.5: Vehicle.fitCategories (admin and fleet-owner views) = the country''s ride categories and
             extras the car fits now (no problem from categoryProblem); the admin picks among them.'
+        active:
+          type: boolean
+          description: 'v0.18.14 (GET /driver/vehicles): this is the driver''s active car. GET /driver/vehicles always lists
+            the driver''s active car (Driver.vehicleId) first even when it is not one of his fleet''s cars; every item has
+            active: true|false. Dispatch offers a trip only when the active car is approved and has the trip''s category (a
+            Komfort trip needs a Komfort car); re-approving a car without a ride type removes it from the chosen types of
+            its drivers.'
     DriverAccountType:
       type: string
       enum:
@@ -16456,6 +16712,18 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/EarningsPeriod'
+        currency:
+          type: string
+          pattern: ^[A-Z]{3}$
+          description: 'v0.18.14: every amount of this report is in it.'
+        currencies:
+          type: array
+          items:
+            type: string
+            pattern: ^[A-Z]{3}$
+          description: 'v0.18.14: GET /driver/earnings?currency=SEK|EUR: one currency per report (default the currency of
+            the driver''s first zone, in that zone''s time zone). EarningsReport gains currency and currencies (every currency
+            he earned in during the range, for a kr / € switch). Amounts of another currency are never added in.'
     AreaZone:
       type: object
       description: 'v0.18.4: one of the driver''s own zones.'
@@ -16791,6 +17059,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/PayoutSchedule'
           description: 'v0.18.13: read from the country standard only (a zone''s own rules do not change it).'
+        limits:
+          allOf:
+          - $ref: '#/components/schemas/CountryLimits'
+          description: 'v0.18.14: read from the country standard only.'
       x-server-only: true
     FeeRule:
       type: object
@@ -18251,6 +18523,11 @@ components:
                 hiddenComesBackMin:
                   type: number
                   minimum: 0
+                'on':
+                  type: boolean
+                  description: 'v0.18.14 (g1-g3 M8): false = the server never sets a driver of this zone offline for missed
+                    offers nor for no position (missedExclusive and noFixMinutes are then ignored). Default true.'
+                  default: true
         pickupPay:
           $ref: '#/components/schemas/DriverPickupPay'
         driverBonus:
@@ -24076,6 +24353,11 @@ components:
           $ref: '#/components/schemas/LegalDocument'
         privacy:
           $ref: '#/components/schemas/LegalDocument'
+        company:
+          allOf:
+          - $ref: '#/components/schemas/LegalCompany'
+          description: 'v0.18.14: GET /legal/{country} carries company { companyName?, orgNumber?, address?, supportEmail?,
+            supportPhone? } from admin Content › Legal (the sign-in ''Need help?'' box).'
     LegalVersion:
       type: object
       description: 'v0.18.5: the raw texts with their placeholders.'
@@ -26188,3 +26470,98 @@ components:
         note:
           type: string
           maxLength: 1000
+    CountryLimits:
+      type: object
+      description: 'v0.18.14: v0.18.14 (owner rule 16, deep fix 2026-11-02; g1-g3 H2, M2, M6): admin limits per country in
+        CountryRules.limits of the country standard (standard-<CC>). A missing value or one outside its range reads as the
+        default. At sign-in the phone''s calling code decides the country (+46 SE, +33 FR, +216 TN); another code uses the
+        defaults.'
+      properties:
+        wrongCodesPerDay:
+          type: integer
+          minimum: 3
+          maximum: 100
+          description: Wrong sign-in codes for one phone number from one client address in 24 h before that address is locked
+            for that number (429 otp_locked_today) until the oldest leaves the window; admins can unlock. Range 3–100.
+          default: 15
+        codesPerAddressPerHour:
+          type: integer
+          minimum: 10
+          maximum: 1000
+          description: Sign-in codes per client address (one wifi) per hour (429 otp_too_many). Range 10–1000.
+          default: 60
+        uploadsPerHour:
+          type: integer
+          minimum: 10
+          maximum: 500
+          description: Document uploads per driver per hour (429 rate_limited reason upload_limit); the driver's country.
+            Range 10–500.
+          default: 30
+        codesPerPhonePerHour:
+          type: integer
+          minimum: 3
+          maximum: 60
+          description: Sign-in codes per phone number and app per hour (429 otp_too_many). Range 3–60.
+          default: 10
+    AccountPhoneChange:
+      type: object
+      required:
+      - phone
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneE164'
+    AccountPhoneVerify:
+      type: object
+      required:
+      - phone
+      - sessionId
+      - code
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneE164'
+        sessionId:
+          $ref: '#/components/schemas/Id'
+        code:
+          type: string
+          pattern: ^[0-9]{4}$
+    AccountEmailChange:
+      type: object
+      required:
+      - email
+      properties:
+        email:
+          type: string
+          maxLength: 200
+    AccountEmailChallenge:
+      type: object
+      required:
+      - challengeId
+      - expiresAt
+      - delivery
+      properties:
+        challengeId:
+          $ref: '#/components/schemas/Id'
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+        delivery:
+          type: string
+          enum:
+          - pending_provider
+          - sent
+    AccountEmailVerify:
+      type: object
+      required:
+      - challengeId
+      - code
+      properties:
+        challengeId:
+          $ref: '#/components/schemas/Id'
+        code:
+          type: string
+    SignInUnlock:
+      type: object
+      required:
+      - phone
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneE164'

@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.13",
+  "version": "0.18.14",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -842,7 +842,7 @@
       "retryAfterSeconds": 30,
       "maxAttempts": 5,
       "channel": "sms",
-      "note": "POST /auth/otp/request → { requestId, sessionId, expiresAt, retryAfterSeconds }; POST /auth/otp/verify { phone, sessionId, code } → tokens. A wrong code is 400 invalid_request (reason invalid_otp_code), an expired session 410 otp_expired, too many attempts 429 rate_limited (reason otp_too_many_attempts). v0.15.0: see auth.signInErrors. v0.18.5 (G1-B3): the wrong code that reaches maxAttempts is itself answered 429 otp_too_many_attempts (the server counts before it answers), so the 5th wrong code shows \"Too many wrong tries\"."
+      "note": "POST /auth/otp/request → { requestId, sessionId, expiresAt, retryAfterSeconds }; POST /auth/otp/verify { phone, sessionId, code } → tokens. A wrong code is 400 invalid_request (reason invalid_otp_code), an expired session 410 otp_expired, too many attempts 429 rate_limited (reason otp_too_many_attempts). v0.15.0: see auth.signInErrors. v0.18.5 (G1-B3): the wrong code that reaches maxAttempts is itself answered 429 otp_too_many_attempts (the server counts before it answers), so the 5th wrong code shows \"Too many wrong tries\". v0.18.14 (deep fix 2026-11-02, g1-g3 H2; owner \"Keep 4 digits\"): wrong codes are locked per number AND source (client address): after countryLimits.wrongCodesPerDay wrong codes in 24 h from one address for one number, that address gets 429 rate_limited reason otp_locked_today for that number (Retry-After = until the oldest leaves the 24 h window), on request and verify; an admin can lift it (POST /admin/auth/sign-in-locks/unlock { phone }). Codes per number per hour and per address per hour are admin settings (countryLimits)."
     },
     "providers": [
       "apple",
@@ -954,7 +954,8 @@
       "otp_too_many_attempts": "429 rate_limited on the wrong code that reaches otp.maxAttempts (v0.18.5 G1-B3: the 5th wrong code itself, counted before the answer) and on every try after it on that session: the app says \"Too many wrong tries – tap Send new code\", disables Verify and highlights its resend button; a new code starts a new session",
       "otp_resend_too_soon": "429 rate_limited: a new code within otp.retryAfterSeconds of the last one",
       "otp_too_many": "429 rate_limited: auth.limits reached (decision 4, wait in minutes)",
-      "sign_in_restricted": "403 forbidden: the number is not on the test list while no SMS provider is chosen (decision 5): the app offers \"Join the waiting list\" (POST /auth/waitlist)"
+      "sign_in_restricted": "403 forbidden: the number is not on the test list while no SMS provider is chosen (decision 5): the app offers \"Join the waiting list\" (POST /auth/waitlist)",
+      "otp_locked_today": "429 rate_limited (v0.18.14): too many wrong codes for this number today (countryLimits.wrongCodesPerDay, admin setting per country, default 15); the app says \"Too many wrong codes today. Try again later.\" with the wait from retryAfterSeconds and disables Send code"
     },
     "slowStart": {
       "note": "v0.15.0 (owner 2026-10-29, decision 1): the server can sleep (Render free plan) and answer its first request after about 50 s. The rider and driver apps wait up to waitSeconds for the sign-in calls (POST /auth/otp/request, /auth/otp/verify, /auth/provider, /auth/waitlist) and, while waiting, show the line \"Starting the server…\" after showAfterSeconds. v0.18.4 (owner, driver group 3 'Already decided' + G3-R5): the same wait and line also cover POST /driver/availability (going online): the driver app waits up to waitSeconds and shows the line after showAfterSeconds.",
@@ -1042,7 +1043,8 @@
         "session_expired": "expired",
         "session_ended": "revoked",
         "refresh_token_reused": "revoked",
-        "refresh_token_unknown": "revoked"
+        "refresh_token_unknown": "revoked",
+        "signed_in_elsewhere": "revoked"
       },
       "kinds": {
         "expired": "not used for refreshExpiresDays (30 days)",
@@ -1072,7 +1074,12 @@
           "en": "Movera ended your session."
         }
       },
-      "ownSignOut": "After the person's own Sign out the app shows no message."
+      "ownSignOut": "After the person's own Sign out the app shows no message.",
+      "elsewhereTexts": {
+        "sv": "Inloggad på en annan telefon",
+        "fr": "Connecté sur un autre téléphone",
+        "en": "Signed in on another phone"
+      }
     }
   },
   "configVersion": {
@@ -1412,7 +1419,8 @@
         "zoneIds": []
       },
       "note": "v0.18.11: optional DispatchDocument.neighbours { on, zoneIds, afterStep }. on: from search step afterStep (1-based, missing = the last step) free drivers whose zones include one of zoneIds are candidates too (same ranking, same distance limits). Off / missing = only drivers of the pickup zone (as before). Only zones of the same country and currency as the pickup zone lend drivers; other listed zones are ignored (a Swedish zone never borrows French drivers)."
-    }
+    },
+    "searchEndWithdraws": "v0.18.14: when the search ends with no driver (expire), its open offers are closed as withdrawn (not expired): they never count as missed for auto offline."
   },
   "maps": {
     "note": "v0.5.1 (CONTRACT.md §10), owner decision 4: address search through the server (Google Places / Geocoding), routes and arrival times from Movera's own OSRM. All of them are read-only POSTs or GETs: no Idempotency-Key.",
@@ -3688,7 +3696,8 @@
       "sv": "Föraren går offline efter {n} missade eller nekade Exklusiva eller manuellt skickade erbjudanden i rad (Radar räknas inte).",
       "fr": "Le chauffeur passe hors ligne après {n} offres Exclusives ou envoyées à la main manquées ou refusées d’affilée (le Radar ne compte pas).",
       "en": "The driver goes offline after {n} missed or declined Exclusive or hand-sent offers in a row (Radar does not count)."
-    }
+    },
+    "on": "v0.18.14 (g1-g3 M8): DriverAppConfig.offers.autoOffline.on (admin switch, default true). false = the server never sets a driver of the zone offline for missed offers nor for no position; the driver app stops counting too. v0.18.14 (g1-g3 M9): the no-position rule takes the minutes of the zone the driver is in now (his latest position), else his first home zone."
   },
   "safety": {
     "note": "v0.7.0 (CONTRACT.md §15, owner safety part 1 decisions 2026-10-27). SOS from the rider or the driver and the server's 'car lost' alarm become incidents the admin takes, solves or calls a false alarm. The apps open the phone's emergency call (112) themselves AND send the SOS to Movera; afterwards they show only 'SOS sent' (no later update).",
@@ -4698,6 +4707,12 @@
           "sv": "Movera satte dig offline",
           "fr": "Movera vous a mis hors ligne",
           "en": "Movera set you offline"
+        },
+        "documents_expired": {
+          "note": "v0.18.14 (deep fix, g1-g3 H1, decision G2-1): a required document of the driver or his car passed its end date while he was online (the hourly expiry sweep; on a trip: at the trip's end). Dispatch also gives no offer to a driver with a document past its end date.",
+          "sv": "Ett dokument har gått ut. Ladda upp det nya för att köra igen.",
+          "fr": "Un document a expiré. Envoyez le nouveau pour rouler à nouveau.",
+          "en": "A document has expired. Upload the new one to drive again."
         }
       },
       "text": {
@@ -4724,7 +4739,8 @@
         "vehicle_blocked",
         "fleet_removed",
         "account_status",
-        "admin"
+        "admin",
+        "documents_expired"
       ]
     },
     "outsideArea": {
@@ -4991,7 +5007,8 @@
     },
     "whyYouRemoved": "E7 (owner 'Remove short line explain'): the 'why you got this trip' line is removed from the offer card. The server no longer sends Offer.reasonCode (deprecated, kept in the schema so older builds keep working: they show no line when it is missing) and DriverAppConfig.offers.exclusiveReasons is deprecated and ignored (apps never show it; the admin hides its Dispatch › Exclusive reasons editor). It was only used on the offer card.",
     "declinedComesBack": "E1 (owner 'Can come back later'): no change. An Exclusive offer the driver declined or missed may come back to him later as a Radar offer if nobody else took the trip.",
-    "notDecided": "E5 (rider 'Keep waiting?' steps vs the rider app's own 3-minute card) is NOT decided (owner: ask again later); the rider-waiting steps are unchanged in v0.18.6."
+    "notDecided": "E5 (rider 'Keep waiting?' steps vs the rider app's own 3-minute card) is NOT decided (owner: ask again later); the rider-waiting steps are unchanged in v0.18.6.",
+    "declineAlways": "v0.18.14 (live sweep M-4): POST /offers/{offerId}/decline never answers 409 for an older offer version (an Exclusive that turned into a Radar offer moved it); an offer that is no longer open answers 200 with the offer as it is now, so the card always closes."
   },
   "dispatchTools": {
     "note": "v0.18.6 (owner decisions G4-F1..F6 of 2026-10-31, Rules decisions/driver-g4.md, research plan/g4-admin-features.md): the admin's Dispatch tools, real on the server. Everything is per country (SE, FR): an admin reads and changes a country's items only with a zone of that country in scope (Super admin: all), else 403 zone_out_of_scope. Writes need dispatch.edit, reads trips.read; every write is audited (auditActions) and takes an Idempotency-Key. Each item has a version: PUT and DELETE need expectedVersion (409 version_mismatch with the item). Names: 1–40 characters, unique per country (409 conflict, reason name_taken).",
@@ -5561,7 +5578,16 @@
       "Driver app: PIN step, island messages, waiting box from waiting.rules / terms, delete lib/core/ride/waiting_rules.dart local rules (app job).",
       "Rider app: show pickupPin, Terms link with zoneId, island messages (app job).",
       "Admin: Reverse no-show dialog, pickupPin switch per zone, publish stopFreeWaitMin, trips list waiting minutes (admin job)."
-    ]
+    ],
+    "positionMaxAge": {
+      "note": "v0.18.14 (deep fix, stale / fake GPS for arrive): POST /trips/{tripId}/arrive counts a position only while it is at most DriverAppConfig.waiting.positionMaxAgeSeconds old (admin setting per zone): the location sent with the step when it carries measuredAt, else the server's latest fix (POST /driver/location). Too old → 409 invalid_transition reason position_stale (the app says \"Your position is too old – turn on location\"); none at all → not_at_pickup as before. The late-fee heading check already ignores positions older than the stale limit.",
+      "configPath": "DriverAppConfig.waiting.positionMaxAgeSeconds",
+      "default": 60,
+      "range": [
+        15,
+        600
+      ]
+    }
   },
   "onTrip": {
     "note": "v0.18.9 (driver group 7 'On trip'; owner decisions 1–5 of 2026-10-29, re-check 2026-10-30, job list 2026-11-01; Rules decisions/driver-g7.md, plan/g7-job-list.md). CONTRACT.md §35. Sweden and France alike; every number is a per-zone admin setting with a default (owner rule 16); every text in sv / fr / en (Swedish rider = resenär).",
@@ -5800,7 +5826,22 @@
         "accepted",
         "driver_to_pickup",
         "arrived"
-      ]
+      ],
+      "driverPush": {
+        "note": "v0.18.14 (live sweep H-1): a pending change is also pushed to the driver (bell false, not sent after answerBy) so it reaches him with the app in the background. Root cause of 'the driver never sees the change' was in the driver app: its trip stream dropped every trip_projection whose status equals one the driver himself set (an 'own echo', e.g. in_trip after Start), and the change keeps the trip's status. Driver app rule: a trip_projection whose version is higher than the version of this phone's own last command is never an echo; it must reach the trip screen.",
+        "kind": "route_change",
+        "deepLink": "movera-driver://trips/{tripId}",
+        "title": {
+          "sv": "Resenären vill ändra rutten",
+          "fr": "Le passager veut changer d’itinéraire",
+          "en": "The rider wants to change the route"
+        },
+        "body": {
+          "sv": "Svara inom {seconds} s: {earnings}",
+          "fr": "Répondez dans les {seconds} s : {earnings}",
+          "en": "Answer within {seconds} s: {earnings}"
+        }
+      }
     },
     "stopWaiting": {
       "note": "Owner decision 4 (2026-10-29): at middle stops no free minutes by default, charged from minute 1; the pickup keeps its own free minutes (the category's waiting.freeWaitMin, e.g. 3).",
@@ -6323,7 +6364,8 @@
       "sv": "Din förare",
       "fr": "Votre chauffeur",
       "en": "Your driver"
-    }
+    },
+    "bell": "v0.18.14: also kept in the rider's Notifications list (bell true), shown in his current language."
   },
   "fleetShareRemoved": "v0.18.13 (owner G10-1 'Movera dont care about what fleet owner take from drivers … if there is any % u delete that'): PricingDocument.fleetCommissionPct is removed (schema, defaults, fixtures). For a fleet driver Movera pays the whole driver earnings to the fleet owner (Driver.payoutTo fleet); the owner settles with his drivers outside Movera. A document that still carries the key is accepted and the key ignored.",
   "drivingLimits": {
@@ -6331,5 +6373,57 @@
     "enforced": "Once counted time ≥ maxHoursPerDay (default 12; 0 = no limit) the driver gets no new offers (dispatch, radar, admin sends), POST /driver/availability online answers 409 conflict reason driving_limit_reached (details [\"drivenMinutes:<n>\", \"maxMinutes:<n>\", \"canDriveAt:<RFC 3339>\"]; the projection carries Driver.drivingTime), and a running trip is always finished.",
     "projection": "Driver.drivingTime { drivenMinutes, maxMinutes, reached, resetAfterOfflineHours, canDriveAt? } on GET /driver/profile: canDriveAt = when the counter resets if the driver stays offline from now (only when reached).",
     "restMinutes": "restMinutes stays the break length the app shows (not enforced by the server in v0.18.13)."
+  },
+  "countryLimits": {
+    "note": "v0.18.14 (owner rule 16, deep fix 2026-11-02; g1-g3 H2, M2, M6): admin limits per country in CountryRules.limits of the country standard (standard-<CC>). A missing value or one outside its range reads as the default. At sign-in the phone's calling code decides the country (+46 SE, +33 FR, +216 TN); another code uses the defaults.",
+    "defaults": {
+      "wrongCodesPerDay": 15,
+      "codesPerAddressPerHour": 60,
+      "uploadsPerHour": 30,
+      "codesPerPhonePerHour": 10
+    },
+    "ranges": {
+      "wrongCodesPerDay": [
+        3,
+        100
+      ],
+      "codesPerAddressPerHour": [
+        10,
+        1000
+      ],
+      "uploadsPerHour": [
+        10,
+        500
+      ],
+      "codesPerPhonePerHour": [
+        3,
+        60
+      ]
+    },
+    "fields": {
+      "wrongCodesPerDay": "Wrong sign-in codes for one phone number from one client address in 24 h before that address is locked for that number (429 otp_locked_today) until the oldest leaves the window; admins can unlock.",
+      "codesPerAddressPerHour": "Sign-in codes per client address (one wifi) per hour (429 otp_too_many).",
+      "uploadsPerHour": "Document uploads per driver per hour (429 rate_limited reason upload_limit); the driver's country.",
+      "codesPerPhonePerHour": "Sign-in codes per phone number and app per hour (429 otp_too_many)."
+    }
+  },
+  "deepFix1": {
+    "note": "v0.18.14 (deep fix round 1, Rules plan/FIX-LIST-2026-11-02.md). What the server does now; what the apps must follow.",
+    "earlyEnd": "An early end (rider end-early, driver cancel on board, driver completes before the drop-off) keeps what was earned before it: the paid pickup waiting (line waiting, 100 % the driver's), the child seat (extras), the pickup airport fee (airport) and the reservation fee; the drop-off airport fee is not charged. The driven price is capped by the booked fare moved by every accepted route change (not the first booked fare).",
+    "routeChange": "See onTrip.routeChange.driverPush (push to the driver + the driver-app 'own echo' rule).",
+    "tips": "A zone document whose tips are all in another currency than the trip's is ignored: the country's own amounts apply (a Paris trip ended early could not be tipped).",
+    "earnings": "GET /driver/earnings?currency=SEK|EUR: one currency per report (default the currency of the driver's first zone, in that zone's time zone). EarningsReport gains currency and currencies (every currency he earned in during the range, for a kr / € switch). Amounts of another currency are never added in.",
+    "vehicles": "GET /driver/vehicles always lists the driver's active car (Driver.vehicleId) first even when it is not one of his fleet's cars; every item has active: true|false. Dispatch offers a trip only when the active car is approved and has the trip's category (a Komfort trip needs a Komfort car); re-approving a car without a ride type removes it from the chosen types of its drivers.",
+    "documents": "A driver with a document past its end date gets no offer; online drivers are set offline by the expiry sweep (offlineReason documents_expired); one on a trip at its end.",
+    "signIn": "Codes stay 4 digits (owner). otp_locked_today per number + address; admin unlock; countryLimits (wrongCodesPerDay, codesPerAddressPerHour, codesPerPhonePerHour, uploadsPerHour). One phone at a time for drivers: a new driver sign-in ends his other sessions — their calls and POST /auth/refresh answer 401 reason signed_in_elsewhere (auth.signedOut.reasons); the old phone is set offline (the driver goes online again from the new phone) and a notice kind signed_in_elsewhere is sent. Riders keep several phones.",
+    "accountChange": "POST /account/phone/change { phone } → OtpChallenge (code to the new number; 409 phone_taken); POST /account/phone/verify { phone, sessionId, code } → { phone } and a notice phone_changed. POST /account/email/change { email } → { challengeId, expiresAt, delivery: pending_provider } (code to the new address once an e-mail provider is connected); POST /account/email/verify { challengeId, code } → { email } and a notice email_changed. Wrong code 400 invalid_otp_code, 5 tries, 5 minutes (auth.otp).",
+    "notifications": "GET /notifications shows title and body in the account's current language when the notice was stored with every language (data.texts, taken out of the answer): set_offline, signed_in_elsewhere, phone/email changed, rider trip moments. Rider trip moments (riderTripPush) are now also kept in the list (bell true). A refund sends the rider a notice kind refund (bell + push).",
+    "legal": "GET /legal/{country} carries company { companyName?, orgNumber?, address?, supportEmail?, supportPhone? } from admin Content › Legal (the sign-in 'Need help?' box).",
+    "pin": "board / start never skip the PIN: X-Contract-Version no longer matters; a PIN trip without a verified PIN is 409 pin_required.",
+    "refunds": "Take from driver: his share is refund × earnings ÷ (fare − old debt collected on the trip). An approved refund reads the trip as it is at approval (no version conflict). The rider gets a refund notice.",
+    "activation": "POST /admin/drivers/{id}/status active is 409 details_missing for a driver who never sent his details (no country).",
+    "countryRules": "The sample settings seed each country's country_rules standard (GET /admin/config/country_rules?country=SE|FR no longer 404).",
+    "dispatchLock": "A dispatch round locks and reads only the drivers of the trip's zone and its neighbour zones.",
+    "birthDate": "A date of birth that does not exist (2001-02-31) or before 1900 is 400 invalid_date_of_birth."
   }
 }
