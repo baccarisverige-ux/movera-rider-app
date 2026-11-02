@@ -83,8 +83,8 @@ void main() {
     (tester) async {
       final taps = <String>[];
       await _pump(tester, taps: taps);
-      expect(_state(tester).lift, 0);
-      expect(_lensOpacity(tester), 0);
+      expect(_state(tester).lift, 1);
+      expect(_lensOpacity(tester), 1);
 
       await tester.tap(find.text('Schedule'));
       await tester.pump();
@@ -101,8 +101,8 @@ void main() {
       expect(taps, ['Schedule']);
       await tester.pumpAndSettle();
       expect(_state(tester).position, closeTo(2, 0.01));
-      expect(_state(tester).lift, 0);
-      expect(_lensOpacity(tester), 0);
+      expect(_state(tester).lift, 1);
+      expect(_lensOpacity(tester), 1);
     },
   );
 
@@ -144,7 +144,7 @@ void main() {
     (tester) async {
       final taps = <String>[];
       await _pump(tester, taps: taps, floating: 0);
-      expect(_capsuleOpacity(tester), 1);
+      expect(_capsuleOpacity(tester), 0);
       final capsule = tester.getRect(_capsule);
       final item = tester.getRect(find.byType(PremiumBottomNavItem).first);
       expect(capsule.width, lessThan(item.width - 5));
@@ -178,7 +178,7 @@ void main() {
     expect(taps, isEmpty, reason: 'a slide never opens a tab');
     expect(_state(tester).parked, 3);
     expect(_state(tester).position, closeTo(3, 0.01));
-    expect(_state(tester).lift, 0);
+    expect(_state(tester).lift, 1);
 
     // Nothing happens while it waits.
     await tester.pump(const Duration(seconds: 5));
