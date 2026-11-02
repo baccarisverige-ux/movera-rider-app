@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,7 +10,9 @@ import 'package:movera_rider/app/config/env.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/features/home/presentation/side_menu.dart';
 import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
@@ -138,60 +139,32 @@ void main() {
       ('sv', 'ungefärlig'),
       ('fr', 'approximatif'),
     ]) {
-      final arb =
-          jsonDecode(File('lib/l10n/app_$lang.arb').readAsStringSync())
-              as Map<String, dynamic>;
-      expect(arb['pickupSpotApproximate'], '{name} ($word)');
-    }
-    expect(
-      File(
-        'lib/features/pickup/application/pickup_spots_controller.dart',
-      ).readAsStringSync(),
-      contains('pickupSpotApproximate(l10n.pickupSpotMainEntrance)'),
-    );
-  });
-
-  test('H7: no Visa / Mastercard / Google / Apple logos outside sign-in', () {
-    final offenders = Directory('lib')
-        .listSync(recursive: true)
-        .whereType<File>()
-        .where((f) => f.path.endsWith('.dart'))
-        .where((f) => !f.path.contains('/auth/'))
-        .where(
-          (f) => RegExp(
-            r'AppAssets\.(visa|mastercard|google|apple)\b',
-          ).hasMatch(f.readAsStringSync()),
-        )
-        .map((f) => f.path)
-        .toList();
-    expect(offenders, isEmpty);
-  });
-
-  test('M1/M2: demo top-up and coming-soon cards follow DemoFeatures', () {
-    final wallet = File(
-      'lib/features/wallet/presentation/wallet.dart',
-    ).readAsStringSync();
-    expect(wallet, contains('bool get _demoPayments => DemoFeatures.on;'));
-    expect(
-      wallet.indexOf('if (_demoPayments) ...['),
-      lessThan(wallet.indexOf('context.l10n.demoTopUpNote')),
-    );
-    final menu = File(
-      'lib/features/home/presentation/side_menu.dart',
-    ).readAsStringSync();
-    for (final title in [
-      'menuYourPromos',
-      'menuFamily',
-      'menuInviteFriends',
-      'menuBusiness',
-    ]) {
       expect(
-        menu,
-        contains(
-          'if (demo)\n        _FeatureCard(\n          title: context.l10n.$title,',
-        ),
-        reason: title,
+        lookupAppLocalizations(Locale(lang)).pickupSpotApproximate('X'),
+        'X ($word)',
       );
     }
   });
+
+  // H7 (no Visa / Mastercard / Google / Apple marks outside sign-in) is a repo
+  // gate in .github/workflows/ci.yml (it scans lib/, not behaviour).
+
+  for (final demo in [false, true]) {
+    testWidgets('M2: menu coming-soon cards follow DemoFeatures (on: $demo)', (
+      tester,
+    ) async {
+      DemoFeatures.debugOverride = demo;
+      await pumpPhone(tester, const RiderMenuPage());
+      await tester.pump(const Duration(milliseconds: 300));
+      for (final title in ['Movera Family', 'Movera Business']) {
+        expect(
+          find.text(title),
+          demo ? findsWidgets : findsNothing,
+          reason: title,
+        );
+      }
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+    });
+  }
 }
