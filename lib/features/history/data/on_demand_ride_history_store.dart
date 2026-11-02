@@ -189,7 +189,12 @@ abstract final class OnDemandRideHistoryStore {
     Money? refundedToWallet,
   }) {
     final rideId = snapshot.rideId?.trim();
-    final reservationStatus = _reservationStatus(terminalStatus);
+    // Live sweep 2026-11-02 H-4: a trip the rider ended early was driven
+    // and paid: History files it under Completed, not Cancelled.
+    final reservationStatus =
+        endedEarly && terminalStatus == RideStatus.cancelledByRider
+        ? ReservationStatus.completed
+        : _reservationStatus(terminalStatus);
     if (rideId == null || rideId.isEmpty || reservationStatus == null) {
       return null;
     }

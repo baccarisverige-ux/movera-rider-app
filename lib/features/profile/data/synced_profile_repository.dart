@@ -1,3 +1,4 @@
+import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
@@ -72,6 +73,11 @@ class SyncedProfileRepository
   /// signed in, so its answer is dropped.
   int _session = 0;
 
+  /// Deep-fix 2026-11-02: the language the server's `Rider.language`
+  /// holds (sv, fr, en), or null when the account has none yet.
+  String? _accountLanguage;
+  String? get accountLanguage => _accountLanguage;
+
   /// True when the last saved profile has not reached the server yet.
   bool get syncPending => _syncPending;
 
@@ -123,6 +129,7 @@ class SyncedProfileRepository
     _cache.clearLocal();
     _syncPending = false;
     _serverKnown = false;
+    _accountLanguage = null;
     _changed.clear();
     _pendingLoaded = false;
     // A read still in flight belongs to the signed-out rider: the next
@@ -248,6 +255,11 @@ class SyncedProfileRepository
       // v0.18.7 (Q3): what the rider owes, per currency.
       RiderOutstanding.current.value = RiderOutstanding.fromRider(server);
       _version = _versionOf(server) ?? _version;
+      final language = server['language'];
+      _accountLanguage =
+          language is String && L10n.codes.contains(language.trim())
+          ? language.trim()
+          : null;
       final local = _cache.current;
       var merged = _fromServer(local, Map<String, dynamic>.from(server));
       for (final field in _changed) {

@@ -78,6 +78,8 @@ class AppLanguageController extends ChangeNotifier {
   String get code {
     final choice = _choice;
     if (choice != null && _available.contains(choice)) return choice;
+    final account = _account;
+    if (account != null && _available.contains(account)) return account;
     final phone = phoneLanguage;
     if (phone != null && _available.contains(phone)) return phone;
     return _startDefault;
@@ -152,6 +154,17 @@ class AppLanguageController extends ChangeNotifier {
     _startDefault = _startDefaultFor(zone);
     _apply();
   }
+
+  /// The account's language (`Rider.language`) when nothing was picked on
+  /// this phone: it wins over the phone's language and the zone default.
+  /// Not saved as a choice, so a pick on this phone still wins later.
+  void useAccount(String code) {
+    if (_choice != null || !L10n.codes.contains(code)) return;
+    _account = code;
+    _apply();
+  }
+
+  String? _account;
 
   /// Takes [code] as the rider's choice and saves it.
   Future<void> choose(String code) async {

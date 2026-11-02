@@ -1608,6 +1608,16 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'receiptTip': l.receiptTip,
   'receiptRefunded': l.receiptRefunded,
   'pickupSpotApproximate': l.pickupSpotApproximate('<name>'),
+  'accountSuspended': l.accountSuspended,
+  'priceIncludesUnpaidFee': l.priceIncludesUnpaidFee('<amount>'),
+  'searchStepKeepWaitingFallback': l.searchStepKeepWaitingFallback,
+  'searchStepBusyFallback': l.searchStepBusyFallback,
+  'searchStepStop': l.searchStepStop,
+  'searchStepAnswerFailed': l.searchStepAnswerFailed,
+  'routeVisitedStopLocked': l.routeVisitedStopLocked,
+  'routeChangeRefused': l.routeChangeRefused,
+  'g7RouteExpired': l.g7RouteExpired,
+  'receiptHeading': l.receiptHeading,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -1816,6 +1826,7 @@ const messagePlaceholders = <String, List<String>>{
   'g7MaxStopsShown': ['max'],
   'tipMax': ['amount'],
   'pickupSpotApproximate': ['name'],
+  'priceIncludesUnpaidFee': ['amount'],
 };
 
 /// The count placeholders (rendered as 37) of each message, by key.
@@ -5045,4 +5056,24 @@ class _Exhaustive implements AppLocalizations {
   String get receiptRefunded => '';
   @override
   String pickupSpotApproximate(String name) => '';
+  @override
+  String get accountSuspended => '';
+  @override
+  String priceIncludesUnpaidFee(String amount) => '';
+  @override
+  String get searchStepKeepWaitingFallback => '';
+  @override
+  String get searchStepBusyFallback => '';
+  @override
+  String get searchStepStop => '';
+  @override
+  String get searchStepAnswerFailed => '';
+  @override
+  String get routeVisitedStopLocked => '';
+  @override
+  String get routeChangeRefused => '';
+  @override
+  String get g7RouteExpired => '';
+  @override
+  String get receiptHeading => '';
 }

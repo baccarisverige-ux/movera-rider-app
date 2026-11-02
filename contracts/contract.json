@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.12",
+  "version": "0.18.13",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -3358,8 +3358,7 @@
           "airportZones": "ARN and BMA: base and minimum × 1.3, airport pickup 6500, drop-off 3000",
           "riderPickupFee": "null (off) in every category, §3.2",
           "surgeMaxMultiplier": 3.0,
-          "smartSurge": false,
-          "fleetCommissionPct": 5
+          "smartSurge": false
         }
       }
     },
@@ -3558,6 +3557,17 @@
         "amountMinor": 10000,
         "currency": "EUR"
       }
+    },
+    "headingCheck": {
+      "on": true,
+      "headingPct": 80,
+      "notHeadingMinutes": 2,
+      "reassign": true
+    },
+    "drivingLimits": {
+      "maxHoursPerDay": 12,
+      "restMinutes": 30,
+      "resetAfterOfflineHours": 6
     }
   },
   "realtime": {
@@ -3963,7 +3973,7 @@
     "ownScope": "v0.13.0: a rider or driver sees only the tickets they opened; another person's ticket is 404 not_found. A ticket with tripId must be the caller's own trip (else 404)."
   },
   "payouts": {
-    "note": "v0.9.0 (owner real-data decision, part 3): every week (Monday 00:00 to Monday 00:00 in the zone's time) a nightly job makes one payout per driver with earnings; an admin can also make one by hand for a driver and a date range. Same calculation both ways; a trip already in a payout is never counted again. amount = trips + waiting + pickup pay + bonus + tips + fees − cash collected; it may be negative (the driver owes Movera). An admin marks a payout paid. The admin sees the lines; the driver app shows only the total.",
+    "note": "v0.9.0 (owner real-data decision, part 3): every payout period (v0.18.13: the country's schedule, default weekly from Monday 08:00 to Monday 08:00 local time) a nightly job makes one payout per driver with earnings; an admin can also make one by hand for a driver and a date range. Same calculation both ways; a trip already in a payout is never counted again. amount = trips + waiting + pickup pay + bonus + tips + fees − cash collected; it may be negative (the driver owes Movera). An admin marks a payout paid. The admin sees the lines; the driver app shows only the total.",
     "period": "week",
     "weekStartsOn": "monday",
     "lines": [
@@ -3982,7 +3992,21 @@
     "statuses": [
       "pending",
       "paid"
-    ]
+    ],
+    "schedule": {
+      "note": "v0.18.13 (owner G10-2 'Admin sets day and time'): CountryRules.payoutSchedule { frequency: weekly | every_2_weeks, day: monday..sunday, time: HH:MM } of the country standard (Settings › Payouts, per country); default weekly, Monday, 08:00, SE and FR. A period runs from one payout moment to the next in the local time of the driver's first zone; a driver without a zone uses his country's time zone (SE Europe/Stockholm, FR Europe/Paris). every_2_weeks counts from the week of 2026-01-05 (periods start on even weeks from it). A changed schedule applies to the next period; entries are never paid twice.",
+      "default": {
+        "frequency": "weekly",
+        "day": "monday",
+        "time": "08:00"
+      },
+      "countryTimeZones": {
+        "SE": "Europe/Stockholm",
+        "FR": "Europe/Paris"
+      },
+      "anchorWeek": "2026-01-05"
+    },
+    "currency": "v0.18.13 (audit M1): one payout is in ONE currency: the unpaid entries of a driver's period are paid per currency (a driver with kr and € entries gets two payouts); amounts of different currencies are never added."
   },
   "risk": {
     "note": "v0.9.0 (owner real-data decision, part 3): the three signals the server counts. Fake GPS, many accounts on one phone and one card on many accounts come later.",
@@ -4046,8 +4070,8 @@
       "fees": "Cancel and no-show fees charged that day (also inside gross).",
       "tips": "Tips given on the day's trips, a line of their own, not in gross.",
       "refunds": "Refunds of the day's trips, counted on the TRIP's day: a later refund changes that older day (its summary is re-summed).",
-      "moveraEarnings": "What Movera keeps: commission + Movera's share of fees - pickup pay - driver bonuses Movera paid. Can be negative.",
-      "netRevenue": "Shown by the admin as moveraEarnings - refunds (not sent).",
+      "moveraEarnings": "What Movera keeps: commission (trips.commission, already net of pickup pay and driver bonuses: commission = fare - debtCollected - driverEarnings - pickupPay - driverBonus) + Movera's share of fees - refunds of the day's trips. Can be negative. v0.18.13 (audit 2026-11-02 H2): pickup pay and bonuses are no longer taken off a second time, and refunds are taken off (server migration 0047 rewrites the stored days).",
+      "netRevenue": "v0.18.13: equals moveraEarnings (refunds are already taken off); the admin no longer subtracts refunds again.",
       "fleets": "Fleet views get only the driver earnings; there is no owners' share.",
       "missing": "A value the server does not send reads \"Not connected yet\" (sv \"Inte kopplad än\"), never 0."
     }
@@ -5146,7 +5170,7 @@
       "riderView": "Contract §2 wins: the rider's view of terms has no noShowDriverSharePct / cancelDriverSharePct, waiting has no noShowDriverShare and cancellation no driverShare (the driver's money is never the rider's to see); the driver and admin views have them."
     },
     "cancelAfterArrived": {
-      "note": "Q2 rule on the server (rider cancel, POST /trips/{tripId}/cancel): inside the cancel rule's free minutes after accept the rider ALWAYS cancels free (owner 2026-10-29 'before 2 min always free for rider'), also after the driver arrived. After them: the cancel counts as a no-show ONLY when the driver is at the pickup (status arrived), the zone's cancelAfterArrivedIsNoShow is on AND the free waiting is over (now >= waiting.freeUntil: the moment the driver himself could mark a no-show; a reservation's clock runs from the booked time, so an early-arrived driver's rider still pays the reservation late-cancel rule before it) → the fee is the trip's no-show fee (terms.noShowFee, driver share terms.noShowDriverSharePct, rider_fees kind no_show, cancellation.feeKind no_show); otherwise the normal cancel fee (cancelFees, the came-closer check, cancellation.feeKind cancel). The status stays cancelled_by_rider (the transition table is unchanged). Closes the gap where cancelling after arrival (35 kr) was cheaper than a no-show (65 kr).",
+      "note": "Q2 rule on the server (rider cancel, POST /trips/{tripId}/cancel): inside the cancel rule's free minutes after accept the rider ALWAYS cancels free (owner 2026-10-29 'before 2 min always free for rider'), also after the driver arrived. After them: the cancel counts as a no-show ONLY when the driver is at the pickup (status arrived), the zone's cancelAfterArrivedIsNoShow is on AND the free waiting is over (now >= waiting.freeUntil: the moment the driver himself could mark a no-show; a reservation's clock runs from the booked time, so an early-arrived driver's rider still pays the reservation late-cancel rule before it) → the fee is the trip's no-show fee (terms.noShowFee, driver share terms.noShowDriverSharePct, rider_fees kind no_show, cancellation.feeKind no_show); otherwise the normal cancel fee (cancelFees, the heading-to-pickup check (v0.18.13 pickupWaiting.headingCheck), cancellation.feeKind cancel). The status stays cancelled_by_rider (the transition table is unchanged). Closes the gap where cancelling after arrival (35 kr) was cheaper than a no-show (65 kr).",
       "cancellationFields": {
         "feeKind": "cancel | no_show: which rule set the fee (absent when fee is null)",
         "driverShare": "Money: the driver's part of the fee, credited at once (absent when fee is null)"
@@ -5279,11 +5303,34 @@
       "note": "Admin phase item: every GET /admin/trips row of a trip with a driver that is not over carries driverLocation (GeoFix) and eta (TripEta), so the live trips table shows driver_to_pickup with the live ETA and a map link (the driver's position and the pickup coordinates; the admin opens its own map). GET /admin/trips/{tripId} carries the same."
     },
     "next": [
-      "Status item 8 (smart late rule: 'heading to pickup' = at least 80 % of the normal road distance in the elapsed time, per zone, checked every 30 s, free rider cancel + reassign when not heading; flags on the dispatch map) — next contract; today's came-closer check (NORMAL_PICKUP_METERS_PER_MIN × 50 %) stays.",
-      "Status item 9 (driver cancel reasons from the admin's list, sv/fr/en, built-in list as offline backup) — next contract.",
       "Status item 5 (destination change with a new price the rider confirms and a driver popup) — next contract; route changes answer route_change_not_available until then.",
       "Status item 3 (Google Maps / Waze choice in the driver app's settings) — app only, no server part."
-    ]
+    ],
+    "headingCheck": {
+      "note": "v0.18.13 (owner G5-8, decisions/driver-g5.md item 8 + notes): the smart late rule for live trips. 'Heading to pickup' = in each check the driver got at least headingPct % (default 80, admin per zone, range 50-100) as much closer to the pickup as he could have at normal road speed in the time since the last check (normal road speed = the server's route distance / route duration of the driver's leg to the pickup, else dispatch's pickup speed). It runs with the server ETA, every pickupWaiting.eta.everySeconds (30 s), from accept until arrived, for the whole wait, not only once.",
+      "setting": "DriverAppConfig.headingCheck { on, headingPct, notHeadingMinutes, reassign } per zone (or the country standard); defaults configDefaults.headingCheck (on, 80 %, 2 min, reassign on). The admin's 'Smart cancel check' / 'Came closer by' controls map to on / headingPct.",
+      "riderCancel": "Inside the cancel rule's free minutes (default 2) the rider always cancels free. After them (live trip, driver not yet arrived): the fee is charged unless the latest check says the driver has NOT been heading for notHeadingMinutes in a row (then the cancel is free, cancellation.fee null). No check yet (a trip accepted before v0.18.13, no position so far) = the normal fee rules. A check without a position changes nothing (the previous state and its clock stay). A driver within the arrive radius counts as heading.",
+      "reassign": "With reassign on, a driver not heading for notHeadingMinutes in a row loses the trip: it goes back to dispatch without him (TripProjection.status searching, like an admin reassign; Exclusive offers first as dispatch does), the cancel counts against him (driver_cancels reason not_heading_to_pickup, in his cancel rate) and the rider gets the driver_changed push.",
+      "projection": "TripProjection.headingCheck { heading, checkedAt, notHeadingSince?, freeCancel } from accept until arrived (all views): heading = the latest check; freeCancel = a rider cancel now costs nothing because of this rule. The admin dispatch map flags trips with heading false.",
+      "replaces": "The v0.4 came-closer check (400 m/min x 50 %, measured once at the rider's cancel) is gone.",
+      "driverNotice": {
+        "kind": "trip_taken_back",
+        "deepLink": "movera-driver://home",
+        "note": "When the trip is taken back (reassign) the driver gets a bell notice + push in his language.",
+        "title": {
+          "sv": "Resan gick till en annan förare",
+          "fr": "Course confiée à un autre chauffeur",
+          "en": "Trip given to another driver"
+        },
+        "body": {
+          "sv": "Du var inte på väg till upphämtningen, så resan gick till en annan förare. Det räknas som en avbokning.",
+          "fr": "Vous ne vous dirigiez pas vers le point de prise en charge : la course a été confiée à un autre chauffeur. Elle compte comme une annulation.",
+          "en": "You were not heading to the pickup, so the trip went to another driver. It counts as a cancel."
+        }
+      },
+      "reasonCode": "not_heading_to_pickup (driver_cancels only; never a CancelReasonCode on the wire)"
+    },
+    "cancelReasons": "v0.18.13 (owner G5-9 'Load from admin'): DriverAppConfig.cancelReasons (the zone's admin list per sheet) decides which reasons the driver app SHOWS; titles (sv/fr/en) come from DriverAppConfig.texts and the app keeps the built-in list as the offline backup. The server accepts every contract code of the sheet (contract.json#cancelReasons), so an old app that shows the built-in list keeps working; a code of another sheet → 400 invalid_request, reason invalid_reason_code."
   },
   "arrivedWaiting": {
     "note": "v0.18.8 (driver group 6 'Arrived and waiting'; owner decisions 1-6 of 2026-10-29, re-check 2026-11-01, Rules decisions/driver-g6.md; builds on v0.18.7 pickupWaiting; X-Api-Version stays 0.5, additive). Every waiting rule the admin sets is enforced by the server: far pickup, airport, event and scheduled-ride rules with their overrides, free wait at each stop; the server picks the matching rule at arrive and the trip carries the effective numbers (TripProjection.waiting + terms), so both apps show the server's numbers and the driver app's local rules go. Rider PIN before Start (per-zone admin switch, default off), admin Reverse no-show, the waiting / no-show / cancel rules in the Terms, island messages when paid waiting starts and when a no-show becomes possible. Sweden and France alike: every amount is in the trip's currency, from the zone's documents; nothing is hard-coded in an app.",
@@ -5839,7 +5886,7 @@
         "google_pay"
       ],
       "adminSetting": "RiderAppConfig.paymentMethods (and DriverAppConfig.paymentMethods, same list) of the zone or the country standard = the methods the admin turned ON (Admin › Settings › Payment methods, per country, every zone of it or one zone). Default: cash, card, apple_pay.",
-      "serverSupport": "The server takes only the methods of its own list (today: cash only; card and Apple Pay need a payment company, owner 'Coming soon until a payment company is chosen'). It is not an admin setting: it changes when Movera connects a payment company.",
+      "serverSupport": "The server takes only the methods it has a payment company for (today: cash only; card and Apple Pay need a payment company, owner 'Coming soon until a payment company is chosen'). v0.18.13 (audit M5, rule 2 'admin settings must really work'): this list is in the server's code, not a deployment setting, so the admin's per-zone switches decide what riders see; the old PAYMENT_METHODS environment list is no longer read. The only server-side override is the emergency kill-switch environment variable PAYMENT_METHODS_PAUSED (comma list, default empty): cash can never be paused (listed cash is ignored and logged); any other method listed there is served as coming_soon and refused with payment_method_coming_soon even if the admin turned it on, until it is taken off the list.",
       "served": "GET /rider/config and GET /driver/config add paymentOptions: [{ method, status: available | coming_soon }] in the admin's order, one per method the admin turned on: available = the server takes it now, coming_soon = on in admin but not taken yet. A method the admin turned off is not listed. The rider app shows available methods to pick and coming_soon ones greyed with texts.comingSoon; it never shows a method that is not listed.",
       "booking": "POST /trips (the trip's paymentMethod, in the quote's zone; POST /quotes only records it): a method the admin turned off in that zone → 400 invalid_request, reason payment_method_off; on in admin but not taken by the server → 400 invalid_request, reason payment_method_coming_soon; anything else (google_pay, wallet, unknown) → 400 invalid_request, reason payment_method_not_available. The app shows texts[reason] and goes back to the payment choice, never a silent fail. Changing the method of a booked trip stays unavailable (PATCH answers route_change_not_available, as before).",
       "migration": "Server migration 0045: google_pay is taken out of every stored rider / driver document (live, draft, history) and of the trips / quotes check; a trip or quote with google_pay never existed (booking always failed). Defensive: any trip with google_pay is set to cash before the check is changed.",
@@ -6190,5 +6237,99 @@
     "compat": "Additive for 0.18.9 apps except: google_pay is no longer a PaymentMethod / ZonePaymentMethod value (no trip ever had it: booking with it always failed); live apps that still offer Google Pay get 400 payment_method_not_available instead of a silent fail. Older driver apps ignore finish / driverTotal and keep driverEarnings.",
     "next": "Driver app: cash sheet + rating after the rider's early end, 'Din andel' = driverTotal everywhere, tip line. Rider app: payment list from paymentOptions (Pay in car, card / Apple Pay coming soon, no Google Pay, no logos), tip buttons from RiderAppConfig.tips → POST /trips/{tripId}/tip, receipt with ended early, SOS only when sosAvailable. Admin: finish.admin.",
     "paymentsAdmin": "Payments › refund policy, reconcile, disputes, retry and rules stay 'Not connected yet' on live until a payment company is chosen (cash only today)."
+  },
+  "riderTripPush": {
+    "note": "v0.18.13 (G13 recheck, audit 2026-11-02 H5): the rider gets a push (bell false: push only, not in GET /notifications) at the key moments of a trip, in the rider's language (else the trip country's: SE sv, FR fr, else en). kind trip_update, data { tripId, moment }, deepLink movera://trip/{tripId}. Respects the rider's notification setting: Rider.consents.rideUpdates false → no trip pushes (default on).",
+    "kind": "trip_update",
+    "deepLink": "movera://trip/{tripId}",
+    "moments": [
+      "driver_found",
+      "driver_arriving",
+      "driver_arrived",
+      "driver_changed",
+      "trip_cancelled"
+    ],
+    "rules": {
+      "driver_found": "A driver accepted (status accepted).",
+      "driver_arriving": "Once per driver: the server ETA to the pickup is at most arrivingSeconds.",
+      "driver_arrived": "Status arrived.",
+      "driver_changed": "The trip went back to dispatch after accept (driver cancel, admin reassign, not heading to pickup): a new driver is being found.",
+      "trip_cancelled": "The trip was cancelled by the driver, an admin or the system (never pushed for the rider's own cancel)."
+    },
+    "arrivingSeconds": 120,
+    "texts": {
+      "driver_found": {
+        "title": {
+          "sv": "Förare hittad",
+          "fr": "Chauffeur trouvé",
+          "en": "Driver found"
+        },
+        "body": {
+          "sv": "{driver} är på väg till dig.",
+          "fr": "{driver} est en route vers vous.",
+          "en": "{driver} is on the way to you."
+        }
+      },
+      "driver_arriving": {
+        "title": {
+          "sv": "Föraren är nästan framme",
+          "fr": "Le chauffeur arrive",
+          "en": "Your driver is almost there"
+        },
+        "body": {
+          "sv": "Gör dig redo, föraren är strax där.",
+          "fr": "Préparez-vous, le chauffeur arrive bientôt.",
+          "en": "Get ready, your driver is about to arrive."
+        }
+      },
+      "driver_arrived": {
+        "title": {
+          "sv": "Föraren är framme",
+          "fr": "Le chauffeur est arrivé",
+          "en": "Your driver has arrived"
+        },
+        "body": {
+          "sv": "{driver} väntar på upphämtningsplatsen.",
+          "fr": "{driver} vous attend au point de prise en charge.",
+          "en": "{driver} is waiting at the pickup."
+        }
+      },
+      "driver_changed": {
+        "title": {
+          "sv": "Vi söker en ny förare",
+          "fr": "Nous cherchons un autre chauffeur",
+          "en": "Finding you a new driver"
+        },
+        "body": {
+          "sv": "Din förare kan inte komma. Vi söker en ny förare åt dig.",
+          "fr": "Votre chauffeur ne peut pas venir. Nous en cherchons un autre.",
+          "en": "Your driver can't make it. We're finding you another one."
+        }
+      },
+      "trip_cancelled": {
+        "title": {
+          "sv": "Resan är avbokad",
+          "fr": "Course annulée",
+          "en": "Trip cancelled"
+        },
+        "body": {
+          "sv": "Din resa har avbokats. Öppna appen för detaljer.",
+          "fr": "Votre course a été annulée. Ouvrez l'application pour les détails.",
+          "en": "Your trip was cancelled. Open the app for details."
+        }
+      }
+    },
+    "driverFallback": {
+      "sv": "Din förare",
+      "fr": "Votre chauffeur",
+      "en": "Your driver"
+    }
+  },
+  "fleetShareRemoved": "v0.18.13 (owner G10-1 'Movera dont care about what fleet owner take from drivers … if there is any % u delete that'): PricingDocument.fleetCommissionPct is removed (schema, defaults, fixtures). For a fleet driver Movera pays the whole driver earnings to the fleet owner (Driver.payoutTo fleet); the owner settles with his drivers outside Movera. A document that still carries the key is accepted and the key ignored.",
+  "drivingLimits": {
+    "note": "v0.18.13 (owner 2026-11-02, decisions/driving-time-limits.md: 'It's 12 hours driving (mean driving to pickup or on trip) not online time !! And yes enforce' + '6 hours offline so reset all time'): the SERVER enforces DriverAppConfig.drivingLimits of the driver's first zone (or the country standard). Counted time = driving to the pickup (accept → arrived) + on trip (rider on board → end); online, waiting at the pickup and idle time do not count. The counter starts again after resetAfterOfflineHours (default 6) offline in a row; otherwise it covers at most the last 24 hours.",
+    "enforced": "Once counted time ≥ maxHoursPerDay (default 12; 0 = no limit) the driver gets no new offers (dispatch, radar, admin sends), POST /driver/availability online answers 409 conflict reason driving_limit_reached (details [\"drivenMinutes:<n>\", \"maxMinutes:<n>\", \"canDriveAt:<RFC 3339>\"]; the projection carries Driver.drivingTime), and a running trip is always finished.",
+    "projection": "Driver.drivingTime { drivenMinutes, maxMinutes, reached, resetAfterOfflineHours, canDriveAt? } on GET /driver/profile: canDriveAt = when the counter resets if the driver stays offline from now (only when reached).",
+    "restMinutes": "restMinutes stays the break length the app shows (not enforced by the server in v0.18.13)."
   }
 }

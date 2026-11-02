@@ -1601,5 +1601,15 @@
   "receiptDebtIncluded": "Tidigare obetald avgift",
   "receiptTip": "Dricks",
   "receiptRefunded": "Återbetalt",
-  "pickupSpotApproximate": "{name} (ungefärlig)"
+  "pickupSpotApproximate": "{name} (ungefärlig)",
+  "accountSuspended": "Ditt Movera-konto är pausat. Kontakta Movera support om du har frågor.",
+  "priceIncludesUnpaidFee": "Inklusive {amount} i obetald avgift från en tidigare resa",
+  "searchStepKeepWaitingFallback": "Det tar längre tid än vanligt. Vill du fortsätta vänta?",
+  "searchStepBusyFallback": "Alla förare är upptagna just nu. Försök igen om en stund.",
+  "searchStepStop": "Sluta söka",
+  "searchStepAnswerFailed": "Ditt svar nådde inte Movera. Försök igen.",
+  "routeVisitedStopLocked": "Du har redan kommit fram till det här stoppet, så det går inte att ta bort eller ändra.",
+  "routeChangeRefused": "Movera kunde inte göra ändringen just nu. Resan behåller sin rutt.",
+  "g7RouteExpired": "Föraren svarade inte i tid. Resan fortsätter till den första destinationen.",
+  "receiptHeading": "Kvitto"
 }

@@ -78,16 +78,24 @@ class ApiRideHistoryRepository
     // (contract: ratingStatus pending → submitted | skipped), and its
     // `fare` is what the rider paid for the distance driven.
     final rating = TripRatingStatusWire.parse(trip['ratingStatus']);
+    // Live sweep 2026-11-02 H-4: v0.18.10 `finish.endedEarly` marks a paid
+    // early end too, whatever its rating state (a paid trip, not
+    // "Cancelled").
+    final finish = trip['finish'];
+    final finishedEarly = finish is Map && finish['endedEarly'] == true;
     final endedEarly =
         snapshot.status == RideStatus.cancelledByRider &&
-        rating != null &&
-        rating != TripRatingStatus.notRequested;
+        (finishedEarly ||
+            (rating != null && rating != TripRatingStatus.notRequested));
     final reversal = RideProjection.noShowReversal(trip);
     return OnDemandRideHistoryStore.recordFor(
       snapshot,
       terminalStatus: snapshot.status,
       endedEarly: endedEarly,
-      charged: endedEarly ? Money.fromWire(trip['fare']) : null,
+      charged: endedEarly
+          ? (finishedEarly ? Money.fromWire(finish['total']) : null) ??
+                Money.fromWire(trip['fare'])
+          : null,
       // rider-r5-51: `cancellation.at` is stable; `updatedAt` moves with
       // every later rating, payment or refund change.
       endedAt:

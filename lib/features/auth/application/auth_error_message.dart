@@ -23,6 +23,10 @@ bool isWrongCode(Object error) =>
     error is ApiError &&
     (error.detail == 'invalid_otp_code' || error.detail == 'invalid_otp');
 
+/// `403 forbidden`, reason `account_suspended`: Movera paused the account.
+bool isAccountSuspended(Object error) =>
+    error is ApiError && error.detail == 'account_suspended';
+
 /// Contract v0.15.0 `403 forbidden`, reason `sign_in_restricted`: the number
 /// can join the waiting list (owner 2026-10-29, decision 5).
 bool isSignInRestricted(Object error) =>
@@ -78,6 +82,10 @@ String authErrorMessage(Object error, AuthAction action, {String? provider}) {
         return L10n.current.invalidMobileNumber;
       case 'sign_in_restricted':
         return L10n.current.signInRestricted;
+      // G16-1 (full audit H6): a paused account (403, reason
+      // account_suspended) is told plainly, not "could not check the code".
+      case 'account_suspended':
+        return L10n.current.accountSuspended;
     }
   }
   return switch (action) {

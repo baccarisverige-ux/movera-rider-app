@@ -1,11 +1,11 @@
-# Movera API v0.18.12 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.13 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.12
+  version: 0.18.13
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.12 in this folder; this file must agree with them.
+    v0.18.13 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -82,7 +82,7 @@ tags:
 - name: Driver · Home
 x-contract:
   name: movera
-  version: 0.18.12
+  version: 0.18.13
   source: contract.json
 paths:
   /auth/otp/request:
@@ -765,9 +765,17 @@ paths:
         is on AND the free waiting is over (now >= waiting.freeUntil: the moment the driver himself could mark a no-show;
         a reservation''s clock runs from the booked time, so an early-arrived driver''s rider still pays the reservation late-cancel
         rule before it) → the fee is the trip''s no-show fee (terms.noShowFee, driver share terms.noShowDriverSharePct, rider_fees
-        kind no_show, cancellation.feeKind no_show); otherwise the normal cancel fee (cancelFees, the came-closer check, cancellation.feeKind
-        cancel). The status stays cancelled_by_rider (the transition table is unchanged). Closes the gap where cancelling
-        after arrival (35 kr) was cheaper than a no-show (65 kr).'
+        kind no_show, cancellation.feeKind no_show); otherwise the normal cancel fee (cancelFees, the heading-to-pickup check
+        (v0.18.13 pickupWaiting.headingCheck), cancellation.feeKind cancel). The status stays cancelled_by_rider (the transition
+        table is unchanged). Closes the gap where cancelling after arrival (35 kr) was cheaper than a no-show (65 kr). v0.18.13:
+        Inside the cancel rule''s free minutes (default 2) the rider always cancels free. After them (live trip, driver not
+        yet arrived): the fee is charged unless the latest check says the driver has NOT been heading for notHeadingMinutes
+        in a row (then the cancel is free, cancellation.fee null). No check yet (a trip accepted before v0.18.13, no position
+        so far) = the normal fee rules. A check without a position changes nothing (the previous state and its clock stay).
+        A driver within the arrive radius counts as heading. v0.18.13 (owner G5-9 ''Load from admin''): DriverAppConfig.cancelReasons
+        (the zone''s admin list per sheet) decides which reasons the driver app SHOWS; titles (sv/fr/en) come from DriverAppConfig.texts
+        and the app keeps the built-in list as the offline backup. The server accepts every contract code of the sheet (contract.json#cancelReasons),
+        so an old app that shows the built-in list keeps working; a code of another sheet → 400 invalid_request, reason invalid_reason_code.'
       tags:
       - Trips
       x-actor:
@@ -2252,7 +2260,10 @@ paths:
         thing to fix). Driver app: with the phone''s location off (or permission denied) Go online is blocked before calling
         the server and shows text + openSettings; with battery saver on it shows batterySaver once (per install) and may still
         go online. Outside the driver''s zones going online still works and the Driver carries outsideArea: true (contract.json#driverHome.outsideArea).
-        Slow server: contract.json#auth.slowStart covers this call.'
+        Slow server: contract.json#auth.slowStart covers this call. v0.18.13: Once counted time ≥ maxHoursPerDay (default
+        12; 0 = no limit) the driver gets no new offers (dispatch, radar, admin sends), POST /driver/availability online answers
+        409 conflict reason driving_limit_reached (details ["drivenMinutes:<n>", "maxMinutes:<n>", "canDriveAt:<RFC 3339>"];
+        the projection carries Driver.drivingTime), and a running trip is always finished.'
       tags:
       - Driver · Session
       x-actor:
@@ -12641,6 +12652,196 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /rider/refunds:
+    get:
+      operationId: listRiderRefunds
+      summary: The rider's refunds and where each one goes
+      description: 'v0.18.13 (audit M4: served since v0.18.10, now in the paths). For the admin trip page (Give money back):
+        POST /admin/trips/{tripId}/refund { expectedVersion, amount: Money, reason, fromDriver? } (payments.refund) → 201
+        Refund (or 202 PendingApproval over the role limit). At most what the rider paid (cash + wallet) less earlier refunds
+        (400 refund_too_large); only a paid ended trip (409 not_paid). fromDriver true (''take from driver'', owner decision
+        31): the driver loses his share of the refunded money (an earnings adjustment − share), now also in driverTotal /
+        driverAdjustments. The rider chooses where the money goes (POST /rider/refunds/{refundId}/destination); the admin
+        marks a Swish / bank refund paid (POST /admin/refunds/{refundId}/paid, finance.edit). Lists: GET /admin/refunds/payouts.'
+      tags:
+      - Rider · Payments
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiderRefundPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /rider/refunds/{refundId}/destination:
+    post:
+      operationId: chooseRefundDestination
+      summary: Choose where a refund goes (wallet, Swish, bank)
+      description: 'v0.18.13 (audit M4: served since v0.18.10, now in the paths).'
+      tags:
+      - Rider · Payments
+      x-actor:
+      - rider
+      parameters:
+      - name: refundId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundDestinationCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiderRefund'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/refunds/payouts:
+    get:
+      operationId: adminRefundPayouts
+      summary: Swish / bank refunds to pay by hand
+      description: 'v0.18.13 (audit M4: served since v0.18.10, now in the paths).'
+      tags:
+      - Admin · Money
+      x-actor:
+      - admin
+      x-permission: finance.read
+      parameters:
+      - name: payoutStatus
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - pending
+          - paid
+          default: pending
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundPayoutPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/refunds/{refundId}/paid:
+    post:
+      operationId: adminMarkRefundPaid
+      summary: Mark a Swish / bank refund as paid
+      description: 'v0.18.13 (audit M4: served since v0.18.10, now in the paths). 409 conflict reason already_paid or no_payout
+        (the rider has not chosen Swish or bank). Written in the audit (refund.paid).'
+      tags:
+      - Admin · Money
+      x-actor:
+      - admin
+      x-permission: finance.edit
+      parameters:
+      - name: refundId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundPaidCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -14171,6 +14372,8 @@ components:
           type: boolean
           description: 'v0.18.10: TripProjection.sosAvailable (rider and driver views): true while the status is in safety.sos.riderStatuses
             / driverStatuses. The rider app shows SOS only when true, else only Call 112.'
+        headingCheck:
+          $ref: '#/components/schemas/TripHeadingCheck'
     DriverSilentAlert:
       type: object
       description: 'v0.7.0: documents the server''s alert of 2026-10-26: no position for 30 min with the rider on board; the
@@ -14714,6 +14917,8 @@ components:
           description: 'v0.18.6: with offlineReason vehicle_blocked, the admin''s note.'
         offlineAt:
           $ref: '#/components/schemas/Timestamp'
+        drivingTime:
+          $ref: '#/components/schemas/DrivingTime'
     DriverScheduledRides:
       type: object
       description: 'Owner decision 2 (v0.4.2): an admin''s reservations on/off for this one driver (CONTRACT.md §6.1). Missing
@@ -16003,6 +16208,9 @@ components:
         note:
           type: string
           maxLength: 1000
+      description: 'v0.18.13: v0.18.13 (audit M1): one payout is in ONE currency: the unpaid entries of a driver''s period
+        are paid per currency (a driver with kr and € entries gets two payouts); amounts of different currencies are never
+        added.'
     PayoutCreateCommand:
       type: object
       description: 'v0.9.0: Create payout by hand for a driver and a date range; trips already in a payout are left out (409
@@ -16172,8 +16380,10 @@ components:
           description: Cancel and no-show fees charged that day (also inside gross).
         moveraEarnings:
           type: integer
-          description: 'What Movera keeps: commission + Movera''s share of fees - pickup pay - driver bonuses Movera paid.
-            Can be negative.'
+          description: 'What Movera keeps: commission (trips.commission, already net of pickup pay and driver bonuses: commission
+            = fare - debtCollected - driverEarnings - pickupPay - driverBonus) + Movera''s share of fees - refunds of the
+            day''s trips. Can be negative. v0.18.13 (audit 2026-11-02 H2): pickup pay and bonuses are no longer taken off
+            a second time, and refunds are taken off (server migration 0047 rewrites the stored days).'
     KpiReport:
       type: object
       description: 'v0.9.0: GET /admin/kpis.'
@@ -16577,6 +16787,10 @@ components:
           - $ref: '#/components/schemas/Money'
           description: 'v0.18.10 checker: the largest single change of a driver''s pay on a trip (POST /admin/trips/{tripId}/driver-pay).
             Default SE 1000 kr, FR 100 €.'
+        payoutSchedule:
+          allOf:
+          - $ref: '#/components/schemas/PayoutSchedule'
+          description: 'v0.18.13: read from the country standard only (a zone''s own rules do not change it).'
       x-server-only: true
     FeeRule:
       type: object
@@ -17856,9 +18070,14 @@ components:
             add paymentOptions: [{ method, status: available | coming_soon }] in the admin''s order, one per method the admin
             turned on: available = the server takes it now, coming_soon = on in admin but not taken yet. A method the admin
             turned off is not listed. The rider app shows available methods to pick and coming_soon ones greyed with texts.comingSoon;
-            it never shows a method that is not listed. The server takes only the methods of its own list (today: cash only;
-            card and Apple Pay need a payment company, owner ''Coming soon until a payment company is chosen''). It is not
-            an admin setting: it changes when Movera connects a payment company.'
+            it never shows a method that is not listed. The server takes only the methods it has a payment company for (today:
+            cash only; card and Apple Pay need a payment company, owner ''Coming soon until a payment company is chosen'').
+            v0.18.13 (audit M5, rule 2 ''admin settings must really work''): this list is in the server''s code, not a deployment
+            setting, so the admin''s per-zone switches decide what riders see; the old PAYMENT_METHODS environment list is
+            no longer read. The only server-side override is the emergency kill-switch environment variable PAYMENT_METHODS_PAUSED
+            (comma list, default empty): cash can never be paused (listed cash is ignored and logged); any other method listed
+            there is served as coming_soon and refused with payment_method_coming_soon even if the admin turned it on, until
+            it is taken off the list.'
         tipRules:
           $ref: '#/components/schemas/TipRules'
     DriverAppConfig:
@@ -18055,7 +18274,11 @@ components:
           $ref: '#/components/schemas/DriverReservations'
         cancelReasons:
           type: object
-          description: Enabled codes per reason sheet; titles come from `texts`.
+          description: 'Enabled codes per reason sheet; titles come from `texts`. v0.18.13: v0.18.13 (owner G5-9 ''Load from
+            admin''): DriverAppConfig.cancelReasons (the zone''s admin list per sheet) decides which reasons the driver app
+            SHOWS; titles (sv/fr/en) come from DriverAppConfig.texts and the app keeps the built-in list as the offline backup.
+            The server accepts every contract code of the sheet (contract.json#cancelReasons), so an old app that shows the
+            built-in list keeps working; a code of another sheet → 400 invalid_request, reason invalid_reason_code.'
           properties:
             driverBeforeTrip:
               type: array
@@ -18079,14 +18302,33 @@ components:
                 $ref: '#/components/schemas/NoShowReasonCode'
         drivingLimits:
           type: object
+          description: 'v0.18.13: v0.18.13 (owner 2026-11-02, decisions/driving-time-limits.md: ''It''s 12 hours driving (mean
+            driving to pickup or on trip) not online time !! And yes enforce'' + ''6 hours offline so reset all time''): the
+            SERVER enforces DriverAppConfig.drivingLimits of the driver''s first zone (or the country standard). Counted time
+            = driving to the pickup (accept → arrived) + on trip (rider on board → end); online, waiting at the pickup and
+            idle time do not count. The counter starts again after resetAfterOfflineHours (default 6) offline in a row; otherwise
+            it covers at most the last 24 hours. Once counted time ≥ maxHoursPerDay (default 12; 0 = no limit) the driver
+            gets no new offers (dispatch, radar, admin sends), POST /driver/availability online answers 409 conflict reason
+            driving_limit_reached (details ["drivenMinutes:<n>", "maxMinutes:<n>", "canDriveAt:<RFC 3339>"]; the projection
+            carries Driver.drivingTime), and a running trip is always finished.'
           properties:
             maxHoursPerDay:
               type: number
               minimum: 0
               maximum: 24
+              description: Counted driving hours (to the pickup + on trip) before no new offers; 0 = no limit.
+              default: 12
             restMinutes:
               type: number
               minimum: 0
+              description: restMinutes stays the break length the app shows (not enforced by the server in v0.18.13).
+              default: 30
+            resetAfterOfflineHours:
+              type: number
+              minimum: 1
+              maximum: 24
+              description: 'v0.18.13: hours offline in a row after which the counter starts again.'
+              default: 6
         rideCheck:
           $ref: '#/components/schemas/RideCheck'
         texts:
@@ -18112,9 +18354,16 @@ components:
             add paymentOptions: [{ method, status: available | coming_soon }] in the admin''s order, one per method the admin
             turned on: available = the server takes it now, coming_soon = on in admin but not taken yet. A method the admin
             turned off is not listed. The rider app shows available methods to pick and coming_soon ones greyed with texts.comingSoon;
-            it never shows a method that is not listed. The server takes only the methods of its own list (today: cash only;
-            card and Apple Pay need a payment company, owner ''Coming soon until a payment company is chosen''). It is not
-            an admin setting: it changes when Movera connects a payment company.'
+            it never shows a method that is not listed. The server takes only the methods it has a payment company for (today:
+            cash only; card and Apple Pay need a payment company, owner ''Coming soon until a payment company is chosen'').
+            v0.18.13 (audit M5, rule 2 ''admin settings must really work''): this list is in the server''s code, not a deployment
+            setting, so the admin''s per-zone switches decide what riders see; the old PAYMENT_METHODS environment list is
+            no longer read. The only server-side override is the emergency kill-switch environment variable PAYMENT_METHODS_PAUSED
+            (comma list, default empty): cash can never be paused (listed cash is ignored and logged); any other method listed
+            there is served as coming_soon and refused with payment_method_coming_soon even if the admin turned it on, until
+            it is taken off the list.'
+        headingCheck:
+          $ref: '#/components/schemas/HeadingCheckSettings'
     CategoryPricingWaiting:
       type: object
       description: Waiting at pickup for one category; RiderAppConfig / DriverAppConfig waiting.byCategory carry the same
@@ -18419,7 +18668,6 @@ components:
       - fees
       - fixedRoutes
       - surge
-      - fleetCommissionPct
       properties:
         version:
           type: integer
@@ -18454,11 +18702,6 @@ components:
             $ref: '#/components/schemas/FixedRoute'
         surge:
           $ref: '#/components/schemas/PricingSurge'
-        fleetCommissionPct:
-          type: number
-          minimum: 0
-          maximum: 30
-          description: Fleet owner's share (admin Pricing); not in the rider's fare.
         usesStandard:
           type: boolean
           description: 'v0.8.0: set by the server when it serves or uses the country standard for this zone (contract.json#configDocs.standard).'
@@ -25627,4 +25870,321 @@ components:
         reason:
           type: string
           minLength: 1
+          maxLength: 1000
+    HeadingCheckSettings:
+      type: object
+      description: 'v0.18.13: v0.18.13 (owner G5-8, decisions/driver-g5.md item 8 + notes): the smart late rule for live trips.
+        ''Heading to pickup'' = in each check the driver got at least headingPct % (default 80, admin per zone, range 50-100)
+        as much closer to the pickup as he could have at normal road speed in the time since the last check (normal road speed
+        = the server''s route distance / route duration of the driver''s leg to the pickup, else dispatch''s pickup speed).
+        It runs with the server ETA, every pickupWaiting.eta.everySeconds (30 s), from accept until arrived, for the whole
+        wait, not only once. DriverAppConfig.headingCheck { on, headingPct, notHeadingMinutes, reassign } per zone (or the
+        country standard); defaults configDefaults.headingCheck (on, 80 %, 2 min, reassign on). The admin''s ''Smart cancel
+        check'' / ''Came closer by'' controls map to on / headingPct.'
+      properties:
+        'on':
+          type: boolean
+          description: 'The smart late rule is used in this zone (off: after the free minutes the normal cancel fee applies).'
+          default: true
+        headingPct:
+          type: number
+          minimum: 50
+          maximum: 100
+          description: Heading to pickup = at least this % of the progress normal road speed allows.
+          default: 80
+        notHeadingMinutes:
+          type: number
+          minimum: 1
+          maximum: 30
+          description: Not heading for this many minutes in a row → free rider cancel (and reassign when on).
+          default: 2
+        reassign:
+          type: boolean
+          description: 'With reassign on, a driver not heading for notHeadingMinutes in a row loses the trip: it goes back
+            to dispatch without him (TripProjection.status searching, like an admin reassign; Exclusive offers first as dispatch
+            does), the cancel counts against him (driver_cancels reason not_heading_to_pickup, in his cancel rate) and the
+            rider gets the driver_changed push.'
+          default: true
+    TripHeadingCheck:
+      type: object
+      description: 'v0.18.13: TripProjection.headingCheck { heading, checkedAt, notHeadingSince?, freeCancel } from accept
+        until arrived (all views): heading = the latest check; freeCancel = a rider cancel now costs nothing because of this
+        rule. The admin dispatch map flags trips with heading false. Inside the cancel rule''s free minutes (default 2) the
+        rider always cancels free. After them (live trip, driver not yet arrived): the fee is charged unless the latest check
+        says the driver has NOT been heading for notHeadingMinutes in a row (then the cancel is free, cancellation.fee null).
+        No check yet (a trip accepted before v0.18.13, no position so far) = the normal fee rules. A check without a position
+        changes nothing (the previous state and its clock stay). A driver within the arrive radius counts as heading.'
+      required:
+      - heading
+      - checkedAt
+      - freeCancel
+      properties:
+        heading:
+          type: boolean
+          description: 'The latest check: the driver is heading to the pickup.'
+        checkedAt:
+          $ref: '#/components/schemas/Timestamp'
+        notHeadingSince:
+          allOf:
+          - $ref: '#/components/schemas/Timestamp'
+          description: Since when the checks say not heading (absent while heading).
+        freeCancel:
+          type: boolean
+          description: A rider cancel now is free because of this rule.
+    DrivingTime:
+      type: object
+      description: 'v0.18.13: Driver.drivingTime { drivenMinutes, maxMinutes, reached, resetAfterOfflineHours, canDriveAt?
+        } on GET /driver/profile: canDriveAt = when the counter resets if the driver stays offline from now (only when reached).'
+      required:
+      - drivenMinutes
+      - maxMinutes
+      - reached
+      - resetAfterOfflineHours
+      properties:
+        drivenMinutes:
+          type: integer
+          minimum: 0
+        maxMinutes:
+          type: integer
+          minimum: 0
+          description: 0 = no limit.
+        reached:
+          type: boolean
+        resetAfterOfflineHours:
+          type: number
+          minimum: 0
+        canDriveAt:
+          $ref: '#/components/schemas/Timestamp'
+    PayoutSchedule:
+      type: object
+      description: 'v0.18.13: v0.18.13 (owner G10-2 ''Admin sets day and time''): CountryRules.payoutSchedule { frequency:
+        weekly | every_2_weeks, day: monday..sunday, time: HH:MM } of the country standard (Settings › Payouts, per country);
+        default weekly, Monday, 08:00, SE and FR. A period runs from one payout moment to the next in the local time of the
+        driver''s first zone; a driver without a zone uses his country''s time zone (SE Europe/Stockholm, FR Europe/Paris).
+        every_2_weeks counts from the week of 2026-01-05 (periods start on even weeks from it). A changed schedule applies
+        to the next period; entries are never paid twice.'
+      required:
+      - frequency
+      - day
+      - time
+      properties:
+        frequency:
+          type: string
+          enum:
+          - weekly
+          - every_2_weeks
+          default: weekly
+        day:
+          type: string
+          enum:
+          - monday
+          - tuesday
+          - wednesday
+          - thursday
+          - friday
+          - saturday
+          - sunday
+          default: monday
+        time:
+          type: string
+          pattern: ^([01]\d|2[0-3]):[0-5]\d$
+          default: 08:00
+          description: Local time HH:MM.
+    RefundDestination:
+      type: string
+      enum:
+      - wallet
+      - swish
+      - bank
+      description: wallet (back to the Movera wallet at once), swish (SE only) or bank.
+    RiderRefund:
+      type: object
+      description: The rider's view of a refund done for one of his trips.
+      required:
+      - refundId
+      - tripId
+      - amount
+      - reason
+      - status
+      - destination
+      - payoutStatus
+      - createdAt
+      properties:
+        refundId:
+          $ref: '#/components/schemas/Id'
+        tripId:
+          $ref: '#/components/schemas/Id'
+        amount:
+          $ref: '#/components/schemas/Money'
+        reason:
+          type: string
+        status:
+          $ref: '#/components/schemas/RefundStatus'
+        destination:
+          oneOf:
+          - $ref: '#/components/schemas/RefundDestination'
+          - type: 'null'
+          description: null until the rider chooses.
+        payoutStatus:
+          oneOf:
+          - type: string
+            enum:
+            - pending
+            - paid
+          - type: 'null'
+          description: 'Swish / bank only: pending until an admin marks it paid.'
+        payoutTo:
+          type: string
+          description: Masked account, e.g. Swish ••4567, Bank ••1234.
+        paidAt:
+          $ref: '#/components/schemas/Timestamp'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/RefundDestination'
+          description: 'While destination is null: what the rider may choose (SE wallet, swish, bank; FR wallet, bank).'
+    RiderRefundPage:
+      type: object
+      description: The newest 100; nextCursor is always null.
+      required:
+      - items
+      - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RiderRefund'
+        nextCursor:
+          oneOf:
+          - type: string
+          - type: 'null'
+    SwedishBankAccount:
+      type: object
+      required:
+      - clearingNumber
+      - accountNumber
+      - holderName
+      properties:
+        clearingNumber:
+          type: string
+          pattern: ^\d{4,5}$
+        accountNumber:
+          type: string
+          pattern: ^\d{6,12}$
+        holderName:
+          type: string
+          minLength: 2
+          maxLength: 120
+    IbanBankAccount:
+      type: object
+      required:
+      - iban
+      - holderName
+      properties:
+        iban:
+          type: string
+          description: Spaces allowed; stored upper case without spaces.
+        bic:
+          type: string
+          pattern: ^[A-Z0-9]{8}([A-Z0-9]{3})?$
+        holderName:
+          type: string
+          minLength: 2
+          maxLength: 120
+    RefundDestinationCommand:
+      type: object
+      description: 'One choice per refund. wallet: credited at once. swish (+46 number, SE only) / bank: payoutStatus pending
+        until an admin pays it. Errors: 404 refund_not_found, 409 destination_chosen, 400 method_not_available, bank_details_invalid.'
+      required:
+      - method
+      properties:
+        method:
+          $ref: '#/components/schemas/RefundDestination'
+        swish:
+          type: object
+          required:
+          - phone
+          properties:
+            phone:
+              type: string
+              pattern: ^\+46\d{7,10}$
+        bank:
+          oneOf:
+          - $ref: '#/components/schemas/SwedishBankAccount'
+          - $ref: '#/components/schemas/IbanBankAccount'
+          description: 'SE: clearing + account number; other countries: IBAN.'
+    RefundPayoutItem:
+      type: object
+      description: 'Admin: one Swish / bank refund to pay by hand.'
+      required:
+      - refundId
+      - tripId
+      - amount
+      - status
+      - riderId
+      properties:
+        refundId:
+          $ref: '#/components/schemas/Id'
+        tripId:
+          $ref: '#/components/schemas/Id'
+        amount:
+          $ref: '#/components/schemas/Money'
+        reason:
+          type: string
+        status:
+          $ref: '#/components/schemas/RefundStatus'
+        destination:
+          oneOf:
+          - $ref: '#/components/schemas/RefundDestination'
+          - type: 'null'
+          description: null until the rider chooses.
+        payoutStatus:
+          oneOf:
+          - type: string
+            enum:
+            - pending
+            - paid
+          - type: 'null'
+          description: 'Swish / bank only: pending until an admin marks it paid.'
+        payoutTo:
+          type: object
+          description: 'The full account so the admin can send the money: { swish: { phone } } or { bank: SwedishBankAccount
+            | IbanBankAccount }.'
+        paidAt:
+          $ref: '#/components/schemas/Timestamp'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/RefundDestination'
+          description: 'While destination is null: what the rider may choose (SE wallet, swish, bank; FR wallet, bank).'
+        riderId:
+          $ref: '#/components/schemas/Id'
+        riderName:
+          type: string
+        riderPhone:
+          type: string
+    RefundPayoutPage:
+      type: object
+      description: Oldest first, at most 200, only the admin's zones; nextCursor is always null.
+      required:
+      - items
+      - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RefundPayoutItem'
+        nextCursor:
+          oneOf:
+          - type: string
+          - type: 'null'
+    RefundPaidCommand:
+      type: object
+      properties:
+        note:
+          type: string
           maxLength: 1000

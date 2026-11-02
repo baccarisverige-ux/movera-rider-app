@@ -1601,5 +1601,15 @@
   "receiptDebtIncluded": "Anciens frais impayés",
   "receiptTip": "Pourboire",
   "receiptRefunded": "Remboursé",
-  "pickupSpotApproximate": "{name} (approximatif)"
+  "pickupSpotApproximate": "{name} (approximatif)",
+  "accountSuspended": "Votre compte Movera est en pause. Contactez le support Movera si vous avez des questions.",
+  "priceIncludesUnpaidFee": "Dont {amount} de frais impayés d’une course précédente",
+  "searchStepKeepWaitingFallback": "Cela prend plus de temps que d’habitude. Continuer d’attendre ?",
+  "searchStepBusyFallback": "Tous les chauffeurs sont occupés pour le moment. Réessayez dans un instant.",
+  "searchStepStop": "Arrêter la recherche",
+  "searchStepAnswerFailed": "Votre réponse n’est pas arrivée chez Movera. Réessayez.",
+  "routeVisitedStopLocked": "Vous êtes déjà passé par cet arrêt : il ne peut plus être supprimé ni modifié.",
+  "routeChangeRefused": "Movera n’a pas pu faire ce changement pour le moment. La course garde son itinéraire.",
+  "g7RouteExpired": "Le chauffeur n’a pas répondu à temps. La course continue vers la première destination.",
+  "receiptHeading": "Reçu"
 }

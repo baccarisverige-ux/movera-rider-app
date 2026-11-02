@@ -1,3 +1,5 @@
+import 'package:movera_rider/features/ride_complete/application/server_receipt.dart';
+import 'package:movera_rider/features/ride_complete/presentation/server_receipt_lines.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -22,7 +24,12 @@ import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 class RideHistory extends StatefulWidget {
-  const RideHistory({super.key, this.reservations, this.onDemandReader});
+  const RideHistory({
+    super.key,
+    this.reservations,
+    this.onDemandReader,
+    this.receiptLoader,
+  });
 
   /// Pop result asking the opener to start a booking (D-026). The side menu
   /// answers it by opening Home's destination sheet.
@@ -30,6 +37,9 @@ class RideHistory extends StatefulWidget {
 
   final ReservationController? reservations;
   final Future<List<Reservation>> Function()? onDemandReader;
+
+  /// `GET /trips/{tripId}/receipt` (tests give their own).
+  final Future<ServerReceipt?> Function(String rideId)? receiptLoader;
 
   @override
   State<RideHistory> createState() => _RideHistoryState();
@@ -592,6 +602,18 @@ class _RideHistoryState extends State<RideHistory> {
                   ReservationFormat.reasonLabel(ride.cancellationReason!),
                 ),
                 style: _text(13.5, color: _muted),
+              ),
+            ],
+            // Live sweep 2026-11-02 M-11: the server's receipt (total, tip,
+            // earlier fee, refund) for a paid trip.
+            if (ride.status.isCompleted || ride.endedEarly) ...[
+              const SizedBox(height: 12),
+              ServerReceiptLines(
+                key: const ValueKey('history-receipt'),
+                rideId: ride.reservationId.substring('ondemand-'.length),
+                loader: widget.receiptLoader,
+                showEndedEarly: false,
+                showTotal: true,
               ),
             ],
             // RC5: a Ride check on this trip, with its answers.
