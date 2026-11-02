@@ -409,6 +409,10 @@ class LiquidGlassNavRowState extends State<LiquidGlassNavRow>
 /// The clear glass bubble: a light blur, a bright rim, a faint rainbow edge
 /// and a soft shadow, drawn over the tabs. [strength] (0 on the floating bar,
 /// 1 on the docked bar) adds a little tint and shadow so it reads on white.
+/// Owner 2026-11-02: the glass bubble is 10% lighter ("10% less blur");
+/// set back to 1.0 to return to the previous look.
+const double kGlassFrost = 0.9;
+
 class _GlassLens extends StatelessWidget {
   const _GlassLens({super.key, required this.strength});
 
@@ -441,9 +445,13 @@ class _GlassLens extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.white.withValues(alpha: 0.70),
-                const Color(0xFFE8ECEF).withValues(alpha: 0.45 + tint),
-                const Color(0xFFD9DFE4).withValues(alpha: 0.55 + tint),
+                Colors.white.withValues(alpha: 0.70 * kGlassFrost),
+                const Color(
+                  0xFFE8ECEF,
+                ).withValues(alpha: (0.45 + tint) * kGlassFrost),
+                const Color(
+                  0xFFD9DFE4,
+                ).withValues(alpha: (0.55 + tint) * kGlassFrost),
               ],
             ),
           ),
