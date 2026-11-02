@@ -1585,6 +1585,7 @@
   "paymentMethodComingSoon": "Ce moyen de paiement arrive bientôt. Choisissez Payer dans la voiture.",
   "paymentMethodNotAvailable": "Ce moyen de paiement ne peut pas être utilisé. Choisissez-en un autre.",
   "tipCustomAmount": "Autre montant",
+  "tipCustomAmountLabel": "Pourboire : autre montant",
   "tipMax": "{amount} maximum",
   "tipAmountNotAllowed": "Choisissez un des montants.",
   "tipAboveMax": "Le montant est trop élevé.",
