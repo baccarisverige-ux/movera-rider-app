@@ -13,6 +13,8 @@ class TextWidget extends StatelessWidget {
   Paint? foreground;
   FontWeight fontWeight;
   bool isItalic;
+  int? maxLines;
+  TextOverflow? overflow;
 
   TextWidget({
     super.key,
@@ -24,6 +26,8 @@ class TextWidget extends StatelessWidget {
     this.foreground,
     this.fontWeight = FontWeight.w500,
     this.isItalic = false,
+    this.maxLines,
+    this.overflow,
   });
 
   @override
@@ -31,6 +35,8 @@ class TextWidget extends StatelessWidget {
     return Text(
       textAlign: textAlign,
       text!,
+      maxLines: maxLines,
+      overflow: overflow,
       style: GoogleFonts.poppins(
         foreground: foreground,
         letterSpacing: letterSpacing,
