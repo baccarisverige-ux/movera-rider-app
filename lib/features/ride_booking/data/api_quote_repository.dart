@@ -330,6 +330,7 @@ class ApiQuoteRepository implements QuoteRepository {
       surgeMinor: line(const {'surge'}),
       // A discount line is negative on the wire; the app keeps it positive.
       discountMinor: -line(const {'discount'}),
+      outstandingFeeMinor: line(const {'outstanding_fee'}),
       serverHeld: true,
     );
   }

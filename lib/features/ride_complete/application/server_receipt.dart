@@ -13,7 +13,12 @@ class ServerReceipt {
     this.tip,
     this.debtIncluded,
     this.refunded,
+    this.total,
   });
+
+  /// The receipt's `total` (what the rider paid for the trip), so History
+  /// shows the server's receipt, not the phone's copy (live sweep M-11).
+  final Money? total;
 
   final bool endedEarly;
 
@@ -34,6 +39,7 @@ class ServerReceipt {
       tip: tip is Map ? Money.fromWire(tip['amount']) : null,
       debtIncluded: Money.fromWire(json['debtIncluded']),
       refunded: refunded != null && refunded.amountMinor > 0 ? refunded : null,
+      total: Money.fromWire(json['total']),
     );
   }
 

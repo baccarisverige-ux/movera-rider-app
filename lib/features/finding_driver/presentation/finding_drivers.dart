@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/search_step.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -990,6 +991,79 @@ class _FindingDriversState extends State<FindingDrivers> {
     return math.max(minH, math.min(wanted, _sheetCeiling(media)));
   }
 
+  /// Deep-fix 2026-11-02: the admin's search step (Dispatch › search
+  /// steps) as the server sent it: its message, and for keep_waiting the
+  /// Keep waiting / Stop answer.
+  Widget _searchStepCard(TripSearchStep step) {
+    final l10n = context.l10n;
+    final message = step.message.isNotEmpty
+        ? step.message
+        : step.asksKeepWaiting
+        ? l10n.searchStepKeepWaitingFallback
+        : l10n.searchStepBusyFallback;
+    return Container(
+      key: ValueKey('search-step-${step.id}'),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE7EBEE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            message,
+            key: const ValueKey('search-step-message'),
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF1F2A30),
+            ),
+          ),
+          if (step.asksKeepWaiting) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    key: const ValueKey('search-step-stop'),
+                    onPressed: _match.keepWaitingInFlight
+                        ? null
+                        : () => _answerStep(wait: false),
+                    child: Text(l10n.searchStepStop),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    key: const ValueKey('search-step-wait'),
+                    onPressed: _match.keepWaitingInFlight
+                        ? null
+                        : () => _answerStep(wait: true),
+                    child: Text(l10n.keepWaiting),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _answerStep({required bool wait}) async {
+    setState(() {});
+    final ok = await _match.answerKeepWaiting(wait: wait);
+    if (!mounted) return;
+    setState(() {});
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.searchStepAnswerFailed)),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
@@ -1313,7 +1387,12 @@ class _FindingDriversState extends State<FindingDrivers> {
               color: const Color(0xFF2D5878),
             ),
           ),
-          if (_match.showStillLooking) ...[
+          if (_match.searchStep case final step?) ...[
+            const SizedBox(height: 16),
+            _searchStepCard(step),
+          ],
+          if (_match.showStillLooking &&
+              !(_match.searchStep?.asksKeepWaiting ?? false)) ...[
             const SizedBox(height: 16),
             StillLookingCard(
               onKeepSearching: () {

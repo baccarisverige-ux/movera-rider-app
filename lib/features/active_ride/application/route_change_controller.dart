@@ -126,6 +126,15 @@ enum RouteChangeFailure {
   /// v0.18.9: the zone allows a change only once the rider is on board
   /// (`routeChange.beforePickup: false`).
   beforePickupOff,
+
+  /// Deep re-check P2-M6: a stop the driver already reached cannot be
+  /// removed or moved (`visited_stop_changed`).
+  visitedStop,
+
+  /// P2-L1: Movera answered but could not price or apply the change (a
+  /// 5xx such as `pricing_invalid`, or a reason this app does not know);
+  /// not a network problem.
+  refused,
 }
 
 class RouteChangeException implements Exception {
@@ -156,6 +165,8 @@ class RouteChangeException implements Exception {
     RouteChangeFailure.pending => L10n.current.g7RouteWaiting,
     RouteChangeFailure.fixedRoute => L10n.current.g7RouteFixedRoute,
     RouteChangeFailure.beforePickupOff => L10n.current.g7RouteBeforePickupOff,
+    RouteChangeFailure.visitedStop => L10n.current.routeVisitedStopLocked,
+    RouteChangeFailure.refused => L10n.current.routeChangeRefused,
     RouteChangeFailure.pickupTooFar => L10n.current.routePickupTooFar(
       '${maxPickupMoveMeters ?? RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters}',
     ),
@@ -601,7 +612,7 @@ class RouteChangeController {
         'route_change_off' => RouteChangeFailure.unavailable,
         'route_change_fixed_route' => RouteChangeFailure.fixedRoute,
         'route_change_before_pickup_off' => RouteChangeFailure.beforePickupOff,
-        'visited_stop_changed' ||
+        'visited_stop_changed' => RouteChangeFailure.visitedStop,
         'route_change_not_pending' => RouteChangeFailure.rideFinished,
         'route_quote_used' ||
         'route_quote_expired' ||
@@ -609,7 +620,13 @@ class RouteChangeController {
         'route_quote_mismatch' ||
         'route_quote_price_changed' ||
         'conflict' => RouteChangeFailure.priceChanged,
-        _ => RouteChangeFailure.network,
+        // A server answer is never "check your connection" (P2-L1).
+        _ =>
+          (error.statusCode ?? 0) > 0 &&
+                  error.code != 'NETWORK' &&
+                  error.code != 'TIMEOUT'
+              ? RouteChangeFailure.refused
+              : RouteChangeFailure.network,
       });
     } catch (_) {
       throw const RouteChangeException(RouteChangeFailure.network);

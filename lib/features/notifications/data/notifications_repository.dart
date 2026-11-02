@@ -79,6 +79,45 @@ class NotificationsRepository {
     _emit();
   }
 
+  /// Contract v0.18.14 `deepFix1.notifications`: `GET /notifications`
+  /// gives each notice's title and body in the account's current language
+  /// (also a `refund` notice and the trip moments). A notice already here
+  /// from its push takes the server's words; one not here is added.
+  void syncServer(Map<String, dynamic> page) {
+    final items = page['items'];
+    if (items is! List) return;
+    for (final raw in items) {
+      if (raw is! Map) continue;
+      final id = raw['notificationId'];
+      final title = '${raw['title'] ?? ''}'.trim();
+      if (id is! String || id.isEmpty || title.isEmpty) continue;
+      if (raw['kind'] == 'trip_message') continue;
+      final at = (DateTime.tryParse('${raw['at']}') ?? _now()).toLocal();
+      final item = AppNotification(
+        kind: '${raw['kind'] ?? 'info'}',
+        title: title,
+        subtitle: '${raw['body'] ?? ''}'.trim(),
+        time: _formatTime(at),
+        at: at,
+        read: raw['read'] == true,
+        messageId: id,
+        rideId: raw['tripId'] is String ? raw['tripId'] as String : null,
+        deepLink: raw['deepLink'] is String ? raw['deepLink'] as String : null,
+      );
+      final existing = _items.indexWhere((i) => i.messageId == id);
+      if (existing >= 0) {
+        _items[existing] = item.copyWith(
+          read: item.read || _items[existing].read,
+        );
+        continue;
+      }
+      var index = _items.indexWhere((i) => i.at == null || !i.at!.isAfter(at));
+      if (index < 0) index = _items.length;
+      _items.insert(index, item);
+    }
+    _emit();
+  }
+
   void markRead(String? messageId) {
     final id = messageId?.trim();
     if (id == null || id.isEmpty) return;

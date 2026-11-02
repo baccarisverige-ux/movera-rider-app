@@ -822,9 +822,8 @@ S["PricingDocument"] = obj(OrderedDict([
     ("fees", ref("PricingFees")),
     ("fixedRoutes", arr(ref("FixedRoute"))),
     ("surge", ref("PricingSurge")),
-    ("fleetCommissionPct", n("Fleet owner's share (admin Pricing); not in the rider's fare.", minimum=0, maximum=30)),
     ("usesStandard", b("v0.8.0: set by the server when it serves or uses the country standard for this zone (contract.json#configDocs.standard).")),
-]), ["version", "publishedAt", "zoneId", "currency", "country", "priceStep", "categories", "fees", "fixedRoutes", "surge", "fleetCommissionPct"],
+]), ["version", "publishedAt", "zoneId", "currency", "country", "priceStep", "categories", "fees", "fixedRoutes", "surge"],
     "Server-only (contract.json#configDocs): the zone's prices, read by the server's quote engine. Never served to the apps. " + PR["note"] + " Sample: fixtures/config/pricing_document.json.",
     **{"x-server-only": True})
 S["DispatchModeRules"] = obj({"on": b(), "drivers": i(minimum=1, maximum=30, description="radar: shown at once (1-30); exclusive: tried one after the other per radius step (1-10)."),
@@ -2488,6 +2487,98 @@ PATHS["/admin/trips/{tripId}/refund"]["post"]["description"] = PATHS["/admin/tri
 PATHS["/trips"]["post"]["description"] = PATHS["/trips"]["post"].get("description", "") + " v0.18.10: " + _FP["booking"]
 PATHS["/trips/{tripId}/end-early"]["post"]["description"] = PATHS["/trips/{tripId}/end-early"]["post"].get("description", "") + " v0.18.10: " + _FE["rider"]
 
+# --- v0.18.13 (live clean-up 1, audit 2026-11-02): smart late rule, rider trip pushes, payout schedule + one currency,
+# driving-time limits on the server, driver cancel reasons from the admin, refund endpoints, no fleet %, payment kill-switch.
+_HC, _DL, _RTP, _PS = C["pickupWaiting"]["headingCheck"], C["drivingLimits"], C["riderTripPush"], C["payouts"]["schedule"]
+_HCD, _DLD = C["configDefaults"]["headingCheck"], C["configDefaults"]["drivingLimits"]
+S["HeadingCheckSettings"] = obj({
+    "on": {**b("The smart late rule is used in this zone (off: after the free minutes the normal cancel fee applies)."), "default": _HCD["on"]},
+    "headingPct": {**n("Heading to pickup = at least this % of the progress normal road speed allows.", minimum=50, maximum=100), "default": _HCD["headingPct"]},
+    "notHeadingMinutes": {**n("Not heading for this many minutes in a row → free rider cancel (and reassign when on).", minimum=1, maximum=30), "default": _HCD["notHeadingMinutes"]},
+    "reassign": {**b(_HC["reassign"]), "default": _HCD["reassign"]},
+}, desc="v0.18.13: " + _HC["note"] + " " + _HC["setting"])
+S["DriverAppConfig"]["properties"]["headingCheck"] = ref("HeadingCheckSettings")
+S["DriverAppConfig"]["properties"]["drivingLimits"] = obj({
+    "maxHoursPerDay": {**n("Counted driving hours (to the pickup + on trip) before no new offers; 0 = no limit.", minimum=0, maximum=24), "default": _DLD["maxHoursPerDay"]},
+    "restMinutes": {**n(_DL["restMinutes"], minimum=0), "default": _DLD["restMinutes"]},
+    "resetAfterOfflineHours": {**n("v0.18.13: hours offline in a row after which the counter starts again.", minimum=1, maximum=24), "default": _DLD["resetAfterOfflineHours"]},
+}, desc="v0.18.13: " + _DL["note"] + " " + _DL["enforced"])
+S["DriverAppConfig"]["properties"]["cancelReasons"]["description"] += " v0.18.13: " + C["pickupWaiting"]["cancelReasons"]
+S["TripHeadingCheck"] = obj({"heading": b("The latest check: the driver is heading to the pickup."), "checkedAt": ref("Timestamp"),
+                              "notHeadingSince": {"allOf": [ref("Timestamp")], "description": "Since when the checks say not heading (absent while heading)."},
+                              "freeCancel": b("A rider cancel now is free because of this rule.")},
+                             ["heading", "checkedAt", "freeCancel"], "v0.18.13: " + _HC["projection"] + " " + _HC["riderCancel"])
+S["TripProjection"]["properties"]["headingCheck"] = ref("TripHeadingCheck")
+S["DrivingTime"] = obj({"drivenMinutes": i(minimum=0), "maxMinutes": i("0 = no limit.", minimum=0), "reached": b(),
+                         "resetAfterOfflineHours": n(minimum=0), "canDriveAt": ref("Timestamp")},
+                        ["drivenMinutes", "maxMinutes", "reached", "resetAfterOfflineHours"], "v0.18.13: " + _DL["projection"])
+S["Driver"]["properties"]["drivingTime"] = ref("DrivingTime")
+PATHS["/driver/availability"]["post"]["description"] = (PATHS["/driver/availability"]["post"].get("description", "") + " v0.18.13: " + _DL["enforced"]).strip()
+PATHS["/trips/{tripId}/cancel"]["post"]["description"] += " v0.18.13: " + _HC["riderCancel"] + " " + C["pickupWaiting"]["cancelReasons"]
+S["PayoutSchedule"] = obj({"frequency": s(enum=["weekly", "every_2_weeks"], default=_PS["default"]["frequency"]),
+                            "day": s(enum=["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"], default=_PS["default"]["day"]),
+                            "time": s("Local time HH:MM.", pattern=r"^([01]\d|2[0-3]):[0-5]\d$", default=_PS["default"]["time"])},
+                           ["frequency", "day", "time"], "v0.18.13: " + _PS["note"])
+S["CountryRules"]["properties"]["payoutSchedule"] = {"allOf": [ref("PayoutSchedule")], "description": "v0.18.13: read from the country standard only (a zone's own rules do not change it)."}
+S["Payout"]["description"] = (S["Payout"].get("description", "") + " v0.18.13: " + C["payouts"]["currency"]).strip()
+# Refunds the server already served (audit M4): the rider's choice and the admin's Swish / bank list.
+S["RefundDestination"] = s("wallet (back to the Movera wallet at once), swish (SE only) or bank.", enum=["wallet", "swish", "bank"])
+S["RiderRefund"] = obj({"refundId": ref("Id"), "tripId": ref("Id"), "amount": ref("Money"), "reason": s(), "status": ref("RefundStatus"),
+                         "destination": {"oneOf": [ref("RefundDestination"), {"type": "null"}], "description": "null until the rider chooses."},
+                         "payoutStatus": {"oneOf": [s(enum=["pending", "paid"]), {"type": "null"}], "description": "Swish / bank only: pending until an admin marks it paid."},
+                         "payoutTo": s("Masked account, e.g. Swish ••4567, Bank ••1234."), "paidAt": ref("Timestamp"), "createdAt": ref("Timestamp"),
+                         "choices": arr(ref("RefundDestination"), description="While destination is null: what the rider may choose (SE wallet, swish, bank; FR wallet, bank).")},
+                        ["refundId", "tripId", "amount", "reason", "status", "destination", "payoutStatus", "createdAt"], "The rider's view of a refund done for one of his trips.")
+S["RiderRefundPage"] = obj({"items": arr(ref("RiderRefund")), "nextCursor": {"oneOf": [s(), {"type": "null"}]}}, ["items", "nextCursor"], "The newest 100; nextCursor is always null.")
+S["SwedishBankAccount"] = obj({"clearingNumber": s(pattern=r"^\d{4,5}$"), "accountNumber": s(pattern=r"^\d{6,12}$"), "holderName": s(minLength=2, maxLength=120)}, ["clearingNumber", "accountNumber", "holderName"])
+S["IbanBankAccount"] = obj({"iban": s("Spaces allowed; stored upper case without spaces."), "bic": s(pattern=r"^[A-Z0-9]{8}([A-Z0-9]{3})?$"), "holderName": s(minLength=2, maxLength=120)}, ["iban", "holderName"])
+S["RefundDestinationCommand"] = obj({"method": ref("RefundDestination"), "swish": obj({"phone": s(pattern=r"^\+46\d{7,10}$")}, ["phone"]),
+                                      "bank": {"oneOf": [ref("SwedishBankAccount"), ref("IbanBankAccount")], "description": "SE: clearing + account number; other countries: IBAN."}},
+                                     ["method"], "One choice per refund. wallet: credited at once. swish (+46 number, SE only) / bank: payoutStatus pending until an admin pays it. Errors: 404 refund_not_found, 409 destination_chosen, 400 method_not_available, bank_details_invalid.")
+S["RefundPayoutItem"] = obj(OrderedDict(list(S["RiderRefund"]["properties"].items()) + [
+    ("riderId", ref("Id")), ("riderName", s()), ("riderPhone", s()),
+    ("payoutTo", {"type": "object", "description": "The full account so the admin can send the money: { swish: { phone } } or { bank: SwedishBankAccount | IbanBankAccount }."})]),
+    ["refundId", "tripId", "amount", "status", "riderId"], "Admin: one Swish / bank refund to pay by hand.")
+S["RefundPayoutPage"] = obj({"items": arr(ref("RefundPayoutItem")), "nextCursor": {"oneOf": [s(), {"type": "null"}]}}, ["items", "nextCursor"], "Oldest first, at most 200, only the admin's zones; nextCursor is always null.")
+S["RefundPaidCommand"] = obj({"note": s(maxLength=1000)})
+op("get", "/rider/refunds", "listRiderRefunds", "The rider's refunds and where each one goes", ["rider"], "Rider · Payments", ok=(200, "RiderRefundPage"),
+   desc="v0.18.13 (audit M4: served since v0.18.10, now in the paths). " + C["finish"]["refund"]["existing"] if "refund" in C["finish"] else "v0.18.13 (audit M4).")
+op("post", "/rider/refunds/{refundId}/destination", "chooseRefundDestination", "Choose where a refund goes (wallet, Swish, bank)", ["rider"], "Rider · Payments",
+   params=[{"name": "refundId", "in": "path", "required": True, "schema": ref("Id")}], body="RefundDestinationCommand", ok=(200, "RiderRefund"), mutation=True,
+   desc="v0.18.13 (audit M4: served since v0.18.10, now in the paths).")
+op("get", "/admin/refunds/payouts", "adminRefundPayouts", "Swish / bank refunds to pay by hand", ["admin"], "Admin · Money",
+   params=[{"name": "payoutStatus", "in": "query", "required": False, "schema": s(enum=["pending", "paid"], default="pending")}], ok=(200, "RefundPayoutPage"), permission="finance.read",
+   desc="v0.18.13 (audit M4: served since v0.18.10, now in the paths).")
+op("post", "/admin/refunds/{refundId}/paid", "adminMarkRefundPaid", "Mark a Swish / bank refund as paid", ["admin"], "Admin · Money",
+   params=[{"name": "refundId", "in": "path", "required": True, "schema": ref("Id")}], body="RefundPaidCommand", ok=(200, "Refund"), mutation=True, permission="finance.edit",
+   desc="v0.18.13 (audit M4: served since v0.18.10, now in the paths). 409 conflict reason already_paid or no_payout (the rider has not chosen Swish or bank). Written in the audit (refund.paid).")
+
+# ---------------------------------------------------------------- v0.18.14 (deep fix round 1, fix list 2026-11-02)
+_CL = C["countryLimits"]
+S["CountryLimits"] = obj(OrderedDict([(k, {**i(_CL["fields"][k] + f" Range {_CL['ranges'][k][0]}–{_CL['ranges'][k][1]}.", minimum=_CL["ranges"][k][0], maximum=_CL["ranges"][k][1]), "default": _CL["defaults"][k]}) for k in _CL["defaults"]]), (), "v0.18.14: " + _CL["note"])
+S["CountryRules"]["properties"]["limits"] = {"allOf": [ref("CountryLimits")], "description": "v0.18.14: read from the country standard only."}
+S["DriverAppConfig"]["properties"]["offers"]["properties"]["autoOffline"]["properties"]["on"] = {**b("v0.18.14 (g1-g3 M8): false = the server never sets a driver of this zone offline for missed offers nor for no position (missedExclusive and noFixMinutes are then ignored). Default true."), "default": True}
+_RCP = C["onTrip"]["routeChange"]["driverPush"]
+PATHS["/trips/{tripId}"]["patch"]["description"] = (PATHS["/trips/{tripId}"]["patch"].get("description", "") + " v0.18.14: " + _RCP["note"]).strip()
+_D1 = C["deepFix1"]
+PATHS["/driver/earnings"]["get"]["parameters"].append(q("currency", {"type": "string", "pattern": "^[A-Z]{3}$"}, "v0.18.14: the report's currency (default the driver's first zone's)."))
+S["EarningsReport"]["properties"]["currency"] = s("v0.18.14: every amount of this report is in it.", pattern="^[A-Z]{3}$")
+S["EarningsReport"]["properties"]["currencies"] = arr(s(pattern="^[A-Z]{3}$"), description="v0.18.14: " + _D1["earnings"])
+S["Vehicle"]["properties"]["active"] = b("v0.18.14 (GET /driver/vehicles): this is the driver's active car. " + _D1["vehicles"])
+S["LegalTexts"]["properties"]["company"] = {"allOf": [ref("LegalCompany")], "description": "v0.18.14: " + _D1["legal"]}
+PATHS["/notifications"]["get"]["description"] = (PATHS["/notifications"]["get"].get("description", "") + " v0.18.14: " + _D1["notifications"]).strip()
+PATHS["/auth/refresh"]["post"]["description"] = (PATHS["/auth/refresh"]["post"].get("description", "") + " v0.18.14: " + _D1["signIn"]).strip()
+S["AccountPhoneChange"] = obj({"phone": ref("PhoneE164")}, ["phone"])
+S["AccountPhoneVerify"] = obj({"phone": ref("PhoneE164"), "sessionId": ref("Id"), "code": s(pattern=r"^[0-9]{%d}$" % AU["otp"]["codeLength"])}, ["phone", "sessionId", "code"])
+S["AccountEmailChange"] = obj({"email": s(maxLength=200)}, ["email"])
+S["AccountEmailChallenge"] = obj({"challengeId": ref("Id"), "expiresAt": ref("Timestamp"), "delivery": s(enum=["pending_provider", "sent"])}, ["challengeId", "expiresAt", "delivery"])
+S["AccountEmailVerify"] = obj({"challengeId": ref("Id"), "code": s()}, ["challengeId", "code"])
+S["SignInUnlock"] = obj({"phone": ref("PhoneE164")}, ["phone"])
+op("post", "/admin/auth/sign-in-locks/unlock", "unlockSignIn", "Lift a number's wrong-code lock", ["admin"], "Admin · Auth", body="SignInUnlock", ok=(200, None), desc="v0.18.14: " + AU["otp"]["note"])
+op("post", "/account/phone/change", "startPhoneChange", "Change my phone number: send a code to the new one", ["rider", "driver"], "Account", body="AccountPhoneChange", ok=(200, "OtpChallenge"), desc="v0.18.14: " + _D1["accountChange"])
+op("post", "/account/phone/verify", "verifyPhoneChange", "Save the new phone number with its code", ["rider", "driver"], "Account", body="AccountPhoneVerify", ok=(200, None), desc="v0.18.14: " + _D1["accountChange"])
+op("post", "/account/email/change", "startEmailChange", "Change my e-mail: send a code to the new one", ["rider", "driver"], "Account", body="AccountEmailChange", ok=(200, "AccountEmailChallenge"), desc="v0.18.14: " + _D1["accountChange"])
+op("post", "/account/email/verify", "verifyEmailChange", "Save the new e-mail with its code", ["rider", "driver"], "Account", body="AccountEmailVerify", ok=(200, None), desc="v0.18.14: " + _D1["accountChange"])
 doc = OrderedDict()
 doc["openapi"] = "3.1.0"
 doc["info"] = {

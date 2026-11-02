@@ -86,6 +86,10 @@ class DriverTrackingController {
   /// v0.18.9 (G7 decision 3): the newest route change and its answer.
   TripRouteChange? routeChange;
 
+  /// v0.18.13 `headingCheck.freeCancel` (deep re-check M5): the server
+  /// waives the cancel fee now; the preview must say free.
+  bool headingFreeCancel = false;
+
   /// A route change that was answered since the screen last looked: once
   /// per change and status, so the rider is told once.
   TripRouteChange? takeRouteChangeOutcome() {
@@ -263,6 +267,7 @@ class DriverTrackingController {
     terms = event.terms ?? terms;
     rideCheck = event.rideCheck ?? rideCheck;
     routeChange = event.routeChange ?? routeChange;
+    headingFreeCancel = event.headingFreeCancel ?? headingFreeCancel;
     final eta = event.eta;
     if (eta != null) {
       final known = serverEta;

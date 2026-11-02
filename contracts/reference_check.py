@@ -222,8 +222,10 @@ for cid, row in se['categories'].items():
     got = {k: (v['amountMinor'] if v else None) for k, v in got.items() if v is not None or k != 'childSeatFee'}
     got.update(appFeePct=x['appFeePct'], commissionPct=x['commissionPct'], freeWaitMin=x['waiting']['freeWaitMin'])
     if got != dict(row) or x['waiting']['noShowAfterMin'] != x['waiting']['freeWaitMin']: bad += 1; print('PRICING DEFAULTS', cid, got, row)
-if (pdoc['priceStep']['amountMinor'], pdoc['surge']['maxMultiplier'], pdoc['surge']['smart']['enabled'], pdoc['fleetCommissionPct']) != \
-        (se['priceStep'], se['surgeMaxMultiplier'], se['smartSurge'], se['fleetCommissionPct']): bad += 1; print('PRICING DEFAULTS zone')
+if (pdoc['priceStep']['amountMinor'], pdoc['surge']['maxMultiplier'], pdoc['surge']['smart']['enabled']) != \
+        (se['priceStep'], se['surgeMaxMultiplier'], se['smartSurge']): bad += 1; print('PRICING DEFAULTS zone')
+# v0.18.13 (owner G10-1): no fleet-owner % anywhere.
+if 'fleetCommissionPct' in pdoc or 'fleetCommissionPct' in se: bad += 1; print('FLEET % NOT REMOVED')
 # ---- v0.5.1: automatic dispatch (contract.json#dispatch, CONTRACT.md §3.6)
 def _round1(x): return math.floor(x * 10 + 0.5) / 10
 def search(doc, case):

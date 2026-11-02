@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 import 'package:movera_rider/features/support/domain/support_details.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -8,12 +9,35 @@ import 'package:movera_rider/l10n/l10n.dart';
 /// A tap shows a small box with Movera's support e-mail, phone and company
 /// details, or "Contact details coming soon" while they are not filled in.
 class NeedHelpLink extends StatelessWidget {
-  const NeedHelpLink({super.key, this.details = moveraSupportDetails});
+  const NeedHelpLink({
+    super.key,
+    this.details = moveraSupportDetails,
+    this.served,
+  });
 
+  /// The built-in details, used while the admin has published none.
   final SupportDetails details;
+
+  /// The admin's details (Content › Legal, `GET /legal/{country}` company);
+  /// null = read from the app's legal texts.
+  final SupportDetails? Function()? served;
+
+  static SupportDetails? _fromLegal() {
+    try {
+      final company = AppScope.instance.legal.texts?.company;
+      if (company == null || company.isEmpty) return null;
+      return SupportDetails.fromLegalCompany(company);
+    } catch (_) {
+      return null;
+    }
+  }
 
   void _show(BuildContext context) {
     final l10n = context.l10n;
+    // Deep-fix 2026-11-02: the admin's support contact wins over the
+    // built-in (empty) one.
+    final admin = (served ?? _fromLegal)();
+    final details = admin != null && !admin.isEmpty ? admin : this.details;
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(

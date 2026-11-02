@@ -355,15 +355,35 @@
   "cancelReasons": {
     "driverBeforeTrip": [
       "rider_requested_cancel",
-      "rider_not_at_pickup"
+      "rider_not_at_pickup",
+      "unsafe_pickup",
+      "vehicle_issue_before_start",
+      "driver_emergency_before_start",
+      "other_before_start"
     ],
     "driverDuringTrip": [
-      "safety_concern_on_trip"
+      "rider_requested_early_end",
+      "safety_concern_on_trip",
+      "vehicle_issue_on_trip",
+      "accident_or_road_emergency",
+      "rider_behavior",
+      "trip_or_destination_issue",
+      "other_on_trip"
     ],
     "driverNextTrip": [
+      "next_trip_current_running_late",
+      "next_trip_pickup_too_far",
+      "next_trip_rider_requested",
+      "next_trip_vehicle_issue",
+      "next_trip_driver_emergency",
       "next_trip_other"
     ],
     "scheduled": [
+      "scheduled_cannot_make_time",
+      "scheduled_vehicle_issue",
+      "scheduled_personal_emergency",
+      "scheduled_pickup_too_far",
+      "scheduled_trip_details",
       "scheduled_other"
     ],
     "noShow": [
@@ -372,7 +392,8 @@
   },
   "drivingLimits": {
     "maxHoursPerDay": 12,
-    "restMinutes": 30
+    "restMinutes": 30,
+    "resetAfterOfflineHours": 6
   },
   "rideCheck": {
     "on": true,
@@ -402,5 +423,11 @@
     "answerSeconds": 60,
     "beforePickup": true,
     "fixedPriceTrips": "block"
+  },
+  "headingCheck": {
+    "on": true,
+    "headingPct": 80,
+    "notHeadingMinutes": 2,
+    "reassign": true
   }
 }

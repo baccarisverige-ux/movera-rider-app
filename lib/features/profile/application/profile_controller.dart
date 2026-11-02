@@ -35,6 +35,16 @@ class ProfileController extends ChangeNotifier {
     await hydrate();
     final store = _store;
     if (store is SyncedProfileRepository && !store.serverKnown) return;
+    // Deep-fix 2026-11-02 "the rider app follows the account language":
+    // with no choice made on this phone, the account's language (set on
+    // another phone, or by Movera) is the app's language, not overwritten.
+    if (store is SyncedProfileRepository && language.choice == null) {
+      final account = store.accountLanguage;
+      if (account != null) {
+        language.useAccount(account);
+        return;
+      }
+    }
     final code = language.code;
     if (profile.language == code) return;
     try {

@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/search_step.dart';
 import 'package:movera_rider/core/contracts/matched_driver.dart';
 import 'package:movera_rider/core/contracts/ride_status.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
@@ -48,6 +49,12 @@ const String waitingAlertsKey = 'waitingAlerts';
 /// v0.18.9 (`onTrip`): the server's ride check and the route change.
 const String rideCheckKey = 'rideCheck';
 const String routeChangeKey = 'routeChange';
+
+/// v0.18.13 (`pickupWaiting.headingCheck`): the smart late rule.
+const String headingCheckKey = 'headingCheck';
+
+/// v0.5.1 (`dispatch.searchStep`): the admin's latest search step.
+const String searchStepKey = 'searchStep';
 
 /// `arrivedWaiting.alerts.kinds`.
 const String alertPaidWaitingStarted = 'paid_waiting_started';
@@ -149,6 +156,20 @@ class RideRealtimeEvent {
   /// v0.18.9: the rider's route change and the driver's answer, if any.
   TripRouteChange? get routeChange =>
       TripRouteChange.fromWire(payload[routeChangeKey]);
+
+  /// v0.18.13 `TripProjection.headingCheck.freeCancel`: a rider cancel now
+  /// costs nothing because the driver is not heading to the pickup (the
+  /// server's waiver). Null when the projection does not say.
+  bool? get headingFreeCancel {
+    final check = payload[headingCheckKey];
+    if (check is! Map) return null;
+    final free = check['freeCancel'];
+    return free is bool ? free : null;
+  }
+
+  /// The admin's search step that fired last (deep-fix 2026-11-02).
+  TripSearchStep? get searchStep =>
+      TripSearchStep.fromWire(payload[searchStepKey]);
 
   /// v0.18.7 (Q5): the waiting cost so far while the driver waits.
   Money? get waitingChargedSoFar =>
