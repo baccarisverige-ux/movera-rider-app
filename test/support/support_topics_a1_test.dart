@@ -102,4 +102,21 @@ void main() {
       {'tripId': 'trp_1', 'category': 'lost_item', 'text': 'Glömde min väska'},
     ]);
   });
+
+  test('checker MED3: the same seven topic names as the driver app', () {
+    L10n.use('sv');
+    addTearDown(() => L10n.use('en'));
+    expect(
+      [for (final code in supportTopics) supportTopicLabel(L10n.current, code)],
+      [
+        'Problem med en resa',
+        'Hjälp med appen',
+        'Borttappad sak',
+        'Betalning eller ersättning',
+        'Konto och dokument',
+        'Säkerhet',
+        'Något annat',
+      ],
+    );
+  });
 }

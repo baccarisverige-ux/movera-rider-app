@@ -1642,8 +1642,8 @@
   "supportTopicRideDispute": "Problème avec une course",
   "supportTopicHelp": "Aide avec l'application",
   "supportTopicLostItem": "Objet perdu",
-  "supportTopicPayment": "Paiement",
-  "supportTopicAccount": "Compte",
+  "supportTopicPayment": "Paiement ou rémunération",
+  "supportTopicAccount": "Compte et documents",
   "supportTopicSafety": "Sécurité",
   "supportTopicOther": "Autre chose"
 }

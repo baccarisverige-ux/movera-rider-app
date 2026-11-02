@@ -1642,8 +1642,8 @@
   "supportTopicRideDispute": "Problem med en resa",
   "supportTopicHelp": "Hjälp med appen",
   "supportTopicLostItem": "Borttappad sak",
-  "supportTopicPayment": "Betalning",
-  "supportTopicAccount": "Konto",
+  "supportTopicPayment": "Betalning eller ersättning",
+  "supportTopicAccount": "Konto och dokument",
   "supportTopicSafety": "Säkerhet",
   "supportTopicOther": "Något annat"
 }

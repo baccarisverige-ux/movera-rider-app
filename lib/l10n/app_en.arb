@@ -3286,8 +3286,8 @@
   "supportTopicRideDispute": "Problem with a ride",
   "supportTopicHelp": "Help with the app",
   "supportTopicLostItem": "Lost item",
-  "supportTopicPayment": "Payment",
-  "supportTopicAccount": "Account",
+  "supportTopicPayment": "Payment or pay",
+  "supportTopicAccount": "Account and documents",
   "supportTopicSafety": "Safety",
   "supportTopicOther": "Something else"
 }
