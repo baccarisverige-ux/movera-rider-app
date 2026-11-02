@@ -1611,5 +1611,6 @@
   "routeVisitedStopLocked": "Du har redan kommit fram till det här stoppet, så det går inte att ta bort eller ändra.",
   "routeChangeRefused": "Movera kunde inte göra ändringen just nu. Resan behåller sin rutt.",
   "g7RouteExpired": "Föraren svarade inte i tid. Resan fortsätter till den första destinationen.",
-  "receiptHeading": "Kvitto"
+  "receiptHeading": "Kvitto",
+  "errLockedToday": "För många fel koder i dag. Försök igen senare."
 }

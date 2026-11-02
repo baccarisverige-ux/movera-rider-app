@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
@@ -152,6 +153,15 @@ class _PhoneVerificationState extends State<PhoneVerification> {
   /// once after a long gap, so the wait left is measured, not counted per
   /// callback: whichever of the wall clock and the timer's own tick count
   /// has seen more time pass.
+  /// v0.18.14 `otp_locked_today`: no code is checked and Send code waits
+  /// for the server's wait.
+  void _lockedToday(Object error) {
+    if (!isLockedToday(error)) return;
+    setState(() => _tooManyWrong = true);
+    final wait = error is ApiError ? error.retryAfter : null;
+    if (wait != null) _startResendWindow(wait);
+  }
+
   void _startResendWindow(Duration wait) {
     _ticker?.cancel();
     final seconds = wait.inSeconds + (wait.inMilliseconds % 1000 == 0 ? 0 : 1);
@@ -193,6 +203,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = authErrorMessage(error, AuthAction.sendCode));
+      _lockedToday(error);
     } finally {
       if (mounted) setState(() => _resending = false);
     }
@@ -234,6 +245,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
         _error = authErrorMessage(error, AuthAction.verifyCode);
         if (isTooManyWrongCodes(error)) _tooManyWrong = true;
       });
+      _lockedToday(error);
       if (isWrongCode(error)) _clearWrongCode();
     } finally {
       if (mounted) setState(() => _submitting = false);

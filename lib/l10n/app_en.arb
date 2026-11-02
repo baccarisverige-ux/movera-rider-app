@@ -3237,5 +3237,7 @@
   "g7RouteExpired": "The driver did not answer in time. The trip goes on to the first destination.",
   "@g7RouteExpired": {"description": "Deep-fix 2026-11-02"},
   "receiptHeading": "Receipt",
-  "@receiptHeading": {"description": "Deep-fix 2026-11-02"}
+  "@receiptHeading": {"description": "Deep-fix 2026-11-02"},
+  "errLockedToday": "Too many wrong codes today. Try again later.",
+  "@errLockedToday": {"description": "Contract v0.18.14 auth.signInErrors.otp_locked_today."}
 }

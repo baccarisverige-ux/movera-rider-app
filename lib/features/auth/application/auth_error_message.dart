@@ -10,6 +10,11 @@ enum AuthAction { sendCode, verifyCode, providerSignIn }
 bool isTooManyWrongCodes(Object error) =>
     error is ApiError && error.detail == 'otp_too_many_attempts';
 
+/// Contract v0.18.14 `auth.signInErrors.otp_locked_today`: too many wrong
+/// codes for this number today; Send code is off for the server's wait.
+bool isLockedToday(Object error) =>
+    error is ApiError && error.detail == 'otp_locked_today';
+
 /// G1-B1 / G1-E: Apple or Google cannot be used yet, here (no SDK set up)
 /// or on the server (`503 unavailable`, reason `provider_not_configured`):
 /// "coming soon – use your phone number", like the driver app.
@@ -53,6 +58,12 @@ String authErrorMessage(Object error, AuthAction action, {String? provider}) {
     case RiderErrorKind.offline:
       return L10n.current.errOffline;
     case RiderErrorKind.rateLimited:
+      if (isLockedToday(error)) {
+        final wait = (error as ApiError).retryAfter;
+        return wait == null || wait <= Duration.zero
+            ? L10n.current.errLockedToday
+            : '${L10n.current.errLockedToday} (${authWaitText(wait)})';
+      }
       if (isTooManyWrongCodes(error)) {
         return L10n.current.errTooManyWrongCodes(L10n.current.resendCode);
       }
