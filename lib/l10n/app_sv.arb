@@ -1635,5 +1635,8 @@
   "supportReplySend": "Skicka",
   "supportTicketClosedNote": "Det här ärendet är löst. Öppna ett nytt ärende om du behöver mer hjälp.",
   "supportReplyFailed": "Meddelandet skickades inte. Försök igen.",
-  "supportNewTicket": "Nytt ärende"
+  "supportNewTicket": "Nytt ärende",
+  "supportCommentHint": "Har du en kommentar eller idé till oss? (valfritt)",
+  "supportCommentSend": "Skicka kommentar",
+  "supportCommentThanks": "Tack för din kommentar."
 }

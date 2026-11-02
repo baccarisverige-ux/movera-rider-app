@@ -218,12 +218,30 @@ void main() {
   testWidgets(
     'owner "Can\'t write": a solved ticket has no box and offers New ticket',
     (tester) async {
+      final posts = <Object?>[];
       final solved = ApiClient(
         env: staging,
-        client: MockClient(
-          (request) async =>
-              http.Response(jsonEncode({...thread, 'status': 'resolved'}), 200),
-        ),
+        client: MockClient((request) async {
+          if (request.method == 'POST' &&
+              request.url.path.endsWith('/feedback')) {
+            posts.add(jsonDecode(request.body));
+            return http.Response(
+              jsonEncode({
+                ...thread,
+                'status': 'resolved',
+                'feedback': {
+                  'text': 'Quick help, thanks!',
+                  'at': '2026-10-27T11:00:00Z',
+                },
+              }),
+              201,
+            );
+          }
+          return http.Response(
+            jsonEncode({...thread, 'status': 'resolved'}),
+            200,
+          );
+        }),
       );
       await tester.pumpWidget(
         MaterialApp(
@@ -235,6 +253,20 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('support-ticket-reply')), findsNothing);
+      // Owner "Not rating only comment suggestions": no stars, a comment.
+      await tester.enterText(
+        find.byKey(const ValueKey('support-ticket-comment')),
+        'Quick help, thanks!',
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('support-ticket-comment-send')),
+      );
+      await tester.pumpAndSettle();
+      expect(posts.single, {'text': 'Quick help, thanks!'});
+      expect(
+        find.byKey(const ValueKey('support-ticket-comment-done')),
+        findsOneWidget,
+      );
       await tester.tap(find.byKey(const ValueKey('support-ticket-new')));
       await tester.pumpAndSettle();
       expect(find.byType(SupportChat), findsOneWidget);

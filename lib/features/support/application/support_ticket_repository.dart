@@ -45,6 +45,7 @@ class SupportTicketView {
     required this.updatedAt,
     this.tripId,
     this.messages = const <SupportTicketMessage>[],
+    this.feedback,
   });
 
   final String id;
@@ -57,6 +58,10 @@ class SupportTicketView {
   final String? tripId;
   final List<SupportTicketMessage> messages;
 
+  /// v0.18.15 (owner "Not rating only comment suggestions"): the rider's
+  /// optional comment after the ticket was solved.
+  final String? feedback;
+
   static SupportTicketView fromJson(Map<String, dynamic> json) =>
       SupportTicketView(
         id: json['ticketId']?.toString() ?? '',
@@ -67,6 +72,7 @@ class SupportTicketView {
             DateTime.tryParse(json['updatedAt']?.toString() ?? '') ??
             DateTime(0),
         tripId: json['tripId']?.toString(),
+        feedback: (json['feedback'] as Map?)?['text']?.toString(),
         messages: [
           for (final item in (json['messages'] as List? ?? const []))
             if (item is Map)
@@ -139,6 +145,20 @@ class SupportTicketRepository {
     final intent = 'msg|$ticketId|$body';
     final answer = await _api.post(
       '/api/v1/support/tickets/${Uri.encodeComponent(ticketId)}/messages',
+      body: {'text': body},
+      idempotencyKey: _mutation.keyFor(intent),
+    );
+    _mutation.succeeded(intent);
+    return SupportTicketView.fromJson(answer);
+  }
+
+  /// v0.18.15: an optional comment once the ticket is solved (no stars).
+  Future<SupportTicketView> comment(String ticketId, String text) async {
+    final body = text.trim();
+    if (body.isEmpty) throw ArgumentError.value(text, 'text');
+    final intent = 'fb|$ticketId|$body';
+    final answer = await _api.post(
+      '/api/v1/support/tickets/${Uri.encodeComponent(ticketId)}/feedback',
       body: {'text': body},
       idempotencyKey: _mutation.keyFor(intent),
     );

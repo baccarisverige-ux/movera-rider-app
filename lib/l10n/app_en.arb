@@ -3279,5 +3279,8 @@
   "supportReplySend": "Send",
   "supportTicketClosedNote": "This conversation is solved. Open a new ticket if you need more help.",
   "supportReplyFailed": "The message was not sent. Try again.",
-  "supportNewTicket": "New ticket"
+  "supportNewTicket": "New ticket",
+  "supportCommentHint": "Any comment or idea for us? (optional)",
+  "supportCommentSend": "Send comment",
+  "supportCommentThanks": "Thanks for your comment."
 }

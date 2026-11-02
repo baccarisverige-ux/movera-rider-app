@@ -147,6 +147,32 @@ class _SupportTicketThreadState extends State<SupportTicketThread> {
     }
   }
 
+  /// Owner "Not rating only comment suggestions": no stars, an optional
+  /// comment once the ticket is solved.
+  Future<void> _comment() async {
+    final text = _reply.text.trim();
+    if (text.isEmpty || _sending) return;
+    setState(() {
+      _sending = true;
+      _failed = false;
+    });
+    try {
+      final next = await widget.repository.comment(widget.ticketId, text);
+      _reply.clear();
+      if (!mounted) return;
+      setState(() {
+        _ticket = Future.value(next);
+        _sending = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _sending = false;
+        _failed = true;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -231,6 +257,35 @@ class _SupportTicketThreadState extends State<SupportTicketThread> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(l.supportTicketClosedNote),
+                      const SizedBox(height: 8),
+                      if (ticket.feedback != null)
+                        Text(
+                          l.supportCommentThanks,
+                          key: const ValueKey('support-ticket-comment-done'),
+                        )
+                      else ...[
+                        TextField(
+                          key: const ValueKey('support-ticket-comment'),
+                          controller: _reply,
+                          maxLength: 2000,
+                          minLines: 1,
+                          maxLines: 4,
+                          decoration: InputDecoration(
+                            hintText: l.supportCommentHint,
+                            counterText: '',
+                          ),
+                        ),
+                        TextButton(
+                          key: const ValueKey('support-ticket-comment-send'),
+                          onPressed: _sending ? null : _comment,
+                          child: Text(l.supportCommentSend),
+                        ),
+                      ],
+                      if (_failed)
+                        Text(
+                          l.supportReplyFailed,
+                          style: const TextStyle(color: Colors.red),
+                        ),
                       const SizedBox(height: 8),
                       FilledButton(
                         key: const ValueKey('support-ticket-new'),

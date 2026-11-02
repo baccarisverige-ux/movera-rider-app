@@ -1635,5 +1635,8 @@
   "supportReplySend": "Envoyer",
   "supportTicketClosedNote": "Ce ticket est résolu. Ouvrez un nouveau ticket si vous avez encore besoin d'aide.",
   "supportReplyFailed": "Le message n'a pas été envoyé. Réessayez.",
-  "supportNewTicket": "Nouveau ticket"
+  "supportNewTicket": "Nouveau ticket",
+  "supportCommentHint": "Un commentaire ou une idée pour nous ? (facultatif)",
+  "supportCommentSend": "Envoyer le commentaire",
+  "supportCommentThanks": "Merci pour votre commentaire."
 }
