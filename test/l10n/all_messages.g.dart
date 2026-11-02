@@ -1591,6 +1591,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'paymentMethodComingSoon': l.paymentMethodComingSoon,
   'paymentMethodNotAvailable': l.paymentMethodNotAvailable,
   'tipCustomAmount': l.tipCustomAmount,
+  'tipCustomAmountLabel': l.tipCustomAmountLabel,
   'tipMax': l.tipMax('<amount>'),
   'tipAmountNotAllowed': l.tipAmountNotAllowed,
   'tipAboveMax': l.tipAboveMax,
@@ -5008,6 +5009,8 @@ class _Exhaustive implements AppLocalizations {
   String get paymentMethodNotAvailable => '';
   @override
   String get tipCustomAmount => '';
+  @override
+  String get tipCustomAmountLabel => '';
   @override
   String tipMax(String amount) => '';
   @override

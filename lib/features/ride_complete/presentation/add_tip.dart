@@ -198,6 +198,9 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
                     amount: _selected != null && !_amounts.contains(_selected)
                         ? formatMoneyShort(_selected!)
                         : context.l10n.tipCustomAmount,
+                    label: _selected != null && !_amounts.contains(_selected)
+                        ? null
+                        : context.l10n.tipCustomAmountLabel,
                     selected:
                         _selected != null && !_amounts.contains(_selected),
                     onTap: _chooseCustom,
@@ -239,9 +242,14 @@ class _TipChip extends StatelessWidget {
     required this.amount,
     required this.selected,
     required this.onTap,
+    this.label,
   });
 
   final String amount;
+
+  /// The screen-reader name; defaults to "Tip {amount}". Live G8 round 3: the
+  /// Other amount chip read "Pourboire de Autre montant".
+  final String? label;
   final bool selected;
   final VoidCallback onTap;
 
@@ -251,7 +259,7 @@ class _TipChip extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: context.l10n.tipAmount(amount),
+      label: label ?? context.l10n.tipAmount(amount),
       child: Material(
         color: selected ? accent : Colors.white,
         borderRadius: BorderRadius.circular(A11y.minTap / 2),

@@ -3184,6 +3184,8 @@
   "@paymentMethodNotAvailable": {"description": "Rider G8 (contract 0.18.10 finish)"},
   "tipCustomAmount": "Other amount",
   "@tipCustomAmount": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "tipCustomAmountLabel": "Tip: other amount",
+  "@tipCustomAmountLabel": {"description": "Live G8 round 3: screen-reader name of the Other amount tip button"},
   "tipMax": "At most {amount}",
   "@tipMax": {"description": "Rider G8 (contract 0.18.10 finish)", "placeholders": {"amount": {"type": "String"}}},
   "tipAmountNotAllowed": "Choose one of the amounts.",
