@@ -23,6 +23,7 @@ String reservationErrorMessage(Object error, ReservationAction action) {
       'booking_too_soon' => l.resErrTooSoon(error.limit ?? 15),
       'booking_too_far' => l.resErrTooFar(error.limit ?? 90),
       'trip_too_long' => l.resErrTripTooLong,
+      'reservations_off' => l.resErrZoneOff,
       _ => l.resErrChangeTooLate(error.limit ?? 60),
     };
   }

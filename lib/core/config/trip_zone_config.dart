@@ -51,17 +51,27 @@ extension TripZoneConfig on RiderConfigRepository {
   /// rider-r4-10: the pickup zone's time zone and reservation horizon
   /// (`booking.bookingHorizonDays`), from one document; the zone's
   /// built-in seed when none can be read. Never throws.
-  Future<({String timeZone, int horizonDays})> bookingWindowAt(
-    double? lat,
-    double? lng,
-  ) async {
+  Future<
+    ({
+      String timeZone,
+      int horizonDays,
+      int freeChangeBeforeMin,
+      bool reservationsOn,
+    })
+  >
+  bookingWindowAt(double? lat, double? lng) async {
     RiderAppConfig config;
     try {
       config = await forPickup(lat, lng);
     } catch (_) {
       config = SeedRiderConfigRepository.seedFor(RiderZones.at(lat, lng).id);
     }
-    return (timeZone: config.timeZone, horizonDays: config.bookingHorizonDays);
+    return (
+      timeZone: config.timeZone,
+      horizonDays: config.bookingHorizonDays,
+      freeChangeBeforeMin: config.freeChangeBeforeMin,
+      reservationsOn: config.reservationsOn,
+    );
   }
 
   Future<String> timeZoneAt(double? lat, double? lng) async {

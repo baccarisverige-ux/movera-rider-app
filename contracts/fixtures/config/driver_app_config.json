@@ -368,7 +368,8 @@
     "listHomeKm": 5,
     "listAtTimeKm": 5,
     "listAtTimeMin": 30,
-    "changeAnswerMin": 15
+    "changeAnswerMin": 15,
+    "arriveEarlyMin": 10
   },
   "cancelReasons": {
     "driverBeforeTrip": [

@@ -296,7 +296,8 @@ class RiderMenuPage extends StatelessWidget {
                             // UI-4: the chip stays 29 px tall; its target
                             // is 44 px, the height of the search box.
                             child: MoveraHitArea(
-                              label: context.l10n.later,
+                              // LOW 16: its own label, not just "Later".
+                              label: context.l10n.scheduleForLaterChip,
                               onTap: () => go(onSchedule),
                               minWidth: 0,
                               child: Material(
@@ -311,14 +312,18 @@ class RiderMenuPage extends StatelessWidget {
                                       horizontal: 10,
                                       vertical: 6,
                                     ),
+                                    // LOW 16: the chip is read by its own
+                                    // label only, not "… Later".
                                     child: FittedBox(
                                       fit: BoxFit.scaleDown,
-                                      child: Text(
-                                        context.l10n.later,
-                                        maxLines: 1,
-                                        style: _text(
-                                          12,
-                                          weight: FontWeight.w600,
+                                      child: ExcludeSemantics(
+                                        child: Text(
+                                          context.l10n.later,
+                                          maxLines: 1,
+                                          style: _text(
+                                            12,
+                                            weight: FontWeight.w600,
+                                          ),
                                         ),
                                       ),
                                     ),

@@ -745,6 +745,7 @@ for _name, _t in _bl['push']['texts'].items():
         if set(_t[_part]) != {'sv', 'fr', 'en'} or any(not v.strip() for v in _t[_part].values()): bad += 1; print('BOOK LATER text langs', _name)
         if 'passagerare' in _t[_part]['sv'].lower(): bad += 1; print('BOOK LATER sv says passagerare', _name)
     if '{time}' not in _t['body']['en']: bad += 1; print('BOOK LATER {time}', _name)
+if '{driver}' in _bl['push']['texts']['reservation_driver_found']['body']['sv']: bad += 1; print('BOOK LATER owner D: driver found names nobody')
 for _e in _bl['errors']:
     if not re.match(r'^[a-z][a-z0-9_]*$', _e): bad += 1; print('BOOK LATER error code', _e)
 
