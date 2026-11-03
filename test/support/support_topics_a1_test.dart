@@ -125,4 +125,28 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'A1 live fix: Help first screen shows the topics below the chips',
+    (tester) async {
+      tester.view.physicalSize = const Size(1080, 4000);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(home: SupportHome(loadRides: () async => const [])),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(L10n.current.rides), findsOneWidget);
+      expect(find.text(L10n.current.payments), findsOneWidget);
+      for (final code in supportTopics.where((c) => c != 'other')) {
+        expect(find.byKey(ValueKey('support-topic-$code')), findsOneWidget);
+      }
+      expect(find.byKey(const ValueKey('support-topic-other')), findsNothing);
+      final chips = tester.getTopLeft(find.text(L10n.current.rides)).dy;
+      final topics = tester
+          .getTopLeft(find.byKey(const ValueKey('support-topic-ride_dispute')))
+          .dy;
+      expect(topics, greaterThan(chips));
+    },
+  );
 }

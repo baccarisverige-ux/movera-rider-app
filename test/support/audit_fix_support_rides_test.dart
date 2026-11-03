@@ -93,6 +93,10 @@ void main() {
       ),
     );
     await tester.scrollUntilVisible(find.text('Email support'), 180);
+    // The Help screen got longer (A1 live fix: admin topics under the
+    // chips): bring the card fully into view before tapping it.
+    await tester.ensureVisible(find.text('Email support'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Email support'));
     await tester.pumpAndSettle();
     expect(opened.single.scheme, 'mailto');

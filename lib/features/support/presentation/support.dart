@@ -223,6 +223,10 @@ class SupportHome extends StatelessWidget {
                 ),
               ],
             ),
+            // A1 live fix (owner "Both"): the admin topics on Help's first
+            // screen, below the chips; nothing removed, no second "Other".
+            const SizedBox(height: 12),
+            const SupportTopicLines(),
             const SizedBox(height: 28),
             Text(
               context.l10n.supportSomethingElse,
