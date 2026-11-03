@@ -152,14 +152,12 @@
       "scheduledAt": "2026-11-05T08:00:00Z",
       "onlineBeforeMin": 60,
       "reminderMin": [
-        120,
-        15
+        120
       ],
       "offlineBackupAfterMin": 5,
       "expect": {
         "reminders": [
-          "2026-11-05T06:00:00Z",
-          "2026-11-05T07:45:00Z"
+          "2026-11-05T06:00:00Z"
         ],
         "goOnlineAt": "2026-11-05T07:00:00Z",
         "offlineCheckAt": "2026-11-05T07:05:00Z"
@@ -171,14 +169,11 @@
       "scheduledAt": "2026-11-05T08:00:00Z",
       "onlineBeforeMin": 30,
       "reminderMin": [
-        120,
-        15
+        120
       ],
       "offlineBackupAfterMin": 5,
       "expect": {
-        "reminders": [
-          "2026-11-05T07:45:00Z"
-        ],
+        "reminders": [],
         "goOnlineAt": "2026-11-05T07:30:00Z",
         "offlineCheckAt": "2026-11-05T07:35:00Z"
       }

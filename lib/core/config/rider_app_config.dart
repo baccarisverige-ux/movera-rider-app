@@ -395,10 +395,7 @@ class RiderAppConfig {
       // Contract v0.18.17 (owner Q1 "15 min to 90 days"): the zone's
       // maxAheadDays, when the server sends it, is how far ahead it books.
       bookingHorizonDays:
-          _count(
-            booking is Map ? booking['maxAheadDays'] : null,
-            max: 366,
-          ) ??
+          _count(booking is Map ? booking['maxAheadDays'] : null, max: 366) ??
           _count(
             booking is Map ? booking['bookingHorizonDays'] : null,
             max: 366,

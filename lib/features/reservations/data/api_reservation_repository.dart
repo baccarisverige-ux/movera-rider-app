@@ -103,7 +103,8 @@ class ApiReservationRepository
       if (raw is! Map || raw['categoryId'] != category) continue;
       final total = Money.fromWire(raw['total']);
       if (total == null) break;
-      if (total.amountMinor != Money.fromLegacyMajor(shown, currency).amountMinor) {
+      if (total.amountMinor !=
+          Money.fromLegacyMajor(shown, currency).amountMinor) {
         throw ScheduledQuoteRequiredException(categoryId);
       }
       return {...body, 'quoteId': raw['quoteId'], 'categoryId': category};
@@ -160,25 +161,31 @@ class ApiReservationRepository
       currency: draft.currency,
       paymentMethod: draft.paymentMethod,
     );
-    final trip = await _refusals(() => _api.post(
-      tripsPath,
-      body: {
-        'quoteId': quoted['quoteId'],
-        'categoryId': quoted['categoryId'],
-        'pickup': quoted['pickup'],
-        'dropoff': quoted['dropoff'],
-        'stops': quoted['stops'],
-        'kind': 'scheduled',
-        'scheduledAt': quoted['scheduledAt'],
-        'paymentMethod': quoted['paymentMethod'],
-        if (draft.note != null && draft.note!.trim().isNotEmpty) 'notes': draft.note!.trim(),
-      },
-    ));
+    final trip = await _refusals(
+      () => _api.post(
+        tripsPath,
+        body: {
+          'quoteId': quoted['quoteId'],
+          'categoryId': quoted['categoryId'],
+          'pickup': quoted['pickup'],
+          'dropoff': quoted['dropoff'],
+          'stops': quoted['stops'],
+          'kind': 'scheduled',
+          'scheduledAt': quoted['scheduledAt'],
+          'paymentMethod': quoted['paymentMethod'],
+          if (draft.note != null && draft.note!.trim().isNotEmpty)
+            'notes': draft.note!.trim(),
+        },
+      ),
+    );
     return _keep(trip, draft: draft);
   }
 
   @override
-  Future<Reservation> updateReservation(String reservationId, ReservationPatch patch) async {
+  Future<Reservation> updateReservation(
+    String reservationId,
+    ReservationPatch patch,
+  ) async {
     final current = _byId[reservationId] ?? await getReservation(reservationId);
     if (current == null) throw StateError('No booked ride $reservationId.');
     final quoted = await _quote(
@@ -191,19 +198,33 @@ class ApiReservationRepository
       currency: patch.currency ?? current.currency,
       paymentMethod: patch.paymentMethod ?? current.paymentMethod,
     );
-    final trip = await _refusals(() => _api.post(
-      '$tripsPath/${Uri.encodeComponent(reservationId)}/reschedule',
-      body: {'quoteId': quoted['quoteId'], 'expectedVersion': _versions[reservationId] ?? 1},
-    ));
+    final trip = await _refusals(
+      () => _api.post(
+        '$tripsPath/${Uri.encodeComponent(reservationId)}/reschedule',
+        body: {
+          'quoteId': quoted['quoteId'],
+          'expectedVersion': _versions[reservationId] ?? 1,
+        },
+      ),
+    );
     return _keep(trip);
   }
 
   @override
-  Future<Reservation> cancelReservation(String reservationId, {String? reason, Money? fee}) async {
-    if (!_versions.containsKey(reservationId)) await getReservation(reservationId);
+  Future<Reservation> cancelReservation(
+    String reservationId, {
+    String? reason,
+    Money? fee,
+  }) async {
+    if (!_versions.containsKey(reservationId)) {
+      await getReservation(reservationId);
+    }
     final trip = await _api.post(
       '$tripsPath/${Uri.encodeComponent(reservationId)}/cancel',
-      body: {'expectedVersion': _versions[reservationId] ?? 1, 'reasonCode': riderReasonCode(reason)},
+      body: {
+        'expectedVersion': _versions[reservationId] ?? 1,
+        'reasonCode': riderReasonCode(reason),
+      },
     );
     return _keep(trip);
   }
@@ -211,13 +232,20 @@ class ApiReservationRepository
   /// The rider cancel reasons of the contract; anything else is
   /// `plans_changed`.
   static String riderReasonCode(String? reason) => switch (reason) {
-    'wait_too_long' || 'driver_too_far' || 'wrong_address' || 'requested_by_mistake' || 'plans_changed' || 'other' => reason!,
+    'wait_too_long' ||
+    'driver_too_far' ||
+    'wrong_address' ||
+    'requested_by_mistake' ||
+    'plans_changed' ||
+    'other' => reason!,
     _ => 'plans_changed',
   };
 
   @override
   Future<Reservation?> getReservation(String reservationId) async {
-    final trip = await _api.get('$tripsPath/${Uri.encodeComponent(reservationId)}');
+    final trip = await _api.get(
+      '$tripsPath/${Uri.encodeComponent(reservationId)}',
+    );
     if (trip['tripId'] is! String) return null;
     return _keep(trip);
   }
@@ -236,7 +264,10 @@ class ApiReservationRepository
 
   /// Drivers are given by the server's dispatch only.
   @override
-  Future<Reservation> assignDriver(String reservationId, {ReservationDriver? driver}) async {
+  Future<Reservation> assignDriver(
+    String reservationId, {
+    ReservationDriver? driver,
+  }) async {
     final current = await getReservation(reservationId);
     if (current == null) throw StateError('No booked ride $reservationId.');
     return current;
@@ -244,19 +275,31 @@ class ApiReservationRepository
 
   /// The server's Book later refusals as [BookLaterRefusedException], with
   /// the zone's number from its answer ("Book at least 15 minutes ahead.").
-  static Future<Map<String, dynamic>> _refusals(Future<Map<String, dynamic>> Function() call) async {
+  static Future<Map<String, dynamic>> _refusals(
+    Future<Map<String, dynamic>> Function() call,
+  ) async {
     try {
       return await call();
     } on ApiError catch (error) {
       final reason = error.reason;
-      if (reason == null || !BookLaterRefusedException.reasons.contains(reason)) rethrow;
+      if (reason == null ||
+          !BookLaterRefusedException.reasons.contains(reason)) {
+        rethrow;
+      }
       final number = RegExp(r'\d+').firstMatch(error.message)?.group(0);
-      throw BookLaterRefusedException(reason, limit: number == null ? null : int.tryParse(number));
+      throw BookLaterRefusedException(
+        reason,
+        limit: number == null ? null : int.tryParse(number),
+      );
     }
   }
 
   Reservation _keep(Map<String, dynamic> trip, {ReservationDraft? draft}) {
-    final reservation = reservationOfTrip(trip, draft: draft, categoryLabel: categoryLabel);
+    final reservation = reservationOfTrip(
+      trip,
+      draft: draft,
+      categoryLabel: categoryLabel,
+    );
     _byId[reservation.reservationId] = reservation;
     final version = trip['version'];
     if (version is num) _versions[reservation.reservationId] = version.toInt();
@@ -270,7 +313,9 @@ class ApiReservationRepository
     'accepted' => ReservationStatus.driverAssigned,
     'driver_to_pickup' => ReservationStatus.driverEnRoute,
     'arrived' => ReservationStatus.driverArrived,
-    'rider_onboard' || 'in_trip' || 'approaching_dropoff' => ReservationStatus.inProgress,
+    'rider_onboard' ||
+    'in_trip' ||
+    'approaching_dropoff' => ReservationStatus.inProgress,
     'completed' => ReservationStatus.completed,
     _ => ReservationStatus.cancelled,
   };
@@ -284,7 +329,9 @@ class ApiReservationRepository
     ReservationPlace place(Object? raw, ReservationPlace? fallback) {
       if (raw is Map) {
         return ReservationPlace(
-          label: (raw['address'] as String?)?.trim().isNotEmpty == true ? raw['address'] as String : (fallback?.label ?? ''),
+          label: (raw['address'] as String?)?.trim().isNotEmpty == true
+              ? raw['address'] as String
+              : (fallback?.label ?? ''),
           lat: (raw['lat'] as num?)?.toDouble(),
           lng: (raw['lng'] as num?)?.toDouble(),
         );
@@ -294,12 +341,18 @@ class ApiReservationRepository
 
     final id = trip['tripId'] as String;
     final fare = Money.fromWire(trip['fare']);
-    final category = (trip['categoryId'] as String?) ?? draft?.categoryId ?? 'economy';
-    final at = WireTime.tryParse(trip['scheduledAt']) ?? draft?.scheduledPickupAt ?? DateTime.now();
+    final category =
+        (trip['categoryId'] as String?) ?? draft?.categoryId ?? 'economy';
+    final at =
+        WireTime.tryParse(trip['scheduledAt']) ??
+        draft?.scheduledPickupAt ??
+        DateTime.now();
     final driver = trip['driver'];
     final cancellation = trip['cancellation'];
     final actor = cancellation is Map ? cancellation['actor'] : null;
-    final cancelFee = cancellation is Map ? Money.fromWire(cancellation['fee']) : null;
+    final cancelFee = cancellation is Map
+        ? Money.fromWire(cancellation['fee'])
+        : null;
     final stops = trip['stops'];
     return Reservation(
       reservationId: id,
@@ -307,15 +360,24 @@ class ApiReservationRepository
       scheduledPickupAt: at,
       pickup: place(trip['pickup'], draft?.pickup),
       destination: place(trip['dropoff'], draft?.destination),
-      stops: [if (stops is List) for (final s in stops) place(s, null)],
+      stops: [
+        if (stops is List)
+          for (final s in stops) place(s, null),
+      ],
       categoryId: category,
-      categoryName: draft?.categoryName ?? categoryLabel?.call(category) ?? category,
+      categoryName:
+          draft?.categoryName ?? categoryLabel?.call(category) ?? category,
       categoryImage: draft?.categoryImage ?? '',
-      price: fare == null ? (draft?.price ?? 0) : fare.amountMinor / Money.minorPerMajor(fare.currency),
+      price: fare == null
+          ? (draft?.price ?? 0)
+          : fare.amountMinor / Money.minorPerMajor(fare.currency),
       currency: fare?.currency ?? draft?.currency ?? Money.defaultCurrency,
-      paymentMethod: draft?.paymentMethod ?? (trip['paymentMethod'] as String? ?? 'cash'),
+      paymentMethod:
+          draft?.paymentMethod ?? (trip['paymentMethod'] as String? ?? 'cash'),
       status: statusOf(trip['status']),
-      driver: driver is Map ? ReservationDriver.tryParse({...driver, 'id': driver['driverId']}) : null,
+      driver: driver is Map
+          ? ReservationDriver.tryParse({...driver, 'id': driver['driverId']})
+          : null,
       note: draft?.note,
       cancellationActor: switch (actor) {
         'rider' => TripCancellationActor.rider,
@@ -324,7 +386,9 @@ class ApiReservationRepository
         'system' => TripCancellationActor.system,
         _ => null,
       },
-      cancelledAt: cancellation is Map ? WireTime.tryParse(cancellation['at']) : null,
+      cancelledAt: cancellation is Map
+          ? WireTime.tryParse(cancellation['at'])
+          : null,
       cancellationFee: cancelFee,
       timeZone: draft?.timeZone,
     );

@@ -182,8 +182,12 @@ class RideSelectionController {
     final quotes = _quotes;
     if (quotes is! ApiQuoteRepository) return null;
     final wall = scheduledFor;
-    quotes.scheduledAt = createsReservation && wall != null && pickupPoint != null
-        ? PickupSchedule.at(pickupPoint.latitude, pickupPoint.longitude).toUtc(wall)
+    quotes.scheduledAt =
+        createsReservation && wall != null && pickupPoint != null
+        ? PickupSchedule.at(
+            pickupPoint.latitude,
+            pickupPoint.longitude,
+          ).toUtc(wall)
         : null;
     return quotes;
   }

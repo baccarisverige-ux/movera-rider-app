@@ -23,13 +23,17 @@ class FavouriteDrivers {
   /// `PUT` marks, `DELETE` unmarks; the list after it.
   Future<List<String>> set(String driverId, {required bool favourite}) async {
     final answer = favourite
-        ? await _api.put('$path/${Uri.encodeComponent(driverId)}', body: const {})
+        ? await _api.put(
+            '$path/${Uri.encodeComponent(driverId)}',
+            body: const {},
+          )
         : await _api.delete('$path/${Uri.encodeComponent(driverId)}');
     final items = answer['items'];
     return [
       if (items is List)
         for (final item in items)
-          if (item is Map && item['driverId'] is String) item['driverId'] as String,
+          if (item is Map && item['driverId'] is String)
+            item['driverId'] as String,
     ];
   }
 }

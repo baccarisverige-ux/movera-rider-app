@@ -193,7 +193,10 @@ class ApiQuoteRepository implements QuoteRepository {
       final body = <String, dynamic>{
         // Contract v0.18.17: Book later is priced as a booked ride (its
         // reservation fee, its window), the price the server books at.
-        if (at != null) ...{'kind': 'scheduled', 'scheduledAt': WireTime.format(at)},
+        if (at != null) ...{
+          'kind': 'scheduled',
+          'scheduledAt': WireTime.format(at),
+        },
         'pickup': contractPlace(
           pickupPoint.latitude,
           pickupPoint.longitude,

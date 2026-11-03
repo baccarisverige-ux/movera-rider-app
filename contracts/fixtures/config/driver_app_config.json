@@ -308,40 +308,35 @@
         "onlineBeforeMin": 60,
         "spareMin": 15,
         "reminderMin": [
-          120,
-          15
+          120
         ]
       },
       "airport": {
         "onlineBeforeMin": 60,
         "spareMin": 15,
         "reminderMin": [
-          120,
-          15
+          120
         ]
       },
       "longTrip": {
         "onlineBeforeMin": 60,
         "spareMin": 15,
         "reminderMin": [
-          120,
-          15
+          120
         ]
       },
       "comfortPremium": {
         "onlineBeforeMin": 45,
         "spareMin": 15,
         "reminderMin": [
-          120,
-          15
+          120
         ]
       },
       "event": {
         "onlineBeforeMin": 45,
         "spareMin": 15,
         "reminderMin": [
-          120,
-          15
+          120
         ]
       }
     },

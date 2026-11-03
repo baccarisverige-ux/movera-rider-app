@@ -30,7 +30,12 @@ class BookLaterRefusedException implements Exception {
   final String reason;
   final int? limit;
 
-  static const reasons = {'booking_too_soon', 'booking_too_far', 'trip_too_long', 'change_too_late'};
+  static const reasons = {
+    'booking_too_soon',
+    'booking_too_far',
+    'trip_too_long',
+    'change_too_late',
+  };
 
   @override
   String toString() => 'BookLaterRefusedException($reason, $limit)';

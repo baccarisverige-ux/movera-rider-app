@@ -9379,7 +9379,7 @@ paths:
           $ref: '#/components/responses/Unavailable'
     patch:
       operationId: adminUpdateMe
-      summary: Save the signed-in admin's own panel language
+      summary: Save the signed-in admin's own panel language or first name
       description: 'v0.17.1: PATCH /admin/auth/me { language } saves the signed-in admin''s own panel language on the server;
         null clears it (the panel then uses its default). Any signed-in admin, every role, no permission id, like GET /admin/auth/me.
         Audited. Answers AdminMe.'
@@ -9409,6 +9409,100 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdminMe'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/agents:
+    get:
+      operationId: adminListAgents
+      summary: Admins as Team shows them (first names, never e-mails)
+      description: 'v0.18.16. GET /admin/agents (team.read) -> { items: [{ adminId, firstName?, role, zones }] } (never the
+        e-mail), sorted by first name: a Super admin (role super) sees every admin; other admins see the admins who share
+        one of their zones. PATCH /admin/agents/{adminId} { firstName } (team.edit; null clears it): a Super admin renames
+        anyone; another admin only non-Super admins who share one of his zones (else 403 forbidden). Audited admin.first_name.'
+      tags:
+      - Admin · Auth
+      x-actor:
+      - admin
+      x-permission: team.read
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAgentList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/agents/{adminId}:
+    patch:
+      operationId: adminSetAgentName
+      summary: Set another admin's first name
+      description: 'v0.18.16. GET /admin/agents (team.read) -> { items: [{ adminId, firstName?, role, zones }] } (never the
+        e-mail), sorted by first name: a Super admin (role super) sees every admin; other admins see the admins who share
+        one of their zones. PATCH /admin/agents/{adminId} { firstName } (team.edit; null clears it): a Super admin renames
+        anyone; another admin only non-Super admins who share one of his zones (else 403 forbidden). Audited admin.first_name.'
+      tags:
+      - Admin · Auth
+      x-actor:
+      - admin
+      x-permission: team.edit
+      parameters:
+      - name: adminId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminAgentNameCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAgent'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -15167,7 +15261,8 @@ paths:
         to a driver group (POST /admin/trips/{tripId}/radar-group), cancel (POST /admin/trips/{tripId}/cancel). New: POST
         /admin/trips/{tripId}/reservation/unassign { expectedVersion, reason } (accepted → requested: the driver is taken
         off and told, the ride goes back to the list) and POST /admin/trips/{tripId}/reservation/dispatch-now { expectedVersion
-        } (requested → searching now). Both trips.intervene, the admin''s zones only, audited (reservation.unassign, reservation.dispatch_now).'
+        } (requested → searching now). Both trips.intervene, the admin''s zones only, audited (reservation.unassign, reservation.dispatch_now).
+        The admin''s unassign tells the driver with push kind reservation_unassigned (never the offline text).'
       tags:
       - Admin · Trips
       x-actor:
@@ -15219,7 +15314,8 @@ paths:
         to a driver group (POST /admin/trips/{tripId}/radar-group), cancel (POST /admin/trips/{tripId}/cancel). New: POST
         /admin/trips/{tripId}/reservation/unassign { expectedVersion, reason } (accepted → requested: the driver is taken
         off and told, the ride goes back to the list) and POST /admin/trips/{tripId}/reservation/dispatch-now { expectedVersion
-        } (requested → searching now). Both trips.intervene, the admin''s zones only, audited (reservation.unassign, reservation.dispatch_now).'
+        } (requested → searching now). Both trips.intervene, the admin''s zones only, audited (reservation.unassign, reservation.dispatch_now).
+        The admin''s unassign tells the driver with push kind reservation_unassigned (never the offline text).'
       tags:
       - Admin · Trips
       x-actor:
@@ -18507,12 +18603,12 @@ components:
             type: object
             required:
             - adminId
-            - name
             properties:
               adminId:
                 $ref: '#/components/schemas/Id'
               name:
                 type: string
+                description: 'v0.18.16: the first name; absent until set.'
           description: 'Read only: Checker LOW: GET /admin/support/settings also lists agents [{ adminId, name }]: the active
             admins with support.reply and a zone in that country (or all zones) — the only ones a topic''s assignTo may name
             (read only).'
@@ -18680,12 +18776,12 @@ components:
             type: object
             required:
             - adminId
-            - name
             properties:
               adminId:
                 $ref: '#/components/schemas/Id'
               name:
                 type: string
+                description: 'v0.18.16: the first name; absent until set.'
     AlertTakeCommand:
       type: object
       description: v0.18.15.
@@ -22780,6 +22876,11 @@ components:
           format: email
         name:
           type: string
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 40
+          description: 'v0.18.16: the first name set in Team; absent until set (contract.json#adminNames).'
         role:
           $ref: '#/components/schemas/AdminRole'
         permissions:
@@ -25507,13 +25608,61 @@ components:
           $ref: '#/components/schemas/Id'
     AdminMeUpdate:
       type: object
-      description: 'v0.17.1: the signed-in admin''s own panel language; null clears it.'
-      required:
-      - language
+      description: 'v0.17.1: the signed-in admin''s own panel language (null clears it); v0.18.16 also the own first name.
+        At least one of them.'
       properties:
         language:
           oneOf:
           - $ref: '#/components/schemas/Language'
+          - type: 'null'
+        firstName:
+          oneOf:
+          - type: string
+            minLength: 1
+            maxLength: 40
+          - type: 'null'
+          description: 'v0.18.16: own first name; null clears it.'
+    AdminAgent:
+      type: object
+      description: 'v0.18.16: an admin as Team shows him (never the e-mail).'
+      required:
+      - adminId
+      - role
+      - zones
+      properties:
+        adminId:
+          $ref: '#/components/schemas/Id'
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 40
+        role:
+          $ref: '#/components/schemas/AdminRole'
+        zones:
+          type: array
+          items:
+            type: string
+    AdminAgentList:
+      type: object
+      description: v0.18.16.
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminAgent'
+    AdminAgentNameCommand:
+      type: object
+      description: 'v0.18.16: another admin''s first name; null clears it.'
+      required:
+      - firstName
+      properties:
+        firstName:
+          oneOf:
+          - type: string
+            minLength: 1
+            maxLength: 40
           - type: 'null'
     OnboardingDocumentLists:
       type: object

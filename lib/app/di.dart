@@ -176,9 +176,14 @@ class AppScope {
     // later on the server. Book later switched off: the fail-closed
     // stand-in (kept for that case).
     reservationRepository = !(flags.scheduledRides || flags.bookingLater)
-        ? (release ? DisabledReservationRepository() : LocalReservationRepository())
+        ? (release
+              ? DisabledReservationRepository()
+              : LocalReservationRepository())
         : release
-        ? ApiReservationRepository(api: api, categoryLabel: (id) => catalog.labelOf(id) ?? id)
+        ? ApiReservationRepository(
+            api: api,
+            categoryLabel: (id) => catalog.labelOf(id) ?? id,
+          )
         : LocalReservationRepository();
     savedCardsStore = flags.savedCards || !release
         ? const PrefsSavedCardsStore()

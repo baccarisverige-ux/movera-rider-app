@@ -88,10 +88,7 @@ void main() {
       addTearDown(scope.disposeForTest);
       // v0.18.17 Book later: it goes to the server (signed out here), never
       // to the device.
-      await expectLater(
-        schedule(scope.reservations),
-        throwsA(isA<ApiError>()),
-      );
+      await expectLater(schedule(scope.reservations), throwsA(isA<ApiError>()));
       expect(scope.reservations.all, isEmpty);
     },
   );

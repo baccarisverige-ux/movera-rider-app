@@ -460,7 +460,8 @@ class _RideCompletedState extends State<RideCompleted> {
                                   ),
                                   // Owner BL-Q4: mark this driver as a favourite (live).
                                   if (AppScope.instance.api.contractWire &&
-                                      (widget.rideId?.trim().isNotEmpty ?? false)) ...[
+                                      (widget.rideId?.trim().isNotEmpty ??
+                                          false)) ...[
                                     const SizedBox(height: 14),
                                     _SurfaceCard(
                                       child: FavouriteDriverToggle(

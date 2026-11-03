@@ -408,7 +408,7 @@ S["SupportTopicSetting"] = obj({"code": s(enum=C["support"]["categories"]), "on"
                                ["code", "on", "firstReplyMin", "solveHours"])
 S["SupportReply"] = obj({"id": s(pattern="^[A-Za-z0-9_-]{1,40}$"), "lang": s(enum=["sv", "fr", "en"]), "title": s(minLength=1, maxLength=80), "text": s(minLength=1, maxLength=2000)},
                        ["id", "lang", "title", "text"], "v0.18.15: " + SD["settings"]["replies"])
-S["SupportSettings"] = obj({"country": s(enum=SD["settings"]["countries"]), "rev": i(minimum=1, description="Read only."), "agents": arr(obj({"adminId": ref("Id"), "name": s()}, ["adminId", "name"]), description="Read only: " + SD["settings"]["agents"]), "expectedRev": i(minimum=1, description="PUT only: the rev read."), "replies": arr(ref("SupportReply"), maxItems=100), "topics": arr(ref("SupportTopicSetting"), minItems=1),
+S["SupportSettings"] = obj({"country": s(enum=SD["settings"]["countries"]), "rev": i(minimum=1, description="Read only."), "agents": arr(obj({"adminId": ref("Id"), "name": s("v0.18.16: the first name; absent until set.")}, ["adminId"]), description="Read only: " + SD["settings"]["agents"]), "expectedRev": i(minimum=1, description="PUT only: the rev read."), "replies": arr(ref("SupportReply"), maxItems=100), "topics": arr(ref("SupportTopicSetting"), minItems=1),
                             "updatedAt": ref("Timestamp"), "updatedBy": ref("Id")},
                            ["country", "topics"], "v0.18.15: Admin › Support › Settings per country (contract.json#supportDesk.settings).")
 AD = C["alertDesk"]
@@ -420,7 +420,7 @@ S["AlertRecord"] = obj({"alertId": s(pattern="^[A-Za-z0-9_:.-]{1,200}$"), "kind"
 S["AlertBookState"] = obj({"country": s(enum=C["supportDesk"]["settings"]["countries"]), "rev": i(minimum=1), "settings": {"type": "object"}, "rules": {"type": "array", "items": {"type": "object"}}, "records": arr(ref("AlertRecord")),
                            "mutes": {"type": "object", "additionalProperties": obj({"until": ref("Timestamp"), "by": ref("Id")}, ["until", "by"])},
                            "quiet": obj({"on": b(), "from": s(pattern="^[0-2][0-9]:[0-5][0-9]$"), "to": s(pattern="^[0-2][0-9]:[0-5][0-9]$")}, ["on", "from", "to"]),
-                           "people": arr(obj({"adminId": ref("Id"), "name": s()}, ["adminId", "name"]))},
+                           "people": arr(obj({"adminId": ref("Id"), "name": s("v0.18.16: the first name; absent until set.")}, ["adminId"]))},
                           ["country", "rev", "settings", "rules", "records", "mutes", "quiet", "people"], "v0.18.15: " + AD["book"])
 _AT = {"kind": s(pattern="^[a-z][a-z0-9_]{0,63}$"), "level": s(enum=["critical", "important", "info"]), "title": s(minLength=1, maxLength=300), "zoneId": ref("Id"), "since": ref("Timestamp")}
 _REQ = ["kind", "level", "title", "since"]
@@ -946,7 +946,7 @@ AA = C["auth"]["admin"]
 S["AdminPermission"] = s(C["adminPermissions"]["note"], enum=C["adminPermissions"]["values"], **{"x-groups": C["adminPermissions"]["groups"], "x-v050": {k: v for k, v in C["adminPermissions"]["v050"].items() if k != "note"}})
 S["AdminScope"] = obj({"zones": {"oneOf": [s(const="all"), arr(ref("Id"))], "description": "\"all\" or the zone ids the admin may act in."},
                        "countries": arr(ref("CountryCode")), "fleetPartnerId": ref("Id")}, ["zones"])
-S["AdminMe"] = obj(OrderedDict([("adminId", ref("Id")), ("email", s(format="email")), ("name", s()), ("role", ref("AdminRole")),
+S["AdminMe"] = obj(OrderedDict([("adminId", ref("Id")), ("email", s(format="email")), ("name", s()), ("firstName", s("v0.18.16: the first name set in Team; absent until set (contract.json#adminNames).", minLength=1, maxLength=40)), ("role", ref("AdminRole")),
                                 ("permissions", arr(ref("AdminPermission"), uniqueItems=True, description="Fully expanded; super has all of them.")),
                                 ("scope", ref("AdminScope")), ("language", ref("Language")),
                                 ("idleTimeoutSeconds", {**i(minimum=AA["idleTimeoutMinutesRange"][0] * 60, maximum=AA["idleTimeoutMinutesRange"][1] * 60), "default": AA["idleTimeoutSecondsDefault"]}),
@@ -1865,10 +1865,16 @@ for p in ["/admin/auth/setup-password", "/admin/auth/setup-password/check"]:
 op("post", "/admin/auth/sign-out", "adminSignOut", "End this admin session", ["admin"], "Admin · Auth", ok=(204, None), desc="Revokes the refresh token; idempotent.")
 op("get", "/admin/auth/me", "adminMe", "The signed-in admin: role, expanded permissions, scope", ["admin"], "Admin · Auth", ok=(200, "AdminMe"))
 # v0.17.1 (owner 2026-10-29, "Fix fully (Recommended)"): the admin saves their own panel language (contract.json#auth.admin.meLanguage).
-S["AdminMeUpdate"] = obj(OrderedDict([("language", nullable("Language"))]), ["language"], "v0.17.1: the signed-in admin's own panel language; null clears it.")
-op("patch", "/admin/auth/me", "adminUpdateMe", "Save the signed-in admin's own panel language", ["admin"], "Admin · Auth",
+S["AdminMeUpdate"] = obj(OrderedDict([("language", nullable("Language")), ("firstName", {"oneOf": [s(minLength=1, maxLength=40), {"type": "null"}], "description": "v0.18.16: own first name; null clears it."})]), [], "v0.17.1: the signed-in admin's own panel language (null clears it); v0.18.16 also the own first name. At least one of them.")
+S["AdminAgent"] = obj({"adminId": ref("Id"), "firstName": s(minLength=1, maxLength=40), "role": ref("AdminRole"), "zones": arr(s())}, ["adminId", "role", "zones"], "v0.18.16: an admin as Team shows him (never the e-mail).")
+S["AdminAgentList"] = obj({"items": arr(ref("AdminAgent"))}, ["items"], "v0.18.16.")
+S["AdminAgentNameCommand"] = obj({"firstName": {"oneOf": [s(minLength=1, maxLength=40), {"type": "null"}]}}, ["firstName"], "v0.18.16: another admin's first name; null clears it.")
+op("patch", "/admin/auth/me", "adminUpdateMe", "Save the signed-in admin's own panel language or first name", ["admin"], "Admin · Auth",
    body="AdminMeUpdate", ok=(200, "AdminMe"), mutation=True,
    desc="v0.17.1: " + AA["meLanguage"]["note"].split(": ", 1)[1])
+# v0.18.16 admin first names (contract.json#adminNames)
+op("get", "/admin/agents", "adminListAgents", "Admins as Team shows them (first names, never e-mails)", ["admin"], "Admin · Auth", ok=(200, "AdminAgentList"), permission="team.read", desc="v0.18.16. " + C["adminNames"]["others"])
+op("patch", "/admin/agents/{adminId}", "adminSetAgentName", "Set another admin's first name", ["admin"], "Admin · Auth", params=[{"name": "adminId", "in": "path", "required": True, "schema": ref("Id")}], body="AdminAgentNameCommand", ok=(200, "AdminAgent"), mutation=True, permission="team.edit", desc="v0.18.16. " + C["adminNames"]["others"])
 op("post", "/admin/agents/{adminId}/setup-link", "adminIssueSetupLink", "Issue a one-time password setup link for an admin", ["admin"], "Admin · Auth",
    params=[pref("AdminId")], ok=(201, "SetupLink"), mutation=True, permission="team.edit",
    desc=f"Single use, {AU_A['setupLinkHours']} h; a new link revokes the admin's earlier unused one. The first Super admin's link comes from the server seed / CLI.")
