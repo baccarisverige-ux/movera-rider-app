@@ -48,24 +48,34 @@ class _DeferredScreenState extends State<DeferredScreen> {
   @override
   Widget build(BuildContext context) {
     if (_ready) return widget.builder(context);
+    if (_failed) {
+      // A way back out when the part could not be downloaded.
+      return Scaffold(
+        key: const ValueKey('deferred-screen-loading'),
+        appBar: AppBar(
+          leading: const BackButton(key: ValueKey('deferred-screen-back')),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+        ),
+        body: Center(
+          child: IconButton(
+            key: const ValueKey('deferred-screen-retry'),
+            tooltip: context.l10n.retry,
+            icon: const Icon(Icons.refresh_rounded),
+            iconSize: 32,
+            onPressed: _retry,
+          ),
+        ),
+      );
+    }
     return Material(
       key: const ValueKey('deferred-screen-loading'),
       color: Theme.of(context).scaffoldBackgroundColor,
       child: Center(
-        child: _failed
-            // A dropped connection while the part downloads: tap to try
-            // again (the existing "Retry" text, no new words).
-            ? IconButton(
-                key: const ValueKey('deferred-screen-retry'),
-                tooltip: context.l10n.retry,
-                icon: const Icon(Icons.refresh_rounded),
-                iconSize: 32,
-                onPressed: _retry,
-              )
-            : const SizedBox.square(
-                dimension: 28,
-                child: CircularProgressIndicator(strokeWidth: 2.5),
-              ),
+        child: const SizedBox.square(
+          dimension: 28,
+          child: CircularProgressIndicator(strokeWidth: 2.5),
+        ),
       ),
     );
   }
