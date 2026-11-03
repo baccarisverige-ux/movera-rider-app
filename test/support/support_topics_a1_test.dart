@@ -103,20 +103,26 @@ void main() {
     ]);
   });
 
-  test('checker MED3: the same seven topic names as the driver app', () {
-    L10n.use('sv');
-    addTearDown(() => L10n.use('en'));
-    expect(
-      [for (final code in supportTopics) supportTopicLabel(L10n.current, code)],
-      [
-        'Problem med en resa',
-        'Hjälp med appen',
-        'Borttappad sak',
-        'Betalning eller ersättning',
-        'Konto och dokument',
-        'Säkerhet',
-        'Något annat',
-      ],
-    );
-  });
+  test(
+    'checker MED3 + owner: the driver app\'s topic names; payment says Betalning for riders',
+    () {
+      L10n.use('sv');
+      addTearDown(() => L10n.use('en'));
+      expect(
+        [
+          for (final code in supportTopics)
+            supportTopicLabel(L10n.current, code),
+        ],
+        [
+          'Problem med en resa',
+          'Hjälp med appen',
+          'Borttappad sak',
+          'Betalning',
+          'Konto och dokument',
+          'Säkerhet',
+          'Något annat',
+        ],
+      );
+    },
+  );
 }
