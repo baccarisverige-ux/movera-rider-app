@@ -237,6 +237,13 @@ Future<void> bootstrap() async {
         startCoordinator: _pushCoordinator!.start,
         registerExisting: _registerExistingPushSession,
       );
+      // Load time (audit F8): routine log lines held at start go out a few
+      // seconds after the first screen is up, not while it downloads.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Timer(const Duration(seconds: 3), () {
+          AppScope.instance.observabilitySink?.releaseRoutine();
+        });
+      });
     },
     (error, stack) {
       AppScope.instance.crashes.record(error, stack, fatal: true);

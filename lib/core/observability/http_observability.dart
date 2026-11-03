@@ -33,9 +33,35 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
     this.retryDelay = const Duration(seconds: 30),
     this.maxRetryDelay = const Duration(minutes: 10),
     this.maxAttempts = 6,
+    bool holdRoutineAtStart = false,
+    this.routineHoldLimit = const Duration(seconds: 30),
     DateTime Function()? clock,
   }) : _client = client ?? http.Client(),
-       _clock = clock ?? DateTime.now;
+       _clock = clock ?? DateTime.now,
+       _holdingRoutine = holdRoutineAtStart;
+
+  /// Load-time job (owner 2026-11-03, audit F8): while the app starts, the
+  /// first screen's own downloads come first. Routine lines (debug, info)
+  /// logged before [releaseRoutine] wait in their queue and then go out one
+  /// after the other as before; errors, warnings and crashes are never held.
+  /// If nothing releases them, they go after [routineHoldLimit].
+  bool _holdingRoutine;
+  final Duration routineHoldLimit;
+  Timer? _holdLimitTimer;
+
+  /// Whether routine lines are still held (tests and diagnostics).
+  bool get holdingRoutine => _holdingRoutine;
+
+  /// Ends the start-up hold: the held routine lines are sent now.
+  void releaseRoutine() {
+    _holdLimitTimer?.cancel();
+    _holdLimitTimer = null;
+    if (!_holdingRoutine) return;
+    _holdingRoutine = false;
+    for (final entry in _queues.entries.toList()) {
+      _drain(entry.key, entry.value);
+    }
+  }
 
   /// Contract v0.16.0 crash report fields (`contract.json#telemetry.crashReport`).
   final String app;
@@ -139,7 +165,15 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
   void _drain(String path, _PathQueue queue) {
     if (queue.inFlight || queue.pending.isEmpty || _disposed) return;
     if (queue.retryTimer != null) return;
-    final entry = queue.pending.removeAt(0);
+    var index = 0;
+    if (_holdingRoutine) {
+      index = queue.pending.indexWhere((e) => !e.routine);
+      if (index == -1) {
+        _holdLimitTimer ??= Timer(routineHoldLimit, releaseRoutine);
+        return;
+      }
+    }
+    final entry = queue.pending.removeAt(index);
     queue.inFlight = true;
     _sent += 1;
     var failed = false;
@@ -341,6 +375,7 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
 
   void dispose() {
     _disposed = true;
+    _holdLimitTimer?.cancel();
     for (final queue in _queues.values) {
       queue.retryTimer?.cancel();
     }

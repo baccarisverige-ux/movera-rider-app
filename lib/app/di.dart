@@ -154,6 +154,9 @@ class AppScope {
         build: version.build,
         platform: CrashReport.platformName(),
         accessToken: tokens.readAccess,
+        // Load time (audit F8): routine lines wait for the first screen
+        // (bootstrap releases them shortly after its first frame).
+        holdRoutineAtStart: true,
       );
       observabilitySink = sink;
       Observability.configure(
