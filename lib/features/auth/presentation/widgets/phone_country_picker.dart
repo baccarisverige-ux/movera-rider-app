@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:movera_rider/shared/widgets/country_flag.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/auth/domain/phone_country.dart';
@@ -200,7 +201,7 @@ class _CountryRow extends StatelessWidget {
               : null,
           child: Row(
             children: [
-              Text(country.flag, style: const TextStyle(fontSize: 22)),
+              CountryFlag(country.iso),
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
