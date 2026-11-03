@@ -1,11 +1,11 @@
-# Movera API v0.18.14 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.15 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.14
+  version: 0.18.15
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.14 in this folder; this file must agree with them.
+    v0.18.15 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -59,8 +59,9 @@ tags:
 - name: Admin · Dispatch
 - name: Admin · Money
 - name: Admin · Support
-- name: Admin · Reviews
+- name: Admin · Alerts
 - name: Admin · Safety
+- name: Admin · Reviews
 - name: Admin · Reports
 - name: Safety
 - name: Admin · People
@@ -82,7 +83,7 @@ tags:
 - name: Driver · Home
 x-contract:
   name: movera
-  version: 0.18.14
+  version: 0.18.15
   source: contract.json
 paths:
   /auth/otp/request:
@@ -4583,6 +4584,12 @@ paths:
       - $ref: '#/components/parameters/ListZoneId'
       - $ref: '#/components/parameters/ListZoneIds'
       - $ref: '#/components/parameters/ListCountry'
+      - name: assignedTo
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'v0.18.15: me, none or an admin id.'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
       responses:
@@ -5642,6 +5649,1454 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SupportTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /support/tickets/{ticketId}/messages:
+    post:
+      operationId: writeOwnTicket
+      summary: Write on an own support ticket
+      description: 'v0.18.15 (owner QO-1, chat-style): the status becomes open. 409 invalid_transition, reason ticket_closed;
+        reason ticket_solved when SupportSettings.replyAfterSolved is blocked.'
+      tags:
+      - Support
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/TicketId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketPersonMessage'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /support/topics:
+    get:
+      operationId: listSupportTopics
+      summary: Ticket topics that are on
+      description: v0.18.15 (owner QO-4).
+      tags:
+      - Support
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTopics'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/tickets/{ticketId}/claim:
+    post:
+      operationId: adminTicketClaim
+      summary: Claim a ticket
+      description: 'v0.18.15. POST /admin/tickets/{ticketId}/claim {} -> SupportTicket: assignedTo = the caller until claimedUntil
+        = now + claimDays days. Another admin''s claim that has not run out -> 409 conflict, reason ticket_claimed. Audited
+        ticket.claim. The admin''s zones only (else 403 zone_out_of_scope).'
+      tags:
+      - Admin · Support
+      x-actor:
+      - admin
+      x-permission: support.reply
+      parameters:
+      - $ref: '#/components/parameters/TicketId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/tickets/{ticketId}/assign:
+    post:
+      operationId: adminTicketAssign
+      summary: Assign a ticket
+      description: 'v0.18.15. POST /admin/tickets/{ticketId}/assign { adminId | null, reason } -> SupportTicket: hands the
+        ticket to an active admin who has support.reply and covers the ticket''s zone (else 400 invalid_request, reason assignee_not_allowed);
+        null = nobody. Audited ticket.assign. The admin''s zones only (else 403 zone_out_of_scope).'
+      tags:
+      - Admin · Support
+      x-actor:
+      - admin
+      x-permission: support.reply
+      parameters:
+      - $ref: '#/components/parameters/TicketId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketAssignCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/tickets/{ticketId}/topic:
+    post:
+      operationId: adminTicketTopic
+      summary: Change a ticket's topic
+      description: v0.18.15. POST /admin/tickets/{ticketId}/topic { category } -> SupportTicket (any contract topic; the ticket's
+        time limits follow it). Audited ticket.topic. The admin's zones only (else 403 zone_out_of_scope).
+      tags:
+      - Admin · Support
+      x-actor:
+      - admin
+      x-permission: support.reply
+      parameters:
+      - $ref: '#/components/parameters/TicketId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketTopicCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/tickets/{ticketId}/waiting:
+    post:
+      operationId: adminTicketWaiting
+      summary: Mark waiting for the person
+      description: 'v0.18.15. POST /admin/tickets/{ticketId}/waiting { waiting } -> SupportTicket: true = pending (waiting
+        for the person), false = open. Closed or solved -> 409 invalid_transition, reason ticket_not_open. Audited ticket.waiting.
+        The admin''s zones only (else 403 zone_out_of_scope).'
+      tags:
+      - Admin · Support
+      x-actor:
+      - admin
+      x-permission: support.reply
+      parameters:
+      - $ref: '#/components/parameters/TicketId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketWaitingCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/tickets/{ticketId}/solve:
+    post:
+      operationId: adminTicketSolve
+      summary: Solve a ticket
+      description: 'v0.18.15. POST /admin/tickets/{ticketId}/solve { note? } -> SupportTicket: status resolved, solvedBy /
+        solvedAt; the note is private (never sent to the app). Closed -> 409 ticket_closed. Audited ticket.solve. The admin''s
+        zones only (else 403 zone_out_of_scope).'
+      tags:
+      - Admin · Support
+      x-actor:
+      - admin
+      x-permission: support.reply
+      parameters:
+      - $ref: '#/components/parameters/TicketId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketSolveCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/tickets/{ticketId}/reopen:
+    post:
+      operationId: adminTicketReopen
+      summary: Reopen a ticket
+      description: 'v0.18.15. POST /admin/tickets/{ticketId}/reopen { reason } -> SupportTicket: resolved or closed -> open;
+        solvedBy / solvedAt cleared. Already open or pending -> 409 invalid_transition, reason ticket_not_solved. Audited
+        ticket.reopen. The admin''s zones only (else 403 zone_out_of_scope).'
+      tags:
+      - Admin · Support
+      x-actor:
+      - admin
+      x-permission: support.reply
+      parameters:
+      - $ref: '#/components/parameters/TicketId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketReasonCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/tickets/{ticketId}/case:
+    post:
+      operationId: adminTicketCase
+      summary: Open a safety case from a ticket
+      description: 'v0.18.15. POST /admin/tickets/{ticketId}/case { reason } -> SupportTicket with incidentId: opens a support_case
+        incident on the ticket''s trip for the safety team (Incidents; severity medium, no alarm; the safety team changes
+        the level). A ticket without trip -> 409 invalid_transition, reason ticket_without_trip; one open support_case per
+        trip (the open one is linked). Audited ticket.case. The admin''s zones only (else 403 zone_out_of_scope).'
+      tags:
+      - Admin · Support
+      x-actor:
+      - admin
+      x-permission: support.reply
+      parameters:
+      - $ref: '#/components/parameters/TicketId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketReasonCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/support/settings:
+    get:
+      operationId: adminGetSupportSettings
+      summary: Support settings of a country
+      description: v0.18.15. GET /admin/support/settings?country=SE (support.reply) -> SupportSettings; PUT /admin/support/settings
+        SupportSettings (settings.edit; a Super admin or an admin with a zone in that country, else 403 zone_out_of_scope).
+        Audited support.settings. Never saved = the defaults.
+      tags:
+      - Admin · Support
+      x-actor:
+      - admin
+      x-permission: support.reply
+      parameters:
+      - name: country
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - SE
+          - FR
+          - TN
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportSettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: adminPutSupportSettings
+      summary: Save the support settings of a country
+      description: v0.18.15. claimDays 1-30; firstReplyMin 1-10080; solveHours 1-720; every contract topic once; at least
+        one topic on.
+      tags:
+      - Admin · Support
+      x-actor:
+      - admin
+      x-permission: settings.edit
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupportSettings'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportSettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/alerts/book:
+    get:
+      operationId: adminAlertBook
+      summary: Who works on each alert, mutes, quiet hours, settings and rules
+      description: 'v0.18.15. GET /admin/alerts/book?country=SE (overview.read) -> AlertBookState { country, rev, settings,
+        rules, records [AlertRecord], mutes { kind: { until, by } }, quiet (the caller''s own quiet hours), people [{ adminId,
+        name }] }. records: only alerts of the admin''s zones in that country whose kind group the admin may see (kindGroups);
+        an alert without zone only for a Super admin. people: active admins with a zone in the same country (Super admins
+        included). records holds the open ones and those done in the last 30 days. country: SE | FR | TN; an admin outside
+        the country -> 403 zone_out_of_scope.'
+      tags:
+      - Admin · Alerts
+      x-actor:
+      - admin
+      x-permission: overview.read
+      parameters:
+      - name: country
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - SE
+          - FR
+          - TN
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertBookState'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/alerts/{alertId}/take:
+    post:
+      operationId: adminAlertTake
+      summary: 'Alert: take'
+      description: 'v0.18.15. POST /admin/alerts/{alertId}/take { kind, level, title, zoneId?, since } -> AlertBookState of
+        the alert''s country: owner = the caller. The first command on an alert stores its zone; later commands use the stored
+        zone, never the one sent. The zone must be the caller''s (else 403 zone_out_of_scope); the kind must be in kindGroups
+        (else 400 invalid_request, reason unknown_alert_kind) and the caller needs its act permission (else 403). Two admins
+        taking at once: one wins, the other gets 409 conflict, reason alert_taken. Another admin''s live owner -> 409 alert_taken.
+        sos, car_lost, ride_check -> 409 invalid_transition, reason alert_in_incidents. Seeing an alert needs its group''s
+        read permission; acting on it (take, done, snooze, pass) needs its group''s act permission or alerts.manage. Mutes,
+        settings and rules need alerts.manage. Quiet hours: the admin''s own (overview.read).'
+      tags:
+      - Admin · Alerts
+      x-actor:
+      - admin
+      x-permission: overview.read
+      parameters:
+      - name: alertId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_:.-]{1,200}$
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertTakeCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertBookState'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/alerts/{alertId}/done:
+    post:
+      operationId: adminAlertDone
+      summary: 'Alert: done'
+      description: 'v0.18.15. POST /admin/alerts/{alertId}/done { kind, level, title, zoneId?, since, note? } -> status done.
+        Only the owner (or nobody owns it: the caller takes it and solves it) -> else 409 conflict, reason alert_taken. Seeing
+        an alert needs its group''s read permission; acting on it (take, done, snooze, pass) needs its group''s act permission
+        or alerts.manage. Mutes, settings and rules need alerts.manage. Quiet hours: the admin''s own (overview.read).'
+      tags:
+      - Admin · Alerts
+      x-actor:
+      - admin
+      x-permission: overview.read
+      parameters:
+      - name: alertId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_:.-]{1,200}$
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertDoneCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertBookState'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/alerts/{alertId}/snooze:
+    post:
+      operationId: adminAlertSnooze
+      summary: 'Alert: snooze'
+      description: 'v0.18.15. POST /admin/alerts/{alertId}/snooze { kind, level, title, zoneId?, since, minutes 1-1440 } ->
+        status snoozed until now + minutes; same owner rule; not for the incident kinds. Seeing an alert needs its group''s
+        read permission; acting on it (take, done, snooze, pass) needs its group''s act permission or alerts.manage. Mutes,
+        settings and rules need alerts.manage. Quiet hours: the admin''s own (overview.read).'
+      tags:
+      - Admin · Alerts
+      x-actor:
+      - admin
+      x-permission: overview.read
+      parameters:
+      - name: alertId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_:.-]{1,200}$
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertSnoozeCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertBookState'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/alerts/{alertId}/pass:
+    post:
+      operationId: adminAlertPass
+      summary: 'Alert: pass'
+      description: 'v0.18.15. POST /admin/alerts/{alertId}/pass { kind, level, title, zoneId?, since, to } -> owner = to (an
+        active admin of people who may act on the kind and covers the alert''s zone; not the caller; else 400 invalid_request,
+        reason assignee_not_allowed); same owner rule; the pass event carries toName. Seeing an alert needs its group''s read
+        permission; acting on it (take, done, snooze, pass) needs its group''s act permission or alerts.manage. Mutes, settings
+        and rules need alerts.manage. Quiet hours: the admin''s own (overview.read).'
+      tags:
+      - Admin · Alerts
+      x-actor:
+      - admin
+      x-permission: overview.read
+      parameters:
+      - name: alertId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_:.-]{1,200}$
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertPassCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertBookState'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/alerts/mutes/{kind}:
+    put:
+      operationId: adminAlertMute
+      summary: Mute a kind of alert
+      description: 'v0.18.15. PUT /admin/alerts/mutes/{kind}?country= { minutes 1-1440 } / DELETE ...?country= (alerts.manage)
+        -> AlertBookState: the kind stays quiet for every admin of that country until then.'
+      tags:
+      - Admin · Alerts
+      x-actor:
+      - admin
+      x-permission: alerts.manage
+      parameters:
+      - name: kind
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[a-z][a-z0-9_]{0,63}$
+      - name: country
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - SE
+          - FR
+          - TN
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertMuteCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertBookState'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    delete:
+      operationId: adminAlertUnmute
+      summary: Unmute a kind of alert
+      description: v0.18.15.
+      tags:
+      - Admin · Alerts
+      x-actor:
+      - admin
+      x-permission: alerts.manage
+      parameters:
+      - name: kind
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[a-z][a-z0-9_]{0,63}$
+      - name: country
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - SE
+          - FR
+          - TN
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertBookState'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/alerts/quiet:
+    put:
+      operationId: adminAlertQuiet
+      summary: My quiet hours
+      description: 'v0.18.15. PUT /admin/alerts/quiet { on, from HH:MM, to HH:MM } -> AlertBookState: the caller''s own quiet
+        hours (no sound; critical still rings).'
+      tags:
+      - Admin · Alerts
+      x-actor:
+      - admin
+      x-permission: overview.read
+      parameters:
+      - name: country
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - SE
+          - FR
+          - TN
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertQuietCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertBookState'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/alerts/settings:
+    put:
+      operationId: adminAlertSettings
+      summary: Save the alert settings
+      description: v0.18.15. PUT /admin/alerts/settings { country, expectedRev, settings } (alerts.manage; an admin with a
+        zone in that country or a Super admin) -> rev + 1; stale -> 409 version_mismatch.
+      tags:
+      - Admin · Alerts
+      x-actor:
+      - admin
+      x-permission: alerts.manage
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertSettingsCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertBookState'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/alerts/rules:
+    put:
+      operationId: adminAlertRules
+      summary: Save the alert rules
+      description: v0.18.15. PUT /admin/alerts/rules { country, expectedRev, rules } (alerts.manage; same country check) ->
+        rev + 1.
+      tags:
+      - Admin · Alerts
+      x-actor:
+      - admin
+      x-permission: alerts.manage
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertRulesCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertBookState'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/alerts/history:
+    get:
+      operationId: adminAlertHistory
+      summary: Alert history for the export
+      description: 'v0.18.15. GET /admin/alerts/history?country=&from=&to= (overview.read) -> { items: AlertRecord[] } with
+        the same filter as the book.'
+      tags:
+      - Admin · Alerts
+      x-actor:
+      - admin
+      x-permission: overview.read
+      parameters:
+      - name: country
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - SE
+          - FR
+          - TN
+      - $ref: '#/components/parameters/From'
+      - $ref: '#/components/parameters/To'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertHistory'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/incidents/settings:
+    get:
+      operationId: adminIncidentSettings
+      summary: Incident settings
+      description: 'v0.18.15. GET /admin/incidents/settings?country=SE (incidents.read) -> IncidentSettingsDoc { country,
+        rev, settings, updatedAt?, updatedBy? }; PUT /admin/incidents/settings { country, expectedRev, settings } (safety.edit)
+        -> rev + 1; stale -> 409 version_mismatch. Per country (SE, FR, TN): a Super admin or an admin with a zone in that
+        country, else 403 zone_out_of_scope. settings is the admin panel''s document (JSON object, at most 64 KB); never saved
+        = {} (the panel''s defaults). Audited incident.settings.'
+      tags:
+      - Admin · Safety
+      x-actor:
+      - admin
+      x-permission: incidents.read
+      parameters:
+      - name: country
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - SE
+          - FR
+          - TN
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentSettingsDoc'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: adminPutIncidentSettings
+      summary: Save the incident settings
+      description: v0.18.15.
+      tags:
+      - Admin · Safety
+      x-actor:
+      - admin
+      x-permission: safety.edit
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncidentSettingsCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentSettingsDoc'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/incidents/{incidentId}/report:
+    post:
+      operationId: adminIncidentReport
+      summary: Record a case report download
+      description: 'v0.18.15. POST /admin/incidents/{incidentId}/report {} (incidents.read, the admin''s zones) -> 204: the
+        panel builds the text report from the case; the server records who downloaded it (audit incident.report).'
+      tags:
+      - Admin · Safety
+      x-actor:
+      - admin
+      x-permission: incidents.read
+      parameters:
+      - $ref: '#/components/parameters/IncidentId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyCommand'
+      responses:
+        '204':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/reviews/rules:
+    get:
+      operationId: adminReviewRules
+      summary: Review rules of a country
+      description: 'v0.18.15. After each rating (POST .../rate) the server: (1) a comment with a listed word (case-insensitive,
+        part of a word counts) is hidden at once like an admin hide (hiddenBy system, reason bad_word; its stars do not count;
+        an admin can restore it); (2) the rated person''s average over counted ratings, once they have minReviews: below block
+        -> the account is suspended (driver account_status suspended and offline; rider status suspended) and the person is
+        in the review list; below review -> in the review list; below warn -> one bell + push notice review_warning in the
+        person''s language. Each step happens once when the person crosses the line; back above every line clears it, so a
+        later fall acts again.'
+      tags:
+      - Admin · Reviews
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - name: country
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - SE
+          - FR
+          - TN
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewRules'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: adminPutReviewRules
+      summary: Save the review rules of a country
+      description: 'v0.18.15. GET /admin/reviews/rules?country= (settings.read) -> ReviewRules { country, warn { on, below
+        }, review { on, below }, block { on, below }, minReviews, badWords { on, words } }; PUT /admin/reviews/rules ReviewRules
+        (settings.edit; a Super admin or an admin with a zone in that country, else 403 zone_out_of_scope). Lines: 1-5, block
+        <= review <= warn when on; words at most 200, each 1-40 letters. Audited reviews.rules. The rating tags stay contract.json#ratings.tags.'
+      tags:
+      - Admin · Reviews
+      x-actor:
+      - admin
+      x-permission: settings.edit
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewRules'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewRules'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/reviews/queue:
+    get:
+      operationId: adminReviewQueue
+      summary: People the review rules put up for an admin
+      description: v0.18.15.
+      tags:
+      - Admin · Reviews
+      x-actor:
+      - admin
+      x-permission: riders.read
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewQueue'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/reviews/queue/{who}/{personId}/done:
+    post:
+      operationId: adminReviewDone
+      summary: An admin looked at a person
+      description: v0.18.15.
+      tags:
+      - Admin · Reviews
+      x-actor:
+      - admin
+      x-permission: riders.block
+      parameters:
+      - name: who
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - driver
+          - rider
+      - name: personId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewDoneCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewQueue'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -16059,6 +17514,43 @@ components:
           items:
             $ref: '#/components/schemas/TicketMessage'
           description: 'v0.9.0: only on GET /support/tickets/{ticketId} and GET /admin/tickets/{ticketId}, oldest first.'
+        assignedTo:
+          type: object
+          description: 'v0.18.15: the admin who works on the ticket (claim or assign); admin views only.'
+          required:
+          - adminId
+          properties:
+            adminId:
+              $ref: '#/components/schemas/Id'
+            name:
+              type: string
+        claimedUntil:
+          $ref: '#/components/schemas/Timestamp'
+        solvedBy:
+          $ref: '#/components/schemas/Id'
+        solvedAt:
+          $ref: '#/components/schemas/Timestamp'
+        incidentId:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: 'v0.18.15: the support_case incident opened from this ticket (admin views only).'
+        firstReplyAt:
+          $ref: '#/components/schemas/Timestamp'
+        firstReplyDueAt:
+          $ref: '#/components/schemas/Timestamp'
+        solveDueAt:
+          $ref: '#/components/schemas/Timestamp'
+        late:
+          type: object
+          description: 'v0.18.15: past the topic''s time limits of the ticket''s country (admin views only).'
+          required:
+          - reply
+          - solve
+          properties:
+            reply:
+              type: boolean
+            solve:
+              type: boolean
     TicketMessage:
       type: object
       description: 'v0.9.0: one message on a support ticket.'
@@ -16084,7 +17576,12 @@ components:
           $ref: '#/components/schemas/Timestamp'
         adminName:
           type: string
-          description: The answering admin's name (from = support).
+          description: 'The answering admin''s name (from = support). v0.18.15: on the person''s own views only the first
+            name (contract.json#supportDesk.supportName).'
+        supportName:
+          type: string
+          description: 'v0.18.15: the person''s views only: the answering admin''s first name; the apps show ''<supportName>
+            · Movera Support''.'
     TicketReplyCommand:
       type: object
       description: 'v0.9.0: Admin › Support answers a ticket.'
@@ -16102,6 +17599,683 @@ components:
           - resolved
           - closed
           description: 'The ticket''s status after the answer (default pending: waiting for the person).'
+    TicketPersonMessage:
+      type: object
+      description: 'v0.18.15: the rider or driver writes on their own ticket (contract.json#supportDesk.personReply).'
+      required:
+      - text
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 5000
+    SupportTopics:
+      type: object
+      description: 'v0.18.15: the ticket topics that are on for the caller''s country (contract.json#supportDesk.topics).'
+      required:
+      - topics
+      properties:
+        country:
+          type: string
+          pattern: ^[A-Z]{2}$
+        topics:
+          type: array
+          items:
+            type: string
+            enum:
+            - ride_dispute
+            - help
+            - lost_item
+            - payment
+            - account
+            - safety
+            - other
+    TicketAssignCommand:
+      type: object
+      description: v0.18.15.
+      required:
+      - adminId
+      - reason
+      properties:
+        adminId:
+          oneOf:
+          - $ref: '#/components/schemas/Id'
+          - type: 'null'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    TicketTopicCommand:
+      type: object
+      description: v0.18.15.
+      required:
+      - category
+      properties:
+        category:
+          type: string
+          enum:
+          - ride_dispute
+          - help
+          - lost_item
+          - payment
+          - account
+          - safety
+          - other
+    TicketWaitingCommand:
+      type: object
+      description: v0.18.15.
+      required:
+      - waiting
+      properties:
+        waiting:
+          type: boolean
+    TicketSolveCommand:
+      type: object
+      description: v0.18.15.
+      properties:
+        note:
+          type: string
+          maxLength: 2000
+          description: Private; never sent to the app.
+    TicketReasonCommand:
+      type: object
+      description: 'v0.18.15: reopen or open a case.'
+      required:
+      - reason
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    EmptyCommand:
+      type: object
+      description: No fields.
+      properties: {}
+    SupportTopicSetting:
+      type: object
+      required:
+      - code
+      - 'on'
+      - firstReplyMin
+      - solveHours
+      properties:
+        code:
+          type: string
+          enum:
+          - ride_dispute
+          - help
+          - lost_item
+          - payment
+          - account
+          - safety
+          - other
+        'on':
+          type: boolean
+        firstReplyMin:
+          type: integer
+          minimum: 1
+          maximum: 10080
+        solveHours:
+          type: integer
+          minimum: 1
+          maximum: 720
+    SupportSettings:
+      type: object
+      description: 'v0.18.15: Admin › Support › Settings per country (contract.json#supportDesk.settings).'
+      required:
+      - country
+      - claimDays
+      - replyAfterSolved
+      - topics
+      properties:
+        country:
+          type: string
+          enum:
+          - SE
+          - FR
+          - TN
+        claimDays:
+          type: integer
+          minimum: 1
+          maximum: 30
+        replyAfterSolved:
+          type: string
+          enum:
+          - reopen
+          - blocked
+        topics:
+          type: array
+          items:
+            $ref: '#/components/schemas/SupportTopicSetting'
+          minItems: 1
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedBy:
+          $ref: '#/components/schemas/Id'
+    AlertEvent:
+      type: object
+      required:
+      - at
+      - by
+      - kind
+      - text
+      properties:
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        by:
+          $ref: '#/components/schemas/Id'
+        byName:
+          type: string
+        toName:
+          type: string
+        kind:
+          type: string
+          enum:
+          - take
+          - done
+          - snooze
+          - pass
+          - reopen
+        text:
+          type: string
+          maxLength: 500
+        to:
+          $ref: '#/components/schemas/Id'
+    AlertRecord:
+      type: object
+      description: v0.18.15 (contract.json#alertDesk.shapes).
+      required:
+      - alertId
+      - kind
+      - level
+      - title
+      - since
+      - status
+      - events
+      properties:
+        alertId:
+          type: string
+          pattern: ^[A-Za-z0-9_:.-]{1,200}$
+        kind:
+          type: string
+          pattern: ^[a-z][a-z0-9_]{0,63}$
+        level:
+          type: string
+          enum:
+          - critical
+          - important
+          - info
+        title:
+          type: string
+          maxLength: 300
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        since:
+          $ref: '#/components/schemas/Timestamp'
+        status:
+          type: string
+          enum:
+          - taken
+          - done
+          - snoozed
+        owner:
+          $ref: '#/components/schemas/Id'
+        ownerName:
+          type: string
+        snoozeUntil:
+          $ref: '#/components/schemas/Timestamp'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertEvent'
+    AlertBookState:
+      type: object
+      description: 'v0.18.15: GET /admin/alerts/book?country=SE (overview.read) -> AlertBookState { country, rev, settings,
+        rules, records [AlertRecord], mutes { kind: { until, by } }, quiet (the caller''s own quiet hours), people [{ adminId,
+        name }] }. records: only alerts of the admin''s zones in that country whose kind group the admin may see (kindGroups);
+        an alert without zone only for a Super admin. people: active admins with a zone in the same country (Super admins
+        included). records holds the open ones and those done in the last 30 days. country: SE | FR | TN; an admin outside
+        the country -> 403 zone_out_of_scope.'
+      required:
+      - country
+      - rev
+      - settings
+      - rules
+      - records
+      - mutes
+      - quiet
+      - people
+      properties:
+        country:
+          type: string
+          enum:
+          - SE
+          - FR
+          - TN
+        rev:
+          type: integer
+          minimum: 1
+        settings:
+          type: object
+        rules:
+          type: array
+          items:
+            type: object
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertRecord'
+        mutes:
+          type: object
+          additionalProperties:
+            type: object
+            required:
+            - until
+            - by
+            properties:
+              until:
+                $ref: '#/components/schemas/Timestamp'
+              by:
+                $ref: '#/components/schemas/Id'
+        quiet:
+          type: object
+          required:
+          - 'on'
+          - from
+          - to
+          properties:
+            'on':
+              type: boolean
+            from:
+              type: string
+              pattern: ^[0-2][0-9]:[0-5][0-9]$
+            to:
+              type: string
+              pattern: ^[0-2][0-9]:[0-5][0-9]$
+        people:
+          type: array
+          items:
+            type: object
+            required:
+            - adminId
+            - name
+            properties:
+              adminId:
+                $ref: '#/components/schemas/Id'
+              name:
+                type: string
+    AlertTakeCommand:
+      type: object
+      description: v0.18.15.
+      required:
+      - kind
+      - level
+      - title
+      - since
+      properties:
+        kind:
+          type: string
+          pattern: ^[a-z][a-z0-9_]{0,63}$
+        level:
+          type: string
+          enum:
+          - critical
+          - important
+          - info
+        title:
+          type: string
+          minLength: 1
+          maxLength: 300
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        since:
+          $ref: '#/components/schemas/Timestamp'
+    AlertDoneCommand:
+      type: object
+      description: v0.18.15.
+      required:
+      - kind
+      - level
+      - title
+      - since
+      properties:
+        kind:
+          type: string
+          pattern: ^[a-z][a-z0-9_]{0,63}$
+        level:
+          type: string
+          enum:
+          - critical
+          - important
+          - info
+        title:
+          type: string
+          minLength: 1
+          maxLength: 300
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        since:
+          $ref: '#/components/schemas/Timestamp'
+        note:
+          type: string
+          maxLength: 500
+    AlertSnoozeCommand:
+      type: object
+      description: v0.18.15.
+      required:
+      - kind
+      - level
+      - title
+      - since
+      - minutes
+      properties:
+        kind:
+          type: string
+          pattern: ^[a-z][a-z0-9_]{0,63}$
+        level:
+          type: string
+          enum:
+          - critical
+          - important
+          - info
+        title:
+          type: string
+          minLength: 1
+          maxLength: 300
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        since:
+          $ref: '#/components/schemas/Timestamp'
+        minutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+    AlertPassCommand:
+      type: object
+      description: v0.18.15.
+      required:
+      - kind
+      - level
+      - title
+      - since
+      - to
+      properties:
+        kind:
+          type: string
+          pattern: ^[a-z][a-z0-9_]{0,63}$
+        level:
+          type: string
+          enum:
+          - critical
+          - important
+          - info
+        title:
+          type: string
+          minLength: 1
+          maxLength: 300
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        since:
+          $ref: '#/components/schemas/Timestamp'
+        to:
+          $ref: '#/components/schemas/Id'
+    AlertMuteCommand:
+      type: object
+      description: v0.18.15.
+      required:
+      - minutes
+      properties:
+        minutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+    AlertQuietCommand:
+      type: object
+      required:
+      - 'on'
+      - from
+      - to
+      properties:
+        'on':
+          type: boolean
+        from:
+          type: string
+          pattern: ^[0-2][0-9]:[0-5][0-9]$
+        to:
+          type: string
+          pattern: ^[0-2][0-9]:[0-5][0-9]$
+    AlertSettingsCommand:
+      type: object
+      description: v0.18.15.
+      required:
+      - country
+      - expectedRev
+      - settings
+      properties:
+        country:
+          type: string
+          enum:
+          - SE
+          - FR
+          - TN
+        expectedRev:
+          type: integer
+          minimum: 1
+        settings:
+          type: object
+    AlertRulesCommand:
+      type: object
+      description: v0.18.15.
+      required:
+      - country
+      - expectedRev
+      - rules
+      properties:
+        country:
+          type: string
+          enum:
+          - SE
+          - FR
+          - TN
+        expectedRev:
+          type: integer
+          minimum: 1
+        rules:
+          type: array
+          items:
+            type: object
+          maxItems: 200
+    AlertHistory:
+      type: object
+      description: v0.18.15.
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertRecord'
+    IncidentSettingsDoc:
+      type: object
+      description: 'v0.18.15: GET /admin/incidents/settings?country=SE (incidents.read) -> IncidentSettingsDoc { country,
+        rev, settings, updatedAt?, updatedBy? }; PUT /admin/incidents/settings { country, expectedRev, settings } (safety.edit)
+        -> rev + 1; stale -> 409 version_mismatch. Per country (SE, FR, TN): a Super admin or an admin with a zone in that
+        country, else 403 zone_out_of_scope. settings is the admin panel''s document (JSON object, at most 64 KB); never saved
+        = {} (the panel''s defaults). Audited incident.settings.'
+      required:
+      - country
+      - rev
+      - settings
+      properties:
+        country:
+          type: string
+          enum:
+          - SE
+          - FR
+          - TN
+        rev:
+          type: integer
+          minimum: 1
+        settings:
+          type: object
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedBy:
+          $ref: '#/components/schemas/Id'
+    IncidentSettingsCommand:
+      type: object
+      description: v0.18.15.
+      required:
+      - country
+      - expectedRev
+      - settings
+      properties:
+        country:
+          type: string
+          enum:
+          - SE
+          - FR
+          - TN
+        expectedRev:
+          type: integer
+          minimum: 1
+        settings:
+          type: object
+    ReviewRules:
+      type: object
+      description: 'v0.18.15: GET /admin/reviews/rules?country= (settings.read) -> ReviewRules { country, warn { on, below
+        }, review { on, below }, block { on, below }, minReviews, badWords { on, words } }; PUT /admin/reviews/rules ReviewRules
+        (settings.edit; a Super admin or an admin with a zone in that country, else 403 zone_out_of_scope). Lines: 1-5, block
+        <= review <= warn when on; words at most 200, each 1-40 letters. Audited reviews.rules. The rating tags stay contract.json#ratings.tags.'
+      required:
+      - country
+      - warn
+      - review
+      - block
+      - minReviews
+      - badWords
+      properties:
+        country:
+          type: string
+          enum:
+          - SE
+          - FR
+          - TN
+        warn:
+          type: object
+          required:
+          - 'on'
+          - below
+          properties:
+            'on':
+              type: boolean
+            below:
+              type: number
+              minimum: 1
+              maximum: 5
+        review:
+          type: object
+          required:
+          - 'on'
+          - below
+          properties:
+            'on':
+              type: boolean
+            below:
+              type: number
+              minimum: 1
+              maximum: 5
+        block:
+          type: object
+          required:
+          - 'on'
+          - below
+          properties:
+            'on':
+              type: boolean
+            below:
+              type: number
+              minimum: 1
+              maximum: 5
+        minReviews:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        badWords:
+          type: object
+          required:
+          - 'on'
+          - words
+          properties:
+            'on':
+              type: boolean
+            words:
+              type: array
+              items:
+                type: string
+                minLength: 1
+                maxLength: 40
+              maxItems: 200
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedBy:
+          $ref: '#/components/schemas/Id'
+    ReviewQueueRow:
+      type: object
+      required:
+      - who
+      - personId
+      - level
+      - average
+      - count
+      - since
+      properties:
+        who:
+          type: string
+          enum:
+          - driver
+          - rider
+        personId:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+        country:
+          type: string
+        level:
+          type: string
+          enum:
+          - review
+          - block
+        average:
+          type: number
+        count:
+          type: integer
+          minimum: 0
+        since:
+          $ref: '#/components/schemas/Timestamp'
+    ReviewQueue:
+      type: object
+      description: 'v0.18.15: GET /admin/reviews/queue (riders.read) -> { items: [{ who: driver | rider, personId, name, country,
+        level: review | block, average, count, since }] } of the admin''s countries; POST /admin/reviews/queue/{who}/{personId}/done
+        { note } (riders.block) removes the row (an admin looked at it; a blocked account is let back in the Drivers / Riders
+        page). Audited reviews.done.'
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewQueueRow'
+    ReviewDoneCommand:
+      type: object
+      description: v0.18.15.
+      required:
+      - note
+      properties:
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
     IncidentPosition:
       type: object
       description: 'v0.7.0: a phone''s GPS position, measured once (CONTRACT.md §15).'

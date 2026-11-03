@@ -10,6 +10,7 @@ class SupportTicketMessage {
     required this.text,
     required this.at,
     this.adminName,
+    this.supportName,
   });
 
   /// `rider` or `support`.
@@ -17,6 +18,10 @@ class SupportTicketMessage {
   final String text;
   final DateTime at;
   final String? adminName;
+
+  /// v0.18.15 (owner QO-2 "Agent first name"): the answering admin's first
+  /// name only; never an e-mail.
+  final String? supportName;
 
   bool get fromSupport => from == 'support';
 
@@ -26,6 +31,7 @@ class SupportTicketMessage {
         text: json['text']?.toString() ?? '',
         at: DateTime.tryParse(json['at']?.toString() ?? '') ?? DateTime(0),
         adminName: json['adminName']?.toString(),
+        supportName: json['supportName']?.toString(),
       );
 }
 
@@ -39,6 +45,7 @@ class SupportTicketView {
     required this.updatedAt,
     this.tripId,
     this.messages = const <SupportTicketMessage>[],
+    this.feedback,
   });
 
   final String id;
@@ -51,6 +58,10 @@ class SupportTicketView {
   final String? tripId;
   final List<SupportTicketMessage> messages;
 
+  /// v0.18.15 (owner "Not rating only comment suggestions"): the rider's
+  /// optional comment after the ticket was solved.
+  final String? feedback;
+
   static SupportTicketView fromJson(Map<String, dynamic> json) =>
       SupportTicketView(
         id: json['ticketId']?.toString() ?? '',
@@ -61,6 +72,7 @@ class SupportTicketView {
             DateTime.tryParse(json['updatedAt']?.toString() ?? '') ??
             DateTime(0),
         tripId: json['tripId']?.toString(),
+        feedback: (json['feedback'] as Map?)?['text']?.toString(),
         messages: [
           for (final item in (json['messages'] as List? ?? const []))
             if (item is Map)
@@ -68,6 +80,18 @@ class SupportTicketView {
         ],
       );
 }
+
+/// v0.18.15 (contract.json#supportDesk, owner QO-4): the same seven topics as
+/// the driver app; the server says which are on for the rider's country.
+const supportTopics = <String>[
+  'ride_dispute',
+  'help',
+  'lost_item',
+  'payment',
+  'account',
+  'safety',
+  'other',
+];
 
 /// Contract v0.9.0 §16 (owner, 2026-10-27): ride disputes and help requests
 /// are support tickets (`POST /support/tickets`); Movera's answer comes back
@@ -123,6 +147,51 @@ class SupportTicketRepository {
         if (item is Map)
           SupportTicketView.fromJson(Map<String, dynamic>.from(item)),
     ];
+  }
+
+  /// v0.18.15 (owner QO-1, chat-style): the rider writes again on the ticket;
+  /// the answer is the ticket with every message.
+  Future<SupportTicketView> write(String ticketId, String text) async {
+    final body = text.trim();
+    if (body.isEmpty) throw ArgumentError.value(text, 'text');
+    final intent = 'msg|$ticketId|$body';
+    final answer = await _api.post(
+      '/api/v1/support/tickets/${Uri.encodeComponent(ticketId)}/messages',
+      body: {'text': body},
+      idempotencyKey: _mutation.keyFor(intent),
+    );
+    _mutation.succeeded(intent);
+    return SupportTicketView.fromJson(answer);
+  }
+
+  /// v0.18.15: an optional comment once the ticket is solved (no stars).
+  Future<SupportTicketView> comment(String ticketId, String text) async {
+    final body = text.trim();
+    if (body.isEmpty) throw ArgumentError.value(text, 'text');
+    final intent = 'fb|$ticketId|$body';
+    final answer = await _api.post(
+      '/api/v1/support/tickets/${Uri.encodeComponent(ticketId)}/feedback',
+      body: {'text': body},
+      idempotencyKey: _mutation.keyFor(intent),
+    );
+    _mutation.succeeded(intent);
+    return SupportTicketView.fromJson(answer);
+  }
+
+  /// v0.18.15: the topics that are on (contract order); all seven when the
+  /// server is older, does not answer, or this is the demo transport.
+  Future<List<String>> topics() async {
+    if (!available) return supportTopics;
+    try {
+      final answer = await _api.get('/api/v1/support/topics');
+      final on = [
+        for (final item in (answer['topics'] as List? ?? const []))
+          if (supportTopics.contains(item)) item.toString(),
+      ];
+      return on.isEmpty ? supportTopics : on;
+    } catch (_) {
+      return supportTopics;
+    }
   }
 
   /// One ticket with its messages (Movera's answers included).

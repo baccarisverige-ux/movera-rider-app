@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.14",
+  "version": "0.18.15",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -3709,7 +3709,8 @@
     "kindSeverity": {
       "sos": "critical",
       "driver_silent": "critical",
-      "ride_check": "critical"
+      "ride_check": "critical",
+      "support_case": "medium"
     },
     "raisedBy": [
       "rider",
@@ -3980,6 +3981,193 @@
     ],
     "adminScope": "v0.13.0: GET /admin/tickets, GET /admin/tickets/{ticketId} and POST /admin/tickets/{ticketId}/reply need support.reply (reading too) and see only tickets of the admin's zones (super admin: all; a ticket without zone: super admin only). Outside the zones: 403 forbidden, reason zone_out_of_scope. Every reply is audited.",
     "ownScope": "v0.13.0: a rider or driver sees only the tickets they opened; another person's ticket is 404 not_found. A ticket with tripId must be the caller's own trip (else 404)."
+  },
+  "supportDesk": {
+    "note": "v0.18.15 (build-all A1, owner 2026-11-02 decisions/other-support-promos.md QO-1/QO-2/QO-4/QO-5 + rule 16): the support desk works on the server. Riders and drivers keep writing on their ticket chat-style; Admin › Support claims, assigns, changes the topic, marks waiting / solved, reopens and opens a safety case from a ticket; the topics and time limits are an admin setting per country (SE, FR, TN-ready) with the defaults below. Additive: older apps keep working.",
+    "personReply": "POST /support/tickets/{ticketId}/messages { text } (rider / driver, own ticket only, else 404) -> 201 SupportTicket with messages. The status becomes open (the desk sees a new answer). A closed ticket -> 409 invalid_transition, reason ticket_closed. A solved (resolved) ticket: SupportSettings.replyAfterSolved = reopen (default) opens it again; blocked -> 409 invalid_transition, reason ticket_solved.",
+    "supportName": "Owner QO-2 'Agent first name': on the person's own views (GET /support/tickets/{ticketId}, POST .../messages) a support message carries supportName = the answering admin's first name (first word of the admin's name; never an e-mail, never the last name; absent when the name is empty or looks like an e-mail) and adminName = the same first name (older apps). The apps show '<supportName> · Movera Support', or 'Movera Support' without it. Admin views keep the full adminName.",
+    "topics": "GET /support/topics (rider / driver) -> SupportTopics { country, topics: [code] }: the ticket topics that are on for the caller's country (the zone of the last trip or the driver's first zone, else the driver's country), in the contract order; both apps show the same list (owner QO-4). POST /support/tickets with a topic that is off -> 400 invalid_request, reason topic_off. Labels are the apps' own (sv / fr / en) per code.",
+    "adminCommands": {
+      "claim": "POST /admin/tickets/{ticketId}/claim {} -> SupportTicket: assignedTo = the caller until claimedUntil = now + claimDays days. Another admin's claim that has not run out -> 409 conflict, reason ticket_claimed. Audited ticket.claim.",
+      "assign": "POST /admin/tickets/{ticketId}/assign { adminId | null, reason } -> SupportTicket: hands the ticket to an active admin who has support.reply and covers the ticket's zone (else 400 invalid_request, reason assignee_not_allowed); null = nobody. Audited ticket.assign.",
+      "topic": "POST /admin/tickets/{ticketId}/topic { category } -> SupportTicket (any contract topic; the ticket's time limits follow it). Audited ticket.topic.",
+      "waiting": "POST /admin/tickets/{ticketId}/waiting { waiting } -> SupportTicket: true = pending (waiting for the person), false = open. Closed or solved -> 409 invalid_transition, reason ticket_not_open. Audited ticket.waiting.",
+      "solve": "POST /admin/tickets/{ticketId}/solve { note? } -> SupportTicket: status resolved, solvedBy / solvedAt; the note is private (never sent to the app). Closed -> 409 ticket_closed. Audited ticket.solve.",
+      "reopen": "POST /admin/tickets/{ticketId}/reopen { reason } -> SupportTicket: resolved or closed -> open; solvedBy / solvedAt cleared. Already open or pending -> 409 invalid_transition, reason ticket_not_solved. Audited ticket.reopen.",
+      "case": "POST /admin/tickets/{ticketId}/case { reason } -> SupportTicket with incidentId: opens a support_case incident on the ticket's trip for the safety team (Incidents; severity medium, no alarm; the safety team changes the level). A ticket without trip -> 409 invalid_transition, reason ticket_without_trip; one open support_case per trip (the open one is linked). Audited ticket.case."
+    },
+    "adminView": "Admin views of SupportTicket add assignedTo { adminId, name }, claimedUntil, solvedBy, solvedAt, incidentId, firstReplyAt, firstReplyDueAt and solveDueAt (created + the topic's firstReplyMin / solveHours of the ticket's country), late { reply, solve }. GET /admin/tickets?assignedTo=me|none|<adminId>.",
+    "settings": {
+      "endpoints": "GET /admin/support/settings?country=SE (support.reply) -> SupportSettings; PUT /admin/support/settings SupportSettings (settings.edit; a Super admin or an admin with a zone in that country, else 403 zone_out_of_scope). Audited support.settings. Never saved = the defaults.",
+      "countries": [
+        "SE",
+        "FR",
+        "TN"
+      ],
+      "defaults": {
+        "claimDays": 3,
+        "replyAfterSolved": "reopen",
+        "topics": [
+          {
+            "code": "ride_dispute",
+            "on": true,
+            "firstReplyMin": 60,
+            "solveHours": 24
+          },
+          {
+            "code": "help",
+            "on": true,
+            "firstReplyMin": 120,
+            "solveHours": 48
+          },
+          {
+            "code": "lost_item",
+            "on": true,
+            "firstReplyMin": 30,
+            "solveHours": 48
+          },
+          {
+            "code": "payment",
+            "on": true,
+            "firstReplyMin": 60,
+            "solveHours": 24
+          },
+          {
+            "code": "account",
+            "on": true,
+            "firstReplyMin": 120,
+            "solveHours": 24
+          },
+          {
+            "code": "safety",
+            "on": true,
+            "firstReplyMin": 5,
+            "solveHours": 4
+          },
+          {
+            "code": "other",
+            "on": true,
+            "firstReplyMin": 240,
+            "solveHours": 72
+          }
+        ]
+      },
+      "limits": "claimDays 1-30; firstReplyMin 1-10080; solveHours 1-720; every contract topic once; at least one topic on."
+    },
+    "caseIncidentKind": "support_case",
+    "next": "Rider and driver apps: reply box on the ticket, '<first name> · Movera Support', topics from GET /support/topics."
+  },
+  "alertDesk": {
+    "note": "v0.18.15 (build-all A1, owner 2026-11-02 Q5 'Alerts = FULL FLOW': take — the others see who has it, pass on, snooze, mute types, quiet hours, done). The admin panel finds the alerts from the live data (its alert engine, admin settings + rules); the SERVER keeps who works on each alert, the history, the mutes, every admin's quiet hours and the shared alert settings and rules, so every admin sees the same state on live.",
+    "book": "GET /admin/alerts/book?country=SE (overview.read) -> AlertBookState { country, rev, settings, rules, records [AlertRecord], mutes { kind: { until, by } }, quiet (the caller's own quiet hours), people [{ adminId, name }] }. records: only alerts of the admin's zones in that country whose kind group the admin may see (kindGroups); an alert without zone only for a Super admin. people: active admins with a zone in the same country (Super admins included). records holds the open ones and those done in the last 30 days. country: SE | FR | TN; an admin outside the country -> 403 zone_out_of_scope.",
+    "commands": {
+      "take": "POST /admin/alerts/{alertId}/take { kind, level, title, zoneId?, since } -> AlertBookState of the alert's country: owner = the caller. The first command on an alert stores its zone; later commands use the stored zone, never the one sent. The zone must be the caller's (else 403 zone_out_of_scope); the kind must be in kindGroups (else 400 invalid_request, reason unknown_alert_kind) and the caller needs its act permission (else 403). Two admins taking at once: one wins, the other gets 409 conflict, reason alert_taken. Another admin's live owner -> 409 alert_taken. sos, car_lost, ride_check -> 409 invalid_transition, reason alert_in_incidents.",
+      "done": "POST /admin/alerts/{alertId}/done { kind, level, title, zoneId?, since, note? } -> status done. Only the owner (or nobody owns it: the caller takes it and solves it) -> else 409 conflict, reason alert_taken.",
+      "snooze": "POST /admin/alerts/{alertId}/snooze { kind, level, title, zoneId?, since, minutes 1-1440 } -> status snoozed until now + minutes; same owner rule; not for the incident kinds.",
+      "pass": "POST /admin/alerts/{alertId}/pass { kind, level, title, zoneId?, since, to } -> owner = to (an active admin of people who may act on the kind and covers the alert's zone; not the caller; else 400 invalid_request, reason assignee_not_allowed); same owner rule; the pass event carries toName.",
+      "mute": "PUT /admin/alerts/mutes/{kind}?country= { minutes 1-1440 } / DELETE ...?country= (alerts.manage) -> AlertBookState: the kind stays quiet for every admin of that country until then.",
+      "quiet": "PUT /admin/alerts/quiet { on, from HH:MM, to HH:MM } -> AlertBookState: the caller's own quiet hours (no sound; critical still rings).",
+      "settings": "PUT /admin/alerts/settings { country, expectedRev, settings } (alerts.manage; an admin with a zone in that country or a Super admin) -> rev + 1; stale -> 409 version_mismatch.",
+      "rules": "PUT /admin/alerts/rules { country, expectedRev, rules } (alerts.manage; same country check) -> rev + 1.",
+      "export": "GET /admin/alerts/history?country=&from=&to= (overview.read) -> { items: AlertRecord[] } with the same filter as the book."
+    },
+    "shapes": "settings and rules are the admin panel's own alert-engine documents (JSON objects, at most 256 KB); the server stores and serves them unchanged so every admin uses the same ones. AlertRecord { alertId, kind, level, title, zoneId?, since, status taken | done | snoozed, owner?, ownerName?, snoozeUntil?, events [{ at, by, byName?, kind take | done | snooze | pass | reopen, text, to? }] }.",
+    "audit": "Every command is audited: alert.take | done | snooze | pass | mute | unmute | quiet | settings | rules.",
+    "incidentKinds": [
+      "sos",
+      "car_lost",
+      "ride_check"
+    ],
+    "next": "Server-side detection (alerts found while no admin panel is open, push to admins) is a later job.",
+    "kindGroups": {
+      "sos": "safety",
+      "car_lost": "safety",
+      "ride_check": "safety",
+      "sos_slow": "safety",
+      "long_wait": "dispatch",
+      "few_drivers": "dispatch",
+      "no_driver": "dispatch",
+      "late_reservation": "dispatch",
+      "doc_expiring": "drivers",
+      "low_rating": "drivers",
+      "auto_offline": "drivers",
+      "payment_failed": "money",
+      "refund_approval": "money",
+      "payout_big": "money",
+      "rider_fraud": "riders",
+      "rider_cancels": "riders",
+      "ticket_open": "riders",
+      "system_health": "system",
+      "rule": "rules"
+    },
+    "permissions": {
+      "note": "Seeing an alert needs its group's read permission; acting on it (take, done, snooze, pass) needs its group's act permission or alerts.manage. Mutes, settings and rules need alerts.manage. Quiet hours: the admin's own (overview.read).",
+      "see": {
+        "safety": "incidents.read",
+        "dispatch": "trips.read",
+        "drivers": "drivers.read",
+        "money": "finance.read",
+        "riders": "riders.read",
+        "system": "system.read",
+        "rules": "overview.read"
+      },
+      "act": {
+        "safety": "safety.edit",
+        "dispatch": "trips.intervene",
+        "drivers": "drivers.activate",
+        "money": "finance.edit",
+        "riders": "riders.block",
+        "system": "alerts.manage",
+        "rules": "alerts.manage"
+      }
+    }
+  },
+  "incidentDesk": {
+    "note": "v0.18.15 (build-all A1, Incidents): the incident settings the admin keeps (time limits per level, case-page switches, emergency numbers per country) are stored on the server for every admin; a case report download is audited; calling the rider or driver from a case is 'Calls coming soon' until Movera has a call company (owner G9 Q6, decisions/driver-g9.md).",
+    "settings": "GET /admin/incidents/settings?country=SE (incidents.read) -> IncidentSettingsDoc { country, rev, settings, updatedAt?, updatedBy? }; PUT /admin/incidents/settings { country, expectedRev, settings } (safety.edit) -> rev + 1; stale -> 409 version_mismatch. Per country (SE, FR, TN): a Super admin or an admin with a zone in that country, else 403 zone_out_of_scope. settings is the admin panel's document (JSON object, at most 64 KB); never saved = {} (the panel's defaults). Audited incident.settings.",
+    "report": "POST /admin/incidents/{incidentId}/report {} (incidents.read, the admin's zones) -> 204: the panel builds the text report from the case; the server records who downloaded it (audit incident.report).",
+    "call": "No call endpoint: the admin panel shows 'Calls coming soon' on the rider / driver call buttons until a call company is added (then calls go through the Movera number, never the real numbers). Emergency numbers are dialled from the admin's own phone."
+  },
+  "reviewRules": {
+    "note": "v0.18.15 (build-all A1, Reviews rules; owner 2026-11-02 G14 Q6 'Make them real': the server applies the review rules with today's numbers as defaults, admin edits any time). Per country (SE, FR, TN-ready).",
+    "rules": "GET /admin/reviews/rules?country= (settings.read) -> ReviewRules { country, warn { on, below }, review { on, below }, block { on, below }, minReviews, badWords { on, words } }; PUT /admin/reviews/rules ReviewRules (settings.edit; a Super admin or an admin with a zone in that country, else 403 zone_out_of_scope). Lines: 1-5, block <= review <= warn when on; words at most 200, each 1-40 letters. Audited reviews.rules. The rating tags stay contract.json#ratings.tags.",
+    "defaults": {
+      "warn": {
+        "on": true,
+        "below": 4.5
+      },
+      "review": {
+        "on": true,
+        "below": 4.2
+      },
+      "block": {
+        "on": false,
+        "below": 3.6
+      },
+      "minReviews": 3,
+      "badWords": {
+        "on": true,
+        "words": [
+          "idiot",
+          "stupid",
+          "scam"
+        ]
+      }
+    },
+    "applied": "After each rating (POST .../rate) the server: (1) a comment with a listed word (case-insensitive, part of a word counts) is hidden at once like an admin hide (hiddenBy system, reason bad_word; its stars do not count; an admin can restore it); (2) the rated person's average over counted ratings, once they have minReviews: below block -> the account is suspended (driver account_status suspended and offline; rider status suspended) and the person is in the review list; below review -> in the review list; below warn -> one bell + push notice review_warning in the person's language. Each step happens once when the person crosses the line; back above every line clears it, so a later fall acts again.",
+    "queue": "GET /admin/reviews/queue (riders.read) -> { items: [{ who: driver | rider, personId, name, country, level: review | block, average, count, since }] } of the admin's countries; POST /admin/reviews/queue/{who}/{personId}/done { note } (riders.block) removes the row (an admin looked at it; a blocked account is let back in the Drivers / Riders page). Audited reviews.done.",
+    "warningTexts": {
+      "title": {
+        "sv": "Ditt betyg är lågt",
+        "fr": "Votre note est basse",
+        "en": "Your rating is low"
+      },
+      "body": {
+        "sv": "Ditt snittbetyg är {average}. Se våra tips för en bra resa.",
+        "fr": "Votre note moyenne est de {average}. Consultez nos conseils pour un bon trajet.",
+        "en": "Your average rating is {average}. See our tips for a good ride."
+      }
+    }
   },
   "payouts": {
     "note": "v0.9.0 (owner real-data decision, part 3): every payout period (v0.18.13: the country's schedule, default weekly from Monday 08:00 to Monday 08:00 local time) a nightly job makes one payout per driver with earnings; an admin can also make one by hand for a driver and a date range. Same calculation both ways; a trip already in a payout is never counted again. amount = trips + waiting + pickup pay + bonus + tips + fees − cash collected; it may be negative (the driver owes Movera). An admin marks a payout paid. The admin sees the lines; the driver app shows only the total.",

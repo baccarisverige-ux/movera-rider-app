@@ -377,14 +377,71 @@ S["SupportTicket"] = obj({"ticketId": ref("Id"), "tripId": ref("Id"), "openedBy"
                           "zoneId": {"allOf": [ref("Id")], "description": "v0.9.0: the trip's zone, else the person's first zone; admins see tickets of their zones."},
                           "lastMessageAt": ref("Timestamp"),
                           "visibleToPerson": b("v0.18.9: admin views only; a case opened by support that the rider / driver sees in their own list (contract.json#onTrip.adminTrip.new.case)."),
-                          "messages": arr(ref("TicketMessage"), description="v0.9.0: only on GET /support/tickets/{ticketId} and GET /admin/tickets/{ticketId}, oldest first.")},
+                          "messages": arr(ref("TicketMessage"), description="v0.9.0: only on GET /support/tickets/{ticketId} and GET /admin/tickets/{ticketId}, oldest first."),
+                          # v0.18.15 (contract.json#supportDesk.adminView): admin views only.
+                          "assignedTo": obj({"adminId": ref("Id"), "name": s()}, ["adminId"], "v0.18.15: the admin who works on the ticket (claim or assign); admin views only."),
+                          "claimedUntil": ref("Timestamp"), "solvedBy": ref("Id"), "solvedAt": ref("Timestamp"),
+                          "incidentId": {"allOf": [ref("Id")], "description": "v0.18.15: the support_case incident opened from this ticket (admin views only)."},
+                          "firstReplyAt": ref("Timestamp"), "firstReplyDueAt": ref("Timestamp"), "solveDueAt": ref("Timestamp"),
+                          "late": obj({"reply": b(), "solve": b()}, ["reply", "solve"], "v0.18.15: past the topic's time limits of the ticket's country (admin views only).")},
                          ["ticketId", "openedBy", "category", "subject", "status", "createdAt", "updatedAt"])
 S["TicketMessage"] = obj({"messageId": ref("Id"), "from": s(enum=["rider", "driver", "support"]), "text": s(minLength=1, maxLength=5000),
-                          "at": ref("Timestamp"), "adminName": s("The answering admin's name (from = support).")},
+                          "at": ref("Timestamp"), "adminName": s("The answering admin's name (from = support). v0.18.15: on the person's own views only the first name (contract.json#supportDesk.supportName)."),
+                          "supportName": s("v0.18.15: the person's views only: the answering admin's first name; the apps show '<supportName> · Movera Support'.")},
                          ["messageId", "from", "text", "at"], "v0.9.0: one message on a support ticket.")
 S["TicketReplyCommand"] = obj({"text": s(minLength=1, maxLength=5000), "status": s("The ticket's status after the answer (default pending: waiting for the person).",
                                                                                   enum=C["support"]["replyStatuses"])},
                               ["text"], "v0.9.0: Admin › Support answers a ticket.")
+SD = C["supportDesk"]
+S["TicketPersonMessage"] = obj({"text": s(minLength=1, maxLength=5000)}, ["text"], "v0.18.15: the rider or driver writes on their own ticket (contract.json#supportDesk.personReply).")
+S["SupportTopics"] = obj({"country": s(pattern="^[A-Z]{2}$"), "topics": arr(s(enum=C["support"]["categories"]))}, ["topics"],
+                         "v0.18.15: the ticket topics that are on for the caller's country (contract.json#supportDesk.topics).")
+S["TicketAssignCommand"] = obj({"adminId": {"oneOf": [ref("Id"), {"type": "null"}]}, "reason": s(minLength=1, maxLength=500)}, ["adminId", "reason"], "v0.18.15.")
+S["TicketTopicCommand"] = obj({"category": s(enum=C["support"]["categories"])}, ["category"], "v0.18.15.")
+S["TicketWaitingCommand"] = obj({"waiting": b()}, ["waiting"], "v0.18.15.")
+S["TicketSolveCommand"] = obj({"note": s("Private; never sent to the app.", maxLength=2000)}, (), "v0.18.15.")
+S["TicketReasonCommand"] = obj({"reason": s(minLength=1, maxLength=500)}, ["reason"], "v0.18.15: reopen or open a case.")
+S["EmptyCommand"] = S.get("EmptyCommand") or obj({}, (), "No fields.")
+S["SupportTopicSetting"] = obj({"code": s(enum=C["support"]["categories"]), "on": b(), "firstReplyMin": i(minimum=1, maximum=10080), "solveHours": i(minimum=1, maximum=720)},
+                               ["code", "on", "firstReplyMin", "solveHours"])
+S["SupportSettings"] = obj({"country": s(enum=SD["settings"]["countries"]), "claimDays": i(minimum=1, maximum=30),
+                            "replyAfterSolved": s(enum=["reopen", "blocked"]), "topics": arr(ref("SupportTopicSetting"), minItems=1),
+                            "updatedAt": ref("Timestamp"), "updatedBy": ref("Id")},
+                           ["country", "claimDays", "replyAfterSolved", "topics"], "v0.18.15: Admin › Support › Settings per country (contract.json#supportDesk.settings).")
+AD = C["alertDesk"]
+S["AlertEvent"] = obj({"at": ref("Timestamp"), "by": ref("Id"), "byName": s(), "toName": s(), "kind": s(enum=["take", "done", "snooze", "pass", "reopen"]), "text": s(maxLength=500), "to": ref("Id")}, ["at", "by", "kind", "text"])
+S["AlertRecord"] = obj({"alertId": s(pattern="^[A-Za-z0-9_:.-]{1,200}$"), "kind": s(pattern="^[a-z][a-z0-9_]{0,63}$"), "level": s(enum=["critical", "important", "info"]),
+                        "title": s(maxLength=300), "zoneId": ref("Id"), "since": ref("Timestamp"), "status": s(enum=["taken", "done", "snoozed"]),
+                        "owner": ref("Id"), "ownerName": s(), "snoozeUntil": ref("Timestamp"), "events": arr(ref("AlertEvent"))},
+                       ["alertId", "kind", "level", "title", "since", "status", "events"], "v0.18.15 (contract.json#alertDesk.shapes).")
+S["AlertBookState"] = obj({"country": s(enum=C["supportDesk"]["settings"]["countries"]), "rev": i(minimum=1), "settings": {"type": "object"}, "rules": {"type": "array", "items": {"type": "object"}}, "records": arr(ref("AlertRecord")),
+                           "mutes": {"type": "object", "additionalProperties": obj({"until": ref("Timestamp"), "by": ref("Id")}, ["until", "by"])},
+                           "quiet": obj({"on": b(), "from": s(pattern="^[0-2][0-9]:[0-5][0-9]$"), "to": s(pattern="^[0-2][0-9]:[0-5][0-9]$")}, ["on", "from", "to"]),
+                           "people": arr(obj({"adminId": ref("Id"), "name": s()}, ["adminId", "name"]))},
+                          ["country", "rev", "settings", "rules", "records", "mutes", "quiet", "people"], "v0.18.15: " + AD["book"])
+_AT = {"kind": s(pattern="^[a-z][a-z0-9_]{0,63}$"), "level": s(enum=["critical", "important", "info"]), "title": s(minLength=1, maxLength=300), "zoneId": ref("Id"), "since": ref("Timestamp")}
+_REQ = ["kind", "level", "title", "since"]
+S["AlertTakeCommand"] = obj(dict(_AT), _REQ, "v0.18.15.")
+S["AlertDoneCommand"] = obj(dict(_AT, note=s(maxLength=500)), _REQ, "v0.18.15.")
+S["AlertSnoozeCommand"] = obj(dict(_AT, minutes=i(minimum=1, maximum=1440)), _REQ + ["minutes"], "v0.18.15.")
+S["AlertPassCommand"] = obj(dict(_AT, to=ref("Id")), _REQ + ["to"], "v0.18.15.")
+S["AlertMuteCommand"] = obj({"minutes": i(minimum=1, maximum=1440)}, ["minutes"], "v0.18.15.")
+S["AlertQuietCommand"] = S["AlertBookState"]["properties"]["quiet"]
+S["AlertSettingsCommand"] = obj({"country": s(enum=C["supportDesk"]["settings"]["countries"]), "expectedRev": i(minimum=1), "settings": {"type": "object"}}, ["country", "expectedRev", "settings"], "v0.18.15.")
+S["AlertRulesCommand"] = obj({"country": s(enum=C["supportDesk"]["settings"]["countries"]), "expectedRev": i(minimum=1), "rules": {"type": "array", "items": {"type": "object"}, "maxItems": 200}}, ["country", "expectedRev", "rules"], "v0.18.15.")
+S["AlertHistory"] = obj({"items": arr(ref("AlertRecord"))}, ["items"], "v0.18.15.")
+ID_ = C["incidentDesk"]
+S["IncidentSettingsDoc"] = obj({"country": s(enum=C["supportDesk"]["settings"]["countries"]), "rev": i(minimum=1), "settings": {"type": "object"}, "updatedAt": ref("Timestamp"), "updatedBy": ref("Id")}, ["country", "rev", "settings"], "v0.18.15: " + ID_["settings"])
+S["IncidentSettingsCommand"] = obj({"country": s(enum=C["supportDesk"]["settings"]["countries"]), "expectedRev": i(minimum=1), "settings": {"type": "object"}}, ["country", "expectedRev", "settings"], "v0.18.15.")
+RR = C["reviewRules"]
+_LINE = obj({"on": b(), "below": n(minimum=1, maximum=5)}, ["on", "below"])
+S["ReviewRules"] = obj({"country": s(enum=C["supportDesk"]["settings"]["countries"]), "warn": _LINE, "review": _LINE, "block": _LINE, "minReviews": i(minimum=1, maximum=1000),
+                        "badWords": obj({"on": b(), "words": arr(s(minLength=1, maxLength=40), maxItems=200)}, ["on", "words"]), "updatedAt": ref("Timestamp"), "updatedBy": ref("Id")},
+                       ["country", "warn", "review", "block", "minReviews", "badWords"], "v0.18.15: " + RR["rules"])
+S["ReviewQueueRow"] = obj({"who": s(enum=["driver", "rider"]), "personId": ref("Id"), "name": s(), "country": s(), "level": s(enum=["review", "block"]), "average": n(), "count": i(minimum=0), "since": ref("Timestamp")},
+                          ["who", "personId", "level", "average", "count", "since"])
+S["ReviewQueue"] = obj({"items": arr(ref("ReviewQueueRow"))}, ["items"], "v0.18.15: " + RR["queue"])
+S["ReviewDoneCommand"] = obj({"note": s(minLength=1, maxLength=500)}, ["note"], "v0.18.15.")
 SF = C["safety"]
 S["IncidentPosition"] = obj({"lat": n(minimum=-90, maximum=90), "lng": n(minimum=-180, maximum=180),
                              "accuracyM": n("Horizontal accuracy, metres.", minimum=0), "at": ref("Timestamp")},
@@ -1562,7 +1619,8 @@ lists = {
                 q("driverId", ref("Id")), pref("From"), pref("To"), *ZF]),
     "tickets": ("SupportTicketPage", "support.reply", [q("status", {"type": "string", "enum": ["open", "pending", "resolved", "closed"]}, multi=True),
                 q("priority", {"type": "string", "enum": ["low", "normal", "high", "urgent"]}), q("tripId", ref("Id")),
-                q("riderId", ref("Id")), q("driverId", ref("Id")), pref("Q"), *ZF]),
+                q("riderId", ref("Id")), q("driverId", ref("Id")), pref("Q"), *ZF,
+                q("assignedTo", s("v0.18.15: me, none or an admin id."))]),
     "incidents": ("IncidentPage", "incidents.read", [q("status", {"type": "string", "enum": ["open", "investigating", "resolved", "dismissed"]}, multi=True),
                   q("severity", {"type": "string", "enum": ["low", "medium", "high", "critical"]}), q("kind", {"type": "string"}),
                   q("tripId", ref("Id")), *ZF, pref("From"), pref("To")]),
@@ -1627,6 +1685,48 @@ op("get", "/admin/tickets/{ticketId}", "adminGetTicket", "A support ticket with 
 op("post", "/admin/tickets/{ticketId}/reply", "adminReplyTicket", "Answer a support ticket", ["admin"], "Admin · Support",
    params=[pref("TicketId")], body="TicketReplyCommand", ok=(200, "SupportTicket"), mutation=True, permission="support.reply",
    desc="v0.9.0. The person sees the answer in the app (GET /support/tickets/{ticketId}). v0.13.0: the admin's zones only (else 403 zone_out_of_scope); audited.")
+# v0.18.15 support desk (contract.json#supportDesk)
+op("post", "/support/tickets/{ticketId}/messages", "writeOwnTicket", "Write on an own support ticket", ["rider", "driver"], "Support",
+   params=[pref("TicketId")], body="TicketPersonMessage", ok=(201, "SupportTicket"), mutation=True,
+   desc="v0.18.15 (owner QO-1, chat-style): the status becomes open. 409 invalid_transition, reason ticket_closed; reason ticket_solved when SupportSettings.replyAfterSolved is blocked.")
+op("get", "/support/topics", "listSupportTopics", "Ticket topics that are on", ["rider", "driver"], "Support", ok=(200, "SupportTopics"), desc="v0.18.15 (owner QO-4).")
+for verb, body, summary, d in [("claim", "EmptyCommand", "Claim a ticket", SD["adminCommands"]["claim"]), ("assign", "TicketAssignCommand", "Assign a ticket", SD["adminCommands"]["assign"]),
+                               ("topic", "TicketTopicCommand", "Change a ticket's topic", SD["adminCommands"]["topic"]), ("waiting", "TicketWaitingCommand", "Mark waiting for the person", SD["adminCommands"]["waiting"]),
+                               ("solve", "TicketSolveCommand", "Solve a ticket", SD["adminCommands"]["solve"]), ("reopen", "TicketReasonCommand", "Reopen a ticket", SD["adminCommands"]["reopen"]),
+                               ("case", "TicketReasonCommand", "Open a safety case from a ticket", SD["adminCommands"]["case"])]:
+    op("post", f"/admin/tickets/{{ticketId}}/{verb}", f"adminTicket{verb.capitalize()}", summary, ["admin"], "Admin · Support",
+       params=[pref("TicketId")], body=body, ok=(200, "SupportTicket"), mutation=True, permission="support.reply", desc="v0.18.15. " + d + " The admin's zones only (else 403 zone_out_of_scope).")
+op("get", "/admin/support/settings", "adminGetSupportSettings", "Support settings of a country", ["admin"], "Admin · Support",
+   params=[q("country", s(enum=SD["settings"]["countries"]))], ok=(200, "SupportSettings"), permission="support.reply", desc="v0.18.15. " + SD["settings"]["endpoints"])
+op("put", "/admin/support/settings", "adminPutSupportSettings", "Save the support settings of a country", ["admin"], "Admin · Support",
+   body="SupportSettings", ok=(200, "SupportSettings"), mutation=True, permission="settings.edit", desc="v0.18.15. " + SD["settings"]["limits"])
+
+# v0.18.15 alert desk (contract.json#alertDesk)
+AID = {"name": "alertId", "in": "path", "required": True, "schema": s(pattern="^[A-Za-z0-9_:.-]{1,200}$")}
+KIND = {"name": "kind", "in": "path", "required": True, "schema": s(pattern="^[a-z][a-z0-9_]{0,63}$")}
+op("get", "/admin/alerts/book", "adminAlertBook", "Who works on each alert, mutes, quiet hours, settings and rules", ["admin"], "Admin · Alerts", params=[q("country", s(enum=C["supportDesk"]["settings"]["countries"]))], ok=(200, "AlertBookState"), permission="overview.read", desc="v0.18.15. " + AD["book"])
+for verb, body in [("take", "AlertTakeCommand"), ("done", "AlertDoneCommand"), ("snooze", "AlertSnoozeCommand"), ("pass", "AlertPassCommand")]:
+    op("post", f"/admin/alerts/{{alertId}}/{verb}", f"adminAlert{verb.capitalize()}", f"Alert: {verb}", ["admin"], "Admin · Alerts", params=[AID], body=body, ok=(200, "AlertBookState"), mutation=True, permission="overview.read", desc="v0.18.15. " + AD["commands"][verb] + " " + AD["permissions"]["note"])
+op("put", "/admin/alerts/mutes/{kind}", "adminAlertMute", "Mute a kind of alert", ["admin"], "Admin · Alerts", params=[KIND, q("country", s(enum=C["supportDesk"]["settings"]["countries"]))], body="AlertMuteCommand", ok=(200, "AlertBookState"), mutation=True, permission="alerts.manage", desc="v0.18.15. " + AD["commands"]["mute"])
+op("delete", "/admin/alerts/mutes/{kind}", "adminAlertUnmute", "Unmute a kind of alert", ["admin"], "Admin · Alerts", params=[KIND, q("country", s(enum=C["supportDesk"]["settings"]["countries"]))], ok=(200, "AlertBookState"), mutation=True, permission="alerts.manage", desc="v0.18.15.")
+op("put", "/admin/alerts/quiet", "adminAlertQuiet", "My quiet hours", ["admin"], "Admin · Alerts", params=[q("country", s(enum=C["supportDesk"]["settings"]["countries"]))], body="AlertQuietCommand", ok=(200, "AlertBookState"), mutation=True, permission="overview.read", desc="v0.18.15. " + AD["commands"]["quiet"])
+op("put", "/admin/alerts/settings", "adminAlertSettings", "Save the alert settings", ["admin"], "Admin · Alerts", body="AlertSettingsCommand", ok=(200, "AlertBookState"), mutation=True, permission="alerts.manage", desc="v0.18.15. " + AD["commands"]["settings"])
+op("put", "/admin/alerts/rules", "adminAlertRules", "Save the alert rules", ["admin"], "Admin · Alerts", body="AlertRulesCommand", ok=(200, "AlertBookState"), mutation=True, permission="alerts.manage", desc="v0.18.15. " + AD["commands"]["rules"])
+op("get", "/admin/alerts/history", "adminAlertHistory", "Alert history for the export", ["admin"], "Admin · Alerts", params=[q("country", s(enum=C["supportDesk"]["settings"]["countries"])), pref("From"), pref("To")], ok=(200, "AlertHistory"), permission="overview.read", desc="v0.18.15. " + AD["commands"]["export"])
+
+# v0.18.15 incidents (contract.json#incidentDesk)
+op("get", "/admin/incidents/settings", "adminIncidentSettings", "Incident settings", ["admin"], "Admin · Safety", params=[q("country", s(enum=C["supportDesk"]["settings"]["countries"]))], ok=(200, "IncidentSettingsDoc"), permission="incidents.read", desc="v0.18.15. " + ID_["settings"])
+op("put", "/admin/incidents/settings", "adminPutIncidentSettings", "Save the incident settings", ["admin"], "Admin · Safety", body="IncidentSettingsCommand", ok=(200, "IncidentSettingsDoc"), mutation=True, permission="safety.edit", desc="v0.18.15.")
+op("post", "/admin/incidents/{incidentId}/report", "adminIncidentReport", "Record a case report download", ["admin"], "Admin · Safety", params=[pref("IncidentId")], body="EmptyCommand", ok=(204, None), mutation=True, permission="incidents.read", desc="v0.18.15. " + ID_["report"])
+
+# v0.18.15 review rules (contract.json#reviewRules)
+op("get", "/admin/reviews/rules", "adminReviewRules", "Review rules of a country", ["admin"], "Admin · Reviews", params=[q("country", s(enum=C["supportDesk"]["settings"]["countries"]))], ok=(200, "ReviewRules"), permission="settings.read", desc="v0.18.15. " + RR["applied"])
+op("put", "/admin/reviews/rules", "adminPutReviewRules", "Save the review rules of a country", ["admin"], "Admin · Reviews", body="ReviewRules", ok=(200, "ReviewRules"), mutation=True, permission="settings.edit", desc="v0.18.15. " + RR["rules"])
+op("get", "/admin/reviews/queue", "adminReviewQueue", "People the review rules put up for an admin", ["admin"], "Admin · Reviews", ok=(200, "ReviewQueue"), permission="riders.read", desc="v0.18.15.")
+op("post", "/admin/reviews/queue/{who}/{personId}/done", "adminReviewDone", "An admin looked at a person", ["admin"], "Admin · Reviews",
+   params=[{"name": "who", "in": "path", "required": True, "schema": s(enum=["driver", "rider"])}, {"name": "personId", "in": "path", "required": True, "schema": ref("Id")}],
+   body="ReviewDoneCommand", ok=(200, "ReviewQueue"), mutation=True, permission="riders.block", desc="v0.18.15.")
+
 op("get", "/admin/ratings", "adminListRatings", "Ratings riders and drivers gave each other", ["admin"], "Admin · Reviews",
    params=AL + [q("rater", {"type": "string", "enum": ["rider", "driver"]}, "Who gave the rating."), q("hidden", {"type": "boolean"}), q("maxStars", {"type": "integer", "minimum": 1, "maximum": 5}),
                 q("driverId", ref("Id")), q("riderId", ref("Id")), *ZF, pref("From"), pref("To")],

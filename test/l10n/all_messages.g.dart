@@ -1636,6 +1636,23 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'contactChangeFailed': l.contactChangeFailed,
   'contactReauthRequired': l.contactReauthRequired,
   'contactChangeTooMany': l.contactChangeTooMany,
+  'supportMovera': l.supportMovera,
+  'supportAgentLine': l.supportAgentLine('<name>'),
+  'supportReplyHint': l.supportReplyHint,
+  'supportReplySend': l.supportReplySend,
+  'supportTicketClosedNote': l.supportTicketClosedNote,
+  'supportReplyFailed': l.supportReplyFailed,
+  'supportNewTicket': l.supportNewTicket,
+  'supportCommentHint': l.supportCommentHint,
+  'supportCommentSend': l.supportCommentSend,
+  'supportCommentThanks': l.supportCommentThanks,
+  'supportTopicRideDispute': l.supportTopicRideDispute,
+  'supportTopicHelp': l.supportTopicHelp,
+  'supportTopicLostItem': l.supportTopicLostItem,
+  'supportTopicPayment': l.supportTopicPayment,
+  'supportTopicAccount': l.supportTopicAccount,
+  'supportTopicSafety': l.supportTopicSafety,
+  'supportTopicOther': l.supportTopicOther,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -1845,6 +1862,7 @@ const messagePlaceholders = <String, List<String>>{
   'tipMax': ['amount'],
   'pickupSpotApproximate': ['name'],
   'priceIncludesUnpaidFee': ['amount'],
+  'supportAgentLine': ['name'],
 };
 
 /// The count placeholders (rendered as 37) of each message, by key.
@@ -5130,4 +5148,38 @@ class _Exhaustive implements AppLocalizations {
   String get contactReauthRequired => '';
   @override
   String get contactChangeTooMany => '';
+  @override
+  String get supportMovera => '';
+  @override
+  String supportAgentLine(String name) => '';
+  @override
+  String get supportReplyHint => '';
+  @override
+  String get supportReplySend => '';
+  @override
+  String get supportTicketClosedNote => '';
+  @override
+  String get supportReplyFailed => '';
+  @override
+  String get supportNewTicket => '';
+  @override
+  String get supportCommentHint => '';
+  @override
+  String get supportCommentSend => '';
+  @override
+  String get supportCommentThanks => '';
+  @override
+  String get supportTopicRideDispute => '';
+  @override
+  String get supportTopicHelp => '';
+  @override
+  String get supportTopicLostItem => '';
+  @override
+  String get supportTopicPayment => '';
+  @override
+  String get supportTopicAccount => '';
+  @override
+  String get supportTopicSafety => '';
+  @override
+  String get supportTopicOther => '';
 }

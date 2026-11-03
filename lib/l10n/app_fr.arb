@@ -1629,5 +1629,22 @@
   "contactEmailTaken": "Cet e-mail est déjà utilisé par un autre compte",
   "contactChangeFailed": "Impossible de le modifier. Réessayez.",
   "contactReauthRequired": "Reconnectez-vous d'abord, puis modifiez votre numéro/e-mail",
-  "contactChangeTooMany": "Trop de modifications — réessayez dans une heure"
+  "contactChangeTooMany": "Trop de modifications — réessayez dans une heure",
+  "supportMovera": "Support Movera",
+  "supportAgentLine": "{name} · Support Movera",
+  "supportReplyHint": "Écrire un message",
+  "supportReplySend": "Envoyer",
+  "supportTicketClosedNote": "Ce ticket est résolu. Ouvrez un nouveau ticket si vous avez encore besoin d'aide.",
+  "supportReplyFailed": "Le message n'a pas été envoyé. Réessayez.",
+  "supportNewTicket": "Nouveau ticket",
+  "supportCommentHint": "Un commentaire ou une idée pour nous ? (facultatif)",
+  "supportCommentSend": "Envoyer le commentaire",
+  "supportCommentThanks": "Merci pour votre commentaire.",
+  "supportTopicRideDispute": "Problème avec une course",
+  "supportTopicHelp": "Aide avec l'application",
+  "supportTopicLostItem": "Objet perdu",
+  "supportTopicPayment": "Paiement",
+  "supportTopicAccount": "Compte et documents",
+  "supportTopicSafety": "Sécurité",
+  "supportTopicOther": "Autre chose"
 }

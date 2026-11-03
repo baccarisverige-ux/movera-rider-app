@@ -1,4 +1,6 @@
-# Movera shared contract v0.18.14
+# Movera shared contract v0.18.15
+
+v0.18.15 (build-all A1 "Support desk", owner 2026-11-02 `decisions/other-support-promos.md` QO-1 / QO-2 / QO-4 / QO-5 + rule 16; builds on v0.18.14; X-Api-Version stays `0.5`, additive): riders and drivers **write on their ticket chat-style** (`POST /support/tickets/{ticketId}/messages`); support answers carry the agent's **first name only** (`supportName`, apps show "<first name> · Movera Support"); the **ticket topics** are an admin setting per country with the same 7 topics in both apps (`GET /support/topics`); Admin › Support **claim, assign, topic, waiting, solve, reopen, open a safety case** and **Support settings** (`GET|PUT /admin/support/settings`). §37, `contract.json#supportDesk`. **Alerts full flow** (owner Q5): the server keeps who works on each alert (take / pass / snooze / done), mutes, quiet hours, alert settings and rules (`/admin/alerts/*`). §38, `contract.json#alertDesk`. **Incidents**: shared incident settings (`GET|PUT /admin/incidents/settings`), audited case report downloads (`POST /admin/incidents/{incidentId}/report`), calls "coming soon" until a call company (G9 Q6). §39, `contract.json#incidentDesk`. **Review rules applied by the server** (G14 Q6): warning, admin review list, block, bad-word list per country (`/admin/reviews/rules`, `/admin/reviews/queue`). §40, `contract.json#reviewRules`.
 
 v0.18.14 (deep fix round 1, Rules `plan/FIX-LIST-2026-11-02.md`; builds on v0.18.13; X-Api-Version stays `0.5`; additive except: **a driver is signed in on one phone only**): `contract.json#deepFix1` lists every change and what the apps must do. **Early end keeps what was earned** (paid pickup waiting, child seat, pickup airport fee, reservation fee) and is capped by the price after accepted route changes. **Route change reaches the driver**: a push (`onTrip.routeChange.driverPush`) and the driver-app rule that a newer trip_projection is never an "own echo". **Sign-in** (codes stay 4 digits): `otp_locked_today` after `countryLimits.wrongCodesPerDay` (15) wrong codes in 24 h for one number from one address, admin unlock; per-wifi and uploads-per-hour limits are admin settings (`CountryRules.limits`, `countryLimits`); `signed_in_elsewhere`; **phone and e-mail change by code** (`/account/phone/*`, `/account/email/*`). **Documents expiring mid-shift** set the driver offline (`documents_expired`) and dispatch checks papers and the active car's categories. **Earnings per currency** (`GET /driver/earnings?currency=`). **Notices in the current language**, rider trip moments in the list, refund notice. **PIN never skipped**; decline never 409; search end withdraws offers; `DriverAppConfig.offers.autoOffline.on`; `DriverAppConfig.waiting.positionMaxAgeSeconds` (`arrivedWaiting.positionMaxAge`); `GET /legal/{country}` carries `company`; `Vehicle.active`.
 
@@ -993,3 +995,33 @@ Owner items 1–2 of 2026-10-29, Q1–Q4 of 2026-11-01 and the re-checks of 2026
 - **SOS only with a driver** (`finish.safety`, Q4): server rule since v0.18.5; `TripProjection.sosAvailable` tells both apps; "Call 112" always.
 - **Refunds** (`finish.refund`): the existing `POST /admin/trips/{tripId}/refund { expectedVersion, amount, reason, fromDriver? }` documented for the admin's "Give money back" (incl. take from driver).
 - **Compatibility**: additive for 0.18.9 apps except `google_pay` leaving the enums (no trip ever had it). **Next** (`finish.next`): driver, rider and admin parts.
+
+## 37. Support desk — build-all A1 (v0.18.15)
+
+Owner 2026-11-02 (`decisions/other-support-promos.md`): QO-1 the person replies chat-style; QO-2 "Agent first name" → "<first name> · Movera Support", never an e-mail or last name; QO-4 the same 7 topics in both apps and QO-5 claim / assign now, both as admin settings with defaults (rule 16). `contract.json#supportDesk`. Sweden and France alike (Tunisia ready); every text in sv / fr / en.
+
+- **Person reply** (`personReply`): `POST /support/tickets/{ticketId}/messages { text }` → `201 SupportTicket` (own ticket, else 404); the ticket becomes `open`. Closed → `409 ticket_closed`; solved → reopens (default) or `409 ticket_solved` when `SupportSettings.replyAfterSolved = blocked`.
+- **Name on answers** (`supportName`): the person's views carry `TicketMessage.supportName` (= `adminName` there) = the admin's first name; absent when the name is empty or an e-mail → the apps show "Movera Support".
+- **Topics** (`topics`): `GET /support/topics` → `SupportTopics { country, topics }` (the codes that are on for the caller's country); opening a ticket on a topic that is off → `400 topic_off`.
+- **Admin commands** (`adminCommands`, support.reply, the admin's zones): `POST /admin/tickets/{ticketId}/claim | assign | topic | waiting | solve | reopen | case` → `SupportTicket`; errors `ticket_claimed`, `assignee_not_allowed`, `ticket_not_open`, `ticket_closed`, `ticket_not_solved`, `ticket_without_trip`; every command audited (`ticket.<verb>`). `case` opens a `support_case` incident (severity medium, no alarm) on the ticket's trip.
+- **Admin view** (`adminView`): `assignedTo`, `claimedUntil`, `solvedBy`, `solvedAt`, `incidentId`, `firstReplyAt`, `firstReplyDueAt`, `solveDueAt`, `late { reply, solve }`; `GET /admin/tickets?assignedTo=me|none|<adminId>`.
+- **Settings** (`settings`): `GET /admin/support/settings?country=` (support.reply), `PUT /admin/support/settings` (settings.edit; Super admin or a zone in that country) → `SupportSettings { country, claimDays (3), replyAfterSolved (reopen), topics [{ code, on, firstReplyMin, solveHours }] }`; defaults in `supportDesk.settings.defaults`.
+- **Compatibility**: additive; older apps ignore the new fields. **Next** (`supportDesk.next`): rider and driver app parts.
+
+## 38. Alerts — full flow, build-all A1 (v0.18.15)
+
+Owner 2026-11-02 Q5 "Alerts = FULL FLOW" (take — the others see who has it, pass on, snooze, mute types, quiet hours, done). `contract.json#alertDesk`.
+
+- The admin panel finds the alerts from live data with its alert engine; the **server keeps the state** so every admin sees the same: `GET /admin/alerts/book` → `AlertBookState { rev, settings, rules, records, mutes, quiet, people }`.
+- **Commands** (overview.read): `POST /admin/alerts/{alertId}/take | done | snooze | pass` (owner rules: another admin's alert → `409 alert_taken`; SOS, car lost and ride check are taken in Incidents → `409 alert_in_incidents`; pass → an active admin in `people`, else `400 assignee_not_allowed`), `PUT | DELETE /admin/alerts/mutes/{kind}`, `PUT /admin/alerts/quiet` (own quiet hours).
+- **Settings and rules** (alerts.manage): `PUT /admin/alerts/settings | rules { expectedRev, … }` (stale rev → `409 version_mismatch`); stored as the panel's documents, at most 256 KB.
+- **Export**: `GET /admin/alerts/history?from=&to=` → `{ items }`; the panel makes the CSV. Every command is audited (`alert.*`).
+- **Next**: server-side detection and push to admins.
+
+## 39. Incidents settings, report, calls — build-all A1 (v0.18.15)
+
+`contract.json#incidentDesk`. `GET /admin/incidents/settings` (incidents.read) → `IncidentSettingsDoc { rev, settings }`; `PUT /admin/incidents/settings { expectedRev, settings }` (safety.edit; stale → `409 version_mismatch`; audited). `POST /admin/incidents/{incidentId}/report` (incidents.read, the admin's zones) → 204, audit `incident.report` (the panel builds the text). Calling the rider or driver from a case: "Calls coming soon" until a call company (owner G9 Q6); emergency numbers are dialled from the admin's own phone.
+
+## 40. Review rules on the server — build-all A1 (v0.18.15)
+
+Owner 2026-11-02 G14 Q6 "Make them real" (`decisions/driver-g14.md`), `contract.json#reviewRules`. Per country, defaults warn < 4.5, review < 4.2, block < 3.6 (off), after 3 reviews, bad words on. After each rating: a comment with a listed word is hidden like an admin hide (`hiddenBy: system`, reason `bad_word`); the rated person's average crossing a line → warning notice `review_warning` (sv / fr / en), the admin review list, or (block on) a suspended account plus the review list — once per crossing. `GET|PUT /admin/reviews/rules`, `GET /admin/reviews/queue`, `POST /admin/reviews/queue/{who}/{personId}/done { note }`; audited.

@@ -306,6 +306,7 @@ class HowCanWeHelp extends StatelessWidget {
               RightToLeftTransition(const SupportChat()),
             ),
           ),
+          const SupportTopicLines(),
         ],
       ),
     );
@@ -430,6 +431,7 @@ class SelectIssue extends StatelessWidget {
               RightToLeftTransition(SupportChat(ride: ride)),
             ),
           ),
+          SupportTopicLines(ride: ride),
         ],
       ),
     );
@@ -564,6 +566,68 @@ typedef SupportMessageSender =
 /// Sends a help request that is not about one ride.
 typedef SupportHelpSender = Future<void> Function({required String text});
 
+/// v0.18.15: opens a ticket on an admin topic (tests replace it).
+typedef SupportTopicSender =
+    Future<Object?> Function({
+      String? tripId,
+      required String category,
+      required String text,
+    });
+
+/// A topic code in the rider's language (the same seven as the driver app).
+String supportTopicLabel(AppLocalizations l, String code) => switch (code) {
+  'ride_dispute' => l.supportTopicRideDispute,
+  'help' => l.supportTopicHelp,
+  'lost_item' => l.supportTopicLostItem,
+  'payment' => l.supportTopicPayment,
+  'account' => l.supportTopicAccount,
+  'safety' => l.supportTopicSafety,
+  _ => l.supportTopicOther,
+};
+
+/// v0.18.15 (owner "Both"): the admin topics that are on, below the existing
+/// lines; "other" is left out because "Something else" is already there.
+class SupportTopicLines extends StatefulWidget {
+  const SupportTopicLines({super.key, this.ride, this.load});
+
+  final SupportRide? ride;
+  final Future<List<String>> Function()? load;
+
+  @override
+  State<SupportTopicLines> createState() => _SupportTopicLinesState();
+}
+
+class _SupportTopicLinesState extends State<SupportTopicLines> {
+  late final Future<List<String>> _topics =
+      (widget.load ?? SupportTicketRepository().topics)();
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<String>>(
+    future: _topics,
+    builder: (context, snapshot) {
+      final topics = (snapshot.data ?? const <String>[])
+          .where((code) => code != 'other')
+          .toList();
+      return Column(
+        key: const ValueKey('support-topic-lines'),
+        children: [
+          for (final code in topics)
+            _LineItem(
+              key: ValueKey('support-topic-$code'),
+              title: supportTopicLabel(context.l10n, code),
+              onTap: () => guardedPush(
+                context,
+                RightToLeftTransition(
+                  SupportChat(ride: widget.ride, topic: code),
+                ),
+              ),
+            ),
+        ],
+      );
+    },
+  );
+}
+
 /// UI-03: the in-app way to reach Movera about a ride. It used to be a
 /// chat whose input read "Support messaging unavailable" — a dead end for a
 /// rider with a money problem when the build has no support email. Now a
@@ -574,13 +638,19 @@ class SupportChat extends StatefulWidget {
     super.key,
     this.ride,
     this.issue,
+    this.topic,
     this.contact,
     this.send,
     this.sendHelp,
+    this.sendTopic,
   });
 
   final SupportRide? ride;
   final String? issue;
+
+  /// v0.18.15 (owner "Both"): an admin topic code (contract.json#support
+  /// .categories) the rider picked; the ticket is opened on that topic.
+  final String? topic;
 
   /// Defaults to the support address this build was given, if any.
   final SupportContact? contact;
@@ -593,6 +663,9 @@ class SupportChat extends StatefulWidget {
   /// the demo transport has no tickets, so there the screen keeps its ride
   /// list and email way.
   final SupportHelpSender? sendHelp;
+
+  /// v0.18.15: opens the ticket on [topic]; defaults to POST /support/tickets.
+  final SupportTopicSender? sendTopic;
 
   /// The trip id a Support row stands for (History keys on-demand rides as
   /// `ondemand-<tripId>`). Null when the row has no id.
@@ -656,6 +729,11 @@ class _SupportChatState extends State<SupportChat> {
       (widget.issue != null || _detail.text.trim().isNotEmpty);
 
   Future<void> _submit() async {
+    final topic = widget.topic;
+    if (topic != null) {
+      await _submitTopic(topic);
+      return;
+    }
     final tripId = _tripId;
     final help = tripId == null ? _helpSender : null;
     if ((tripId == null && help == null) || !_canSubmit) return;
@@ -698,6 +776,46 @@ class _SupportChatState extends State<SupportChat> {
         _sending = false;
         _sent = true;
         _sentText = detail.isEmpty ? null : detail;
+      });
+      _detail.clear();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _sending = false;
+        _error = error is RideDisputeNotServed
+            ? context.l10n.reportNotOnServer
+            : context.l10n.supportSendFailed;
+      });
+    }
+  }
+
+  /// v0.18.15 (owner "Both"): a ticket on the picked admin topic, with the
+  /// ride when there is one.
+  Future<void> _submitTopic(String topic) async {
+    final detail = _detail.text.trim();
+    if (detail.isEmpty || _sending || _sent) return;
+    final tickets = SupportTicketRepository();
+    setState(() {
+      _sending = true;
+      _error = null;
+    });
+    try {
+      await (widget.sendTopic ??
+          ({String? tripId, required String category, required String text}) =>
+              tickets.open(
+                tripId: tripId,
+                category: category,
+                subject: SupportTicketRepository.subjectOf(
+                  text,
+                  fallback: supportTopicLabel(context.l10n, category),
+                ),
+                text: text,
+              ))(tripId: _tripId, category: topic, text: detail);
+      if (!mounted) return;
+      setState(() {
+        _sending = false;
+        _sent = true;
+        _sentText = detail;
       });
       _detail.clear();
     } catch (error) {
@@ -1311,6 +1429,7 @@ class _ActionCard extends StatelessWidget {
 
 class _LineItem extends StatelessWidget {
   const _LineItem({
+    super.key,
     required this.title,
     required this.onTap,
     this.icon,
