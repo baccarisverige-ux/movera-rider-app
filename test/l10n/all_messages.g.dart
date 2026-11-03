@@ -1528,6 +1528,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'waitlistSaved': l.waitlistSaved,
   'testNumbersTitle': l.testNumbersTitle,
   'testNumbersButton': l.testNumbersButton,
+  'testNumbersAskAdmin': l.testNumbersAskAdmin,
   'testStatusNew': l.testStatusNew,
   'testStatusActive': l.testStatusActive,
   'testStatusSuspended': l.testStatusSuspended,
@@ -4948,6 +4949,8 @@ class _Exhaustive implements AppLocalizations {
   String get testNumbersTitle => '';
   @override
   String get testNumbersButton => '';
+  @override
+  String get testNumbersAskAdmin => '';
   @override
   String get testStatusNew => '';
   @override

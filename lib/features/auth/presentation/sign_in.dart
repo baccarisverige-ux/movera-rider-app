@@ -116,6 +116,9 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
   /// Owner 2026-11-02 (as the driver app, PR #443): the test numbers sit
   /// behind one button; closed, the picture and "Need help?" stay visible.
   bool _testListOpen = false;
+  // v0.18.18 (owner 2026-11-03 "Close it now"): the list needs an admin, so
+  // a test build keeps the button and says where to get the numbers.
+  bool _testNumbersButton = false;
 
   /// Owner round 3: the terms box must be ticked before any sign-in path.
   bool _agreed = false;
@@ -138,11 +141,13 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
         !env.isProduction &&
         (widget.showTestAccounts ?? !env.allowsMockTransport);
     if (!show) return;
+    if (mounted) setState(() => _testNumbersButton = true);
     try {
       final accounts = await _auth.testAccounts();
       if (mounted) setState(() => _testAccounts = accounts);
     } catch (_) {
-      // A production server has no such list (404); nothing to show.
+      // Signed out the server answers 401 (admin only since v0.18.18);
+      // the open button then shows l10n.testNumbersAskAdmin.
     }
   }
 
@@ -447,7 +452,7 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
           if (_providerError != null) AuthErrorText(_providerError!),
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: _testAccounts.isEmpty
+            child: !_testNumbersButton
                 ? const NeedHelpLink()
                 : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -469,7 +474,18 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
                     ],
                   ),
           ),
-          if (_testAccounts.isNotEmpty && _testListOpen) _testAccountList(),
+          if (_testNumbersButton && _testListOpen)
+            _testAccounts.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      context.l10n.testNumbersAskAdmin,
+                      key: const ValueKey('auth-test-numbers-ask-admin'),
+                      textAlign: TextAlign.center,
+                      style: AuthText.small().copyWith(color: AuthColors.muted),
+                    ),
+                  )
+                : _testAccountList(),
         ],
       ),
     );

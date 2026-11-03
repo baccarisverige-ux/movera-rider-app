@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.17",
+  "version": "0.18.18",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -1011,8 +1011,9 @@
       "admin": "GET /admin/waitlist (overview.read) → WaitlistPage of WaitlistEntry { phone, app, locale?, firstAt, lastAt, count }, newest lastAt first; the admin's Waiting list page reads it again every 15 s (live)."
     },
     "testAccounts": {
-      "note": "v0.15.0 (owner 2026-10-29, decision 6, \"Only in test builds\"): GET /auth/test-accounts → TestAccountList { accounts: [TestAccount { phone, app, status, name? }] } lists the test numbers with each one's account status, so the sign-in screen of a staging or test build can show them. No bearer token. It exists only while MOVERA_ENV is not production: a production server answers 404 not_found and the store builds never call it.",
+      "note": "v0.15.0 (owner 2026-10-29, decision 6, \"Only in test builds\"): GET /auth/test-accounts → TestAccountList { accounts: [TestAccount { phone, app, status, name? }] } lists the test numbers with each one's account status, so the sign-in screen of a staging or test build can show them. No bearer token. It exists only while MOVERA_ENV is not production: a production server answers 404 not_found and the store builds never call it. v0.18.18 (owner 2026-11-03 \"Close it now\"): the list needs a signed-in admin with drivers.read (401 unauthenticated without a bearer token, 403 forbidden without the permission); the apps cannot fetch it signed out, so their Test numbers button shows \"Ask an admin for the test numbers\" (sv/fr/en) and typed test numbers still sign in with the test code.",
       "endpoint": "GET /auth/test-accounts",
+      "permission": "drivers.read",
       "statuses": [
         "test",
         "pending",
@@ -1058,7 +1059,6 @@
         "POST /auth/otp/verify",
         "POST /auth/provider",
         "POST /auth/waitlist",
-        "GET /auth/test-accounts",
         "POST /telemetry/logs",
         "POST /telemetry/analytics",
         "POST /telemetry/crashes",

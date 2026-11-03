@@ -1522,6 +1522,7 @@
   "waitlistSaved": "Du står på väntelistan. Vi hör av oss när inloggningen öppnar för ditt nummer.",
   "testNumbersTitle": "Testnummer (endast testversion)",
   "testNumbersButton": "Testnummer",
+  "testNumbersAskAdmin": "Be en admin om testnumren",
   "testStatusNew": "Test · inget konto än",
   "testStatusActive": "Aktiv",
   "testStatusSuspended": "Avstängd",
