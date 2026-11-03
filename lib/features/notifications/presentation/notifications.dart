@@ -5,7 +5,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/history/presentation/ride_history.dart';
+import 'package:movera_rider/app/deferred_screens.dart';
 import 'package:movera_rider/features/notifications/application/notification_navigation.dart';
 import 'package:movera_rider/features/notifications/application/notifications_controller.dart';
 import 'package:movera_rider/features/notifications/domain/notifications.dart';
@@ -131,7 +131,7 @@ class NotificationScreen extends StatelessWidget {
   }
 
   static void _openHistory(BuildContext context) {
-    Navigator.of(context).push(RightToLeftTransition(RideHistory()));
+    Navigator.of(context).push(RightToLeftTransition(rideHistoryScreen()));
   }
 
   Widget _buildNotificationCard(

@@ -1,4 +1,5 @@
 import 'package:movera_rider/features/ride_complete/application/server_receipt.dart';
+import 'package:movera_rider/features/history/presentation/ride_history_result.dart';
 import 'package:movera_rider/features/ride_complete/presentation/server_receipt_lines.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/router/routes.dart';
@@ -33,7 +34,7 @@ class RideHistory extends StatefulWidget {
 
   /// Pop result asking the opener to start a booking (D-026). The side menu
   /// answers it by opening Home's destination sheet.
-  static const startBookingResult = 'movera.rideHistory.startBooking';
+  static const startBookingResult = rideHistoryStartBookingResult;
 
   final ReservationController? reservations;
   final Future<List<Reservation>> Function()? onDemandReader;

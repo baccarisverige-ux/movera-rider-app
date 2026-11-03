@@ -80,7 +80,8 @@ jobs:
           bootstrap = '  <script src="flutter_bootstrap.js" defer onerror="window.moveraBootFailed && window.moveraBootFailed()"></script>'
           key = os.environ.get('MAPS_WEB_API_KEY', '')
           if key and bootstrap in s and 'maps.googleapis.com/maps/api/js' not in s:
-              s = s.replace(bootstrap, f'  <script src="https://maps.googleapis.com/maps/api/js?key={key}" async defer></script>\n' + bootstrap)
+              # LT-4 (owner 2026-11-03): only the address; index.html loads Maps when the first map opens.
+              s = s.replace(bootstrap, f'  <script>window.moveraMapsSrc = "https://maps.googleapis.com/maps/api/js?key={key}";</script>\n' + bootstrap)
           s = s.replace('<base href="/">', '<base href="/movera-rider-app/live/">')
           p.write_text(s)
           PY
@@ -128,7 +129,9 @@ jobs:
           # Flutter even starts loading. Nothing reads google.maps until a map
           # widget is built, long after boot, so it does not need to block —
           # measured at 713ms, against a first frame at 2.3s.
-          maps = f'  <script src="https://maps.googleapis.com/maps/api/js?key={os.environ["MAPS_WEB_API_KEY"]}" async defer></script>'
+          # LT-4 (owner 2026-11-03, "load on open"): the page no longer loads Maps at start; it keeps
+          # the script's address and web/index.html moveraLoadGoogleMaps() adds it when the first map opens.
+          maps = f'  <script>window.moveraMapsSrc = "https://maps.googleapis.com/maps/api/js?key={os.environ["MAPS_WEB_API_KEY"]}";</script>'
           if bootstrap not in s:
               raise SystemExit('Flutter bootstrap tag not found')
           if 'maps.googleapis.com/maps/api/js' not in s:

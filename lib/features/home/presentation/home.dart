@@ -36,7 +36,7 @@ import 'package:movera_rider/features/home/application/home_sheet_controller.dar
 import 'package:movera_rider/features/home/presentation/home_map_style.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_map_layer.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
-import 'package:movera_rider/features/wallet/presentation/wallet.dart';
+import 'package:movera_rider/app/deferred_screens.dart';
 import 'package:movera_rider/features/profile/presentation/account_home.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/features/ride_booking/application/home_search_interrupted.dart';
@@ -2325,7 +2325,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             final page = HomeTabPage(
               tab: next,
               child: next == HomeTabs.payment
-                  ? const WalletAndPaymentsScreen(initialTab: 1)
+                  ? walletAndPaymentsScreen(initialTab: 1)
                   : const AccountHomePage(),
             );
             next = await Navigator.of(context).push<int>(

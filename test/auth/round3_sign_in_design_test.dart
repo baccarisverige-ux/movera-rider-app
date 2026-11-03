@@ -145,7 +145,7 @@ void main() {
     expect(find.byKey(const ValueKey('auth-phone-country')), findsOneWidget);
     expect(find.byKey(const ValueKey('auth-phone-dial')), findsOneWidget);
     expect(find.text('+46'), findsOneWidget);
-    expect(find.text('🇸🇪'), findsOneWidget);
+    expect(find.byKey(const ValueKey('country-flag-SE')), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
     final flag = tester.getRect(
       find.byKey(const ValueKey('auth-phone-country')),

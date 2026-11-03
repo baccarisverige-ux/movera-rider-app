@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:movera_rider/shared/widgets/country_flag.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -504,7 +505,7 @@ class _CountryButton extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(country.flag, style: const TextStyle(fontSize: 22)),
+                  CountryFlag(country.iso),
                   if (onTap != null) ...[
                     const SizedBox(width: 6),
                     const Icon(

@@ -97,6 +97,11 @@ class CustomGoogleMap extends StatefulWidget {
   @visibleForTesting
   static bool? debugWaitForMaps;
 
+  /// Web: asks the page to load Maps JavaScript (owner 2026-11-03, LT-4: it
+  /// is no longer loaded with the page). Tests replace it.
+  @visibleForTesting
+  static void Function() requestMaps = requestGoogleMaps;
+
   /// Audit phase 6: how long the web waits for Maps JavaScript before the
   /// placeholder says the map is unavailable (the driver app's value).
   static const Duration mapsUnavailableAfter = Duration(seconds: 12);
@@ -151,6 +156,7 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     if (_mapsPoll != null || !(CustomGoogleMap.debugWaitForMaps ?? kIsWeb)) {
       return;
     }
+    CustomGoogleMap.requestMaps();
     const poll = Duration(milliseconds: 500);
     _mapsPoll = Timer.periodic(poll, (timer) {
       if (!googleMapsAvailable()) {
