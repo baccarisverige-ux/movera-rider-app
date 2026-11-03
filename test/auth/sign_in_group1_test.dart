@@ -16,6 +16,7 @@ import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/application/auth_error_message.dart';
 import 'package:movera_rider/features/auth/data/auth_repository.dart';
+import 'package:movera_rider/features/auth/domain/build_test_numbers.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
 import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in.dart';
@@ -296,6 +297,50 @@ void main() {
         closed.requests.map((r) => r.url.path),
         contains('/api/v1/auth/otp/request'),
       );
+    });
+
+    testWidgets('owner 2026-11-03: the list closed, a test build shows the '
+        'numbers it was built with (no names); a tap fills the field', (
+      tester,
+    ) async {
+      _phoneSize(tester);
+      final closed = _Server(
+        (request) => _json(401, {'code': 'unauthenticated', 'message': 'x'}),
+      );
+      await tester.pumpWidget(
+        _app(
+          SignIn(
+            controller: _controller(closed),
+            showTestAccounts: true,
+            buildTestNumbers: parseTestNumbers(
+              '+46700000001, nope,+33600000001',
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(seconds: 6));
+      final button = find.byKey(const ValueKey('auth-test-numbers-button'));
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pump();
+      expect(find.text(L10n.current.testNumbersAskAdmin), findsNothing);
+      expect(
+        find.byKey(const ValueKey('auth-test-+46700000001')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('auth-test-+33600000001')),
+        findsOneWidget,
+      );
+      expect(find.text(L10n.current.testStatusNew), findsNothing);
+      final row = find.byKey(const ValueKey('auth-test-+46700000001'));
+      await tester.ensureVisible(row);
+      await tester.tap(row);
+      await tester.pump();
+      final typed = tester
+          .widgetList<EditableText>(find.byType(EditableText))
+          .map((field) => field.controller.text.replaceAll(' ', ''));
+      expect(typed, contains('700000001'));
     });
 
     testWidgets('a store build never asks', (tester) async {

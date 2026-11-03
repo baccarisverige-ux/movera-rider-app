@@ -11,6 +11,7 @@ import 'package:movera_rider/features/auth/application/auth_error_message.dart';
 import 'package:movera_rider/features/auth/application/phone_country_default.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
 import 'package:movera_rider/features/auth/domain/phone_country.dart';
+import 'package:movera_rider/features/auth/domain/build_test_numbers.dart';
 import 'package:movera_rider/features/auth/domain/test_account.dart';
 import 'package:movera_rider/features/auth/presentation/add_phone.dart';
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
@@ -28,7 +29,12 @@ import 'package:movera_rider/l10n/l10n.dart';
 /// Step 1 for everyone: one phone field for new and returning riders, with
 /// Apple and Google underneath.
 class SignIn extends StatefulWidget {
-  const SignIn({super.key, this.controller, this.showTestAccounts});
+  const SignIn({
+    super.key,
+    this.controller,
+    this.showTestAccounts,
+    this.buildTestNumbers,
+  });
 
   final AuthController? controller;
 
@@ -36,6 +42,9 @@ class SignIn extends StatefulWidget {
   /// numbers with their account status under the form. Null: only a
   /// staging build (a live server that is not production).
   final bool? showTestAccounts;
+
+  /// Test numbers given at build time; null reads MOVERA_TEST_NUMBERS.
+  final List<String>? buildTestNumbers;
 
   @override
   State<SignIn> createState() => _SignInState();
@@ -144,10 +153,22 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
     if (mounted) setState(() => _testNumbersButton = true);
     try {
       final accounts = await _auth.testAccounts();
-      if (mounted) setState(() => _testAccounts = accounts);
+      if (accounts.isNotEmpty) {
+        if (mounted) setState(() => _testAccounts = accounts);
+        return;
+      }
     } catch (_) {
-      // Signed out the server answers 401 (admin only since v0.18.18);
-      // the open button then shows l10n.testNumbersAskAdmin.
+      // Signed out the server answers 401 (admin only since v0.18.18).
+    }
+    // Owner 2026-11-03: the numbers this test build was given (no status,
+    // no names); none -> the open button shows l10n.testNumbersAskAdmin.
+    final numbers = widget.buildTestNumbers ?? parseTestNumbers();
+    if (mounted && numbers.isNotEmpty) {
+      setState(
+        () => _testAccounts = [
+          for (final phone in numbers) TestAccount(phone: phone, status: ''),
+        ],
+      );
     }
   }
 
@@ -560,14 +581,15 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
                         style: AuthText.small().copyWith(color: AuthColors.ink),
                       ),
                     ),
-                    Text(
-                      _statusWord(account.status),
-                      style: AuthText.small().copyWith(
-                        color: account.status == 'active'
-                            ? AuthColors.green
-                            : AuthColors.muted,
+                    if (account.status.isNotEmpty)
+                      Text(
+                        _statusWord(account.status),
+                        style: AuthText.small().copyWith(
+                          color: account.status == 'active'
+                              ? AuthColors.green
+                              : AuthColors.muted,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
