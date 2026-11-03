@@ -8,6 +8,7 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/contracts/repository_authority.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
+import 'package:movera_rider/features/favourites/favourite_drivers.dart';
 import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
 import 'package:movera_rider/features/reservations/data/api_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/data/disabled_reservation_repository.dart';
@@ -157,5 +158,36 @@ void main() {
     expect(config!.bookingHorizonDays, 90);
     expect(config.minAheadMin, 20);
     expect(config.freeChangeBeforeMin, 120);
+  });
+
+  test('owner BL-Q4: a favourite driver is the driver of the trip, saved on the server', () async {
+    final calls = <http.Request>[];
+    final api = ApiClient(client: MockClient((r) async {
+      calls.add(r);
+      final body = r.url.path.startsWith('/api/v1/trips/') ? trip('completed') : {'items': [{'driverId': 'drv_1', 'firstName': 'Ali'}]};
+      return http.Response(jsonEncode(body), 200, headers: {'content-type': 'application/json'});
+    }), env: staging);
+    final favs = FavouriteDrivers(api);
+    final completed = {...trip('completed'), 'driver': {'driverId': 'drv_1', 'firstName': 'Ali'}};
+    final api2 = ApiClient(client: MockClient((r) async {
+      calls.add(r);
+      return http.Response(jsonEncode(r.url.path.startsWith('/api/v1/trips/') ? completed : {'items': [{'driverId': 'drv_1'}]}), 200, headers: {'content-type': 'application/json'});
+    }), env: staging);
+    expect(await FavouriteDrivers(api2).driverOfTrip('trp_1'), 'drv_1');
+    expect(await FavouriteDrivers(api2).set('drv_1', favourite: true), ['drv_1']);
+    expect(calls.last.method, 'PUT');
+    expect(calls.last.url.path, '/api/v1/rider/favourite-drivers/drv_1');
+    expect(await favs.driverOfTrip('trp_1'), isNull, reason: 'no driver on the trip');
+  });
+
+  test('owner BL-Q6: changing a taken ride keeps the driver while he is asked', () async {
+    final r = repo((req) => switch (req.url.path) {
+      '/api/v1/quotes' => quotes(26700),
+      '/api/v1/trips/trp_1' => trip('accepted', version: 4),
+      _ => {...trip('accepted', version: 5, fare: 26700), 'reservation': {'mode': 'list', 'changeAsk': {'until': '2026-11-05T05:15:00Z', 'previousAt': '2026-11-05T08:00:00Z'}}},
+    });
+    final changed = await r.updateReservation('trp_1', const ReservationPatch(price: 267));
+    expect(changed.status, ReservationStatus.driverAssigned);
+    expect(changed.driver?.firstName, 'Ali');
   });
 }

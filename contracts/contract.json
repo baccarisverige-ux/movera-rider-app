@@ -514,12 +514,11 @@
       "command": "reschedule",
       "actor": "rider",
       "from": [
-        "requested",
-        "accepted"
+        "requested"
       ],
       "to": "requested",
       "when": "scheduled",
-      "note": "v0.18.17 (contract.json#bookLater.rider.change): new places, time and price; a driver who held it loses it"
+      "note": "v0.18.17 (contract.json#bookLater.rider.change): new places, time and price; a driver who holds it is asked first (keep)"
     },
     {
       "command": "cancel",
@@ -3050,7 +3049,7 @@
       "cap": 3.0
     },
     "reservations": {
-      "note": "DriverAppConfig.reservations (CONTRACT.md §6). Every field is optional on read: a missing or invalid field keeps this default. Admin ride type ids map normal->normal, airport->airport, long->longTrip, premium->comfortPremium, event->event; Admin lateBackupAfterMin is offlineBackupAfterMin. v0.4.2: there is no leaveNow switch any more (Leave now always opens the trip); a leaveNow field in an older document is ignored. on is the zone switch for every driver (= features.scheduledRides); with Driver.scheduledRides (per driver) it decides who gets new reservations, CONTRACT.md §6.1. v0.18.17 (Book later, owner 2026-11-03 Q1–Q7, contract.json#bookLater): minAheadMin 15 / maxAheadDays 90 (booking window), soonBeforeMin 30 (closer = sent like a live ride at once), listTo and its numbers (who sees it in Scheduled rides), listOpenAll, noticeOn / noticeMaxDrivers / homePopup (the reservation notice), noDriverAlertMin 10, riderReminderMin 60, freeChangeBeforeMin 60; rideTypes.normal.onlineBeforeMin 30 → 60 and every reminderMin [60, 15] → [120, 15] (owner Q5). v0.18.17: maxTripKm 60 (the demo admin's 'Max Trip Distance (Reservations) 60 km', owner 'add if miss anything').",
+      "note": "DriverAppConfig.reservations (CONTRACT.md §6). Every field is optional on read: a missing or invalid field keeps this default. Admin ride type ids map normal->normal, airport->airport, long->longTrip, premium->comfortPremium, event->event; Admin lateBackupAfterMin is offlineBackupAfterMin. v0.4.2: there is no leaveNow switch any more (Leave now always opens the trip); a leaveNow field in an older document is ignored. on is the zone switch for every driver (= features.scheduledRides); with Driver.scheduledRides (per driver) it decides who gets new reservations, CONTRACT.md §6.1. v0.18.17 (Book later, owner 2026-11-03 Q1–Q7, contract.json#bookLater): minAheadMin 15 / maxAheadDays 90 (booking window), soonBeforeMin 30 (closer = sent like a live ride at once), listTo and its numbers (who sees it in Scheduled rides), listOpenAll, noticeOn / noticeMaxDrivers / homePopup (the reservation notice), noDriverAlertMin 10, riderReminderMin 60, freeChangeBeforeMin 60; rideTypes.normal.onlineBeforeMin 30 → 60 and every reminderMin [60, 15] → [120, 15] (owner Q5). v0.18.17: maxTripKm 60 (the demo admin's 'Max Trip Distance (Reservations) 60 km', owner 'add if miss anything'). BL-Q1..Q7 (owner 2026-11-03): dispatchBeforeMin 30 (search start), maxTripKm null = no limit, listHomeKm 5, listAtTimeKm 5 / listAtTimeMin 30 (nearAtTime), changeAnswerMin 15.",
       "on": true,
       "lateWarn": true,
       "offlineBackupAfterMin": 5,
@@ -3132,7 +3131,12 @@
       "noDriverAlertMin": 10,
       "riderReminderMin": 60,
       "freeChangeBeforeMin": 60,
-      "maxTripKm": 60
+      "maxTripKm": null,
+      "dispatchBeforeMin": 30,
+      "listHomeKm": 5,
+      "listAtTimeKm": 5,
+      "listAtTimeMin": 30,
+      "changeAnswerMin": 15
     },
     "countries": {
       "SE": {
@@ -6665,8 +6669,8 @@
   },
   "bookLater": {
     "note": "v0.18.17 (CONTRACT.md §41). Booked rides (Trip.kind scheduled) end to end, every value an admin setting per zone in DriverAppConfig.reservations (Admin › Dispatch › Reservations; defaults contract.json#configDefaults.reservations). Sweden, France and Tunisia alike (owner Q7 'All countries now'). Owner answers 2026-11-03 Q1–Q7 (Rules decisions/driver-g15.md). The airport queue is a separate job.",
-    "window": "Q1: POST /quotes and POST /trips with kind=scheduled refuse a pickup less than minAheadMin minutes ahead (400 invalid_request, reason booking_too_soon) or more than maxAheadDays days ahead (reason booking_too_far), from the zone's live driver document. RiderAppConfig.booking.minAheadMin, maxAheadDays and freeChangeBeforeMin are written by the server from the same zone's DriverAppConfig.reservations when it serves the rider document (one source). A booked ride whose route is longer than maxTripKm km (default 60, the demo admin's 'Max Trip Distance (Reservations)') is refused at quote: 400 invalid_request, reason trip_too_long (live rides are not limited by it).",
-    "plan": "Q2: ahead = scheduledAt − booking time. ahead < soonBeforeMin → mode now: the trip takes start_search at booking, like a live ride (the zone's Exclusive then Radar rules). Otherwise mode list: the trip stays requested, is shown in GET /driver/reservations?scope=open to the drivers listTo picks (listOpenAll: after listOpenAllAfterMin minutes to every driver of the zone), and when noticeOn a reservation notice (push kind reservation_new) goes at booking to at most noticeMaxDrivers of them, nearest to the pickup first; when homePopup, still untaken after homePopupAfterMin minutes (and before dispatchAt) a second notice (kind reservation_popup) goes to the same drivers (the driver app shows it as the Home popup). Still untaken at dispatchAt = scheduledAt − max(exclusiveBeforeMin, radarBeforeMin) (never before booking): start_search like a live ride. A search that ends before the pickup time starts again (owner Q3 'keep searching'); after the pickup time the search ends as for a live ride (the trip expires). fixtures/book_later.json#plan.",
+    "window": "Q1: POST /quotes and POST /trips with kind=scheduled refuse a pickup less than minAheadMin minutes ahead (400 invalid_request, reason booking_too_soon) or more than maxAheadDays days ahead (reason booking_too_far), from the zone's live driver document. RiderAppConfig.booking.minAheadMin, maxAheadDays and freeChangeBeforeMin are written by the server from the same zone's DriverAppConfig.reservations when it serves the rider document (one source). A booked ride whose route is longer than maxTripKm km (default null = no limit, owner BL-Q5; the demo admin's 'Max Trip Distance (Reservations)' setting) is refused at quote: 400 invalid_request, reason trip_too_long (live rides are not limited by it).",
+    "plan": "Q2: ahead = scheduledAt − booking time. ahead < soonBeforeMin → mode now: the trip takes start_search at booking, like a live ride (the zone's Exclusive then Radar rules). Otherwise mode list: the trip stays requested, is shown in GET /driver/reservations?scope=open to the drivers listTo picks (listOpenAll: after listOpenAllAfterMin minutes to every driver of the zone), and when noticeOn a reservation notice (push kind reservation_new) goes at booking to at most noticeMaxDrivers of them, nearest to the pickup first; when homePopup, still untaken after homePopupAfterMin minutes (and before dispatchAt) a second notice (kind reservation_popup) goes to the same drivers (the driver app shows it as the Home popup). Still untaken at dispatchAt = scheduledAt − dispatchBeforeMin (default 30, owner BL-Q2; never before booking): start_search like a live ride. A booked ride's search never ends by itself (owner Q3 'keep searching', BL-Q7): an ended search starts again; after the pickup time it starts again as Exclusive offers only, until a driver takes it or an admin acts. fixtures/book_later.json#plan.",
     "listTo": {
       "values": [
         "all",
@@ -6677,12 +6681,13 @@
         "group",
         "areaRegulars",
         "homeNear",
-        "favourites"
+        "favourites",
+        "nearAtTime"
       ],
-      "rules": "all = every driver of the zone; category = drivers whose active car drives the trip's category; rating = drivers rated at least listMinRating (no rating yet counts as 5); random = listGroupSize drivers picked once at booking; nearNow = drivers whose last position is within listNearKm of the pickup at booking; group = the members of driver group listGroupId (Admin › Events & groups); areaRegulars = drivers with at least listAreaTrips completed trips from the pickup zone in the last 30 days. homeNear and favourites have no data on the server yet (no driver home address, no rider favourites): they act as all until built (bookLater.openQuestions).",
+      "rules": "all = every driver of the zone; category = drivers whose active car drives the trip's category; rating = drivers rated at least listMinRating (no rating yet counts as 5); random = listGroupSize drivers picked once at booking; nearNow = drivers whose last position is within listNearKm of the pickup at booking; group = the members of driver group listGroupId (Admin › Events & groups); areaRegulars = drivers with at least listAreaTrips completed trips from the pickup zone in the last 30 days. homeNear = drivers whose home area (Driver.homeArea, set in the driver app, PUT /driver/home-area) is within listHomeKm of the pickup; favourites = the rider's favourite drivers (marked after a ride, PUT /rider/favourite-drivers/{driverId}); nearAtTime = drivers whose last ride before the pickup ends within listAtTimeKm of it at most listAtTimeMin minutes before the pickup time (their accepted booked rides; owner BL-Q4).",
       "always": "Every listed driver must also be active, have scheduled rides on in the zone (reservations.on) and drive the trip's category; a driver never sees a ride that clashes with one he already holds (smart gap: [scheduledAt, scheduledAt + duration + spareMin] of both rides overlap) when hideClashing is on."
     },
-    "noDriver": "Q3: at scheduledAt − noDriverAlertMin a trip with no driver (requested, searching or offered) is marked TripProjection.reservation.noDriver true (the admin's Alerts and Reservations show 'Booked ride soon with no driver') and the rider gets push kind reservation_no_driver; the search goes on (it starts at once if it had not).",
+    "noDriver": "Q3: at scheduledAt − noDriverAlertMin a trip with no driver (requested, searching or offered) is marked TripProjection.reservation.noDriver true (the admin's Alerts and Reservations show 'Booked ride soon with no driver') and the rider gets push kind reservation_no_driver; the search goes on (it starts at once if it had not). BL-Q7: at the pickup time with still no driver, TripProjection.reservation.overdue becomes true (the admin's alert 'Booked ride: pickup time passed, no driver'); the ride never expires by itself.",
     "card": "Q4 'Charge at booking': a scheduled trip paid by card or apple_pay is charged the full price when it is booked (Trip.paymentStatus captured at POST /trips); a free cancel refunds it. Card payments are still 'coming soon' on live (POST /trips answers payment_method_coming_soon), so nothing is charged until the payment company is connected; the rule is in place for then.",
     "driver": {
       "list": "GET /driver/reservations?scope=open → DriverReservationPage: the untaken list-mode rides the driver may take (bookLater.listTo), soonest first; scope=accepted → the driver's own accepted scheduled rides (status accepted), soonest first. 403 reservations_off when the zone's reservations.on is false (open scope only).",
@@ -6690,13 +6695,16 @@
       "release": "POST /driver/reservations/{tripId}/release { reasonCode } (a scheduled cancel reason code) → 204: the ride goes back to the list (transition cancel driver accepted → requested, scheduled), the driver's reminders are taken back; it counts in his cancel rate; with less than driverLateCancelHours to pickup it is a late cancel. After dispatchAt it goes straight back to dispatch.",
       "start": "POST /driver/reservations/{tripId}/start → TripProjection (head_to_pickup, accepted → driver_to_pickup), from scheduledAt − onlineBeforeMin of the ride type; earlier → 409 conflict, reason reservation_too_early.",
       "reminders": "Q5: after accept the driver gets push kind reservation_reminder at scheduledAt − each rideTypes.<type>.reminderMin (default 120 and 15 minutes; a time already passed is skipped) and kind reservation_go_online at scheduledAt − onlineBeforeMin (default 60, the zone may set 30). Still offline offlineBackupAfterMin minutes after that: the driver loses the ride (it goes back to the list, or to dispatch after dispatchAt), push kind reservation_lost.",
-      "rideType": "airport when the pickup or drop-off is in an airport zone; longTrip when the route is longer than longTripKm; comfortPremium for the comfort and premium categories; else normal (event: not detected by the server yet, acts as normal)."
+      "rideType": "airport when the pickup or drop-off is in an airport zone; longTrip when the route is longer than longTripKm; comfortPremium for the comfort and premium categories; else normal (event: not detected by the server yet, acts as normal).",
+      "keep": "POST /driver/reservations/{tripId}/keep { keep: boolean } → TripProjection: the driver's answer to the rider's change (owner BL-Q6). No open question → 409 invalid_transition.",
+      "homeArea": "PUT /driver/home-area { lat, lng, label? } (label at most 120 chars) or DELETE → the Driver profile with homeArea { lat, lng, label? } (owner BL-Q4: set in the driver app; admins see it on GET /admin/drivers/{driverId})."
     },
     "rider": {
       "reminder": "Q5 rider: push kind reservation_reminder at scheduledAt − riderReminderMin (default 60; 0 = off), and reservation_driver_found when a driver takes the ride.",
-      "change": "Q6: more than freeChangeBeforeMin minutes (default 60) before pickup the rider may change the booking: POST /trips/{tripId}/reschedule { quoteId, expectedVersion } with a new kind=scheduled quote (the app shows its new price first) → TripProjection with the new places, time and price; a driver who held it loses it (push kind reservation_changed) and the ride is planned again (bookLater.plan). Later → 409 conflict, reason change_too_late. Not a scheduled trip, or not before pickup → 409 not_a_reservation.",
+      "change": "Q6: more than freeChangeBeforeMin minutes (default 60) before pickup the rider may change the booking: POST /trips/{tripId}/reschedule { quoteId, expectedVersion } with a new kind=scheduled quote (the app shows its new price first) → TripProjection with the new places, time and price; a driver who held it is asked 'Keep it at the new time?' (push kind reservation_change_ask, TripProjection.reservation.changeAsk { until, previousAt }; POST /driver/reservations/{tripId}/keep { keep }); Yes keeps it (rider told reservation_driver_found), No or no answer within changeAnswerMin (default 15) puts it back on the list (transition release, push reservation_changed) and the ride is planned again (bookLater.plan). Later → 409 conflict, reason change_too_late. Not a scheduled trip, or not before pickup → 409 not_a_reservation.",
       "cancel": "Q6: POST /trips/{tripId}/cancel more than freeChangeBeforeMin minutes before pickup is always free; later the reservation cancel fee rule of booking time applies (RiderAppConfig.cancelFees, reservation; unchanged).",
-      "projection": "TripProjection.reservation (kind scheduled only) = { mode: now | list, dispatchAt, freeChangeUntil, noDriver, mustBeOnlineAt? (driver views) }."
+      "projection": "TripProjection.reservation (kind scheduled only) = { mode: now | list, dispatchAt, freeChangeUntil, noDriver, overdue, changeAsk? { until, previousAt }, mustBeOnlineAt? (driver views) }.",
+      "favourites": "GET /rider/favourite-drivers → { items: [{ driverId, firstName }] }; PUT /rider/favourite-drivers/{driverId} (only a driver of one of the rider's completed trips, else 404 driver_not_found) and DELETE (owner BL-Q4: marked after a ride)."
     },
     "admin": {
       "list": "Admin › Reservations reads GET /admin/trips?kind=scheduled (unchanged filters).",
@@ -6712,7 +6720,8 @@
         "reservation_lost",
         "reservation_changed",
         "reservation_driver_found",
-        "reservation_no_driver"
+        "reservation_no_driver",
+        "reservation_change_ask"
       ],
       "note": "Push and Notifications list (bell), in the person's language (else the zone country's, else English); {time} is the pickup time HH:MM in the zone's time zone, {driver} the driver's first name. Deep links: rider movera://trips/{tripId}, driver movera-driver://reservations/{tripId}.",
       "texts": {
@@ -6811,6 +6820,18 @@
             "fr": "Votre course de {time} n’a pas encore de chauffeur. Nous continuons à chercher.",
             "en": "Your {time} ride has no driver yet. We keep looking."
           }
+        },
+        "reservation_change_ask": {
+          "title": {
+            "sv": "Resenären ändrade tiden",
+            "fr": "Le passager a changé l’heure",
+            "en": "The rider changed the time"
+          },
+          "body": {
+            "sv": "Behåller du resan kl. {time}? Svara Ja eller Nej.",
+            "fr": "Gardez-vous la course à {time} ? Répondez Oui ou Non.",
+            "en": "Keep the ride at {time}? Answer Yes or No."
+          }
         }
       }
     },
@@ -6827,13 +6848,7 @@
       "not_a_reservation",
       "trip_too_long"
     ],
-    "timers": "Server timer kinds (durable, contract §timers): resv_popup, resv_open_all, resv_dispatch, resv_no_driver, resv_rider_reminder, resv_driver_reminder, resv_go_online, resv_offline_check. Planned at booking / accept / change, taken back when the trip leaves the state they need.",
-    "openQuestions": [
-      "listTo homeNear and favourites need data the server does not keep (driver home, rider favourites): they act as all.",
-      "Search start: the earlier of exclusiveBeforeMin / radarBeforeMin (default 20 min); the 2026-11-02 note said 15 min.",
-      "After the pickup time with still no driver the trip expires like a live ride.",
-      "A change moves the ride away from the driver who held it.",
-      "maxTripKm 60 km is the demo admin's value: a longer booked ride (for example to a far airport) is refused unless the zone raises it."
-    ]
+    "timers": "Server timer kinds (durable, contract §timers): resv_popup, resv_open_all, resv_dispatch, resv_no_driver, resv_rider_reminder, resv_driver_reminder, resv_go_online, resv_offline_check, resv_change_ask, resv_overdue. Planned at booking / accept / change, taken back when the trip leaves the state they need.",
+    "openQuestions": []
   }
 }

@@ -1657,6 +1657,9 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'resErrTooFar': l.resErrTooFar(37),
   'resErrTripTooLong': l.resErrTripTooLong,
   'resErrChangeTooLate': l.resErrChangeTooLate(37),
+  'favouriteDriverTitle': l.favouriteDriverTitle,
+  'favouriteDriverHelp': l.favouriteDriverHelp,
+  'favouriteDriverFailed': l.favouriteDriverFailed,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -5203,4 +5206,10 @@ class _Exhaustive implements AppLocalizations {
   String get resErrTripTooLong => '';
   @override
   String resErrChangeTooLate(int minutes) => '';
+  @override
+  String get favouriteDriverTitle => '';
+  @override
+  String get favouriteDriverHelp => '';
+  @override
+  String get favouriteDriverFailed => '';
 }

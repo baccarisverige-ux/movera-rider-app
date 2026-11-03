@@ -711,7 +711,7 @@ def book_later_plan(booked, at, s):
     if ahead < s['minAheadMin']: return {'error': 'booking_too_soon'}
     if ahead > s['maxAheadDays'] * 1440: return {'error': 'booking_too_far'}
     mode = 'now' if ahead < s['soonBeforeMin'] else 'list'
-    dispatch = booked if mode == 'now' else max(booked, at - _td(minutes=max(s['exclusiveBeforeMin'], s['radarBeforeMin'])))
+    dispatch = booked if mode == 'now' else max(booked, at - _td(minutes=s['dispatchBeforeMin']))
     popup = booked + _td(minutes=s['homePopupAfterMin']) if mode == 'list' and s['homePopup'] else None
     if popup is not None and popup >= dispatch: popup = None
     open_all = booked + _td(minutes=s['listOpenAllAfterMin']) if mode == 'list' and s['listTo'] != 'all' and s['listOpenAll'] else None
@@ -722,6 +722,7 @@ def book_later_plan(booked, at, s):
             'noDriverAt': _iso(max(booked, at - _td(minutes=s['noDriverAlertMin']))), 'riderReminderAt': remind and _iso(remind),
             'freeChangeUntil': _iso(at - _td(minutes=s['freeChangeBeforeMin']))}
 _bd = {k: c['configDefaults']['reservations'][k] for k in _blf['defaults']}
+if c['configDefaults']['reservations']['maxTripKm'] is not None or c['configDefaults']['reservations']['dispatchBeforeMin'] != 30: bad += 1; print('BOOK LATER BL-Q2/Q5 defaults')
 if _bd != _blf['defaults']: bad += 1; print('BOOK LATER fixture defaults differ from configDefaults.reservations')
 for case in _blf['plan']:
     got = book_later_plan(_p(case['bookedAt']), _p(case['scheduledAt']), {**_bd, **case['settings']})

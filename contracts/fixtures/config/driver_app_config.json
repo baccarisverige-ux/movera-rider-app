@@ -368,7 +368,12 @@
     "noDriverAlertMin": 10,
     "riderReminderMin": 60,
     "freeChangeBeforeMin": 60,
-    "maxTripKm": 60
+    "maxTripKm": null,
+    "dispatchBeforeMin": 30,
+    "listHomeKm": 5,
+    "listAtTimeKm": 5,
+    "listAtTimeMin": 30,
+    "changeAnswerMin": 15
   },
   "cancelReasons": {
     "driverBeforeTrip": [

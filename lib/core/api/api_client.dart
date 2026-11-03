@@ -192,6 +192,15 @@ class ApiClient {
     return _send('PATCH', path, body: body, idempotencyKey: idempotencyKey);
   }
 
+  /// `PUT path` (v0.18.17 `PUT /rider/favourite-drivers/{driverId}`).
+  Future<Map<String, dynamic>> put(
+    String path, {
+    Map<String, dynamic>? body,
+    String? idempotencyKey,
+  }) {
+    return _send('PUT', path, body: body, idempotencyKey: idempotencyKey);
+  }
+
   Future<Map<String, dynamic>> delete(
     String path, {
     Map<String, dynamic>? body,

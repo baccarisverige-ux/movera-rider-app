@@ -3315,5 +3315,8 @@
         "type": "int"
       }
     }
-  }
+  },
+  "favouriteDriverTitle": "Save as a favourite driver",
+  "favouriteDriverHelp": "Your booked rides can go to your favourite drivers first.",
+  "favouriteDriverFailed": "Couldn't save. Check your connection and try again."
 }

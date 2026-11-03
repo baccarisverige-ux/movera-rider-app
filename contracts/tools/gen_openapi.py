@@ -2700,12 +2700,16 @@ for _k, _sch in [("minAheadMin", i("v0.18.17 (owner Q1): the earliest pickup, mi
                  ("homePopup", b("v0.18.17: untaken after homePopupAfterMin minutes, a second notice (reservation_popup, the Home popup).")),
                  ("noDriverAlertMin", i("v0.18.17 (owner Q3): no driver this many minutes before pickup → admin alert + rider told; the search goes on. " + BL["noDriver"], minimum=1, maximum=120)),
                  ("riderReminderMin", i("v0.18.17 (owner Q5 rider): rider reminder this many minutes before pickup; 0 = off.", minimum=0, maximum=1440)),
-                 ("maxTripKm", n("v0.18.17: the longest booked ride in km (the demo admin's Max Trip Distance (Reservations)); longer → 400 trip_too_long at quote.", minimum=1, maximum=1000)),
+                 ("maxTripKm", {"oneOf": [n(minimum=1, maximum=1000), {"type": "null"}], "description": "v0.18.17: the longest booked ride in km (the demo admin's Max Trip Distance (Reservations)); null = no limit (owner BL-Q5); longer → 400 trip_too_long at quote."}),
+                 ("dispatchBeforeMin", i("v0.18.17 (owner BL-Q2): untaken, the search starts this many minutes before pickup.", minimum=5, maximum=240)),
+                 ("listHomeKm", n(minimum=0.5, maximum=50)), ("listAtTimeKm", n(minimum=0.5, maximum=50)), ("listAtTimeMin", i(minimum=5, maximum=240)),
+                 ("changeAnswerMin", i("v0.18.17 (owner BL-Q6): how long the driver has to answer 'Keep it at the new time?'.", minimum=1, maximum=120)),
                  ("freeChangeBeforeMin", i("v0.18.17 (owner Q6): change or cancel free only more than this many minutes before pickup. " + BL["rider"]["change"], minimum=0, maximum=1440))]:
     S["DriverReservations"]["properties"][_k] = dflt(_sch, _RD[_k])
 for _k in ("minAheadMin", "maxAheadDays", "freeChangeBeforeMin"):
     S["RiderAppConfig"]["properties"]["booking"]["properties"][_k] = {**S["DriverReservations"]["properties"][_k], "description": "v0.18.17: written by the server from the zone's DriverAppConfig.reservations." + _k}
-S["ReservationInfo"] = obj({"mode": s(enum=["now", "list"]), "dispatchAt": ref("Timestamp"), "freeChangeUntil": ref("Timestamp"), "noDriver": b(BL["noDriver"]),
+S["ReservationInfo"] = obj({"mode": s(enum=["now", "list"]), "dispatchAt": ref("Timestamp"), "freeChangeUntil": ref("Timestamp"), "noDriver": b(BL["noDriver"]), "overdue": b("BL-Q7: the pickup time passed with no driver."),
+                            "changeAsk": obj({"until": ref("Timestamp"), "previousAt": ref("Timestamp")}, ["until", "previousAt"], BL["rider"]["change"]),
                             "mustBeOnlineAt": {"allOf": [ref("Timestamp")], "description": "Driver and admin views of an accepted ride."}},
                            ["mode", "dispatchAt", "freeChangeUntil", "noDriver"], "v0.18.17: " + BL["rider"]["projection"])
 S["TripProjection"]["properties"]["reservation"] = {"allOf": [ref("ReservationInfo")], "description": "v0.18.17: kind scheduled only."}
@@ -2727,6 +2731,17 @@ RTID = [{"name": "tripId", "in": "path", "required": True, "schema": ref("Id")}]
 op("post", "/driver/reservations/{tripId}/accept", "acceptReservation", "Take a booked ride from Scheduled rides", ["driver"], "Driver · Offers", params=RTID, body="ReservationAcceptCommand", ok=(200, TP), mutation=True, transition="accept", desc="v0.18.17. " + BL["driver"]["accept"])
 op("post", "/driver/reservations/{tripId}/release", "releaseReservation", "Give a booked ride back", ["driver"], "Driver · Offers", params=RTID, body="ReservationReleaseCommand", ok=(204, None), mutation=True, transition="cancel", desc="v0.18.17. " + BL["driver"]["release"])
 op("post", "/driver/reservations/{tripId}/start", "startReservation", "Start driving to a booked ride's pickup", ["driver"], "Driver · Offers", params=RTID, body="ReservationAcceptCommand", ok=(200, TP), mutation=True, transition="head_to_pickup", desc="v0.18.17. " + BL["driver"]["start"])
+S["ReservationKeepCommand"] = obj({"keep": b()}, ["keep"], "v0.18.17: " + BL["driver"]["keep"])
+S["HomeArea"] = obj({"lat": n(minimum=-90, maximum=90), "lng": n(minimum=-180, maximum=180), "label": s(maxLength=120)}, ["lat", "lng"], "v0.18.17: " + BL["driver"]["homeArea"])
+S["Driver"]["properties"]["homeArea"] = {"allOf": [ref("HomeArea")], "description": "v0.18.17 (owner BL-Q4)."}
+S["FavouriteDriverList"] = obj({"items": arr(obj({"driverId": ref("Id"), "firstName": s()}, ["driverId"]))}, ["items"], "v0.18.17: " + BL["rider"]["favourites"])
+op("post", "/driver/reservations/{tripId}/keep", "keepReservation", "Answer the rider's change of a booked ride", ["driver"], "Driver · Offers", params=RTID, body="ReservationKeepCommand", ok=(200, TP), mutation=True, desc="v0.18.17. " + BL["driver"]["keep"])
+op("put", "/driver/home-area", "setDriverHomeArea", "Set the driver's home area", ["driver"], "Driver · Account", body="HomeArea", ok=(200, "Driver"), mutation=True, desc="v0.18.17. " + BL["driver"]["homeArea"])
+op("delete", "/driver/home-area", "clearDriverHomeArea", "Clear the driver's home area", ["driver"], "Driver · Account", ok=(200, "Driver"), mutation=True, desc="v0.18.17.")
+op("get", "/rider/favourite-drivers", "listFavouriteDrivers", "The rider's favourite drivers", ["rider"], "Rider · Account", ok=(200, "FavouriteDriverList"), desc="v0.18.17. " + BL["rider"]["favourites"])
+DID = [{"name": "driverId", "in": "path", "required": True, "schema": ref("Id")}]
+op("put", "/rider/favourite-drivers/{driverId}", "addFavouriteDriver", "Mark a driver as favourite", ["rider"], "Rider · Account", params=DID, body="EmptyCommand", ok=(200, "FavouriteDriverList"), mutation=True, desc="v0.18.17.")
+op("delete", "/rider/favourite-drivers/{driverId}", "removeFavouriteDriver", "Unmark a favourite driver", ["rider"], "Rider · Account", params=DID, ok=(200, "FavouriteDriverList"), mutation=True, desc="v0.18.17.")
 op("post", "/trips/{tripId}/reschedule", "rescheduleTrip", "Change a booked ride (new quote, new price)", ["rider"], "Trips", params=TID, body="RescheduleCommand", ok=(200, TP), mutation=True, transition="reschedule", desc="v0.18.17. " + BL["rider"]["change"])
 op("post", "/admin/trips/{tripId}/reservation/unassign", "adminUnassignReservation", "Take the driver off a booked ride (back to the list)", ["admin"], "Admin · Trips", params=TID, body="AdminReservationCommand", ok=(200, TP), mutation=True, transition="unassign", permission="trips.intervene", desc="v0.18.17. " + BL["admin"]["actions"])
 op("post", "/admin/trips/{tripId}/reservation/dispatch-now", "adminDispatchReservationNow", "Send a booked ride to drivers now", ["admin"], "Admin · Trips", params=TID, body="AdminReservationCommand", ok=(200, TP), mutation=True, transition="start_search", permission="trips.intervene", desc="v0.18.17. " + BL["admin"]["actions"])

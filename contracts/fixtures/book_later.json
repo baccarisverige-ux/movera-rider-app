@@ -13,7 +13,8 @@
     "freeChangeBeforeMin": 60,
     "listTo": "all",
     "listOpenAll": true,
-    "listOpenAllAfterMin": 30
+    "listOpenAllAfterMin": 30,
+    "dispatchBeforeMin": 30
   },
   "plan": [
     {
@@ -23,7 +24,7 @@
       "settings": {},
       "expect": {
         "mode": "list",
-        "dispatchAt": "2026-11-05T07:40:00Z",
+        "dispatchAt": "2026-11-05T07:30:00Z",
         "popupAt": "2026-11-05T05:10:00Z",
         "openAllAt": null,
         "noDriverAt": "2026-11-05T07:50:00Z",
@@ -53,7 +54,7 @@
       "settings": {},
       "expect": {
         "mode": "list",
-        "dispatchAt": "2026-11-05T07:40:00Z",
+        "dispatchAt": "2026-11-05T07:30:00Z",
         "popupAt": null,
         "openAllAt": null,
         "noDriverAt": "2026-11-05T07:50:00Z",
@@ -88,7 +89,7 @@
       },
       "expect": {
         "mode": "list",
-        "dispatchAt": "2027-02-03T06:40:00Z",
+        "dispatchAt": "2027-02-03T06:30:00Z",
         "popupAt": null,
         "openAllAt": null,
         "noDriverAt": "2027-02-03T06:50:00Z",
@@ -104,12 +105,12 @@
         "soonBeforeMin": 45,
         "riderReminderMin": 0,
         "listTo": "group",
-        "radarBeforeMin": 25,
-        "freeChangeBeforeMin": 120
+        "freeChangeBeforeMin": 120,
+        "dispatchBeforeMin": 35
       },
       "expect": {
         "mode": "list",
-        "dispatchAt": "2026-11-05T07:35:00Z",
+        "dispatchAt": "2026-11-05T07:25:00Z",
         "popupAt": "2026-11-05T05:10:00Z",
         "openAllAt": "2026-11-05T05:30:00Z",
         "noDriverAt": "2026-11-05T07:50:00Z",

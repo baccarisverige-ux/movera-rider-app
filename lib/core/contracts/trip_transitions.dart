@@ -152,7 +152,7 @@ abstract final class TripStateMachine {
     // v0.18.17 Book later: offline driver loses it, admin unassign, rider change.
     TripTransition('release', TripActor.system, {_a}, _rq, when: TripKind.scheduled),
     TripTransition('unassign', TripActor.admin, {_a}, _rq, when: TripKind.scheduled),
-    TripTransition('reschedule', TripActor.rider, {_rq, _a}, _rq, when: TripKind.scheduled),
+    TripTransition('reschedule', TripActor.rider, {_rq}, _rq, when: TripKind.scheduled),
     TripTransition('cancel', TripActor.driver, {
       _ob,
       _it,

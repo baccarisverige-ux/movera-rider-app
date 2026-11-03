@@ -525,9 +525,9 @@ paths:
         POST /trips with kind=scheduled refuse a pickup less than minAheadMin minutes ahead (400 invalid_request, reason booking_too_soon)
         or more than maxAheadDays days ahead (reason booking_too_far), from the zone''s live driver document. RiderAppConfig.booking.minAheadMin,
         maxAheadDays and freeChangeBeforeMin are written by the server from the same zone''s DriverAppConfig.reservations
-        when it serves the rider document (one source). A booked ride whose route is longer than maxTripKm km (default 60,
-        the demo admin''s ''Max Trip Distance (Reservations)'') is refused at quote: 400 invalid_request, reason trip_too_long
-        (live rides are not limited by it).'
+        when it serves the rider document (one source). A booked ride whose route is longer than maxTripKm km (default null
+        = no limit, owner BL-Q5; the demo admin''s ''Max Trip Distance (Reservations)'' setting) is refused at quote: 400
+        invalid_request, reason trip_too_long (live rides are not limited by it).'
       tags:
       - Rider · Booking
       x-actor:
@@ -623,12 +623,12 @@ paths:
         less than minAheadMin minutes ahead (400 invalid_request, reason booking_too_soon) or more than maxAheadDays days
         ahead (reason booking_too_far), from the zone''s live driver document. RiderAppConfig.booking.minAheadMin, maxAheadDays
         and freeChangeBeforeMin are written by the server from the same zone''s DriverAppConfig.reservations when it serves
-        the rider document (one source). A booked ride whose route is longer than maxTripKm km (default 60, the demo admin''s
-        ''Max Trip Distance (Reservations)'') is refused at quote: 400 invalid_request, reason trip_too_long (live rides are
-        not limited by it). Q4 ''Charge at booking'': a scheduled trip paid by card or apple_pay is charged the full price
-        when it is booked (Trip.paymentStatus captured at POST /trips); a free cancel refunds it. Card payments are still
-        ''coming soon'' on live (POST /trips answers payment_method_coming_soon), so nothing is charged until the payment
-        company is connected; the rule is in place for then.'
+        the rider document (one source). A booked ride whose route is longer than maxTripKm km (default null = no limit, owner
+        BL-Q5; the demo admin''s ''Max Trip Distance (Reservations)'' setting) is refused at quote: 400 invalid_request, reason
+        trip_too_long (live rides are not limited by it). Q4 ''Charge at booking'': a scheduled trip paid by card or apple_pay
+        is charged the full price when it is booked (Trip.paymentStatus captured at POST /trips); a free cancel refunds it.
+        Card payments are still ''coming soon'' on live (POST /trips answers payment_method_coming_soon), so nothing is charged
+        until the payment company is connected; the rule is in place for then.'
   /trips/{tripId}:
     get:
       operationId: getTrip
@@ -14839,15 +14839,284 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /driver/reservations/{tripId}/keep:
+    post:
+      operationId: keepReservation
+      summary: Answer the rider's change of a booked ride
+      description: 'v0.18.17. POST /driver/reservations/{tripId}/keep { keep: boolean } → TripProjection: the driver''s answer
+        to the rider''s change (owner BL-Q6). No open question → 409 invalid_transition.'
+      tags:
+      - Driver · Offers
+      x-actor:
+      - driver
+      parameters:
+      - name: tripId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReservationKeepCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripProjection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/home-area:
+    put:
+      operationId: setDriverHomeArea
+      summary: Set the driver's home area
+      description: 'v0.18.17. PUT /driver/home-area { lat, lng, label? } (label at most 120 chars) or DELETE → the Driver
+        profile with homeArea { lat, lng, label? } (owner BL-Q4: set in the driver app; admins see it on GET /admin/drivers/{driverId}).'
+      tags:
+      - Driver · Account
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HomeArea'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Driver'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    delete:
+      operationId: clearDriverHomeArea
+      summary: Clear the driver's home area
+      description: v0.18.17.
+      tags:
+      - Driver · Account
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Driver'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /rider/favourite-drivers:
+    get:
+      operationId: listFavouriteDrivers
+      summary: The rider's favourite drivers
+      description: 'v0.18.17. GET /rider/favourite-drivers → { items: [{ driverId, firstName }] }; PUT /rider/favourite-drivers/{driverId}
+        (only a driver of one of the rider''s completed trips, else 404 driver_not_found) and DELETE (owner BL-Q4: marked
+        after a ride).'
+      tags:
+      - Rider · Account
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FavouriteDriverList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /rider/favourite-drivers/{driverId}:
+    put:
+      operationId: addFavouriteDriver
+      summary: Mark a driver as favourite
+      description: v0.18.17.
+      tags:
+      - Rider · Account
+      x-actor:
+      - rider
+      parameters:
+      - name: driverId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FavouriteDriverList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    delete:
+      operationId: removeFavouriteDriver
+      summary: Unmark a favourite driver
+      description: v0.18.17.
+      tags:
+      - Rider · Account
+      x-actor:
+      - rider
+      parameters:
+      - name: driverId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FavouriteDriverList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /trips/{tripId}/reschedule:
     post:
       operationId: rescheduleTrip
       summary: Change a booked ride (new quote, new price)
       description: 'v0.18.17. Q6: more than freeChangeBeforeMin minutes (default 60) before pickup the rider may change the
         booking: POST /trips/{tripId}/reschedule { quoteId, expectedVersion } with a new kind=scheduled quote (the app shows
-        its new price first) → TripProjection with the new places, time and price; a driver who held it loses it (push kind
-        reservation_changed) and the ride is planned again (bookLater.plan). Later → 409 conflict, reason change_too_late.
-        Not a scheduled trip, or not before pickup → 409 not_a_reservation.'
+        its new price first) → TripProjection with the new places, time and price; a driver who held it is asked ''Keep it
+        at the new time?'' (push kind reservation_change_ask, TripProjection.reservation.changeAsk { until, previousAt };
+        POST /driver/reservations/{tripId}/keep { keep }); Yes keeps it (rider told reservation_driver_found), No or no answer
+        within changeAnswerMin (default 15) puts it back on the list (transition release, push reservation_changed) and the
+        ride is planned again (bookLater.plan). Later → 409 conflict, reason change_too_late. Not a scheduled trip, or not
+        before pickup → 409 not_a_reservation.'
       tags:
       - Trips
       x-actor:
@@ -17076,6 +17345,10 @@ components:
           $ref: '#/components/schemas/Timestamp'
         drivingTime:
           $ref: '#/components/schemas/DrivingTime'
+        homeArea:
+          allOf:
+          - $ref: '#/components/schemas/HomeArea'
+          description: v0.18.17 (owner BL-Q4).
     DriverScheduledRides:
       type: object
       description: 'Owner decision 2 (v0.4.2): an admin''s reservations on/off for this one driver (CONTRACT.md §6.1). Missing
@@ -20270,8 +20543,8 @@ components:
             or more than maxAheadDays days ahead (reason booking_too_far), from the zone''s live driver document. RiderAppConfig.booking.minAheadMin,
             maxAheadDays and freeChangeBeforeMin are written by the server from the same zone''s DriverAppConfig.reservations
             when it serves the rider document (one source). A booked ride whose route is longer than maxTripKm km (default
-            60, the demo admin''s ''Max Trip Distance (Reservations)'') is refused at quote: 400 invalid_request, reason trip_too_long
-            (live rides are not limited by it).'
+            null = no limit, owner BL-Q5; the demo admin''s ''Max Trip Distance (Reservations)'' setting) is refused at quote:
+            400 invalid_request, reason trip_too_long (live rides are not limited by it).'
           default: 15
         maxAheadDays:
           type: integer
@@ -20290,10 +20563,10 @@ components:
             minutes to every driver of the zone), and when noticeOn a reservation notice (push kind reservation_new) goes
             at booking to at most noticeMaxDrivers of them, nearest to the pickup first; when homePopup, still untaken after
             homePopupAfterMin minutes (and before dispatchAt) a second notice (kind reservation_popup) goes to the same drivers
-            (the driver app shows it as the Home popup). Still untaken at dispatchAt = scheduledAt − max(exclusiveBeforeMin,
-            radarBeforeMin) (never before booking): start_search like a live ride. A search that ends before the pickup time
-            starts again (owner Q3 ''keep searching''); after the pickup time the search ends as for a live ride (the trip
-            expires). fixtures/book_later.json#plan.'
+            (the driver app shows it as the Home popup). Still untaken at dispatchAt = scheduledAt − dispatchBeforeMin (default
+            30, owner BL-Q2; never before booking): start_search like a live ride. A booked ride''s search never ends by itself
+            (owner Q3 ''keep searching'', BL-Q7): an ended search starts again; after the pickup time it starts again as Exclusive
+            offers only, until a driver takes it or an admin acts. fixtures/book_later.json#plan.'
           default: 30
         listTo:
           type: string
@@ -20307,13 +20580,16 @@ components:
           - areaRegulars
           - homeNear
           - favourites
+          - nearAtTime
           description: 'v0.18.17: who sees a new booked ride in Scheduled rides. all = every driver of the zone; category
             = drivers whose active car drives the trip''s category; rating = drivers rated at least listMinRating (no rating
             yet counts as 5); random = listGroupSize drivers picked once at booking; nearNow = drivers whose last position
             is within listNearKm of the pickup at booking; group = the members of driver group listGroupId (Admin › Events
             & groups); areaRegulars = drivers with at least listAreaTrips completed trips from the pickup zone in the last
-            30 days. homeNear and favourites have no data on the server yet (no driver home address, no rider favourites):
-            they act as all until built (bookLater.openQuestions).'
+            30 days. homeNear = drivers whose home area (Driver.homeArea, set in the driver app, PUT /driver/home-area) is
+            within listHomeKm of the pickup; favourites = the rider''s favourite drivers (marked after a ride, PUT /rider/favourite-drivers/{driverId});
+            nearAtTime = drivers whose last ride before the pickup ends within listAtTimeKm of it at most listAtTimeMin minutes
+            before the pickup time (their accepted booked rides; owner BL-Q4).'
           default: all
         listMinRating:
           type: number
@@ -20371,7 +20647,8 @@ components:
             goes on. Q3: at scheduledAt − noDriverAlertMin a trip with no driver (requested, searching or offered) is marked
             TripProjection.reservation.noDriver true (the admin''s Alerts and Reservations show ''Booked ride soon with no
             driver'') and the rider gets push kind reservation_no_driver; the search goes on (it starts at once if it had
-            not).'
+            not). BL-Q7: at the pickup time with still no driver, TripProjection.reservation.overdue becomes true (the admin''s
+            alert ''Booked ride: pickup time passed, no driver''); the ride never expires by itself.'
           default: 10
         riderReminderMin:
           type: integer
@@ -20380,12 +20657,41 @@ components:
           description: 'v0.18.17 (owner Q5 rider): rider reminder this many minutes before pickup; 0 = off.'
           default: 60
         maxTripKm:
+          oneOf:
+          - type: number
+            minimum: 1
+            maximum: 1000
+          - type: 'null'
+          description: 'v0.18.17: the longest booked ride in km (the demo admin''s Max Trip Distance (Reservations)); null
+            = no limit (owner BL-Q5); longer → 400 trip_too_long at quote.'
+          default: null
+        dispatchBeforeMin:
+          type: integer
+          minimum: 5
+          maximum: 240
+          description: 'v0.18.17 (owner BL-Q2): untaken, the search starts this many minutes before pickup.'
+          default: 30
+        listHomeKm:
           type: number
+          minimum: 0.5
+          maximum: 50
+          default: 5
+        listAtTimeKm:
+          type: number
+          minimum: 0.5
+          maximum: 50
+          default: 5
+        listAtTimeMin:
+          type: integer
+          minimum: 5
+          maximum: 240
+          default: 30
+        changeAnswerMin:
+          type: integer
           minimum: 1
-          maximum: 1000
-          description: 'v0.18.17: the longest booked ride in km (the demo admin''s Max Trip Distance (Reservations)); longer
-            → 400 trip_too_long at quote.'
-          default: 60
+          maximum: 120
+          description: 'v0.18.17 (owner BL-Q6): how long the driver has to answer ''Keep it at the new time?''.'
+          default: 15
         freeChangeBeforeMin:
           type: integer
           minimum: 0
@@ -20393,9 +20699,11 @@ components:
           description: 'v0.18.17 (owner Q6): change or cancel free only more than this many minutes before pickup. Q6: more
             than freeChangeBeforeMin minutes (default 60) before pickup the rider may change the booking: POST /trips/{tripId}/reschedule
             { quoteId, expectedVersion } with a new kind=scheduled quote (the app shows its new price first) → TripProjection
-            with the new places, time and price; a driver who held it loses it (push kind reservation_changed) and the ride
-            is planned again (bookLater.plan). Later → 409 conflict, reason change_too_late. Not a scheduled trip, or not
-            before pickup → 409 not_a_reservation.'
+            with the new places, time and price; a driver who held it is asked ''Keep it at the new time?'' (push kind reservation_change_ask,
+            TripProjection.reservation.changeAsk { until, previousAt }; POST /driver/reservations/{tripId}/keep { keep });
+            Yes keeps it (rider told reservation_driver_found), No or no answer within changeAnswerMin (default 15) puts it
+            back on the list (transition release, push reservation_changed) and the ride is planned again (bookLater.plan).
+            Later → 409 conflict, reason change_too_late. Not a scheduled trip, or not before pickup → 409 not_a_reservation.'
           default: 60
     PickupRange:
       type: object
@@ -29428,7 +29736,7 @@ components:
     ReservationInfo:
       type: object
       description: 'v0.18.17: TripProjection.reservation (kind scheduled only) = { mode: now | list, dispatchAt, freeChangeUntil,
-        noDriver, mustBeOnlineAt? (driver views) }.'
+        noDriver, overdue, changeAsk? { until, previousAt }, mustBeOnlineAt? (driver views) }.'
       required:
       - mode
       - dispatchAt
@@ -29449,7 +29757,29 @@ components:
           description: 'Q3: at scheduledAt − noDriverAlertMin a trip with no driver (requested, searching or offered) is marked
             TripProjection.reservation.noDriver true (the admin''s Alerts and Reservations show ''Booked ride soon with no
             driver'') and the rider gets push kind reservation_no_driver; the search goes on (it starts at once if it had
-            not).'
+            not). BL-Q7: at the pickup time with still no driver, TripProjection.reservation.overdue becomes true (the admin''s
+            alert ''Booked ride: pickup time passed, no driver''); the ride never expires by itself.'
+        overdue:
+          type: boolean
+          description: 'BL-Q7: the pickup time passed with no driver.'
+        changeAsk:
+          type: object
+          description: 'Q6: more than freeChangeBeforeMin minutes (default 60) before pickup the rider may change the booking:
+            POST /trips/{tripId}/reschedule { quoteId, expectedVersion } with a new kind=scheduled quote (the app shows its
+            new price first) → TripProjection with the new places, time and price; a driver who held it is asked ''Keep it
+            at the new time?'' (push kind reservation_change_ask, TripProjection.reservation.changeAsk { until, previousAt
+            }; POST /driver/reservations/{tripId}/keep { keep }); Yes keeps it (rider told reservation_driver_found), No or
+            no answer within changeAnswerMin (default 15) puts it back on the list (transition release, push reservation_changed)
+            and the ride is planned again (bookLater.plan). Later → 409 conflict, reason change_too_late. Not a scheduled
+            trip, or not before pickup → 409 not_a_reservation.'
+          required:
+          - until
+          - previousAt
+          properties:
+            until:
+              $ref: '#/components/schemas/Timestamp'
+            previousAt:
+              $ref: '#/components/schemas/Timestamp'
         mustBeOnlineAt:
           allOf:
           - $ref: '#/components/schemas/Timestamp'
@@ -29554,9 +29884,12 @@ components:
       type: object
       description: 'v0.18.17: Q6: more than freeChangeBeforeMin minutes (default 60) before pickup the rider may change the
         booking: POST /trips/{tripId}/reschedule { quoteId, expectedVersion } with a new kind=scheduled quote (the app shows
-        its new price first) → TripProjection with the new places, time and price; a driver who held it loses it (push kind
-        reservation_changed) and the ride is planned again (bookLater.plan). Later → 409 conflict, reason change_too_late.
-        Not a scheduled trip, or not before pickup → 409 not_a_reservation.'
+        its new price first) → TripProjection with the new places, time and price; a driver who held it is asked ''Keep it
+        at the new time?'' (push kind reservation_change_ask, TripProjection.reservation.changeAsk { until, previousAt };
+        POST /driver/reservations/{tripId}/keep { keep }); Yes keeps it (rider told reservation_driver_found), No or no answer
+        within changeAnswerMin (default 15) puts it back on the list (transition release, push reservation_changed) and the
+        ride is planned again (bookLater.plan). Later → 409 conflict, reason change_too_late. Not a scheduled trip, or not
+        before pickup → 409 not_a_reservation.'
       required:
       - quoteId
       - expectedVersion
@@ -29579,3 +29912,50 @@ components:
           type: string
           minLength: 1
           maxLength: 500
+    ReservationKeepCommand:
+      type: object
+      description: 'v0.18.17: POST /driver/reservations/{tripId}/keep { keep: boolean } → TripProjection: the driver''s answer
+        to the rider''s change (owner BL-Q6). No open question → 409 invalid_transition.'
+      required:
+      - keep
+      properties:
+        keep:
+          type: boolean
+    HomeArea:
+      type: object
+      description: 'v0.18.17: PUT /driver/home-area { lat, lng, label? } (label at most 120 chars) or DELETE → the Driver
+        profile with homeArea { lat, lng, label? } (owner BL-Q4: set in the driver app; admins see it on GET /admin/drivers/{driverId}).'
+      required:
+      - lat
+      - lng
+      properties:
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+        label:
+          type: string
+          maxLength: 120
+    FavouriteDriverList:
+      type: object
+      description: 'v0.18.17: GET /rider/favourite-drivers → { items: [{ driverId, firstName }] }; PUT /rider/favourite-drivers/{driverId}
+        (only a driver of one of the rider''s completed trips, else 404 driver_not_found) and DELETE (owner BL-Q4: marked
+        after a ride).'
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required:
+            - driverId
+            properties:
+              driverId:
+                $ref: '#/components/schemas/Id'
+              firstName:
+                type: string
