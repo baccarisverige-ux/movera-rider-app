@@ -1,11 +1,11 @@
-# Movera API v0.18.17 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.18 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.17
+  version: 0.18.18
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.17 in this folder; this file must agree with them.
+    v0.18.18 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -83,7 +83,7 @@ tags:
 - name: Driver · Home
 x-contract:
   name: movera
-  version: 0.18.17
+  version: 0.18.18
   source: contract.json
 paths:
   /auth/otp/request:
@@ -343,16 +343,19 @@ paths:
   /auth/test-accounts:
     get:
       operationId: listTestAccounts
-      summary: Test numbers and their account status (not in production)
+      summary: Test numbers and their account status (not in production; admin only)
       description: 'v0.15.0 (owner 2026-10-29, decision 6, "Only in test builds"): GET /auth/test-accounts → TestAccountList
         { accounts: [TestAccount { phone, app, status, name? }] } lists the test numbers with each one''s account status,
         so the sign-in screen of a staging or test build can show them. No bearer token. It exists only while MOVERA_ENV is
-        not production: a production server answers 404 not_found and the store builds never call it.'
+        not production: a production server answers 404 not_found and the store builds never call it. v0.18.18 (owner 2026-11-03
+        "Close it now"): the list needs a signed-in admin with drivers.read (401 unauthenticated without a bearer token, 403
+        forbidden without the permission); the apps cannot fetch it signed out, so their Test numbers button shows "Ask an
+        admin for the test numbers" (sv/fr/en) and typed test numbers still sign in with the test code.'
       tags:
       - Auth
       x-actor:
-      - rider
-      - driver
+      - admin
+      x-permission: drivers.read
       parameters:
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
@@ -380,7 +383,6 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
-      security: []
   /auth/sign-out:
     post:
       operationId: signOut
@@ -21383,7 +21385,10 @@ components:
       description: 'v0.15.0 (owner 2026-10-29, decision 6, "Only in test builds"): GET /auth/test-accounts → TestAccountList
         { accounts: [TestAccount { phone, app, status, name? }] } lists the test numbers with each one''s account status,
         so the sign-in screen of a staging or test build can show them. No bearer token. It exists only while MOVERA_ENV is
-        not production: a production server answers 404 not_found and the store builds never call it.'
+        not production: a production server answers 404 not_found and the store builds never call it. v0.18.18 (owner 2026-11-03
+        "Close it now"): the list needs a signed-in admin with drivers.read (401 unauthenticated without a bearer token, 403
+        forbidden without the permission); the apps cannot fetch it signed out, so their Test numbers button shows "Ask an
+        admin for the test numbers" (sv/fr/en) and typed test numbers still sign in with the test code.'
       required:
       - accounts
       properties:

@@ -11,6 +11,7 @@ import 'package:movera_rider/features/auth/application/auth_error_message.dart';
 import 'package:movera_rider/features/auth/application/phone_country_default.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
 import 'package:movera_rider/features/auth/domain/phone_country.dart';
+import 'package:movera_rider/features/auth/domain/build_test_numbers.dart';
 import 'package:movera_rider/features/auth/domain/test_account.dart';
 import 'package:movera_rider/features/auth/presentation/add_phone.dart';
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
@@ -28,7 +29,12 @@ import 'package:movera_rider/l10n/l10n.dart';
 /// Step 1 for everyone: one phone field for new and returning riders, with
 /// Apple and Google underneath.
 class SignIn extends StatefulWidget {
-  const SignIn({super.key, this.controller, this.showTestAccounts});
+  const SignIn({
+    super.key,
+    this.controller,
+    this.showTestAccounts,
+    this.buildTestNumbers,
+  });
 
   final AuthController? controller;
 
@@ -36,6 +42,9 @@ class SignIn extends StatefulWidget {
   /// numbers with their account status under the form. Null: only a
   /// staging build (a live server that is not production).
   final bool? showTestAccounts;
+
+  /// Test numbers given at build time; null reads MOVERA_TEST_NUMBERS.
+  final List<String>? buildTestNumbers;
 
   @override
   State<SignIn> createState() => _SignInState();
@@ -116,6 +125,9 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
   /// Owner 2026-11-02 (as the driver app, PR #443): the test numbers sit
   /// behind one button; closed, the picture and "Need help?" stay visible.
   bool _testListOpen = false;
+  // v0.18.18 (owner 2026-11-03 "Close it now"): the list needs an admin, so
+  // a test build keeps the button and says where to get the numbers.
+  bool _testNumbersButton = false;
 
   /// Owner round 3: the terms box must be ticked before any sign-in path.
   bool _agreed = false;
@@ -138,11 +150,25 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
         !env.isProduction &&
         (widget.showTestAccounts ?? !env.allowsMockTransport);
     if (!show) return;
+    if (mounted) setState(() => _testNumbersButton = true);
     try {
       final accounts = await _auth.testAccounts();
-      if (mounted) setState(() => _testAccounts = accounts);
+      if (accounts.isNotEmpty) {
+        if (mounted) setState(() => _testAccounts = accounts);
+        return;
+      }
     } catch (_) {
-      // A production server has no such list (404); nothing to show.
+      // Signed out the server answers 401 (admin only since v0.18.18).
+    }
+    // Owner 2026-11-03: the numbers this test build was given (no status,
+    // no names); none -> the open button shows l10n.testNumbersAskAdmin.
+    final numbers = widget.buildTestNumbers ?? parseTestNumbers();
+    if (mounted && numbers.isNotEmpty) {
+      setState(
+        () => _testAccounts = [
+          for (final phone in numbers) TestAccount(phone: phone, status: ''),
+        ],
+      );
     }
   }
 
@@ -447,7 +473,7 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
           if (_providerError != null) AuthErrorText(_providerError!),
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: _testAccounts.isEmpty
+            child: !_testNumbersButton
                 ? const NeedHelpLink()
                 : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -469,7 +495,18 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
                     ],
                   ),
           ),
-          if (_testAccounts.isNotEmpty && _testListOpen) _testAccountList(),
+          if (_testNumbersButton && _testListOpen)
+            _testAccounts.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      context.l10n.testNumbersAskAdmin,
+                      key: const ValueKey('auth-test-numbers-ask-admin'),
+                      textAlign: TextAlign.center,
+                      style: AuthText.small().copyWith(color: AuthColors.muted),
+                    ),
+                  )
+                : _testAccountList(),
         ],
       ),
     );
@@ -544,14 +581,15 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
                         style: AuthText.small().copyWith(color: AuthColors.ink),
                       ),
                     ),
-                    Text(
-                      _statusWord(account.status),
-                      style: AuthText.small().copyWith(
-                        color: account.status == 'active'
-                            ? AuthColors.green
-                            : AuthColors.muted,
+                    if (account.status.isNotEmpty)
+                      Text(
+                        _statusWord(account.status),
+                        style: AuthText.small().copyWith(
+                          color: account.status == 'active'
+                              ? AuthColors.green
+                              : AuthColors.muted,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),

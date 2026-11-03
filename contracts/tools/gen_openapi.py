@@ -1382,10 +1382,11 @@ PATHS["/auth/otp/verify"]["post"]["responses"]["410"] = err("otp_expired: the co
 for o in [
     op("post", "/auth/waitlist", "joinWaitlist", "Join the waiting list (number not open for sign-in yet)", ["rider", "driver"], "Auth",
        body="WaitlistRequest", ok=(200, "WaitlistReceipt"), desc=AU["waitlist"]["note"]),
-    op("get", "/auth/test-accounts", "listTestAccounts", "Test numbers and their account status (not in production)", ["rider", "driver"], "Auth",
-       ok=(200, "TestAccountList"), desc=AU["testAccounts"]["note"]),
 ]:
     o["security"] = []
+# v0.18.18 (owner 2026-11-03 "Close it now"): the test-account list needs a signed-in admin (drivers.read).
+op("get", "/auth/test-accounts", "listTestAccounts", "Test numbers and their account status (not in production; admin only)", ["admin"], "Auth",
+   ok=(200, "TestAccountList"), permission=AU["testAccounts"]["permission"], desc=AU["testAccounts"]["note"])
 op("post", "/auth/sign-out", "signOut", "End this session (revokes the refresh token)", ["rider", "driver"], "Auth", ok=(204, None),
    desc="Idempotent; also unregister the push device.")
 op("post", "/push/devices", "registerPushDevice", "Register this device's push token", ["rider", "driver"], "Auth",

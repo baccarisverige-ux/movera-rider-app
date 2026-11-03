@@ -2996,6 +2996,7 @@
   "waitlistSaved": "You’re on the waiting list. We’ll let you know when sign-in opens for your number.",
   "testNumbersTitle": "Test numbers (test build only)",
   "testNumbersButton": "Test numbers",
+  "testNumbersAskAdmin": "Ask an admin for the test numbers",
   "testStatusNew": "Test · no account yet",
   "testStatusActive": "Active",
   "testStatusSuspended": "Suspended",
