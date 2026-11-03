@@ -305,10 +305,10 @@
     "assignAcceptSeconds": 30,
     "rideTypes": {
       "normal": {
-        "onlineBeforeMin": 30,
+        "onlineBeforeMin": 60,
         "spareMin": 15,
         "reminderMin": [
-          60,
+          120,
           15
         ]
       },
@@ -316,7 +316,7 @@
         "onlineBeforeMin": 60,
         "spareMin": 15,
         "reminderMin": [
-          60,
+          120,
           15
         ]
       },
@@ -324,7 +324,7 @@
         "onlineBeforeMin": 60,
         "spareMin": 15,
         "reminderMin": [
-          60,
+          120,
           15
         ]
       },
@@ -332,7 +332,7 @@
         "onlineBeforeMin": 45,
         "spareMin": 15,
         "reminderMin": [
-          60,
+          120,
           15
         ]
       },
@@ -340,7 +340,7 @@
         "onlineBeforeMin": 45,
         "spareMin": 15,
         "reminderMin": [
-          60,
+          120,
           15
         ]
       }
@@ -350,7 +350,25 @@
       "toleranceMin": 3,
       "checkEverySeconds": 60,
       "reassignTo": "exclusive"
-    }
+    },
+    "minAheadMin": 15,
+    "maxAheadDays": 90,
+    "soonBeforeMin": 30,
+    "listTo": "all",
+    "listMinRating": 4.5,
+    "listGroupSize": 10,
+    "listNearKm": 5,
+    "listAreaTrips": 5,
+    "listGroupId": null,
+    "listOpenAll": true,
+    "listOpenAllAfterMin": 30,
+    "noticeOn": true,
+    "noticeMaxDrivers": 20,
+    "homePopup": true,
+    "noDriverAlertMin": 10,
+    "riderReminderMin": 60,
+    "freeChangeBeforeMin": 60,
+    "maxTripKm": 60
   },
   "cancelReasons": {
     "driverBeforeTrip": [

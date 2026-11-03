@@ -73,6 +73,7 @@ import 'package:movera_rider/features/profile/application/profile_controller.dar
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
 import 'package:movera_rider/features/profile/data/synced_profile_repository.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/reservations/data/api_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/data/api_scheduled_ride_rules_source.dart';
 import 'package:movera_rider/features/reservations/data/disabled_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
@@ -171,10 +172,14 @@ class AppScope {
     walletBalances = flags.wallet || !release
         ? LocalWalletRepository()
         : const DisabledWalletRepository();
-    reservationRepository =
-        flags.scheduledRides || flags.bookingLater || !release
-        ? LocalReservationRepository()
-        : DisabledReservationRepository();
+    // Contract v0.18.17 Book later (owner 2026-11-03): release builds book
+    // later on the server. Book later switched off: the fail-closed
+    // stand-in (kept for that case).
+    reservationRepository = !(flags.scheduledRides || flags.bookingLater)
+        ? (release ? DisabledReservationRepository() : LocalReservationRepository())
+        : release
+        ? ApiReservationRepository(api: api, categoryLabel: (id) => catalog.labelOf(id) ?? id)
+        : LocalReservationRepository();
     savedCardsStore = flags.savedCards || !release
         ? const PrefsSavedCardsStore()
         : const DisabledSavedCardsStore();

@@ -68,7 +68,7 @@ class TripTransition {
 /// Anything not in the table is `409 invalid_transition` and the status does
 /// not change.
 abstract final class TripStateMachine {
-  static const contractVersion = '0.18.15';
+  static const contractVersion = '0.18.17';
 
   static const _s = TripStatus.searching;
   static const _o = TripStatus.offered;
@@ -149,6 +149,10 @@ abstract final class TripStateMachine {
       _s,
       when: TripKind.scheduled,
     ),
+    // v0.18.17 Book later: offline driver loses it, admin unassign, rider change.
+    TripTransition('release', TripActor.system, {_a}, _rq, when: TripKind.scheduled),
+    TripTransition('unassign', TripActor.admin, {_a}, _rq, when: TripKind.scheduled),
+    TripTransition('reschedule', TripActor.rider, {_rq, _a}, _rq, when: TripKind.scheduled),
     TripTransition('cancel', TripActor.driver, {
       _ob,
       _it,

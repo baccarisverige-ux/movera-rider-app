@@ -380,9 +380,10 @@ S["SupportTicket"] = obj({"ticketId": ref("Id"), "tripId": ref("Id"), "openedBy"
                           "messages": arr(ref("TicketMessage"), description="v0.9.0: only on GET /support/tickets/{ticketId} and GET /admin/tickets/{ticketId}, oldest first."),
                           # v0.18.15 (contract.json#supportDesk.adminView): admin views only.
                           "assignedTo": obj({"adminId": ref("Id"), "name": s()}, ["adminId"], "v0.18.15: the admin who works on the ticket (claim or assign); admin views only."),
-                          "claimedUntil": ref("Timestamp"), "solvedBy": ref("Id"), "solvedAt": ref("Timestamp"),
+                          "solvedBy": ref("Id"), "solvedAt": ref("Timestamp"),
                           "incidentId": {"allOf": [ref("Id")], "description": "v0.18.15: the support_case incident opened from this ticket (admin views only)."},
                           "firstReplyAt": ref("Timestamp"), "firstReplyDueAt": ref("Timestamp"), "solveDueAt": ref("Timestamp"),
+                          "feedback": obj({"text": s(maxLength=2000), "at": ref("Timestamp")}, ["text", "at"], "v0.18.15: the person's optional comment after the ticket was solved (contract.json#supportDesk.feedback)."),
                           "late": obj({"reply": b(), "solve": b()}, ["reply", "solve"], "v0.18.15: past the topic's time limits of the ticket's country (admin views only).")},
                          ["ticketId", "openedBy", "category", "subject", "status", "createdAt", "updatedAt"])
 S["TicketMessage"] = obj({"messageId": ref("Id"), "from": s(enum=["rider", "driver", "support"]), "text": s(minLength=1, maxLength=5000),
@@ -394,6 +395,7 @@ S["TicketReplyCommand"] = obj({"text": s(minLength=1, maxLength=5000), "status":
                               ["text"], "v0.9.0: Admin › Support answers a ticket.")
 SD = C["supportDesk"]
 S["TicketPersonMessage"] = obj({"text": s(minLength=1, maxLength=5000)}, ["text"], "v0.18.15: the rider or driver writes on their own ticket (contract.json#supportDesk.personReply).")
+S["TicketFeedback"] = obj({"text": s(minLength=1, maxLength=2000)}, ["text"], "v0.18.15: " + SD["feedback"])
 S["SupportTopics"] = obj({"country": s(pattern="^[A-Z]{2}$"), "topics": arr(s(enum=C["support"]["categories"]))}, ["topics"],
                          "v0.18.15: the ticket topics that are on for the caller's country (contract.json#supportDesk.topics).")
 S["TicketAssignCommand"] = obj({"adminId": {"oneOf": [ref("Id"), {"type": "null"}]}, "reason": s(minLength=1, maxLength=500)}, ["adminId", "reason"], "v0.18.15.")
@@ -402,12 +404,13 @@ S["TicketWaitingCommand"] = obj({"waiting": b()}, ["waiting"], "v0.18.15.")
 S["TicketSolveCommand"] = obj({"note": s("Private; never sent to the app.", maxLength=2000)}, (), "v0.18.15.")
 S["TicketReasonCommand"] = obj({"reason": s(minLength=1, maxLength=500)}, ["reason"], "v0.18.15: reopen or open a case.")
 S["EmptyCommand"] = S.get("EmptyCommand") or obj({}, (), "No fields.")
-S["SupportTopicSetting"] = obj({"code": s(enum=C["support"]["categories"]), "on": b(), "firstReplyMin": i(minimum=1, maximum=10080), "solveHours": i(minimum=1, maximum=720)},
+S["SupportTopicSetting"] = obj({"code": s(enum=C["support"]["categories"]), "on": b(), "assignTo": {"allOf": [ref("Id")], "description": "v0.18.15 (owner auto-sort by topic): the admin who gets new tickets of this topic."}, "firstReplyMin": i(minimum=1, maximum=10080), "solveHours": i(minimum=1, maximum=720)},
                                ["code", "on", "firstReplyMin", "solveHours"])
-S["SupportSettings"] = obj({"country": s(enum=SD["settings"]["countries"]), "claimDays": i(minimum=1, maximum=30),
-                            "replyAfterSolved": s(enum=["reopen", "blocked"]), "topics": arr(ref("SupportTopicSetting"), minItems=1),
+S["SupportReply"] = obj({"id": s(pattern="^[A-Za-z0-9_-]{1,40}$"), "lang": s(enum=["sv", "fr", "en"]), "title": s(minLength=1, maxLength=80), "text": s(minLength=1, maxLength=2000)},
+                       ["id", "lang", "title", "text"], "v0.18.15: " + SD["settings"]["replies"])
+S["SupportSettings"] = obj({"country": s(enum=SD["settings"]["countries"]), "rev": i(minimum=1, description="Read only."), "agents": arr(obj({"adminId": ref("Id"), "name": s()}, ["adminId", "name"]), description="Read only: " + SD["settings"]["agents"]), "expectedRev": i(minimum=1, description="PUT only: the rev read."), "replies": arr(ref("SupportReply"), maxItems=100), "topics": arr(ref("SupportTopicSetting"), minItems=1),
                             "updatedAt": ref("Timestamp"), "updatedBy": ref("Id")},
-                           ["country", "claimDays", "replyAfterSolved", "topics"], "v0.18.15: Admin › Support › Settings per country (contract.json#supportDesk.settings).")
+                           ["country", "topics"], "v0.18.15: Admin › Support › Settings per country (contract.json#supportDesk.settings).")
 AD = C["alertDesk"]
 S["AlertEvent"] = obj({"at": ref("Timestamp"), "by": ref("Id"), "byName": s(), "toName": s(), "kind": s(enum=["take", "done", "snooze", "pass", "reopen"]), "text": s(maxLength=500), "to": ref("Id")}, ["at", "by", "kind", "text"])
 S["AlertRecord"] = obj({"alertId": s(pattern="^[A-Za-z0-9_:.-]{1,200}$"), "kind": s(pattern="^[a-z][a-z0-9_]{0,63}$"), "level": s(enum=["critical", "important", "info"]),
@@ -435,10 +438,11 @@ S["IncidentSettingsDoc"] = obj({"country": s(enum=C["supportDesk"]["settings"]["
 S["IncidentSettingsCommand"] = obj({"country": s(enum=C["supportDesk"]["settings"]["countries"]), "expectedRev": i(minimum=1), "settings": {"type": "object"}}, ["country", "expectedRev", "settings"], "v0.18.15.")
 RR = C["reviewRules"]
 _LINE = obj({"on": b(), "below": n(minimum=1, maximum=5)}, ["on", "below"])
-S["ReviewRules"] = obj({"country": s(enum=C["supportDesk"]["settings"]["countries"]), "warn": _LINE, "review": _LINE, "block": _LINE, "minReviews": i(minimum=1, maximum=1000),
+S["ReviewRules"] = obj({"country": s(enum=C["supportDesk"]["settings"]["countries"]), "warn": _LINE, "review": _LINE, "minReviews": i(minimum=1, maximum=1000),
+                        "warningText": obj({"sv": s(minLength=1, maxLength=500), "fr": s(minLength=1, maxLength=500), "en": s(minLength=1, maxLength=500)}, ["sv", "fr", "en"], "Owner 'Softer': the warning notice per language; {average} = the person's average."),
                         "badWords": obj({"on": b(), "words": arr(s(minLength=1, maxLength=40), maxItems=200)}, ["on", "words"]), "updatedAt": ref("Timestamp"), "updatedBy": ref("Id")},
-                       ["country", "warn", "review", "block", "minReviews", "badWords"], "v0.18.15: " + RR["rules"])
-S["ReviewQueueRow"] = obj({"who": s(enum=["driver", "rider"]), "personId": ref("Id"), "name": s(), "country": s(), "level": s(enum=["review", "block"]), "average": n(), "count": i(minimum=0), "since": ref("Timestamp")},
+                       ["country", "warn", "review", "minReviews", "badWords"], "v0.18.15: " + RR["rules"])
+S["ReviewQueueRow"] = obj({"who": s(enum=["driver", "rider"]), "personId": ref("Id"), "name": s(), "country": s(), "level": s(enum=["review"]), "average": n(), "count": i(minimum=0), "since": ref("Timestamp")},
                           ["who", "personId", "level", "average", "count", "since"])
 S["ReviewQueue"] = obj({"items": arr(ref("ReviewQueueRow"))}, ["items"], "v0.18.15: " + RR["queue"])
 S["ReviewDoneCommand"] = obj({"note": s(minLength=1, maxLength=500)}, ["note"], "v0.18.15.")
@@ -1688,9 +1692,11 @@ op("post", "/admin/tickets/{ticketId}/reply", "adminReplyTicket", "Answer a supp
 # v0.18.15 support desk (contract.json#supportDesk)
 op("post", "/support/tickets/{ticketId}/messages", "writeOwnTicket", "Write on an own support ticket", ["rider", "driver"], "Support",
    params=[pref("TicketId")], body="TicketPersonMessage", ok=(201, "SupportTicket"), mutation=True,
-   desc="v0.18.15 (owner QO-1, chat-style): the status becomes open. 409 invalid_transition, reason ticket_closed; reason ticket_solved when SupportSettings.replyAfterSolved is blocked.")
+   desc="v0.18.15 (owner QO-1, chat-style): the status becomes open. A solved or closed ticket takes no more messages (owner: \"Can't write\"): 409 invalid_transition, reason ticket_solved or ticket_closed.")
+op("post", "/support/tickets/{ticketId}/feedback", "giveTicketFeedback", "Comment on a solved ticket", ["rider", "driver"], "Support",
+   params=[pref("TicketId")], body="TicketFeedback", ok=(201, "SupportTicket"), mutation=True, desc="v0.18.15. " + SD["feedback"])
 op("get", "/support/topics", "listSupportTopics", "Ticket topics that are on", ["rider", "driver"], "Support", ok=(200, "SupportTopics"), desc="v0.18.15 (owner QO-4).")
-for verb, body, summary, d in [("claim", "EmptyCommand", "Claim a ticket", SD["adminCommands"]["claim"]), ("assign", "TicketAssignCommand", "Assign a ticket", SD["adminCommands"]["assign"]),
+for verb, body, summary, d in [("claim", "EmptyCommand", "Claim a ticket", SD["adminCommands"]["claim"]), ("leave", "EmptyCommand", "Leave a claimed ticket", SD["adminCommands"]["leave"]), ("assign", "TicketAssignCommand", "Assign a ticket", SD["adminCommands"]["assign"]),
                                ("topic", "TicketTopicCommand", "Change a ticket's topic", SD["adminCommands"]["topic"]), ("waiting", "TicketWaitingCommand", "Mark waiting for the person", SD["adminCommands"]["waiting"]),
                                ("solve", "TicketSolveCommand", "Solve a ticket", SD["adminCommands"]["solve"]), ("reopen", "TicketReasonCommand", "Reopen a ticket", SD["adminCommands"]["reopen"]),
                                ("case", "TicketReasonCommand", "Open a safety case from a ticket", SD["adminCommands"]["case"])]:
@@ -2679,6 +2685,55 @@ op("post", "/account/phone/change", "startPhoneChange", "Change my phone number:
 op("post", "/account/phone/verify", "verifyPhoneChange", "Save the new phone number with its code", ["rider", "driver"], "Account", body="AccountPhoneVerify", ok=(200, None), desc="v0.18.14: " + _D1["accountChange"])
 op("post", "/account/email/change", "startEmailChange", "Change my e-mail: send a code to the new one", ["rider", "driver"], "Account", body="AccountEmailChange", ok=(200, "AccountEmailChallenge"), desc="v0.18.14: " + _D1["accountChange"])
 op("post", "/account/email/verify", "verifyEmailChange", "Save the new e-mail with its code", ["rider", "driver"], "Account", body="AccountEmailVerify", ok=(200, None), desc="v0.18.14: " + _D1["accountChange"])
+# v0.18.17 Book later (CONTRACT.md §41, contract.json#bookLater): booked rides end to end.
+BL = C["bookLater"]
+_RD = C["configDefaults"]["reservations"]
+for _k, _sch in [("minAheadMin", i("v0.18.17 (owner Q1): the earliest pickup, minutes after booking. " + BL["window"], minimum=5, maximum=240)),
+                 ("maxAheadDays", i("v0.18.17 (owner Q1): the latest pickup, days after booking.", minimum=1, maximum=365)),
+                 ("soonBeforeMin", i("v0.18.17 (owner Q2): a booking closer than this goes out at once like a live ride; else to the Scheduled rides list. " + BL["plan"], minimum=0, maximum=240)),
+                 ("listTo", s("v0.18.17: who sees a new booked ride in Scheduled rides. " + BL["listTo"]["rules"], enum=BL["listTo"]["values"])),
+                 ("listMinRating", n(minimum=1, maximum=5)), ("listGroupSize", i(minimum=1, maximum=500)), ("listNearKm", n(minimum=0.5, maximum=50)),
+                 ("listAreaTrips", i(minimum=1, maximum=200)), ("listGroupId", {"oneOf": [ref("Id"), {"type": "null"}]}),
+                 ("listOpenAll", b("v0.18.17: untaken after listOpenAllAfterMin minutes, every driver of the zone sees it.")), ("listOpenAllAfterMin", i(minimum=1, maximum=1440)),
+                 ("noticeOn", b("v0.18.17 (owner Q2): the reservation notice (push reservation_new) at booking.")),
+                 ("noticeMaxDrivers", i("v0.18.17: at most this many drivers get the notice, nearest to the pickup first.", minimum=1, maximum=500)),
+                 ("homePopup", b("v0.18.17: untaken after homePopupAfterMin minutes, a second notice (reservation_popup, the Home popup).")),
+                 ("noDriverAlertMin", i("v0.18.17 (owner Q3): no driver this many minutes before pickup → admin alert + rider told; the search goes on. " + BL["noDriver"], minimum=1, maximum=120)),
+                 ("riderReminderMin", i("v0.18.17 (owner Q5 rider): rider reminder this many minutes before pickup; 0 = off.", minimum=0, maximum=1440)),
+                 ("maxTripKm", n("v0.18.17: the longest booked ride in km (the demo admin's Max Trip Distance (Reservations)); longer → 400 trip_too_long at quote.", minimum=1, maximum=1000)),
+                 ("freeChangeBeforeMin", i("v0.18.17 (owner Q6): change or cancel free only more than this many minutes before pickup. " + BL["rider"]["change"], minimum=0, maximum=1440))]:
+    S["DriverReservations"]["properties"][_k] = dflt(_sch, _RD[_k])
+for _k in ("minAheadMin", "maxAheadDays", "freeChangeBeforeMin"):
+    S["RiderAppConfig"]["properties"]["booking"]["properties"][_k] = {**S["DriverReservations"]["properties"][_k], "description": "v0.18.17: written by the server from the zone's DriverAppConfig.reservations." + _k}
+S["ReservationInfo"] = obj({"mode": s(enum=["now", "list"]), "dispatchAt": ref("Timestamp"), "freeChangeUntil": ref("Timestamp"), "noDriver": b(BL["noDriver"]),
+                            "mustBeOnlineAt": {"allOf": [ref("Timestamp")], "description": "Driver and admin views of an accepted ride."}},
+                           ["mode", "dispatchAt", "freeChangeUntil", "noDriver"], "v0.18.17: " + BL["rider"]["projection"])
+S["TripProjection"]["properties"]["reservation"] = {"allOf": [ref("ReservationInfo")], "description": "v0.18.17: kind scheduled only."}
+S["DriverReservation"] = obj(OrderedDict([("tripId", ref("Id")), ("version", i(minimum=1)), ("scheduledAt", ref("Timestamp")), ("categoryId", ref("CategoryId")),
+                              ("rideType", s(BL["driver"]["rideType"], enum=["normal", "airport", "longTrip", "comfortPremium", "event"])),
+                              ("pickup", ref("Place")), ("dropoff", ref("Place")), ("stops", i(minimum=0)), ("distanceMeters", i(minimum=0)), ("durationSeconds", i(minimum=0)),
+                              ("earnings", ref("Money")), ("status", ref("TripStatus")), ("mustBeOnlineAt", ref("Timestamp")), ("canStartAt", ref("Timestamp")),
+                              ("popup", b("The Home popup step was reached (reservation_popup sent)."))]),
+                             ["tripId", "version", "scheduledAt", "categoryId", "rideType", "pickup", "dropoff", "earnings", "status", "mustBeOnlineAt", "canStartAt"], "v0.18.17: one booked ride in the driver's lists.")
+S["DriverReservationPage"] = obj({"items": arr(ref("DriverReservation")), "nextCursor": {"oneOf": [s(), {"type": "null"}]}}, ["items", "nextCursor"], "v0.18.17.")
+S["ReservationAcceptCommand"] = obj({"expectedVersion": i(minimum=1)}, (), "v0.18.17.")
+S["ReservationReleaseCommand"] = obj({"reasonCode": ref("ScheduledCancelReasonCode"), "note": s(maxLength=1000)}, ["reasonCode"], "v0.18.17: " + BL["driver"]["release"])
+S["RescheduleCommand"] = obj({"quoteId": ref("Id"), "expectedVersion": i(minimum=1)}, ["quoteId", "expectedVersion"], "v0.18.17: " + BL["rider"]["change"])
+S["AdminReservationCommand"] = obj({"expectedVersion": i(minimum=1), "reason": s(minLength=1, maxLength=500)}, ["expectedVersion"], "v0.18.17: reason is required for unassign.")
+PATHS["/driver/reservations"]["get"]["responses"]["200"]["content"]["application/json"]["schema"] = {"oneOf": [ref("DriverReservationPage"), ref("TripProjectionPage")]}
+PATHS["/driver/reservations"]["get"]["responses"]["200"]["description"] = "v0.18.17: scope=open → DriverReservationPage; scope=accepted → DriverReservationPage of the driver's accepted rides. " + BL["driver"]["list"]
+PATHS["/driver/reservations"]["get"]["responses"]["200"]["content"]["application/json"]["schema"] = ref("DriverReservationPage")
+RTID = [{"name": "tripId", "in": "path", "required": True, "schema": ref("Id")}]
+op("post", "/driver/reservations/{tripId}/accept", "acceptReservation", "Take a booked ride from Scheduled rides", ["driver"], "Driver · Offers", params=RTID, body="ReservationAcceptCommand", ok=(200, TP), mutation=True, transition="accept", desc="v0.18.17. " + BL["driver"]["accept"])
+op("post", "/driver/reservations/{tripId}/release", "releaseReservation", "Give a booked ride back", ["driver"], "Driver · Offers", params=RTID, body="ReservationReleaseCommand", ok=(204, None), mutation=True, transition="cancel", desc="v0.18.17. " + BL["driver"]["release"])
+op("post", "/driver/reservations/{tripId}/start", "startReservation", "Start driving to a booked ride's pickup", ["driver"], "Driver · Offers", params=RTID, body="ReservationAcceptCommand", ok=(200, TP), mutation=True, transition="head_to_pickup", desc="v0.18.17. " + BL["driver"]["start"])
+op("post", "/trips/{tripId}/reschedule", "rescheduleTrip", "Change a booked ride (new quote, new price)", ["rider"], "Trips", params=TID, body="RescheduleCommand", ok=(200, TP), mutation=True, transition="reschedule", desc="v0.18.17. " + BL["rider"]["change"])
+op("post", "/admin/trips/{tripId}/reservation/unassign", "adminUnassignReservation", "Take the driver off a booked ride (back to the list)", ["admin"], "Admin · Trips", params=TID, body="AdminReservationCommand", ok=(200, TP), mutation=True, transition="unassign", permission="trips.intervene", desc="v0.18.17. " + BL["admin"]["actions"])
+op("post", "/admin/trips/{tripId}/reservation/dispatch-now", "adminDispatchReservationNow", "Send a booked ride to drivers now", ["admin"], "Admin · Trips", params=TID, body="AdminReservationCommand", ok=(200, TP), mutation=True, transition="start_search", permission="trips.intervene", desc="v0.18.17. " + BL["admin"]["actions"])
+PATHS["/trips/{tripId}/cancel"]["post"]["description"] += " v0.18.17: " + BL["rider"]["cancel"]
+PATHS["/quotes"]["post"]["description"] = PATHS["/quotes"]["post"].get("description", "") + " v0.18.17: " + BL["window"]
+PATHS["/trips"]["post"]["description"] += " v0.18.17: " + BL["window"] + " " + BL["card"]
+
 doc = OrderedDict()
 doc["openapi"] = "3.1.0"
 doc["info"] = {

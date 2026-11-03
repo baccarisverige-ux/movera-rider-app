@@ -286,7 +286,8 @@ void main() {
     addTearDown(staging.disposeForTest);
     // Home's and History's schedule entry points read this before they
     // open the flow that could only end in 'isn't available yet'.
-    expect(staging.bookLaterAvailable, isFalse);
+    // v0.18.17 Book later (owner 2026-11-03 "Build it for real"): release builds book later on the server.
+    expect(staging.bookLaterAvailable, isTrue);
     expect(AppScope.instance.bookLaterAvailable, isTrue, reason: 'demo');
   });
 

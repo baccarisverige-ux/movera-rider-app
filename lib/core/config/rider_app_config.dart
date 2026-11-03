@@ -102,6 +102,8 @@ class RiderAppConfig {
     this.paymentMethods = ZoneDefaults.paymentMethods,
     this.maxStops = defaultMaxStops,
     this.bookingHorizonDays = defaultBookingHorizonDays,
+    this.minAheadMin = defaultMinAheadMin,
+    this.freeChangeBeforeMin = defaultFreeChangeBeforeMin,
     this.maxPickupMoveMeters = defaultMaxPickupMoveAfterAcceptMeters,
     this.country = 'SE',
     this.languages = const AppLanguages(rider: 'sv', driver: 'sv', admin: 'sv'),
@@ -128,6 +130,12 @@ class RiderAppConfig {
   static const defaultTimeZone = 'Europe/Stockholm';
   static const defaultMaxStops = 3;
   static const defaultBookingHorizonDays = 14;
+
+  /// Contract v0.18.17 Book later (owner Q1, Q6): the earliest pickup, in
+  /// minutes after booking, and the free change / cancel time before it.
+  /// The server writes both from the zone's settings.
+  static const defaultMinAheadMin = 15;
+  static const defaultFreeChangeBeforeMin = 60;
 
   /// Q40: how far, in metres, a rider may move the pickup once a driver
   /// has accepted; further means cancel and rebook. The zone's value is
@@ -157,6 +165,12 @@ class RiderAppConfig {
   final List<String> paymentMethods;
   final int maxStops;
   final int bookingHorizonDays;
+
+  /// Contract v0.18.17 `booking.minAheadMin` (owner Q1, default 15).
+  final int minAheadMin;
+
+  /// Contract v0.18.17 `booking.freeChangeBeforeMin` (owner Q6, default 60).
+  final int freeChangeBeforeMin;
 
   /// `booking.maxPickupMoveMeters`: how far the pickup may move after
   /// accept (Q40).
@@ -378,13 +392,30 @@ class RiderAppConfig {
           _count(booking is Map ? booking['maxStops'] : null, max: 10) ??
           fallback?.maxStops ??
           defaultMaxStops,
+      // Contract v0.18.17 (owner Q1 "15 min to 90 days"): the zone's
+      // maxAheadDays, when the server sends it, is how far ahead it books.
       bookingHorizonDays:
+          _count(
+            booking is Map ? booking['maxAheadDays'] : null,
+            max: 366,
+          ) ??
           _count(
             booking is Map ? booking['bookingHorizonDays'] : null,
             max: 366,
           ) ??
           fallback?.bookingHorizonDays ??
           defaultBookingHorizonDays,
+      minAheadMin:
+          _count(booking is Map ? booking['minAheadMin'] : null, max: 240) ??
+          fallback?.minAheadMin ??
+          defaultMinAheadMin,
+      freeChangeBeforeMin:
+          _count(
+            booking is Map ? booking['freeChangeBeforeMin'] : null,
+            max: 1440,
+          ) ??
+          fallback?.freeChangeBeforeMin ??
+          defaultFreeChangeBeforeMin,
       liveCancelFees: table('live', base?.liveCancelFees ?? const {}),
       reservationCancelFees: table(
         'reservation',
@@ -981,6 +1012,10 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
       'maxStops': 3,
       'bookingHorizonDays': 14,
       'maxPickupMoveMeters': 200,
+      // v0.18.17 Book later (owner Q1, Q6).
+      'minAheadMin': 15,
+      'maxAheadDays': 90,
+      'freeChangeBeforeMin': 60,
     },
     'waiting': {
       'freeWaitMin': 5,

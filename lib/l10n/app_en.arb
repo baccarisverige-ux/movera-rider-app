@@ -3290,5 +3290,30 @@
   "supportTopicPayment": "Payment",
   "supportTopicAccount": "Account and documents",
   "supportTopicSafety": "Safety",
-  "supportTopicOther": "Something else"
+  "supportTopicOther": "Something else",
+  "resErrTooSoon": "Book at least {minutes} minutes before pickup.",
+  "@resErrTooSoon": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "resErrTooFar": "You can book at most {days} days ahead.",
+  "@resErrTooFar": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "resErrTripTooLong": "This ride is too long to book ahead. Book it when you want to go.",
+  "resErrChangeTooLate": "Less than {minutes} minutes before pickup the ride can't be changed. Your ride is unchanged.",
+  "@resErrChangeTooLate": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  }
 }

@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/config/repository_composition.dart';
@@ -15,7 +16,6 @@ import 'package:movera_rider/features/payments/data/saved_cards_store.dart';
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
-import 'package:movera_rider/features/reservations/domain/reservation_errors.dart';
 import 'package:movera_rider/features/ride_booking/data/active_trip_repositories.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
@@ -73,8 +73,9 @@ void main() {
       addTearDown(scope.disposeForTest);
 
       expect(scope.flags.wallet, isFalse);
-      expect(scope.flags.scheduledRides, isFalse);
-      expect(scope.flags.bookingLater, isFalse);
+      // v0.18.17 Book later (owner 2026-11-03 "Build it for real"): release builds book later on the server.
+      expect(scope.flags.scheduledRides, isTrue);
+      expect(scope.flags.bookingLater, isTrue);
       expect(scope.flags.savedCards, isFalse);
 
       expect(scope.walletBalances, isNot(isA<LocalWalletRepository>()));
@@ -83,7 +84,7 @@ void main() {
         scope.reservationRepository,
         isNot(isA<LocalReservationRepository>()),
       );
-      expect(scope.reservationRepository, isA<FeatureOffRepository>());
+      expect(scope.reservationRepository, isA<ServerBackedRepository>());
       expect(scope.savedCardsStore, isNot(isA<PrefsSavedCardsStore>()));
       expect(scope.savedCardsStore, isA<FeatureOffRepository>());
 
@@ -203,7 +204,8 @@ void main() {
           paymentMethod: 'Cash',
         ),
       ),
-      throwsA(isA<ReservationsUnavailableException>()),
+      // v0.18.17: it goes to the server (signed out here), never the device.
+      throwsA(isA<ApiError>()),
     );
     expect(scope.reservations.all, isEmpty);
     final prefs = await SharedPreferences.getInstance();

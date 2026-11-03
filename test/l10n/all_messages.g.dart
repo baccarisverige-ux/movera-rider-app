@@ -1653,6 +1653,10 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'supportTopicAccount': l.supportTopicAccount,
   'supportTopicSafety': l.supportTopicSafety,
   'supportTopicOther': l.supportTopicOther,
+  'resErrTooSoon': l.resErrTooSoon(37),
+  'resErrTooFar': l.resErrTooFar(37),
+  'resErrTripTooLong': l.resErrTripTooLong,
+  'resErrChangeTooLate': l.resErrChangeTooLate(37),
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -1671,6 +1675,9 @@ Map<String, String> allMessagesWithOne(AppLocalizations l) => {
   'retrySeconds': l.retrySeconds(1),
   'resSeatsPayment': l.resSeatsPayment(1, '<payment>'),
   'retryMinutes': l.retryMinutes(1),
+  'resErrTooSoon': l.resErrTooSoon(1),
+  'resErrTooFar': l.resErrTooFar(1),
+  'resErrChangeTooLate': l.resErrChangeTooLate(1),
 };
 
 /// The String placeholders of each message, by key.
@@ -1863,6 +1870,9 @@ const messagePlaceholders = <String, List<String>>{
   'pickupSpotApproximate': ['name'],
   'priceIncludesUnpaidFee': ['amount'],
   'supportAgentLine': ['name'],
+  'resErrTooSoon': [],
+  'resErrTooFar': [],
+  'resErrChangeTooLate': [],
 };
 
 /// The count placeholders (rendered as 37) of each message, by key.
@@ -1880,6 +1890,9 @@ const messageCounts = <String, List<String>>{
   'retrySeconds': ['count'],
   'resSeatsPayment': ['count'],
   'retryMinutes': ['count'],
+  'resErrTooSoon': ['minutes'],
+  'resErrTooFar': ['days'],
+  'resErrChangeTooLate': ['minutes'],
 };
 
 // Compile-time completeness: implements every member of the
@@ -5182,4 +5195,12 @@ class _Exhaustive implements AppLocalizations {
   String get supportTopicSafety => '';
   @override
   String get supportTopicOther => '';
+  @override
+  String resErrTooSoon(int minutes) => '';
+  @override
+  String resErrTooFar(int days) => '';
+  @override
+  String get resErrTripTooLong => '';
+  @override
+  String resErrChangeTooLate(int minutes) => '';
 }

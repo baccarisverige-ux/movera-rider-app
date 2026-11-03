@@ -42,11 +42,12 @@ void main() {
       // ARCH-6 / ARCH-7: no device-only rider repository either.
       for (final repository in <Object>[
         scope.walletBalances,
-        scope.reservationRepository,
         scope.savedCardsStore,
       ]) {
         expect(repository, isA<FeatureOffRepository>());
       }
+      // v0.18.17 Book later (owner 2026-11-03 "Build it for real"): release builds book later on the server.
+      expect(scope.reservationRepository, isA<ServerBackedRepository>());
       for (final repository in <Object>[
         scope.payments,
         scope.defaultPayment,
