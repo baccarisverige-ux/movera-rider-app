@@ -11,7 +11,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/auth/presentation/sign_out_flow.dart';
 import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
-import 'package:movera_rider/features/history/presentation/ride_history.dart';
+import 'package:movera_rider/features/history/presentation/ride_history_result.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/features/profile/presentation/language_picker.dart';
@@ -23,7 +23,7 @@ import 'package:movera_rider/features/promotions/presentation/promotion_details_
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/saved_places/presentation/saved_places.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
-import 'package:movera_rider/features/wallet/presentation/wallet.dart';
+import 'package:movera_rider/app/deferred_screens.dart';
 import 'package:movera_rider/shared/accessibility/a11y.dart';
 import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
@@ -87,7 +87,7 @@ class RiderMenuPage extends StatelessWidget {
     // FLOW-17: name, wallet balance and promotion may have changed there.
     if (context.mounted) _MenuRefresh.refresh(context);
     // D-026: Ride History's "Book a ride" goes to booking, not back here.
-    if (result == RideHistory.startBookingResult) {
+    if (result == rideHistoryStartBookingResult) {
       nav.pop();
       onStartBooking?.call();
     }
@@ -409,7 +409,7 @@ class RiderMenuPage extends StatelessWidget {
           ? context.l10n.menuWallet
           : context.l10n.menuWalletWithAmount(amount),
       onTap: () async {
-        await _pushPage(context, const WalletAndPaymentsScreen());
+        await _pushPage(context, walletAndPaymentsScreen());
         // A top-up in Wallet shows here on the way back.
         reload();
       },
@@ -455,7 +455,7 @@ class RiderMenuPage extends StatelessWidget {
       (
         context.l10n.menuRideHistory,
         'order_ride',
-        () => _pushPage(context, RideHistory()),
+        () => _pushPage(context, rideHistoryScreen()),
       ),
       (
         context.l10n.menuNotifications,

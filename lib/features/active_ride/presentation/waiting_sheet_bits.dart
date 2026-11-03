@@ -9,7 +9,7 @@ import 'package:movera_rider/features/safety/application/safety_controller.dart'
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
 import 'package:movera_rider/features/messages/application/messages_controller.dart';
-import 'package:movera_rider/features/messages/presentation/chat.dart';
+import 'package:movera_rider/app/deferred_screens.dart';
 import 'package:movera_rider/shared/accessibility/a11y.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
@@ -257,7 +257,9 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
     try {
       await Navigator.push(
         context,
-        BottomToTopTransition(Chat(driverName: driverName, rideId: rideId)),
+        BottomToTopTransition(
+          chatScreen(driverName: driverName, rideId: rideId),
+        ),
       );
     } finally {
       _openingChat = false;

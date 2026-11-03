@@ -612,6 +612,21 @@
     // Do not stop heading on pagehide — iOS fires it for the motion prompt
     // and for backgrounding, which previously killed listeners after grant.
   </script>
+  <script>
+    // Owner 2026-11-03 (LT-4 "load on open"): Google Maps JavaScript is not
+    // loaded with the page any more. The deploy writes its address into
+    // window.moveraMapsSrc (just above the app's start script); the first map
+    // on screen calls this (lib/core/web/web_maps_available_web.dart) and the
+    // map waits for it as before (rider-r4-20).
+    window.moveraLoadGoogleMaps = function() {
+      if (window.moveraGoogleMapsRequested || !window.moveraMapsSrc) return;
+      window.moveraGoogleMapsRequested = true;
+      var script = document.createElement('script');
+      script.src = window.moveraMapsSrc;
+      script.async = true;
+      document.head.appendChild(script);
+    };
+  </script>
   <script src="flutter_bootstrap.js" defer onerror="window.moveraBootFailed && window.moveraBootFailed()"></script>
 </body>
 </html>

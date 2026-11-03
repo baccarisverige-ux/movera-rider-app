@@ -59,10 +59,11 @@ jobs:
           p = Path('build/web/index.html')
           s = p.read_text()
           bootstrap = '  <script src="flutter_bootstrap.js" defer onerror="window.moveraBootFailed && window.moveraBootFailed()"></script>'
+          # LT-4 (owner 2026-11-03): as the live deploy, Maps loads when the first map opens.
           maps = (
-              '  <script src="https://maps.googleapis.com/maps/api/js?key='
+              '  <script>window.moveraMapsSrc = "https://maps.googleapis.com/maps/api/js?key='
               + os.environ['MAPS_WEB_API_KEY']
-              + '" async defer></script>'
+              + '";</script>'
           )
           if bootstrap not in s:
               raise SystemExit('Flutter bootstrap tag not found')
