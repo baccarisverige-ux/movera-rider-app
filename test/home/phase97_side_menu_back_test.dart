@@ -187,7 +187,9 @@ void main() {
     final menu = File(
       'lib/features/home/presentation/side_menu.dart',
     ).readAsStringSync();
-    expect(menu, contains('result == RideHistory.startBookingResult'));
+    // LT-4: the same value (RideHistory.startBookingResult), read without
+    // loading Ride history (test/perf/deferred_screens_test.dart).
+    expect(menu, contains('result == rideHistoryStartBookingResult'));
     expect(menu, contains('onStartBooking?.call();'));
     // The menu page itself leaves first, so booking starts over Home.
     expect(menu, contains('nav.pop();\n      onStartBooking?.call();'));
