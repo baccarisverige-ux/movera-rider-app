@@ -14986,6 +14986,96 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/reservations/policy:
+    get:
+      operationId: getReservationPolicy
+      summary: The reservation policy for every zone (included waiting)
+      description: 'v0.18.19. Owner 2026-11-03: ONE included waiting for every zone (admin ''Included waiting'' of the reservation
+        policy), saved on the server: GET /admin/reservations/policy (trips.read) → ReservationPolicy { includedWaitingMinutes,
+        rev, updatedAt }; PUT /admin/reservations/policy { expectedRev, includedWaitingMinutes 0–60 } (trips.intervene; 409
+        version_mismatch when another admin saved first). A kind scheduled trip''s free waiting is this many minutes, counted
+        from the pickup time; the no-show time is never before its end.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationPolicy'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: saveReservationPolicy
+      summary: Save the reservation policy for every zone
+      description: 'v0.18.19. Owner 2026-11-03: ONE included waiting for every zone (admin ''Included waiting'' of the reservation
+        policy), saved on the server: GET /admin/reservations/policy (trips.read) → ReservationPolicy { includedWaitingMinutes,
+        rev, updatedAt }; PUT /admin/reservations/policy { expectedRev, includedWaitingMinutes 0–60 } (trips.intervene; 409
+        version_mismatch when another admin saved first). A kind scheduled trip''s free waiting is this many minutes, counted
+        from the pickup time; the no-show time is never before its end.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: trips.intervene
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReservationPolicyCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationPolicy'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /driver/home-area:
     put:
       operationId: setDriverHomeArea
@@ -20817,6 +20907,21 @@ components:
             back on the list (transition release, push reservation_changed) and the ride is planned again (bookLater.plan).
             Later → 409 conflict, reason change_too_late. Not a scheduled trip, or not before pickup → 409 not_a_reservation.'
           default: 60
+        raiseFare:
+          type: boolean
+          description: 'v0.18.19 (owner C): an admin may raise the driver''s fare of a booked ride (POST /admin/trips/{tripId}/driver-bonus,
+            the same call and the same Pricing bonus limit as a live ride). false: the server refuses it for kind scheduled
+            (403 forbidden, reason raise_off). Missing = true.'
+          default: true
+        raiseMax:
+          oneOf:
+          - type: number
+            minimum: 0
+          - type: 'null'
+          default: null
+          description: 'v0.18.19 (owner C): the highest raise of a booked ride, in the zone''s money (major units, e.g. 500
+            = 500 kr); the server also keeps the live-ride bonus limit, whichever is lower. Missing or null = the live-ride
+            limit only. Over it: 400 invalid_request, reason bonus_over_limit.'
     PickupRange:
       type: object
       description: 'One pickup-distance range (contract.json#pickupPay.ranges): the first starts at 0, each next one where
@@ -30147,3 +30252,38 @@ components:
                 $ref: '#/components/schemas/Id'
               firstName:
                 type: string
+    ReservationPolicy:
+      type: object
+      description: 'v0.18.19: Owner 2026-11-03: ONE included waiting for every zone (admin ''Included waiting'' of the reservation
+        policy), saved on the server: GET /admin/reservations/policy (trips.read) → ReservationPolicy { includedWaitingMinutes,
+        rev, updatedAt }; PUT /admin/reservations/policy { expectedRev, includedWaitingMinutes 0–60 } (trips.intervene; 409
+        version_mismatch when another admin saved first). A kind scheduled trip''s free waiting is this many minutes, counted
+        from the pickup time; the no-show time is never before its end.'
+      required:
+      - includedWaitingMinutes
+      - rev
+      - updatedAt
+      properties:
+        includedWaitingMinutes:
+          type: integer
+          minimum: 0
+          maximum: 60
+        rev:
+          type: integer
+          minimum: 1
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+    ReservationPolicyCommand:
+      type: object
+      description: v0.18.19.
+      required:
+      - expectedRev
+      - includedWaitingMinutes
+      properties:
+        expectedRev:
+          type: integer
+          minimum: 1
+        includedWaitingMinutes:
+          type: integer
+          minimum: 0
+          maximum: 60
