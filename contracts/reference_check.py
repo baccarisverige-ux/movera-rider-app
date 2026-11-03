@@ -701,4 +701,51 @@ if rcfg['tipRules']['customMax'] != c['configDefaults']['tipRules']['customMax']
 for _sec in ('tips', 'receipt', 'driverMoney'):
     if not set(_fi[_sec]['errors']) <= set(_fi['errors']): bad += 1; print('FINISH errors listed', _sec)
 
+# v0.18.17 (CONTRACT.md §41, contract.json#bookLater): the booked-ride timeline, free change / cancel, driver times; texts in sv / fr / en.
+from datetime import datetime as _dt, timedelta as _td
+_bl = c['bookLater']; _blf = json.load(open('fixtures/book_later.json'))
+_iso = lambda t: t.strftime('%Y-%m-%dT%H:%M:%SZ')
+_p = lambda t: _dt.strptime(t, '%Y-%m-%dT%H:%M:%SZ')
+def book_later_plan(booked, at, s):
+    ahead = (at - booked).total_seconds() / 60
+    if ahead < s['minAheadMin']: return {'error': 'booking_too_soon'}
+    if ahead > s['maxAheadDays'] * 1440: return {'error': 'booking_too_far'}
+    mode = 'now' if ahead < s['soonBeforeMin'] else 'list'
+    dispatch = booked if mode == 'now' else max(booked, at - _td(minutes=s['dispatchBeforeMin']))
+    popup = booked + _td(minutes=s['homePopupAfterMin']) if mode == 'list' and s['homePopup'] else None
+    if popup is not None and popup >= dispatch: popup = None
+    open_all = booked + _td(minutes=s['listOpenAllAfterMin']) if mode == 'list' and s['listTo'] != 'all' and s['listOpenAll'] else None
+    if open_all is not None and open_all >= dispatch: open_all = None
+    remind = at - _td(minutes=s['riderReminderMin']) if s['riderReminderMin'] > 0 else None
+    if remind is not None and remind <= booked: remind = None
+    return {'mode': mode, 'dispatchAt': _iso(dispatch), 'popupAt': popup and _iso(popup), 'openAllAt': open_all and _iso(open_all),
+            'noDriverAt': _iso(max(booked, at - _td(minutes=s['noDriverAlertMin']))), 'riderReminderAt': remind and _iso(remind),
+            'freeChangeUntil': _iso(at - _td(minutes=s['freeChangeBeforeMin']))}
+_bd = {k: c['configDefaults']['reservations'][k] for k in _blf['defaults']}
+if c['configDefaults']['reservations']['maxTripKm'] is not None or c['configDefaults']['reservations']['dispatchBeforeMin'] != 30: bad += 1; print('BOOK LATER BL-Q2/Q5 defaults')
+if _bd != _blf['defaults']: bad += 1; print('BOOK LATER fixture defaults differ from configDefaults.reservations')
+for case in _blf['plan']:
+    got = book_later_plan(_p(case['bookedAt']), _p(case['scheduledAt']), {**_bd, **case['settings']})
+    if got != case['expect']: bad += 1; print('BOOK LATER PLAN', case['id'], got)
+for case in _blf['riderCancel']:
+    if ('free' if case['minutesBefore'] > case['freeChangeBeforeMin'] else 'reservation_fee_rule') != case['expect']: bad += 1; print('BOOK LATER CANCEL', case['id'])
+for case in _blf['driverTimes']:
+    acc, at = _p(case['acceptedAt']), _p(case['scheduledAt'])
+    rem = [_iso(at - _td(minutes=m)) for m in sorted(case['reminderMin'], reverse=True) if at - _td(minutes=m) > acc]
+    go = at - _td(minutes=case['onlineBeforeMin'])
+    if {'reminders': rem, 'goOnlineAt': _iso(go), 'offlineCheckAt': _iso(go + _td(minutes=case['offlineBackupAfterMin']))} != case['expect']: bad += 1; print('BOOK LATER DRIVER', case['id'])
+_R = c['configDefaults']['reservations']
+if (_R['minAheadMin'], _R['maxAheadDays'], _R['soonBeforeMin'], _R['noDriverAlertMin'], _R['riderReminderMin'], _R['freeChangeBeforeMin'], _R['rideTypes']['normal']['onlineBeforeMin']) != (15, 90, 30, 10, 60, 60, 60): bad += 1; print('BOOK LATER defaults (owner Q1-Q6)')
+if any(t['reminderMin'][0] != 120 for t in _R['rideTypes'].values()): bad += 1; print('BOOK LATER driver reminder 2 h (owner Q5)')
+if dcfg['reservations'] != {k: v for k, v in _R.items() if k != 'note'}: bad += 1; print('BOOK LATER driver fixture reservations')
+if (rcfg['booking']['minAheadMin'], rcfg['booking']['maxAheadDays'], rcfg['booking']['freeChangeBeforeMin']) != (15, 90, 60): bad += 1; print('BOOK LATER rider fixture booking')
+if set(_bl['push']['texts']) != set(_bl['push']['kinds']): bad += 1; print('BOOK LATER push kinds')
+for _name, _t in _bl['push']['texts'].items():
+    for _part in ('title', 'body'):
+        if set(_t[_part]) != {'sv', 'fr', 'en'} or any(not v.strip() for v in _t[_part].values()): bad += 1; print('BOOK LATER text langs', _name)
+        if 'passagerare' in _t[_part]['sv'].lower(): bad += 1; print('BOOK LATER sv says passagerare', _name)
+    if '{time}' not in _t['body']['en']: bad += 1; print('BOOK LATER {time}', _name)
+for _e in _bl['errors']:
+    if not re.match(r'^[a-z][a-z0-9_]*$', _e): bad += 1; print('BOOK LATER error code', _e)
+
 print('OK' if not bad else f'{bad} mismatches'); sys.exit(1 if bad else 0)

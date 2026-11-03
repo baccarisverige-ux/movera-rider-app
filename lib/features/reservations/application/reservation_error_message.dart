@@ -16,6 +16,16 @@ String reservationErrorMessage(Object error, ReservationAction action) {
         ? L10n.current.resErrNoPriceEdit
         : L10n.current.resErrNoPriceBook;
   }
+  // Contract v0.18.17: the zone's Book later rules, in plain words.
+  if (error is BookLaterRefusedException) {
+    final l = L10n.current;
+    return switch (error.reason) {
+      'booking_too_soon' => l.resErrTooSoon(error.limit ?? 15),
+      'booking_too_far' => l.resErrTooFar(error.limit ?? 90),
+      'trip_too_long' => l.resErrTripTooLong,
+      _ => l.resErrChangeTooLate(error.limit ?? 60),
+    };
+  }
   if (error is ReservationsUnavailableException) {
     return L10n.current.resErrUnavailable;
   }

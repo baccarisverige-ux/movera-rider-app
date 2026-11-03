@@ -45,6 +45,11 @@ class ApiQuoteRepository implements QuoteRepository {
     _routes.remove(quoteId);
   }
 
+  /// Contract v0.18.17 Book later: while Select Ride prices a ride for
+  /// later, its pickup instant (null: a ride now). Set by the screen's
+  /// controller before it asks for prices.
+  DateTime? scheduledAt;
+
   @override
   Future<RideQuote> quote({
     required String rideType,
@@ -184,7 +189,14 @@ class ApiQuoteRepository implements QuoteRepository {
       if (pickupPoint == null || destinationPoint == null) {
         throw const FormatException('a quote needs the pickup and dropoff');
       }
+      final at = scheduledAt;
       final body = <String, dynamic>{
+        // Contract v0.18.17: Book later is priced as a booked ride (its
+        // reservation fee, its window), the price the server books at.
+        if (at != null) ...{
+          'kind': 'scheduled',
+          'scheduledAt': WireTime.format(at),
+        },
         'pickup': contractPlace(
           pickupPoint.latitude,
           pickupPoint.longitude,

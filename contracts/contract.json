@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.15",
+  "version": "0.18.17",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -489,6 +489,36 @@
       "to": "searching",
       "when": "scheduled",
       "note": "already on the way: the scheduled trip is dispatched again like a live one"
+    },
+    {
+      "command": "release",
+      "actor": "system",
+      "from": [
+        "accepted"
+      ],
+      "to": "requested",
+      "when": "scheduled",
+      "note": "v0.18.17 (contract.json#bookLater.driver.reminders): the driver was still offline after the go-online time; the ride goes back to the list"
+    },
+    {
+      "command": "unassign",
+      "actor": "admin",
+      "from": [
+        "accepted"
+      ],
+      "to": "requested",
+      "when": "scheduled",
+      "note": "v0.18.17 (contract.json#bookLater.admin.actions): the admin takes the driver off; back to the list"
+    },
+    {
+      "command": "reschedule",
+      "actor": "rider",
+      "from": [
+        "requested"
+      ],
+      "to": "requested",
+      "when": "scheduled",
+      "note": "v0.18.17 (contract.json#bookLater.rider.change): new places, time and price; a driver who holds it is asked first (keep)"
     },
     {
       "command": "cancel",
@@ -3019,7 +3049,7 @@
       "cap": 3.0
     },
     "reservations": {
-      "note": "DriverAppConfig.reservations (CONTRACT.md §6). Every field is optional on read: a missing or invalid field keeps this default. Admin ride type ids map normal->normal, airport->airport, long->longTrip, premium->comfortPremium, event->event; Admin lateBackupAfterMin is offlineBackupAfterMin. v0.4.2: there is no leaveNow switch any more (Leave now always opens the trip); a leaveNow field in an older document is ignored. on is the zone switch for every driver (= features.scheduledRides); with Driver.scheduledRides (per driver) it decides who gets new reservations, CONTRACT.md §6.1.",
+      "note": "DriverAppConfig.reservations (CONTRACT.md §6). Every field is optional on read: a missing or invalid field keeps this default. Admin ride type ids map normal->normal, airport->airport, long->longTrip, premium->comfortPremium, event->event; Admin lateBackupAfterMin is offlineBackupAfterMin. v0.4.2: there is no leaveNow switch any more (Leave now always opens the trip); a leaveNow field in an older document is ignored. on is the zone switch for every driver (= features.scheduledRides); with Driver.scheduledRides (per driver) it decides who gets new reservations, CONTRACT.md §6.1. v0.18.17 (Book later, owner 2026-11-03 Q1–Q7, contract.json#bookLater): minAheadMin 15 / maxAheadDays 90 (booking window), soonBeforeMin 30 (closer = sent like a live ride at once), listTo and its numbers (who sees it in Scheduled rides), listOpenAll, noticeOn / noticeMaxDrivers / homePopup (the reservation notice), noDriverAlertMin 10, riderReminderMin 60, freeChangeBeforeMin 60; rideTypes.normal.onlineBeforeMin 30 → 60 and every reminderMin [60, 15] → [120, 15] (owner Q5). v0.18.17: maxTripKm 60 (the demo admin's 'Max Trip Distance (Reservations) 60 km', owner 'add if miss anything'). BL-Q1..Q7 (owner 2026-11-03): dispatchBeforeMin 30 (search start), maxTripKm null = no limit, listHomeKm 5, listAtTimeKm 5 / listAtTimeMin 30 (nearAtTime), changeAnswerMin 15. M6 (owner 2026-11-03): reminderMin [120] only (the 15-min reminder is dropped).",
       "on": true,
       "lateWarn": true,
       "offlineBackupAfterMin": 5,
@@ -3038,43 +3068,38 @@
       "assignAcceptSeconds": 30,
       "rideTypes": {
         "normal": {
-          "onlineBeforeMin": 30,
+          "onlineBeforeMin": 60,
           "spareMin": 15,
           "reminderMin": [
-            60,
-            15
+            120
           ]
         },
         "airport": {
           "onlineBeforeMin": 60,
           "spareMin": 15,
           "reminderMin": [
-            60,
-            15
+            120
           ]
         },
         "longTrip": {
           "onlineBeforeMin": 60,
           "spareMin": 15,
           "reminderMin": [
-            60,
-            15
+            120
           ]
         },
         "comfortPremium": {
           "onlineBeforeMin": 45,
           "spareMin": 15,
           "reminderMin": [
-            60,
-            15
+            120
           ]
         },
         "event": {
           "onlineBeforeMin": 45,
           "spareMin": 15,
           "reminderMin": [
-            60,
-            15
+            120
           ]
         }
       },
@@ -3083,7 +3108,30 @@
         "toleranceMin": 3,
         "checkEverySeconds": 60,
         "reassignTo": "exclusive"
-      }
+      },
+      "minAheadMin": 15,
+      "maxAheadDays": 90,
+      "soonBeforeMin": 30,
+      "listTo": "all",
+      "listMinRating": 4.5,
+      "listGroupSize": 10,
+      "listNearKm": 5,
+      "listAreaTrips": 5,
+      "listGroupId": null,
+      "listOpenAll": true,
+      "listOpenAllAfterMin": 30,
+      "noticeOn": true,
+      "noticeMaxDrivers": 20,
+      "homePopup": true,
+      "noDriverAlertMin": 10,
+      "riderReminderMin": 60,
+      "freeChangeBeforeMin": 60,
+      "maxTripKm": null,
+      "dispatchBeforeMin": 30,
+      "listHomeKm": 5,
+      "listAtTimeKm": 5,
+      "listAtTimeMin": 30,
+      "changeAnswerMin": 15
     },
     "countries": {
       "SE": {
@@ -3984,11 +4032,13 @@
   },
   "supportDesk": {
     "note": "v0.18.15 (build-all A1, owner 2026-11-02 decisions/other-support-promos.md QO-1/QO-2/QO-4/QO-5 + rule 16): the support desk works on the server. Riders and drivers keep writing on their ticket chat-style; Admin › Support claims, assigns, changes the topic, marks waiting / solved, reopens and opens a safety case from a ticket; the topics and time limits are an admin setting per country (SE, FR, TN-ready) with the defaults below. Additive: older apps keep working.",
-    "personReply": "POST /support/tickets/{ticketId}/messages { text } (rider / driver, own ticket only, else 404) -> 201 SupportTicket with messages. The status becomes open (the desk sees a new answer). A closed ticket -> 409 invalid_transition, reason ticket_closed. A solved (resolved) ticket: SupportSettings.replyAfterSolved = reopen (default) opens it again; blocked -> 409 invalid_transition, reason ticket_solved.",
+    "personReply": "POST /support/tickets/{ticketId}/messages { text } (rider / driver, own ticket only, else 404) -> 201 SupportTicket with messages. The status becomes open (the desk sees a new answer). Owner 2026-11-02 'Can't write': a solved (resolved) or closed ticket takes no more messages -> 409 invalid_transition, reason ticket_solved (resolved) or ticket_closed (closed); the apps show a note and a 'New ticket' button.",
+    "feedback": "Owner 2026-11-02 'Not rating only comment suggestions': no stars after a solved ticket. POST /support/tickets/{ticketId}/feedback { text } (rider / driver, own ticket, 1-2000 chars) -> 201 SupportTicket with feedback { text, at }: only on a solved or closed ticket (else 409 invalid_transition, reason ticket_not_solved), once (else 409, reason feedback_given). Optional for the person; admin views show it.",
     "supportName": "Owner QO-2 'Agent first name': on the person's own views (GET /support/tickets/{ticketId}, POST .../messages) a support message carries supportName = the answering admin's first name (first word of the admin's name; never an e-mail, never the last name; absent when the name is empty or looks like an e-mail) and adminName = the same first name (older apps). The apps show '<supportName> · Movera Support', or 'Movera Support' without it. Admin views keep the full adminName.",
-    "topics": "GET /support/topics (rider / driver) -> SupportTopics { country, topics: [code] }: the ticket topics that are on for the caller's country (the zone of the last trip or the driver's first zone, else the driver's country), in the contract order; both apps show the same list (owner QO-4). POST /support/tickets with a topic that is off -> 400 invalid_request, reason topic_off. Labels are the apps' own (sv / fr / en) per code.",
+    "topics": "GET /support/topics (rider / driver) -> SupportTopics { country, topics: [code] }: the ticket topics that are on for the caller's country (the zone of the last trip or the driver's first zone, else the driver's country, else — owner 2026-11-02 — the phone prefix: +46 SE, +33 FR, +216 TN), in the contract order; both apps show the same list (owner QO-4). POST /support/tickets with a topic that is off -> 400 invalid_request, reason topic_off. Labels are the apps' own (sv / fr / en) per code.",
     "adminCommands": {
-      "claim": "POST /admin/tickets/{ticketId}/claim {} -> SupportTicket: assignedTo = the caller until claimedUntil = now + claimDays days. Another admin's claim that has not run out -> 409 conflict, reason ticket_claimed. Audited ticket.claim.",
+      "claim": "POST /admin/tickets/{ticketId}/claim {} -> SupportTicket: assignedTo = the caller. Owner 2026-11-02 'Never': a claim never runs out by itself; it stays until the ticket is solved or handed over (assign). Another admin's claim -> 409 conflict, reason ticket_claimed, except for a Super admin, who takes it over (owner 2026-11-03, audited ticket.takeover); a solved or closed ticket -> 409 invalid_transition, reason ticket_not_open. Audited ticket.claim.",
+      "leave": "POST /admin/tickets/{ticketId}/leave {} -> SupportTicket: owner 2026-11-02 'Leave ticket': the admin who works on the ticket gives it back; assignedTo is cleared and the ticket waits in the queue for any admin. Only that admin (else 409 conflict, reason ticket_not_yours). No automatic timeout. Audited ticket.leave.",
       "assign": "POST /admin/tickets/{ticketId}/assign { adminId | null, reason } -> SupportTicket: hands the ticket to an active admin who has support.reply and covers the ticket's zone (else 400 invalid_request, reason assignee_not_allowed); null = nobody. Audited ticket.assign.",
       "topic": "POST /admin/tickets/{ticketId}/topic { category } -> SupportTicket (any contract topic; the ticket's time limits follow it). Audited ticket.topic.",
       "waiting": "POST /admin/tickets/{ticketId}/waiting { waiting } -> SupportTicket: true = pending (waiting for the person), false = open. Closed or solved -> 409 invalid_transition, reason ticket_not_open. Audited ticket.waiting.",
@@ -3996,17 +4046,15 @@
       "reopen": "POST /admin/tickets/{ticketId}/reopen { reason } -> SupportTicket: resolved or closed -> open; solvedBy / solvedAt cleared. Already open or pending -> 409 invalid_transition, reason ticket_not_solved. Audited ticket.reopen.",
       "case": "POST /admin/tickets/{ticketId}/case { reason } -> SupportTicket with incidentId: opens a support_case incident on the ticket's trip for the safety team (Incidents; severity medium, no alarm; the safety team changes the level). A ticket without trip -> 409 invalid_transition, reason ticket_without_trip; one open support_case per trip (the open one is linked). Audited ticket.case."
     },
-    "adminView": "Admin views of SupportTicket add assignedTo { adminId, name }, claimedUntil, solvedBy, solvedAt, incidentId, firstReplyAt, firstReplyDueAt and solveDueAt (created + the topic's firstReplyMin / solveHours of the ticket's country), late { reply, solve }. GET /admin/tickets?assignedTo=me|none|<adminId>.",
+    "adminView": "Admin views of SupportTicket add assignedTo { adminId, name }, solvedBy, solvedAt, incidentId, firstReplyAt, firstReplyDueAt and solveDueAt (created + the topic's firstReplyMin / solveHours of the ticket's country), late { reply, solve }. GET /admin/tickets?assignedTo=me|none|<adminId>.",
     "settings": {
-      "endpoints": "GET /admin/support/settings?country=SE (support.reply) -> SupportSettings; PUT /admin/support/settings SupportSettings (settings.edit; a Super admin or an admin with a zone in that country, else 403 zone_out_of_scope). Audited support.settings. Never saved = the defaults.",
+      "endpoints": "GET /admin/support/settings?country=SE (support.reply) -> SupportSettings; PUT /admin/support/settings SupportSettings (settings.edit). Both: a Super admin or an admin with a zone in that country, else 403 zone_out_of_scope. Audited support.settings. Never saved = the defaults.",
       "countries": [
         "SE",
         "FR",
         "TN"
       ],
       "defaults": {
-        "claimDays": 3,
-        "replyAfterSolved": "reopen",
         "topics": [
           {
             "code": "ride_dispute",
@@ -4050,12 +4098,19 @@
             "firstReplyMin": 240,
             "solveHours": 72
           }
-        ]
+        ],
+        "replies": []
       },
-      "limits": "claimDays 1-30; firstReplyMin 1-10080; solveHours 1-720; every contract topic once; at least one topic on."
+      "limits": "firstReplyMin 1-10080; solveHours 1-720; every contract topic once; at least one topic on.",
+      "replies": "Owner 2026-11-02 'Yes': ready replies the admin manages per language (sv, fr, en): replies [{ id, lang, title, text }] in SupportSettings (at most 100; title 1-80, text 1-2000 chars; id unique). Agents pick one in Admin › Support, change it and send it as an ordinary answer. Never saved = no ready replies.",
+      "autoSort": "Owner 2026-11-02 'Yes, by topic': each topic may name the admin who gets its new tickets: topics[].assignTo (an admin id; absent = nobody; saving needs an active admin with support.reply and a zone in that country, else 400 assignee_not_allowed). When a rider or driver opens a ticket on that topic, the server sets assignedTo to that admin if he is active, has support.reply and covers the ticket's zone (else nobody). A team (several admins) is not in this version.",
+      "revision": "Checker LOW (as alert and incident settings): SupportSettings.rev (1 never saved); PUT needs expectedRev = the rev read; a stale one -> 409 version_mismatch; a save makes rev + 1.",
+      "agents": "Checker LOW: GET /admin/support/settings also lists agents [{ adminId, name }]: the active admins with support.reply and a zone in that country (or all zones) — the only ones a topic's assignTo may name (read only)."
     },
     "caseIncidentKind": "support_case",
-    "next": "Rider and driver apps: reply box on the ticket, '<first name> · Movera Support', topics from GET /support/topics."
+    "next": "Rider and driver apps: reply box on the ticket, '<first name> · Movera Support', topics from GET /support/topics.",
+    "claimedOnly": "Owner 2026-11-02 'Never' + 'Leave ticket', 2026-11-03: on a claimed ticket only the claiming admin acts (reply, assign, topic, waiting, solve, reopen, case); others get 409 conflict, reason ticket_not_yours. He gives it back with leave. A Super admin (role super) can take it over with claim (audited ticket.takeover with the previous admin); nobody else. Solving (solve, or an answer with status resolved) ends the claim (owner 'until solved or handed over'), so any support admin of the ticket's country can reopen it.",
+    "countryTeam": "Owner 2026-11-03: a ticket without zone belongs to its country (the person's phone prefix: +46 SE, +33 FR, +216 TN, else the driver's country); the support admins with a zone in that country see and answer it (list and one ticket), Super admins too. Before: Super admins only (contract v0.13.0 §22)."
   },
   "alertDesk": {
     "note": "v0.18.15 (build-all A1, owner 2026-11-02 Q5 'Alerts = FULL FLOW': take — the others see who has it, pass on, snooze, mute types, quiet hours, done). The admin panel finds the alerts from the live data (its alert engine, admin settings + rules); the SERVER keeps who works on each alert, the history, the mutes, every admin's quiet hours and the shared alert settings and rules, so every admin sees the same state on live.",
@@ -4129,8 +4184,8 @@
     "call": "No call endpoint: the admin panel shows 'Calls coming soon' on the rider / driver call buttons until a call company is added (then calls go through the Movera number, never the real numbers). Emergency numbers are dialled from the admin's own phone."
   },
   "reviewRules": {
-    "note": "v0.18.15 (build-all A1, Reviews rules; owner 2026-11-02 G14 Q6 'Make them real': the server applies the review rules with today's numbers as defaults, admin edits any time). Per country (SE, FR, TN-ready).",
-    "rules": "GET /admin/reviews/rules?country= (settings.read) -> ReviewRules { country, warn { on, below }, review { on, below }, block { on, below }, minReviews, badWords { on, words } }; PUT /admin/reviews/rules ReviewRules (settings.edit; a Super admin or an admin with a zone in that country, else 403 zone_out_of_scope). Lines: 1-5, block <= review <= warn when on; words at most 200, each 1-40 letters. Audited reviews.rules. The rating tags stay contract.json#ratings.tags.",
+    "note": "v0.18.15 (build-all A1, Reviews rules; owner 2026-11-02 G14 Q6 'Make them real', and the A1 answers: no automatic pause, whole words, softer warning). Per country (SE, FR, TN-ready).",
+    "rules": "GET /admin/reviews/rules?country= (settings.read) -> ReviewRules { country, warn { on, below }, review { on, below }, minReviews, badWords { on, words }, warningText { sv, fr, en } }; PUT /admin/reviews/rules ReviewRules (settings.edit; a Super admin or an admin with a zone in that country, else 403 zone_out_of_scope). Lines: 1-5, review <= warn when both on; words at most 200, each 1-40 letters; warningText each 1-500 chars ({average} is replaced by the person's average). Audited reviews.rules. The rating tags stay contract.json#ratings.tags.",
     "defaults": {
       "warn": {
         "on": true,
@@ -4140,10 +4195,6 @@
         "on": true,
         "below": 4.2
       },
-      "block": {
-        "on": false,
-        "below": 3.6
-      },
       "minReviews": 3,
       "badWords": {
         "on": true,
@@ -4152,22 +4203,21 @@
           "stupid",
           "scam"
         ]
+      },
+      "warningText": {
+        "sv": "Ditt betyg har sjunkit. Här är några tips för att få fler nöjda resenärer.",
+        "fr": "Votre note a baissé. Voici quelques conseils pour avoir plus de passagers satisfaits.",
+        "en": "Your rating has dropped. Here are some tips to get more happy riders."
       }
     },
-    "applied": "After each rating (POST .../rate) the server: (1) a comment with a listed word (case-insensitive, part of a word counts) is hidden at once like an admin hide (hiddenBy system, reason bad_word; its stars do not count; an admin can restore it); (2) the rated person's average over counted ratings, once they have minReviews: below block -> the account is suspended (driver account_status suspended and offline; rider status suspended) and the person is in the review list; below review -> in the review list; below warn -> one bell + push notice review_warning in the person's language. Each step happens once when the person crosses the line; back above every line clears it, so a later fall acts again.",
-    "queue": "GET /admin/reviews/queue (riders.read) -> { items: [{ who: driver | rider, personId, name, country, level: review | block, average, count, since }] } of the admin's countries; POST /admin/reviews/queue/{who}/{personId}/done { note } (riders.block) removes the row (an admin looked at it; a blocked account is let back in the Drivers / Riders page). Audited reviews.done.",
-    "warningTexts": {
-      "title": {
-        "sv": "Ditt betyg är lågt",
-        "fr": "Votre note est basse",
-        "en": "Your rating is low"
-      },
-      "body": {
-        "sv": "Ditt snittbetyg är {average}. Se våra tips för en bra resa.",
-        "fr": "Votre note moyenne est de {average}. Consultez nos conseils pour un bon trajet.",
-        "en": "Your average rating is {average}. See our tips for a good ride."
-      }
-    }
+    "applied": "After each rating (POST .../rating) and each admin hide or restore, the server: (1) a comment with a listed word as a whole word (case-insensitive; 'scam' matches 'Scam!' but not 'scampi') is hidden at once like an admin hide (hiddenBy system, reason bad_word; its stars do not count; an admin can restore it); (2) the rated person's average over counted ratings, once they have minReviews: below review -> on the admin review list; below warn -> one bell + push notice review_warning with the country's warningText in the person's language. Owner 2026-11-02 'No automatic pause': the rules never pause or suspend an account; an admin pauses by hand on the Drivers / Riders page. Each step happens once when the person crosses the line; back above every line clears it, so a later fall acts again.",
+    "queue": "GET /admin/reviews/queue (riders.read) -> { items: [{ who: driver | rider, personId, name, country, level: review, average, count, since }] } of the admin's countries; POST /admin/reviews/queue/{who}/{personId}/done { note } (riders.block) removes the row (an admin looked at it). Audited reviews.done."
+  },
+  "adminNames": {
+    "note": "v0.18.16 (A1 live check 2026-11-03, owner 'Real name from Team'): every admin has a first name set in Team; an e-mail is never shown as a name anywhere in the admin; until a first name is set the panel shows 'Admin'.",
+    "me": "AdminMe.firstName (string, absent until set). PATCH /admin/auth/me { language?, firstName? } (any signed-in admin, own account; firstName 1-40 characters, no '@'; null clears it). Audited admin.first_name.",
+    "others": "GET /admin/agents (team.read) -> { items: [{ adminId, firstName?, role, zones }] } (never the e-mail), sorted by first name: a Super admin (role super) sees every admin; other admins see the admins who share one of their zones. PATCH /admin/agents/{adminId} { firstName } (team.edit; null clears it): a Super admin renames anyone; another admin only non-Super admins who share one of his zones (else 403 forbidden). Audited admin.first_name.",
+    "shown": "Every name the server gives the admin panel about an admin (ticket assignedTo.name, ticket message adminName on admin views, alert ownerName / byName / toName, alert people, support agents, trip notes) is that admin's firstName, or absent when none is set (the panel shows 'Admin'); never the e-mail. The person's apps: supportName = firstName; without one the apps show only 'Movera Support'."
   },
   "payouts": {
     "note": "v0.9.0 (owner real-data decision, part 3): every payout period (v0.18.13: the country's schedule, default weekly from Monday 08:00 to Monday 08:00 local time) a nightly job makes one payout per driver with earnings; an admin can also make one by hand for a driver and a date range. Same calculation both ways; a trip already in a payout is never counted again. amount = trips + waiting + pickup pay + bonus + tips + fees − cash collected; it may be negative (the driver owes Movera). An admin marks a payout paid. The admin sees the lines; the driver app shows only the total.",
@@ -6617,5 +6667,238 @@
     "addMoney": "Owner 2026-11-02 (driver-g5): admin Add money (Exclusive / Radar) goes to the simply nearest free drivers, same-country neighbour-zone drivers included when neighbours are on; reach limits, busy and declined filters stay. The in-zone-first rule is gone.",
     "rideUpdates": "Owner 2026-11-02 (driver-g13): Rider.consents.rideUpdates false stops only 'driver found' and 'arriving'; 'driver arrived', 'a new driver' and 'trip cancelled' are always sent.",
     "arrivePosition": "arrivedWaiting.positionMaxAge applies to driver apps sending X-Contract-Version ≥ 0.18.14; older apps keep the old arrive check."
+  },
+  "bookLater": {
+    "note": "v0.18.17 (CONTRACT.md §41). Booked rides (Trip.kind scheduled) end to end, every value an admin setting per zone in DriverAppConfig.reservations (Admin › Dispatch › Reservations; defaults contract.json#configDefaults.reservations). Sweden, France and Tunisia alike (owner Q7 'All countries now'). Owner answers 2026-11-03 Q1–Q7 (Rules decisions/driver-g15.md). The airport queue is a separate job.",
+    "window": "Q1: POST /quotes and POST /trips with kind=scheduled refuse a pickup less than minAheadMin minutes ahead (400 invalid_request, reason booking_too_soon) or more than maxAheadDays days ahead (reason booking_too_far), from the zone's live driver document. RiderAppConfig.booking.minAheadMin, maxAheadDays and freeChangeBeforeMin are written by the server from the same zone's DriverAppConfig.reservations when it serves the rider document (one source). A booked ride whose route is longer than maxTripKm km (default null = no limit, owner BL-Q5; the demo admin's 'Max Trip Distance (Reservations)' setting) is refused at quote: 400 invalid_request, reason trip_too_long (live rides are not limited by it).",
+    "plan": "Q2: ahead = scheduledAt − booking time. ahead < soonBeforeMin → mode now: the trip takes start_search at booking, like a live ride (the zone's Exclusive then Radar rules). Otherwise mode list: the trip stays requested, is shown in GET /driver/reservations?scope=open to the drivers listTo picks (listOpenAll: after listOpenAllAfterMin minutes to every driver of the zone), and when noticeOn a reservation notice (push kind reservation_new) goes at booking to at most noticeMaxDrivers of them, nearest to the pickup first; when homePopup, still untaken after homePopupAfterMin minutes (and before dispatchAt) a second notice (kind reservation_popup) goes to the same drivers (the driver app shows it as the Home popup). Still untaken at dispatchAt = scheduledAt − dispatchBeforeMin (default 30, owner BL-Q2; never before booking): start_search like a live ride. A booked ride's search never ends by itself (owner Q3 'keep searching', BL-Q7): an ended search starts again; after the pickup time it starts again as Exclusive offers only, until a driver takes it or an admin acts. fixtures/book_later.json#plan.",
+    "listTo": {
+      "values": [
+        "all",
+        "category",
+        "rating",
+        "random",
+        "nearNow",
+        "group",
+        "areaRegulars",
+        "homeNear",
+        "favourites",
+        "nearAtTime"
+      ],
+      "rules": "all = every driver of the zone; category = drivers whose active car drives the trip's category; rating = drivers rated at least listMinRating (no rating yet counts as 5); random = listGroupSize drivers picked once at booking; nearNow = drivers whose last position is within listNearKm of the pickup at booking; group = the members of driver group listGroupId (Admin › Events & groups); areaRegulars = drivers with at least listAreaTrips completed trips from the pickup zone in the last 30 days. homeNear = drivers whose home area (Driver.homeArea, set in the driver app, PUT /driver/home-area) is within listHomeKm of the pickup; favourites = the rider's favourite drivers (marked after a ride, PUT /rider/favourite-drivers/{driverId}); nearAtTime = drivers whose last ride before the pickup ends within listAtTimeKm of it at most listAtTimeMin minutes before the pickup time (their accepted booked rides; owner BL-Q4).",
+      "always": "Every listed driver must also be active, have scheduled rides on in the zone (reservations.on) and drive the trip's category; a driver never sees a ride that clashes with one he already holds (smart gap: [scheduledAt, scheduledAt + duration + spareMin] of both rides overlap) when hideClashing is on."
+    },
+    "noDriver": "Q3: at scheduledAt − noDriverAlertMin a trip with no driver (requested, searching or offered) is marked TripProjection.reservation.noDriver true (the admin's Alerts and Reservations show 'Booked ride soon with no driver') and the rider gets push kind reservation_no_driver; the search goes on (it starts at once if it had not). BL-Q7: at the pickup time with still no driver, TripProjection.reservation.overdue becomes true (the admin's alert 'Booked ride: pickup time passed, no driver'); the ride never expires by itself.",
+    "card": "Q4 'Charge at booking': a scheduled trip paid by card or apple_pay is charged the full price when it is booked (Trip.paymentStatus captured at POST /trips); a free cancel refunds it. Card payments are still 'coming soon' on live (POST /trips answers payment_method_coming_soon), so nothing is charged until the payment company is connected; the rule is in place for then.",
+    "driver": {
+      "list": "GET /driver/reservations?scope=open → DriverReservationPage: the untaken list-mode rides the driver may take (bookLater.listTo), soonest first; scope=accepted → the driver's own accepted scheduled rides (status accepted), soonest first. 403 reservations_off when the zone's reservations.on is false (open scope only).",
+      "accept": "POST /driver/reservations/{tripId}/accept { expectedVersion? } → TripProjection (status accepted, transition accept from requested). The first tap wins: another driver already took it → 409 conflict, reason reservation_taken; the search started (dispatch) → 409 reservation_in_dispatch (the ride comes as a normal offer); a clash with a held ride → 409 reservation_clash; not listed for this driver → 404 reservation_not_open. The rider gets push kind reservation_driver_found (Q5 rider: a message when a driver takes the ride).",
+      "release": "POST /driver/reservations/{tripId}/release { reasonCode } (a scheduled cancel reason code) → 204: the ride goes back to the list (transition cancel driver accepted → requested, scheduled), the driver's reminders are taken back; it counts in his cancel rate; with less than driverLateCancelHours to pickup it is a late cancel. After dispatchAt it goes straight back to dispatch.",
+      "start": "POST /driver/reservations/{tripId}/start → TripProjection (head_to_pickup, accepted → driver_to_pickup), from scheduledAt − onlineBeforeMin of the ride type; earlier → 409 conflict, reason reservation_too_early.",
+      "reminders": "Q5: after accept the driver gets push kind reservation_reminder at scheduledAt − each rideTypes.<type>.reminderMin (default 120 minutes only, owner M6-a; a time already passed is skipped) and kind reservation_go_online at scheduledAt − onlineBeforeMin (default 60, the zone may set 30). Still offline offlineBackupAfterMin minutes after that: the driver loses the ride (it goes back to the list, or to dispatch after dispatchAt), push kind reservation_lost.",
+      "rideType": "airport when the pickup or drop-off is in an airport zone; longTrip when the route is longer than longTripKm; comfortPremium for the comfort and premium categories; else normal (event: not detected by the server yet, acts as normal).",
+      "keep": "POST /driver/reservations/{tripId}/keep { keep: boolean } → TripProjection: the driver's answer to the rider's change (owner BL-Q6). No open question → 409 invalid_transition.",
+      "homeArea": "PUT /driver/home-area { lat, lng, label? } (label at most 120 chars) or DELETE → the Driver profile with homeArea { lat, lng, label? } (owner BL-Q4: set in the driver app; admins see it on GET /admin/drivers/{driverId}).",
+      "notStarted": "A held ride not started (still accepted) at its pickup time: TripProjection.reservation.notStarted true (the admin's alert 'Booked ride: pickup time, driver has not started').",
+      "assigned": "Owner M6-a: the moment a booked ride becomes the driver's (his Accept, an admin-assigned offer, a dispatched offer, a kept change) he gets push kind reservation_assigned."
+    },
+    "rider": {
+      "reminder": "Q5 rider: push kind reservation_reminder at scheduledAt − riderReminderMin (default 60; 0 = off), and reservation_driver_found when a driver takes the ride.",
+      "change": "Q6: more than freeChangeBeforeMin minutes (default 60) before pickup the rider may change the booking: POST /trips/{tripId}/reschedule { quoteId, expectedVersion } with a new kind=scheduled quote (the app shows its new price first) → TripProjection with the new places, time and price; a driver who held it is asked 'Keep it at the new time?' (push kind reservation_change_ask, TripProjection.reservation.changeAsk { until, previousAt }; POST /driver/reservations/{tripId}/keep { keep }); Yes keeps it (rider told reservation_driver_found), No or no answer within changeAnswerMin (default 15) puts it back on the list (transition release, push reservation_changed) and the ride is planned again (bookLater.plan). Later → 409 conflict, reason change_too_late. Not a scheduled trip, or not before pickup → 409 not_a_reservation.",
+      "cancel": "Q6: POST /trips/{tripId}/cancel more than freeChangeBeforeMin minutes before pickup is always free; later the reservation cancel fee rule of booking time applies (RiderAppConfig.cancelFees, reservation; unchanged).",
+      "projection": "TripProjection.reservation (kind scheduled only) = { mode: now | list, dispatchAt, freeChangeUntil, noDriver, overdue, changeAsk? { until, previousAt }, mustBeOnlineAt? (driver views) }.",
+      "favourites": "GET /rider/favourite-drivers → { items: [{ driverId, firstName }] }; PUT /rider/favourite-drivers/{driverId} (only a driver of one of the rider's completed trips, else 404 driver_not_found) and DELETE (owner BL-Q4: marked after a ride)."
+    },
+    "admin": {
+      "list": "Admin › Reservations reads GET /admin/trips?kind=scheduled (unchanged filters).",
+      "actions": "Existing endpoints on a reservation: assign a driver (POST /admin/trips/{tripId}/assign), send to a driver group (POST /admin/trips/{tripId}/radar-group), cancel (POST /admin/trips/{tripId}/cancel). New: POST /admin/trips/{tripId}/reservation/unassign { expectedVersion, reason } (accepted → requested: the driver is taken off and told, the ride goes back to the list) and POST /admin/trips/{tripId}/reservation/dispatch-now { expectedVersion } (requested → searching now). Both trips.intervene, the admin's zones only, audited (reservation.unassign, reservation.dispatch_now). The admin's unassign tells the driver with push kind reservation_unassigned (never the offline text).",
+      "policy": "The booking policy (window, free change / cancel time, rider reminder, no-driver alert) is per zone in DriverAppConfig.reservations, saved on the server by publishing the zone's driver document like every Dispatch setting (owner Q1 'admin setting per zone')."
+    },
+    "push": {
+      "kinds": [
+        "reservation_new",
+        "reservation_popup",
+        "reservation_reminder",
+        "reservation_go_online",
+        "reservation_lost",
+        "reservation_changed",
+        "reservation_driver_found",
+        "reservation_no_driver",
+        "reservation_change_ask",
+        "reservation_unassigned",
+        "reservation_not_started",
+        "reservation_assigned"
+      ],
+      "note": "Push and Notifications list (bell), in the person's language (else the zone country's, else English); {time} is the pickup time HH:MM in the zone's time zone, {driver} the driver's first name. Deep links: rider movera://trips/{tripId}, driver movera-driver://reservations/{tripId}.",
+      "texts": {
+        "reservation_new": {
+          "title": {
+            "sv": "Ny bokad resa",
+            "fr": "Nouvelle course réservée",
+            "en": "New booked ride"
+          },
+          "body": {
+            "sv": "Hämtning kl. {time}. Öppna Bokade resor för att ta den.",
+            "fr": "Prise en charge à {time}. Ouvrez Courses réservées pour la prendre.",
+            "en": "Pickup at {time}. Open Booked rides to take it."
+          }
+        },
+        "reservation_popup": {
+          "title": {
+            "sv": "Bokad resa behöver en förare",
+            "fr": "Une course réservée cherche un chauffeur",
+            "en": "A booked ride needs a driver"
+          },
+          "body": {
+            "sv": "Hämtning kl. {time}. Ta den i Bokade resor.",
+            "fr": "Prise en charge à {time}. Prenez-la dans Courses réservées.",
+            "en": "Pickup at {time}. Take it in Booked rides."
+          }
+        },
+        "reservation_reminder": {
+          "title": {
+            "sv": "Påminnelse om bokad resa",
+            "fr": "Rappel de course réservée",
+            "en": "Booked ride reminder"
+          },
+          "body": {
+            "sv": "Din bokade resa är kl. {time}.",
+            "fr": "Votre course réservée est à {time}.",
+            "en": "Your booked ride is at {time}."
+          }
+        },
+        "reservation_go_online": {
+          "title": {
+            "sv": "Gå online nu",
+            "fr": "Passez en ligne",
+            "en": "Go online now"
+          },
+          "body": {
+            "sv": "Din bokade resa kl. {time} börjar snart. Gå online nu.",
+            "fr": "Votre course réservée de {time} commence bientôt. Passez en ligne maintenant.",
+            "en": "Your booked ride at {time} starts soon. Go online now."
+          }
+        },
+        "reservation_lost": {
+          "title": {
+            "sv": "Bokad resa borttagen",
+            "fr": "Course réservée retirée",
+            "en": "Booked ride removed"
+          },
+          "body": {
+            "sv": "Du var offline, så resan kl. {time} gick till en annan förare.",
+            "fr": "Vous étiez hors ligne, la course de {time} est partie à un autre chauffeur.",
+            "en": "You were offline, so the {time} ride went to another driver."
+          }
+        },
+        "reservation_changed": {
+          "title": {
+            "sv": "Bokningen ändrades",
+            "fr": "Réservation modifiée",
+            "en": "Booking changed"
+          },
+          "body": {
+            "sv": "Resenären ändrade resan kl. {time}. Den är inte din längre.",
+            "fr": "Le passager a modifié la course de {time}. Elle n’est plus à vous.",
+            "en": "The rider changed the {time} ride. It is no longer yours."
+          }
+        },
+        "reservation_driver_found": {
+          "title": {
+            "sv": "Förare klar för din resa",
+            "fr": "Chauffeur trouvé",
+            "en": "Driver ready for your ride"
+          },
+          "body": {
+            "sv": "{driver} hämtar dig kl. {time}.",
+            "fr": "{driver} viendra vous chercher à {time}.",
+            "en": "{driver} will pick you up at {time}."
+          }
+        },
+        "reservation_no_driver": {
+          "title": {
+            "sv": "Vi letar fortfarande efter en förare",
+            "fr": "Nous cherchons encore un chauffeur",
+            "en": "Still looking for a driver"
+          },
+          "body": {
+            "sv": "Din resa kl. {time} har ingen förare än. Vi fortsätter leta.",
+            "fr": "Votre course de {time} n’a pas encore de chauffeur. Nous continuons à chercher.",
+            "en": "Your {time} ride has no driver yet. We keep looking."
+          }
+        },
+        "reservation_change_ask": {
+          "title": {
+            "sv": "Resenären ändrade tiden",
+            "fr": "Le passager a changé l’heure",
+            "en": "The rider changed the time"
+          },
+          "body": {
+            "sv": "Behåller du resan kl. {time}? Svara Ja eller Nej.",
+            "fr": "Gardez-vous la course à {time} ? Répondez Oui ou Non.",
+            "en": "Keep the ride at {time}? Answer Yes or No."
+          }
+        },
+        "reservation_unassigned": {
+          "title": {
+            "sv": "Bokad resa borttagen av Movera",
+            "fr": "Course réservée retirée par Movera",
+            "en": "Booked ride removed by Movera"
+          },
+          "body": {
+            "sv": "Movera tog bort dig från resan kl. {time}. Den finns inte längre bland dina resor.",
+            "fr": "Movera vous a retiré de la course de {time}. Elle n'est plus dans vos courses.",
+            "en": "Movera took you off the {time} ride. It is no longer in your rides."
+          }
+        },
+        "reservation_not_started": {
+          "title": {
+            "sv": "Din bokade resa börjar nu",
+            "fr": "Votre course réservée commence",
+            "en": "Your booked ride starts now"
+          },
+          "body": {
+            "sv": "Hämtningen kl. {time} är nu. Starta resan.",
+            "fr": "La prise en charge de {time} est maintenant. Démarrez la course.",
+            "en": "The {time} pickup is now. Start the ride."
+          }
+        },
+        "reservation_assigned": {
+          "title": {
+            "sv": "Bokad resa är din",
+            "fr": "Course réservée attribuée",
+            "en": "Booked ride is yours"
+          },
+          "body": {
+            "sv": "Hämtning kl. {time}. Den finns under Bokade resor.",
+            "fr": "Prise en charge à {time}. Elle est dans Courses réservées.",
+            "en": "Pickup at {time}. It is in Booked rides."
+          }
+        }
+      }
+    },
+    "errors": [
+      "booking_too_soon",
+      "booking_too_far",
+      "reservations_off",
+      "reservation_taken",
+      "reservation_in_dispatch",
+      "reservation_clash",
+      "reservation_not_open",
+      "reservation_too_early",
+      "change_too_late",
+      "not_a_reservation",
+      "trip_too_long"
+    ],
+    "timers": "Server timer kinds (durable, contract §timers): resv_popup, resv_open_all, resv_dispatch, resv_no_driver, resv_rider_reminder, resv_driver_reminder, resv_go_online, resv_offline_check, resv_change_ask, resv_overdue. Planned at booking / accept / change, taken back when the trip leaves the state they need.",
+    "openQuestions": [],
+    "ownerAnswers": {
+      "M6-a": "Drop the 15-min reminder; notice when the ride is assigned; keep the 2 h reminder and the go-online notice.",
+      "M6-b": "changeAnswerMin 15.",
+      "M6-c": "nearAtTime 5 km / 30 min.",
+      "M6-d": "offlineBackupAfterMin 5.",
+      "M6-e": "After the pickup time each new round asks again the drivers who declined.",
+      "M6-f": "The gap between two booked rides (smart gap) is the same for every ride type (normal spareMin)."
+    }
   }
 }

@@ -1,0 +1,182 @@
+{
+  "note": "v0.18.17 contract.json#bookLater.plan: when each step of a booked ride happens. settings override configDefaults.reservations. Times are UTC.",
+  "defaults": {
+    "minAheadMin": 15,
+    "maxAheadDays": 90,
+    "soonBeforeMin": 30,
+    "exclusiveBeforeMin": 20,
+    "radarBeforeMin": 15,
+    "homePopup": true,
+    "homePopupAfterMin": 10,
+    "noDriverAlertMin": 10,
+    "riderReminderMin": 60,
+    "freeChangeBeforeMin": 60,
+    "listTo": "all",
+    "listOpenAll": true,
+    "listOpenAllAfterMin": 30,
+    "dispatchBeforeMin": 30
+  },
+  "plan": [
+    {
+      "id": "three_hours_ahead_list",
+      "bookedAt": "2026-11-05T05:00:00Z",
+      "scheduledAt": "2026-11-05T08:00:00Z",
+      "settings": {},
+      "expect": {
+        "mode": "list",
+        "dispatchAt": "2026-11-05T07:30:00Z",
+        "popupAt": "2026-11-05T05:10:00Z",
+        "openAllAt": null,
+        "noDriverAt": "2026-11-05T07:50:00Z",
+        "riderReminderAt": "2026-11-05T07:00:00Z",
+        "freeChangeUntil": "2026-11-05T07:00:00Z"
+      }
+    },
+    {
+      "id": "twenty_minutes_ahead_now",
+      "bookedAt": "2026-11-05T07:40:00Z",
+      "scheduledAt": "2026-11-05T08:00:00Z",
+      "settings": {},
+      "expect": {
+        "mode": "now",
+        "dispatchAt": "2026-11-05T07:40:00Z",
+        "popupAt": null,
+        "openAllAt": null,
+        "noDriverAt": "2026-11-05T07:50:00Z",
+        "riderReminderAt": null,
+        "freeChangeUntil": "2026-11-05T07:00:00Z"
+      }
+    },
+    {
+      "id": "exactly_soon_limit_is_list",
+      "bookedAt": "2026-11-05T07:30:00Z",
+      "scheduledAt": "2026-11-05T08:00:00Z",
+      "settings": {},
+      "expect": {
+        "mode": "list",
+        "dispatchAt": "2026-11-05T07:30:00Z",
+        "popupAt": null,
+        "openAllAt": null,
+        "noDriverAt": "2026-11-05T07:50:00Z",
+        "riderReminderAt": null,
+        "freeChangeUntil": "2026-11-05T07:00:00Z"
+      }
+    },
+    {
+      "id": "too_soon",
+      "bookedAt": "2026-11-05T07:50:00Z",
+      "scheduledAt": "2026-11-05T08:00:00Z",
+      "settings": {},
+      "expect": {
+        "error": "booking_too_soon"
+      }
+    },
+    {
+      "id": "too_far",
+      "bookedAt": "2026-11-05T07:00:00Z",
+      "scheduledAt": "2027-02-04T07:01:00Z",
+      "settings": {},
+      "expect": {
+        "error": "booking_too_far"
+      }
+    },
+    {
+      "id": "ninety_days_ok",
+      "bookedAt": "2026-11-05T07:00:00Z",
+      "scheduledAt": "2027-02-03T07:00:00Z",
+      "settings": {
+        "homePopup": false
+      },
+      "expect": {
+        "mode": "list",
+        "dispatchAt": "2027-02-03T06:30:00Z",
+        "popupAt": null,
+        "openAllAt": null,
+        "noDriverAt": "2027-02-03T06:50:00Z",
+        "riderReminderAt": "2027-02-03T06:00:00Z",
+        "freeChangeUntil": "2027-02-03T06:00:00Z"
+      }
+    },
+    {
+      "id": "zone_thirty_and_group_open_all",
+      "bookedAt": "2026-11-05T05:00:00Z",
+      "scheduledAt": "2026-11-05T08:00:00Z",
+      "settings": {
+        "soonBeforeMin": 45,
+        "riderReminderMin": 0,
+        "listTo": "group",
+        "freeChangeBeforeMin": 120,
+        "dispatchBeforeMin": 35
+      },
+      "expect": {
+        "mode": "list",
+        "dispatchAt": "2026-11-05T07:25:00Z",
+        "popupAt": "2026-11-05T05:10:00Z",
+        "openAllAt": "2026-11-05T05:30:00Z",
+        "noDriverAt": "2026-11-05T07:50:00Z",
+        "riderReminderAt": null,
+        "freeChangeUntil": "2026-11-05T06:00:00Z"
+      }
+    }
+  ],
+  "riderCancel": [
+    {
+      "id": "two_hours_before_free",
+      "minutesBefore": 120,
+      "freeChangeBeforeMin": 60,
+      "expect": "free"
+    },
+    {
+      "id": "sixty_one_before_free",
+      "minutesBefore": 61,
+      "freeChangeBeforeMin": 60,
+      "expect": "free"
+    },
+    {
+      "id": "sixty_before_fee_rule",
+      "minutesBefore": 60,
+      "freeChangeBeforeMin": 60,
+      "expect": "reservation_fee_rule"
+    },
+    {
+      "id": "ten_before_fee_rule",
+      "minutesBefore": 10,
+      "freeChangeBeforeMin": 60,
+      "expect": "reservation_fee_rule"
+    }
+  ],
+  "driverTimes": [
+    {
+      "id": "normal_defaults",
+      "acceptedAt": "2026-11-05T03:00:00Z",
+      "scheduledAt": "2026-11-05T08:00:00Z",
+      "onlineBeforeMin": 60,
+      "reminderMin": [
+        120
+      ],
+      "offlineBackupAfterMin": 5,
+      "expect": {
+        "reminders": [
+          "2026-11-05T06:00:00Z"
+        ],
+        "goOnlineAt": "2026-11-05T07:00:00Z",
+        "offlineCheckAt": "2026-11-05T07:05:00Z"
+      }
+    },
+    {
+      "id": "accepted_late_skips_passed",
+      "acceptedAt": "2026-11-05T06:30:00Z",
+      "scheduledAt": "2026-11-05T08:00:00Z",
+      "onlineBeforeMin": 30,
+      "reminderMin": [
+        120
+      ],
+      "offlineBackupAfterMin": 5,
+      "expect": {
+        "reminders": [],
+        "goOnlineAt": "2026-11-05T07:30:00Z",
+        "offlineCheckAt": "2026-11-05T07:35:00Z"
+      }
+    }
+  ]
+}

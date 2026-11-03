@@ -1,3 +1,4 @@
+import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/core/contracts/category_ids.dart';
@@ -173,6 +174,23 @@ class RideSelectionController {
   bool get entersFindingDriver => bookingMode.entersFindingDriver;
 
   bool get createsReservation => bookingMode.createsReservation;
+
+  /// Contract v0.18.17 Book later: a ride for later is priced as a booked
+  /// ride by the server (`POST /quotes` kind scheduled, its pickup
+  /// instant), so the price shown is the price booked.
+  QuoteRepository? _priceForMode(GeoPoint? pickupPoint) {
+    final quotes = _quotes;
+    if (quotes is! ApiQuoteRepository) return null;
+    final wall = scheduledFor;
+    quotes.scheduledAt =
+        createsReservation && wall != null && pickupPoint != null
+        ? PickupSchedule.at(
+            pickupPoint.latitude,
+            pickupPoint.longitude,
+          ).toUtc(wall)
+        : null;
+    return quotes;
+  }
 
   List<RideCatalogItem> rides() {
     final all = _catalog?.current ?? _store.rides();
@@ -534,7 +552,7 @@ class RideSelectionController {
     if (generation != _quoteGeneration) return;
     try {
       final quote = await _withManagedTimeout(
-        _quotes.quote(
+        (_priceForMode(pickupPoint) ?? _quotes).quote(
           rideType: rideId,
           distanceMeters: distanceMeters,
           pickup: pickup,
@@ -581,7 +599,7 @@ class RideSelectionController {
     final generation = ++_pinQuoteGeneration;
     _quoteGeneration += 1;
     final quote = await _withManagedTimeout(
-      _quotes.quote(
+      (_priceForMode(pickupPoint) ?? _quotes).quote(
         rideType: rideId,
         distanceMeters: distanceMeters,
         pickup: pickup,

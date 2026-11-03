@@ -305,43 +305,38 @@
     "assignAcceptSeconds": 30,
     "rideTypes": {
       "normal": {
-        "onlineBeforeMin": 30,
+        "onlineBeforeMin": 60,
         "spareMin": 15,
         "reminderMin": [
-          60,
-          15
+          120
         ]
       },
       "airport": {
         "onlineBeforeMin": 60,
         "spareMin": 15,
         "reminderMin": [
-          60,
-          15
+          120
         ]
       },
       "longTrip": {
         "onlineBeforeMin": 60,
         "spareMin": 15,
         "reminderMin": [
-          60,
-          15
+          120
         ]
       },
       "comfortPremium": {
         "onlineBeforeMin": 45,
         "spareMin": 15,
         "reminderMin": [
-          60,
-          15
+          120
         ]
       },
       "event": {
         "onlineBeforeMin": 45,
         "spareMin": 15,
         "reminderMin": [
-          60,
-          15
+          120
         ]
       }
     },
@@ -350,7 +345,30 @@
       "toleranceMin": 3,
       "checkEverySeconds": 60,
       "reassignTo": "exclusive"
-    }
+    },
+    "minAheadMin": 15,
+    "maxAheadDays": 90,
+    "soonBeforeMin": 30,
+    "listTo": "all",
+    "listMinRating": 4.5,
+    "listGroupSize": 10,
+    "listNearKm": 5,
+    "listAreaTrips": 5,
+    "listGroupId": null,
+    "listOpenAll": true,
+    "listOpenAllAfterMin": 30,
+    "noticeOn": true,
+    "noticeMaxDrivers": 20,
+    "homePopup": true,
+    "noDriverAlertMin": 10,
+    "riderReminderMin": 60,
+    "freeChangeBeforeMin": 60,
+    "maxTripKm": null,
+    "dispatchBeforeMin": 30,
+    "listHomeKm": 5,
+    "listAtTimeKm": 5,
+    "listAtTimeMin": 30,
+    "changeAnswerMin": 15
   },
   "cancelReasons": {
     "driverBeforeTrip": [

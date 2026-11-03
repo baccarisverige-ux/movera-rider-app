@@ -1,3 +1,4 @@
+import 'package:movera_rider/features/favourites/favourite_drivers.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -457,6 +458,17 @@ class _RideCompletedState extends State<RideCompleted> {
                                           _feedback = feedback,
                                     ),
                                   ),
+                                  // Owner BL-Q4: mark this driver as a favourite (live).
+                                  if (AppScope.instance.api.contractWire &&
+                                      (widget.rideId?.trim().isNotEmpty ??
+                                          false)) ...[
+                                    const SizedBox(height: 14),
+                                    _SurfaceCard(
+                                      child: FavouriteDriverToggle(
+                                        rideId: widget.rideId!.trim(),
+                                      ),
+                                    ),
+                                  ],
                                   const SizedBox(height: 14),
                                   _SurfaceCard(
                                     child: RideCompletedAddTip(

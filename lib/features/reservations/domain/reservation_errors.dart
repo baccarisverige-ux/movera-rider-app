@@ -18,3 +18,25 @@ class ScheduledQuoteRequiredException implements Exception {
   @override
   String toString() => 'ScheduledQuoteRequiredException($categoryId)';
 }
+
+/// Contract v0.18.17 Book later (`contract.json#bookLater.errors`): the
+/// server refused a booked ride or a change for a rule of the zone. [limit]
+/// is the zone's number in the server's answer (minutes or days).
+class BookLaterRefusedException implements Exception {
+  const BookLaterRefusedException(this.reason, {this.limit});
+
+  /// `booking_too_soon`, `booking_too_far`, `trip_too_long` or
+  /// `change_too_late`.
+  final String reason;
+  final int? limit;
+
+  static const reasons = {
+    'booking_too_soon',
+    'booking_too_far',
+    'trip_too_long',
+    'change_too_late',
+  };
+
+  @override
+  String toString() => 'BookLaterRefusedException($reason, $limit)';
+}

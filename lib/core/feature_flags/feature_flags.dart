@@ -42,11 +42,11 @@ class FeatureFlags {
 
   /// Staging/production keep the features whose data still lives only on
   /// this device switched off until a server repository exists (ARCH-6,
-  /// ARCH-7): the wallet ledger, Book for later and saved cards.
+  /// ARCH-7): the wallet ledger and saved cards. Contract v0.18.17 (owner
+  /// 2026-11-03 "Build it for real"): Book for later is on, on the server
+  /// (`ApiReservationRepository`).
   static const release = FeatureFlags(
     enableWallet: false,
-    enableScheduledRide: false,
-    enableBookingLater: false,
     enableSavedCards: false,
   );
 

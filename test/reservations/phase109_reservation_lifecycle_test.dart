@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,7 +12,6 @@ import 'package:movera_rider/features/reservations/application/reservation_contr
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/data/mock_reservation_dispatch.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
-import 'package:movera_rider/features/reservations/domain/reservation_errors.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
@@ -86,10 +86,9 @@ void main() {
     () async {
       final scope = AppScope.composeForEnvironment(staging);
       addTearDown(scope.disposeForTest);
-      await expectLater(
-        schedule(scope.reservations),
-        throwsA(isA<ReservationsUnavailableException>()),
-      );
+      // v0.18.17 Book later: it goes to the server (signed out here), never
+      // to the device.
+      await expectLater(schedule(scope.reservations), throwsA(isA<ApiError>()));
       expect(scope.reservations.all, isEmpty);
     },
   );

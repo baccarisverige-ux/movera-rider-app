@@ -1646,5 +1646,12 @@
   "supportTopicPayment": "Paiement",
   "supportTopicAccount": "Compte et documents",
   "supportTopicSafety": "Sécurité",
-  "supportTopicOther": "Autre chose"
+  "supportTopicOther": "Autre chose",
+  "resErrTooSoon": "Réservez au moins {minutes} minutes avant la prise en charge.",
+  "resErrTooFar": "Vous pouvez réserver au maximum {days} jours à l'avance.",
+  "resErrTripTooLong": "Cette course est trop longue pour être réservée à l'avance. Réservez-la au moment de partir.",
+  "resErrChangeTooLate": "À moins de {minutes} minutes de la prise en charge, la course ne peut plus être modifiée. Votre course n'a pas changé.",
+  "favouriteDriverTitle": "Enregistrer comme chauffeur favori",
+  "favouriteDriverHelp": "Vos courses réservées peuvent aller d'abord à vos chauffeurs favoris.",
+  "favouriteDriverFailed": "Impossible d'enregistrer. Vérifiez votre connexion et réessayez."
 }
