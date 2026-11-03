@@ -191,7 +191,7 @@
   </script>
   <script src="movera_ride_snapshot_wipe.js"></script>
   <!-- Map gestures: tilt follows zoom live during a pinch (like the driver app). -->
-  <script src="rider_map_camera.js?v=03e1ea6f"></script>
+  <script src="rider_map_camera.js?v=a2665a3a"></script>
   <script>
     // A page restored from the back-forward cache already retains its live
     // Flutter state. Do not reload it: installed PWAs use this path when they
@@ -612,7 +612,22 @@
     // Do not stop heading on pagehide — iOS fires it for the motion prompt
     // and for backgrounding, which previously killed listeners after grant.
   </script>
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBJ_3q856NuoUBtnddNnIUC_-zs6ZJDml8" async defer></script>
-  <script src="flutter_bootstrap.03e1ea6f.js" defer onerror="window.moveraBootFailed && window.moveraBootFailed()"></script>
+  <script>
+    // Owner 2026-11-03 (LT-4 "load on open"): Google Maps JavaScript is not
+    // loaded with the page any more. The deploy writes its address into
+    // window.moveraMapsSrc (just above the app's start script); the first map
+    // on screen calls this (lib/core/web/web_maps_available_web.dart) and the
+    // map waits for it as before (rider-r4-20).
+    window.moveraLoadGoogleMaps = function() {
+      if (window.moveraGoogleMapsRequested || !window.moveraMapsSrc) return;
+      window.moveraGoogleMapsRequested = true;
+      var script = document.createElement('script');
+      script.src = window.moveraMapsSrc;
+      script.async = true;
+      document.head.appendChild(script);
+    };
+  </script>
+  <script>window.moveraMapsSrc = "https://maps.googleapis.com/maps/api/js?key=AIzaSyBJ_3q856NuoUBtnddNnIUC_-zs6ZJDml8";</script>
+  <script src="flutter_bootstrap.a2665a3a.js" defer onerror="window.moveraBootFailed && window.moveraBootFailed()"></script>
 </body>
 </html>
