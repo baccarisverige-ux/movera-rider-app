@@ -38,11 +38,11 @@ class PremiumBottomNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeColor = Color.lerp(
-      const Color(0xFF2A7A84),
-      _premiumInk,
-      floatingFraction,
-    )!;
+    // Owner 2026-11-02: "Keep all black" - the selected tab stays ink on the
+    // docked bar too (was teal 0xFF2A7A84 there).
+    final activeColor = kNavInkAlways
+        ? _premiumInk
+        : Color.lerp(const Color(0xFF2A7A84), _premiumInk, floatingFraction)!;
     // UI-6: the inactive grey was 0xFF899197 (3.20:1 on white).
     final color = active ? activeColor : MoveraTokens.subtle;
 
@@ -120,3 +120,7 @@ class PremiumBottomNavItem extends StatelessWidget {
     );
   }
 }
+
+/// Owner 2026-11-02: the selected tab's icon and label stay black with the
+/// sheet open. Set to false to return to the teal docked colour.
+const bool kNavInkAlways = true;
