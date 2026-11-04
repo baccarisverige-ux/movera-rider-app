@@ -1489,9 +1489,9 @@ paths:
         -> 204; POST /rider/places/import SavedPlaceImport -> 200 SavedPlacePage. 409 conflict, reason too_many_places, past
         maxPlaces (home and work count). Each list is read and changed only by its owner (the signed-in rider for places,
         the signed-in driver for preferences and contacts); another rider or driver never sees it and an id of someone else''s
-        place is 404 place_not_found. Admins never read saved places or ride preferences rows directly; an admin reads a driver''s
-        emergency contacts only through a safety incident of that driver (see admin), and every such read is written to the
-        admin audit. Logs never carry the addresses, names or phone numbers.'
+        place is 404 place_not_found. Admins only read (never edit): emergency contacts through an OPEN safety case of that
+        driver, saved places and ride preferences on the rider / driver profile page; every admin view is written to the admin
+        audit without the addresses, names or numbers. Logs never carry them.'
     post:
       operationId: createSavedPlace
       summary: Save a place
@@ -1540,9 +1540,9 @@ paths:
         -> 204; POST /rider/places/import SavedPlaceImport -> 200 SavedPlacePage. 409 conflict, reason too_many_places, past
         maxPlaces (home and work count). Each list is read and changed only by its owner (the signed-in rider for places,
         the signed-in driver for preferences and contacts); another rider or driver never sees it and an id of someone else''s
-        place is 404 place_not_found. Admins never read saved places or ride preferences rows directly; an admin reads a driver''s
-        emergency contacts only through a safety incident of that driver (see admin), and every such read is written to the
-        admin audit. Logs never carry the addresses, names or phone numbers.'
+        place is 404 place_not_found. Admins only read (never edit): emergency contacts through an OPEN safety case of that
+        driver, saved places and ride preferences on the rider / driver profile page; every admin view is written to the admin
+        audit without the addresses, names or numbers. Logs never carry them.'
   /rider/places/{placeId}:
     delete:
       operationId: deleteSavedPlace
@@ -6380,7 +6380,9 @@ paths:
         name }] }. records: only alerts of the admin''s zones in that country whose kind group the admin may see (kindGroups);
         an alert without zone only for a Super admin. people: active admins with a zone in the same country (Super admins
         included). records holds the open ones and those done in the last 30 days. country: SE | FR | TN; an admin outside
-        the country -> 403 zone_out_of_scope.'
+        the country -> 403 zone_out_of_scope. v0.18.23: AlertBookState also carries alerts [LiveAlert] (serverDetection):
+        the alerts the server found, open or solved by itself, of the admin''s zones in that country and the groups the admin
+        may see (same filter as records).'
       tags:
       - Admin · Alerts
       x-actor:
@@ -15765,9 +15767,9 @@ paths:
       description: 'v0.18.26: GET /driver/emergency-contacts -> EmergencyContactList; PUT /driver/emergency-contacts EmergencyContactListUpdate
         -> EmergencyContactList (the whole list each time). Each list is read and changed only by its owner (the signed-in
         rider for places, the signed-in driver for preferences and contacts); another rider or driver never sees it and an
-        id of someone else''s place is 404 place_not_found. Admins never read saved places or ride preferences rows directly;
-        an admin reads a driver''s emergency contacts only through a safety incident of that driver (see admin), and every
-        such read is written to the admin audit. Logs never carry the addresses, names or phone numbers.'
+        id of someone else''s place is 404 place_not_found. Admins only read (never edit): emergency contacts through an OPEN
+        safety case of that driver, saved places and ride preferences on the rider / driver profile page; every admin view
+        is written to the admin audit without the addresses, names or numbers. Logs never carry them.'
       tags:
       - Driver · Account
       x-actor:
@@ -15849,10 +15851,11 @@ paths:
       operationId: adminIncidentEmergencyContacts
       summary: The incident driver's emergency contacts (read-only, audited)
       description: 'v0.18.26: GET /admin/incidents/{incidentId}/emergency-contacts (incidents.read; the incident''s zone must
-        be in the admin''s scope, else 403 zone_out_of_scope) -> IncidentEmergencyContacts { incidentId, driverId, items,
-        updatedAt }: the emergency contacts of the incident''s driver, read-only. An incident without a driver answers items
-        []. Every read writes the admin audit line incident.emergency_contacts_viewed (who, when, which incident; never the
-        numbers).'
+        be in the admin''s scope, else 403 zone_out_of_scope) ; owner 2026-11-04 ''Yes, during a safety case'': only while
+        the case is open (status open or investigating), else 409 invalid_transition, reason incident_closed -> IncidentEmergencyContacts
+        { incidentId, driverId, items, updatedAt }: the emergency contacts of the incident''s driver, read-only. An incident
+        without a driver answers items []. Every read writes the admin audit line incident.emergency_contacts_viewed (who,
+        when, which incident; never the numbers).'
       tags:
       - Admin · Safety
       x-actor:
@@ -15874,6 +15877,86 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/IncidentEmergencyContacts'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/riders/{riderId}/saved-places:
+    get:
+      operationId: adminRiderSavedPlaces
+      summary: A rider's saved places (read-only, audited)
+      description: 'v0.18.26: Owner 2026-11-04 ''Read-only on profile'': GET /admin/riders/{riderId}/saved-places (riders.read;
+        a zone-limited admin only for a rider with a trip in his zones, else 403 zone_out_of_scope; unknown 404 rider_not_found)
+        -> AdminRiderSavedPlaces { riderId, items: SavedPlace[] }. Audit line rider.saved_places_viewed (count only).'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: riders.read
+      parameters:
+      - $ref: '#/components/parameters/RiderId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRiderSavedPlaces'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/drivers/{driverId}/preferences:
+    get:
+      operationId: adminDriverPreferences
+      summary: A driver's ride preferences (read-only, audited)
+      description: 'v0.18.26: Owner 2026-11-04 ''Read-only on profile'': GET /admin/drivers/{driverId}/preferences (drivers.read;
+        driver''s zones in scope, else 403 zone_out_of_scope; unknown 404 driver_not_found) -> AdminDriverPreferences { driverId,
+        categoriesOff, updatedAt }. Audit line driver.preferences_viewed.'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.read
+      parameters:
+      - $ref: '#/components/parameters/DriverId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDriverPreferences'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -18777,9 +18860,9 @@ components:
       type: object
       description: 'v0.18.26: one of the rider''s saved places. Each list is read and changed only by its owner (the signed-in
         rider for places, the signed-in driver for preferences and contacts); another rider or driver never sees it and an
-        id of someone else''s place is 404 place_not_found. Admins never read saved places or ride preferences rows directly;
-        an admin reads a driver''s emergency contacts only through a safety incident of that driver (see admin), and every
-        such read is written to the admin audit. Logs never carry the addresses, names or phone numbers.'
+        id of someone else''s place is 404 place_not_found. Admins only read (never edit): emergency contacts through an OPEN
+        safety case of that driver, saved places and ride preferences on the rider / driver profile page; every admin view
+        is written to the admin audit without the addresses, names or numbers. Logs never carry them.'
       required:
       - placeId
       - label
@@ -19266,7 +19349,9 @@ components:
         name }] }. records: only alerts of the admin''s zones in that country whose kind group the admin may see (kindGroups);
         an alert without zone only for a Super admin. people: active admins with a zone in the same country (Super admins
         included). records holds the open ones and those done in the last 30 days. country: SE | FR | TN; an admin outside
-        the country -> 403 zone_out_of_scope.'
+        the country -> 403 zone_out_of_scope. v0.18.23: AlertBookState also carries alerts [LiveAlert] (serverDetection):
+        the alerts the server found, open or solved by itself, of the admin''s zones in that country and the groups the admin
+        may see (same filter as records).'
       required:
       - country
       - rev
@@ -31055,10 +31140,11 @@ components:
     IncidentEmergencyContacts:
       type: object
       description: 'v0.18.26: GET /admin/incidents/{incidentId}/emergency-contacts (incidents.read; the incident''s zone must
-        be in the admin''s scope, else 403 zone_out_of_scope) -> IncidentEmergencyContacts { incidentId, driverId, items,
-        updatedAt }: the emergency contacts of the incident''s driver, read-only. An incident without a driver answers items
-        []. Every read writes the admin audit line incident.emergency_contacts_viewed (who, when, which incident; never the
-        numbers).'
+        be in the admin''s scope, else 403 zone_out_of_scope) ; owner 2026-11-04 ''Yes, during a safety case'': only while
+        the case is open (status open or investigating), else 409 invalid_transition, reason incident_closed -> IncidentEmergencyContacts
+        { incidentId, driverId, items, updatedAt }: the emergency contacts of the incident''s driver, read-only. An incident
+        without a driver answers items []. Every read writes the admin audit line incident.emergency_contacts_viewed (who,
+        when, which incident; never the numbers).'
       required:
       - incidentId
       - driverId
@@ -31075,6 +31161,41 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/EmergencyContact'
+        updatedAt:
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+    AdminRiderSavedPlaces:
+      type: object
+      description: 'v0.18.26: Owner 2026-11-04 ''Read-only on profile'': GET /admin/riders/{riderId}/saved-places (riders.read;
+        a zone-limited admin only for a rider with a trip in his zones, else 403 zone_out_of_scope; unknown 404 rider_not_found)
+        -> AdminRiderSavedPlaces { riderId, items: SavedPlace[] }. Audit line rider.saved_places_viewed (count only).'
+      required:
+      - riderId
+      - items
+      properties:
+        riderId:
+          $ref: '#/components/schemas/Id'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavedPlace'
+    AdminDriverPreferences:
+      type: object
+      description: 'v0.18.26: Owner 2026-11-04 ''Read-only on profile'': GET /admin/drivers/{driverId}/preferences (drivers.read;
+        driver''s zones in scope, else 403 zone_out_of_scope; unknown 404 driver_not_found) -> AdminDriverPreferences { driverId,
+        categoriesOff, updatedAt }. Audit line driver.preferences_viewed.'
+      required:
+      - driverId
+      - categoriesOff
+      - updatedAt
+      properties:
+        driverId:
+          $ref: '#/components/schemas/Id'
+        categoriesOff:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryId'
         updatedAt:
           oneOf:
           - $ref: '#/components/schemas/Timestamp'

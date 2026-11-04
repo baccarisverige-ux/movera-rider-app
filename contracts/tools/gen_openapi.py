@@ -2869,6 +2869,13 @@ S["IncidentEmergencyContacts"] = obj({"incidentId": ref("Id"), "driverId": {"one
 op("get", "/admin/incidents/{incidentId}/emergency-contacts", "adminIncidentEmergencyContacts", "The incident driver's emergency contacts (read-only, audited)",
    ["admin"], "Admin · Safety", params=[pref("IncidentId")], ok=(200, "IncidentEmergencyContacts"), permission="incidents.read",
    desc="v0.18.26: " + PDS["admin"]["emergencyContacts"])
+S["AdminRiderSavedPlaces"] = obj({"riderId": ref("Id"), "items": arr(ref("SavedPlace"))}, ["riderId", "items"], "v0.18.26: " + PDS["admin"]["riderPlaces"])
+op("get", "/admin/riders/{riderId}/saved-places", "adminRiderSavedPlaces", "A rider's saved places (read-only, audited)", ["admin"], "Admin · People",
+   params=[pref("RiderId")], ok=(200, "AdminRiderSavedPlaces"), permission="riders.read", desc="v0.18.26: " + PDS["admin"]["riderPlaces"])
+S["AdminDriverPreferences"] = obj({"driverId": ref("Id"), "categoriesOff": arr(ref("CategoryId")), "updatedAt": {"oneOf": [ref("Timestamp"), {"type": "null"}]}},
+                                  ["driverId", "categoriesOff", "updatedAt"], "v0.18.26: " + PDS["admin"]["driverPreferences"])
+op("get", "/admin/drivers/{driverId}/preferences", "adminDriverPreferences", "A driver's ride preferences (read-only, audited)", ["admin"], "Admin · People",
+   params=[pref("DriverId")], ok=(200, "AdminDriverPreferences"), permission="drivers.read", desc="v0.18.26: " + PDS["admin"]["driverPreferences"])
 
 def to_plain(x):
     if isinstance(x, dict): return {k: to_plain(v) for k, v in x.items()}

@@ -4,6 +4,7 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/features/home/data/home_repository.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 /// BASE B13 (contract v0.18.26 §47, `contract.json#phoneDataToServer`;
 /// owner 2026-11-03 "Phone-only data: Yes, all to server"): the rider's
@@ -194,9 +195,9 @@ Map<String, dynamic> _body({
 /// The phone's places as `SavedPlaceRequest`s (the one-time upload).
 List<Map<String, dynamic>> requestsFor(HomeAddressSnapshot local) => [
   if ((local.home ?? '').trim().isNotEmpty)
-    _body(label: 'Home', kind: 'home', address: local.home!),
+    _body(label: L10n.current.placeHome, kind: 'home', address: local.home!),
   if ((local.work ?? '').trim().isNotEmpty)
-    _body(label: 'Work', kind: 'work', address: local.work!),
+    _body(label: L10n.current.placeWork, kind: 'work', address: local.work!),
   for (final place in local.places)
     if ((place['address'] ?? '').trim().isNotEmpty)
       _body(
@@ -276,7 +277,9 @@ PlacePlan planChanges(List<ServerPlace> known, HomeAddressSnapshot local) {
       creates.add(
         PlaceCreate(
           _body(
-            label: slot == 'home' ? 'Home' : 'Work',
+            label: slot == 'home'
+                ? L10n.current.placeHome
+                : L10n.current.placeWork,
             kind: slot,
             address: address,
           ),
