@@ -4,6 +4,12 @@
 # backend-readiness-gate, batch5-phase69-test-integrity and rider-l10n, which
 # each ran the same `flutter test` suite (or a subset of it) again.
 # Branch protection should require the single check "CI gate / gate".
+# B15 (2026-11-04): the eleven batch6/batch7 phase workflows and "Contract
+# copy" are folded in here (old files archived in the Rules repo under
+# archive/old-workflows/movera-rider-app/), and the unit suite runs in four
+# parallel shards. Check names kept: "gate", "contract-copy",
+# "Local Chromium + WebKit responsive matrix" and
+# "Unit and widget tests (once) + coverage" (now the coverage join).
 name: CI gate
 
 on:
@@ -145,10 +151,17 @@ jobs:
       - name: Contract copy matches its CHECKSUMS
         run: cd contracts && sha256sum --quiet -c CHECKSUMS
 
+  # B15 (faster CI): the suite runs in four parallel shards (it took 16 min
+  # in one job); the "coverage" job joins their lcov files and keeps the
+  # lib/core floor. Every test file still runs once.
   test:
-    name: Unit and widget tests (once) + coverage
+    name: Unit and widget tests (shard ${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -160,13 +173,37 @@ jobs:
         with:
           path: ~/.pub-cache
           key: pub-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-
       - run: flutter pub get --enforce-lockfile
-      - name: Full unit + widget suite with coverage
-        run: flutter test --coverage
-      # The zone tests depend on the machine's time zone, so they run again
-      # under a zone with daylight saving on each side of UTC (from
-      # architecture-gates).
-      - name: Time-zone reruns (Europe/Stockholm, America/New_York)
+      - name: Shard of the unit + widget suite with coverage
+        run: flutter test --coverage --total-shards=4 --shard-index=$(( ${{ matrix.shard }} - 1 ))
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-shard-${{ matrix.shard }}
+          path: coverage/lcov.info
+          if-no-files-found: error
+
+  # The zone tests depend on the machine's time zone, so they run again
+  # under a zone with daylight saving on each side of UTC (from
+  # architecture-gates).
+  time-zones:
+    name: Time-zone reruns (Europe/Stockholm, America/New_York)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-
+      - run: flutter pub get --enforce-lockfile
+      - name: Zone tests under two zones
         run: |
           for tz in Europe/Stockholm America/New_York; do
             TZ=$tz flutter test \
@@ -174,6 +211,22 @@ jobs:
               test/core/audit_fix_r4_device_zone_test.dart \
               test/audit/owner9_zone_pickup_time_test.dart
           done
+
+  coverage:
+    name: Unit and widget tests (once) + coverage
+    needs: [test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-shard-*
+          path: shards
+      - name: Join the shard reports
+        run: |
+          mkdir -p coverage
+          python3 tool/merge_lcov.py coverage/lcov.info shards/*/lcov.info
       - name: lib/core coverage floor
         run: |
           python3 - <<'PY'
@@ -285,6 +338,13 @@ jobs:
       - run: flutter pub get --enforce-lockfile
       - name: Demo web build with QA hooks
         run: flutter build web --release --dart-define=MOVERA_QA=true
+      - name: Cache Playwright Chromium and npm
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.npm
+          key: playwright-1.55.0-${{ runner.os }}-chromium
       - name: Chromium
         run: |
           mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
@@ -320,10 +380,617 @@ jobs:
             | tar -xz -C "$RUNNER_TEMP" gitleaks
           "$RUNNER_TEMP/gitleaks" dir . --redact --verbose --no-banner --exit-code 1
 
+  # B15 (faster CI): the source guards and backend smokes of the eleven
+  # batch6-phase72..80 / batch7-phase81..84 workflows (archived in the Rules
+  # repo). Their `flutter test` files run in the shards above and their
+  # `flutter analyze` in "static"; only the checks below were unique.
+  phase-guards:
+    name: Phase 72-84 source guards and backend smokes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 'Phase 74: Security truth source guards'
+        run: |
+          ! grep -q "ProfileController" lib/features/profile/presentation/security.dart
+          ! grep -q "_profile.update" lib/features/profile/presentation/security.dart
+          ! grep -q "SharedPreferences" lib/features/profile/presentation/security.dart
+      - name: 'Phase 74: Backend account-security smoke'
+        run: |
+          node --check backend/src/index.js
+          node backend/src/index.js >/tmp/movera-backend.log 2>&1 &
+          BACKEND_PID=$!
+          trap 'kill $BACKEND_PID' EXIT
+          sleep 1
+          node <<'NODE'
+          (async () => {
+            const base = 'http://127.0.0.1:8787';
+            const beforeRes = await fetch(base + '/api/v1/account/security');
+            if (!beforeRes.ok) throw new Error('security GET failed');
+            const before = await beforeRes.json();
+            if (!before.security) throw new Error('missing security payload');
+            if (before.security.phone !== '' || before.security.email !== '') {
+              throw new Error('backend seeded a fake rider identity');
+            }
+            if (before.security.capabilities.reauthentication !== false) {
+              throw new Error('reauthentication must be unavailable by default');
+            }
+
+            const revokeRes = await fetch(
+              base + '/api/v1/account/security/sessions/sign-out-others',
+              {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+              },
+            );
+            if (revokeRes.status !== 403) {
+              throw new Error('sensitive session revoke did not require reauth');
+            }
+            const rejected = await revokeRes.json();
+            if (rejected.code !== 'REAUTH_REQUIRED') {
+              throw new Error('wrong rejection for missing reauthentication');
+            }
+
+            const afterRes = await fetch(base + '/api/v1/account/security');
+            const after = await afterRes.json();
+            if (
+              JSON.stringify(after.security.sessions) !==
+              JSON.stringify(before.security.sessions)
+            ) {
+              throw new Error('rejected revoke mutated server sessions');
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+      - name: 'Phase 78: Native push capability guards'
+        run: |
+          grep -q "android.permission.POST_NOTIFICATIONS" android/app/src/main/AndroidManifest.xml
+          grep -q "aps-environment" ios/Runner/Runner.entitlements
+          grep -q "remote-notification" ios/Runner/Info.plist
+          grep -q "CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements" ios/Runner.xcodeproj/project.pbxproj
+          ! grep -A4 "push = environment.allowsMockTransport" lib/app/di.dart | grep -q "UnavailablePushService"
+      - name: 'Phase 78: Backend push device smoke'
+        run: |
+          node --check backend/src/index.js
+          node backend/src/index.js >/tmp/movera-backend.log 2>&1 &
+          BACKEND_PID=$!
+          trap 'kill $BACKEND_PID' EXIT
+          sleep 1
+          node <<'NODE'
+          (async () => {
+            const base = 'http://127.0.0.1:8787';
+            const headers = { 'content-type': 'application/json' };
+            const register = await fetch(base + '/api/v1/push/devices', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                token: 'phase78-token',
+                provider: 'fcm',
+                platform: 'android',
+              }),
+            });
+            if (!register.ok) throw new Error('push registration failed');
+            const registered = await register.json();
+            if (registered.code !== 'OK' || registered.status !== 'registered') {
+              throw new Error('push registration was not acknowledged');
+            }
+
+            const remove = await fetch(base + '/api/v1/push/devices/unregister', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ token: 'phase78-token' }),
+            });
+            if (!remove.ok) throw new Error('push unregister failed');
+            const removed = await remove.json();
+            if (removed.code !== 'OK' || removed.status !== 'unregistered') {
+              throw new Error('push unregister was not acknowledged');
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+      - name: 'Phase 79: Push navigation safety guards'
+        run: |
+          grep -q "openRide: openRideFromNotification" lib/app/bootstrap.dart
+          grep -q "reconnectAndResync(expected)" lib/features/notifications/application/notification_navigation.dart
+          grep -q "PushDestination.ride" lib/features/notifications/application/push_coordinator.dart
+          ! grep -q "Navigator.*deepLink" lib/features/notifications/application/push_coordinator.dart
+          ! grep -q "Navigator.*deepLink" lib/features/notifications/presentation/notifications.dart
+      - name: 'Phase 79: Android manifest is valid XML'
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          ET.parse('android/app/src/main/AndroidManifest.xml')
+          PY
+          grep -q "android.permission.POST_NOTIFICATIONS" android/app/src/main/AndroidManifest.xml
+          ! grep -Fq '\\n' android/app/src/main/AndroidManifest.xml
+      - name: 'Phase 80: Release payment composition guards'
+        run: |
+          grep -q "ApiPaymentGateway(api: api)" lib/app/di.dart
+          ! grep -A5 "paymentGateway = environment.allowsMockTransport" lib/app/di.dart | grep -q "UnavailablePaymentGateway"
+          grep -q "paymentGateway is UnavailablePaymentGateway" lib/app/config/transport_composition.dart
+      - name: 'Phase 80: Backend payment lifecycle smoke'
+        run: |
+          node --check backend/src/index.js
+          node backend/src/index.js >/tmp/movera-backend.log 2>&1 &
+          BACKEND_PID=$!
+          trap 'kill $BACKEND_PID' EXIT
+          sleep 1
+          node <<'NODE'
+          (async () => {
+            const base = 'http://127.0.0.1:8787';
+            const headers = {
+              'content-type': 'application/json',
+              'idempotency-key': 'phase80-smoke',
+            };
+            const create = await fetch(base + '/api/v1/payments', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ amountMinor: 12500, currency: 'SEK' }),
+            });
+            if (!create.ok) throw new Error('payment create failed');
+            const created = await create.json();
+            if (
+              created.code !== 'OK' ||
+              created.intent?.status !== 'requires_confirmation' ||
+              created.intent?.amountMinor !== 12500 ||
+              created.intent?.currency !== 'SEK'
+            ) throw new Error('invalid payment intent');
+            const id = created.intent.id;
+
+            const statusBefore = await fetch(base + '/api/v1/payments/' + id);
+            const before = await statusBefore.json();
+            if (before.status !== 'requires_confirmation') {
+              throw new Error('payment became successful before confirmation');
+            }
+
+            const confirm = await fetch(
+              base + '/api/v1/payments/' + id + '/confirm',
+              { method: 'POST', headers: { 'content-type': 'application/json' } },
+            );
+            if (!confirm.ok) throw new Error('payment confirm failed');
+            const confirmed = await confirm.json();
+            if (confirmed.status !== 'succeeded') {
+              throw new Error('payment confirmation not acknowledged');
+            }
+
+            const statusAfter = await fetch(base + '/api/v1/payments/' + id);
+            const after = await statusAfter.json();
+            if (after.status !== 'succeeded') {
+              throw new Error('payment status not persisted');
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+      - name: 'Phase 81: Dead payments route is gone'
+        run: |
+          ! grep -R "AppRoutes.payments" lib
+          ! grep -R "static const payments = '/payments';" lib
+      - name: 'Phase 81: No unguarded firstWhere remains in lib'
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          failures = []
+          for path in Path('lib').rglob('*.dart'):
+              text = path.read_text()
+              cursor = 0
+              needle = 'firstWhere('
+              while True:
+                  start = text.find(needle, cursor)
+                  if start < 0:
+                      break
+                  open_paren = start + len('firstWhere')
+                  depth = 0
+                  quote = None
+                  escaped = False
+                  end = None
+                  for i in range(open_paren, len(text)):
+                      ch = text[i]
+                      if quote is not None:
+                          if escaped:
+                              escaped = False
+                          elif ch == '\\':
+                              escaped = True
+                          elif ch == quote:
+                              quote = None
+                          continue
+                      if ch in ("'", '"'):
+                          quote = ch
+                          continue
+                      if ch == '(':
+                          depth += 1
+                      elif ch == ')':
+                          depth -= 1
+                          if depth == 0:
+                              end = i + 1
+                              break
+                  if end is None:
+                      failures.append(f'{path}: unterminated firstWhere call')
+                      break
+                  call = text[start:end]
+                  if 'orElse:' not in call:
+                      line = text.count('\n', 0, start) + 1
+                      failures.append(f'{path}:{line}: firstWhere without orElse')
+                  cursor = end
+
+          if failures:
+              raise SystemExit('\n'.join(failures))
+          PY
+      - name: 'Phase 81: Schedule Continue is a real accessible button'
+        run: |
+          grep -q "ElevatedButton(" lib/features/scheduled_rides/presentation/select_date_time.dart
+          grep -q "key: const Key('schedule-continue')" lib/features/scheduled_rides/presentation/select_date_time.dart
+          ! grep -q "label: 'Schedule Continue'" lib/features/scheduled_rides/presentation/select_date_time.dart
+          ! grep -q "onPointerDown: (_) => _goNext()" lib/features/scheduled_rides/presentation/select_date_time.dart
+      - name: 'Phase 81: History archive failures are observable'
+        run: |
+          grep -q "ride.history.archive_failed" lib/features/finding_driver/application/finding_driver_controller.dart
+          grep -q "attempt <= 2" lib/features/finding_driver/application/finding_driver_controller.dart
+      - name: 'Phase 82: Single saved-place source guard'
+        run: |
+          test ! -e lib/features/saved_places/data/saved_places_repository.dart
+          grep -q "HomeAddressRepository" lib/features/saved_places/application/saved_places_controller.dart
+          grep -q "_places.changes.listen" lib/features/home/presentation/home.dart
+      - name: 'Phase 82: Real Save Edit Delete guards'
+        run: |
+          # Round 4: the labels come from l10n; check the code still shows
+          # Saving…/Save and an Edit action, and that English reads so.
+          # dart format may wrap the Text( argument, so the check reads the
+          # file with whitespace collapsed.
+          tr -s ' \n' ' ' < lib/features/saved_places/presentation/add_place.dart \
+            | grep -qF "child: Text( _saving ? context.l10n.saving : context.l10n.save, )"
+          grep -q '"saving": "Saving…"' lib/l10n/app_en.arb
+          grep -q '"save": "Save"' lib/l10n/app_en.arb
+          grep -q "_places.remove(" lib/features/saved_places/presentation/saved_places.dart
+          grep -q "context.l10n.spEditPlace(place.title)" lib/features/saved_places/presentation/saved_places.dart
+          grep -q '"spEditPlace": "Edit {place}"' lib/l10n/app_en.arb
+      - name: 'Phase 83: No fabricated Rider send'
+        run: |
+          # Live wire: the chat sends through the server (transport). Demo: no
+          # transport, so nothing is appended locally to look sent.
+          grep -q "canSendMessages => _transport != null" lib/features/messages/application/messages_controller.dart
+          grep -q "if (_transport == null || isClosed) return false;" lib/features/messages/application/messages_controller.dart
+          # Round 4: the copy lives in l10n; check the code uses it and that
+          # English still reads the same.
+          grep -q "sendUnavailableMessage => L10n.current.chatSendUnavailable" lib/features/messages/application/messages_controller.dart
+          grep -q "\"chatSendUnavailable\": \"Sending messages to your driver isn't available yet.\"" lib/l10n/app_en.arb
+          grep -q ": context.l10n.chatSendUnavailableSemantics" lib/features/messages/presentation/chat.dart
+          grep -q '"chatSendUnavailableSemantics": "Send message unavailable"' lib/l10n/app_en.arb
+      - name: 'Phase 84: Notification target safety'
+        run: |
+          grep -q "notificationRideTarget" lib/features/notifications/presentation/notifications.dart
+          grep -q "openRideFromNotification" lib/app/bootstrap.dart
+          ! grep -q "Navigator.*deepLink" lib/features/notifications/presentation/notifications.dart
+
+  # The release flavours the batch workflows built that web-build does not.
+  flavor-builds:
+    name: Phase 73/78/79 flavour builds (auth gate, Firebase, Android debug)
+    runs-on: ubuntu-24.04  # ubuntu-latest is 26.04: Java 25 does not run Gradle 8.14
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-
+      - run: flutter pub get --enforce-lockfile
+      - name: 'Phase 73: Build production with auth gate enabled'
+        run: |
+          rm -rf build/web
+          flutter build web --release \
+            -t lib/main_production.dart \
+            --dart-define=MOVERA_FLAVOR=production \
+            --dart-define=MOVERA_API_BASE_URL=https://api.movera.example \
+            --dart-define=MOVERA_AUTH_REQUIRED=true
+          test -f build/web/main.dart.js
+      - name: 'Phase 78: Production web build with explicit Firebase config'
+        run: |
+          rm -rf build/web
+          flutter build web --release             -t lib/main_production.dart             --dart-define=MOVERA_FLAVOR=production             --dart-define=MOVERA_API_BASE_URL=https://api.movera.example             --dart-define=MOVERA_FIREBASE_API_KEY=ci-api-key             --dart-define=MOVERA_FIREBASE_APP_ID=ci-app-id             --dart-define=MOVERA_FIREBASE_MESSAGING_SENDER_ID=ci-sender             --dart-define=MOVERA_FIREBASE_PROJECT_ID=ci-project             --dart-define=MOVERA_FIREBASE_VAPID_KEY=ci-vapid
+          test -f build/web/main.dart.js
+      - name: 'Phase 79: Android debug build'
+        run: |
+          flutter build apk --debug -t lib/main_demo.dart
+          test -f build/app/outputs/flutter-apk/app-debug.apk
+
+  # B15 (faster CI): was "Batch 7 Phase 85 browser responsive matrix"
+  # (archived in the Rules repo); same job and check name, now in this file.
+  # Not in "gate": it never was.
+  responsive-browser:
+    name: Local Chromium + WebKit responsive matrix
+    runs-on: ubuntu-24.04  # ubuntu-latest is 26.04: no Playwright Chromium, json.hpp fails to compile
+    # As before (its own workflow), on pull requests and by hand only.
+    if: github.event_name != 'push'
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+
+      - name: Build exact candidate demo web
+        run: |
+          flutter build web --release \
+            -t lib/main_demo.dart \
+            --dart-define=MOVERA_FLAVOR=demo
+          test -f build/web/main.dart.js
+
+      - name: Configure Google Maps exactly like the live deploy
+        env:
+          MAPS_WEB_API_KEY: ${{ secrets.MAPS1 || secrets.MAPS || secrets.GOOGLE_MAPS_WEB_API_KEY || secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS_API_KEY }}
+        run: |
+          if [ -z "$MAPS_WEB_API_KEY" ]; then
+            echo "::error::Missing Google Maps API key for Phase 85 browser certification."
+            exit 1
+          fi
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          p = Path('build/web/index.html')
+          s = p.read_text()
+          bootstrap = '  <script src="flutter_bootstrap.js" defer onerror="window.moveraBootFailed && window.moveraBootFailed()"></script>'
+          # LT-4 (owner 2026-11-03): as the live deploy, Maps loads when the first map opens.
+          maps = (
+              '  <script>window.moveraMapsSrc = "https://maps.googleapis.com/maps/api/js?key='
+              + os.environ['MAPS_WEB_API_KEY']
+              + '";</script>'
+          )
+          if bootstrap not in s:
+              raise SystemExit('Flutter bootstrap tag not found')
+          if 'maps.googleapis.com/maps/api/js' not in s:
+              s = s.replace(bootstrap, maps + '\n' + bootstrap)
+          p.write_text(s)
+          PY
+          grep -q "maps.googleapis.com/maps/api/js" build/web/index.html
+
+      - name: Cache Playwright browsers and npm
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.npm
+          key: playwright-1.55.0-${{ runner.os }}-chromium-webkit
+      - name: Install Playwright browsers
+        # The system-dependency install inside `playwright install --with-deps`
+        # runs apt on the runner image; on 22 Oct it hung twice for 50+ minutes
+        # on the image's service-restart prompt (needrestart). Keep apt
+        # non-interactive, show the install output, and cap the step.
+        timeout-minutes: 12
+        env:
+          DEBIAN_FRONTEND: noninteractive
+          NEEDRESTART_MODE: a
+          NEEDRESTART_SUSPEND: "1"
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --save-dev playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium webkit
+
+      - name: Serve exact candidate
+        run: |
+          python3 -m http.server 4173 --directory build/web >/tmp/phase85-http.log 2>&1 &
+          echo $! > /tmp/phase85-http.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/phase85-http.log
+          exit 1
+
+      - name: Browser + responsive effect matrix
+        run: |
+          cat > phase85-browser.mjs <<'JS'
+          import { chromium, webkit } from 'playwright';
+          import fs from 'fs';
+
+          const base = 'http://127.0.0.1:4173/';
+          const viewports = [
+            [320, 568],
+            [375, 667],
+            [390, 844],
+            [430, 932],
+            [768, 1024],
+            [1024, 768],
+          ];
+          const fatalPattern =
+            /RenderFlex overflowed|A RenderFlex|Null check operator|RangeError|Another exception|Uncaught TypeError|Assertion failed/i;
+          const evidence = { sha: process.env.GITHUB_SHA, chromium: [], webkit: [] };
+
+          async function inspect(browser, family, width, height) {
+            const context = await browser.newContext({
+              viewport: { width, height },
+              deviceScaleFactor: 1,
+              isMobile: width < 768,
+              hasTouch: true,
+              locale: 'en-US',
+              geolocation: { latitude: 59.33258, longitude: 18.0649 },
+              permissions: ['geolocation'],
+            });
+            // Round 4: the app speaks the zone's language (sv in Stockholm); these
+            // checks read the English copy, so pin the rider's choice to English.
+            await context.addInitScript(() => localStorage.setItem('flutter.movera_app_language', '"en"'));
+            const page = await context.newPage();
+            const errors = [];
+            page.on('pageerror', error => errors.push({
+              source: 'pageerror',
+              message: String(error),
+              stack: error?.stack || '',
+            }));
+            page.on('console', message => {
+              if (message.type() === 'error' && fatalPattern.test(message.text())) {
+                errors.push({
+                  source: 'console',
+                  message: message.text(),
+                  stack: '',
+                });
+              }
+            });
+            await page.goto(base + '?phase85=' + family + '-' + width + 'x' + height, {
+              waitUntil: 'networkidle',
+              timeout: 120000,
+            });
+            await page.waitForTimeout(3500);
+
+            try {
+              await page.getByLabel('Enable accessibility').click({ timeout: 1500 });
+              await page.waitForTimeout(250);
+            } catch (_) {}
+
+            const metrics = await page.evaluate(() => ({
+              width: window.innerWidth,
+              height: window.innerHeight,
+              docWidth: document.documentElement.scrollWidth,
+              hasFlutter:
+                !!document.querySelector('flutter-view') ||
+                !!document.querySelector('flt-glass-pane'),
+              hasGoogleMaps:
+                typeof window.google !== 'undefined' &&
+                !!window.google.maps,
+            }));
+            if (!metrics.hasFlutter) {
+              throw new Error(family + ' ' + width + 'x' + height + ': Flutter surface missing');
+            }
+            if (!metrics.hasGoogleMaps) {
+              throw new Error(
+                family + ' ' + width + 'x' + height +
+                ': Google Maps runtime missing from exact candidate',
+              );
+            }
+            if (metrics.docWidth > metrics.width + 2) {
+              throw new Error(
+                family + ' ' + width + 'x' + height +
+                ': horizontal overflow ' + metrics.docWidth + ' > ' + metrics.width,
+              );
+            }
+            await page.screenshot({
+              path: 'phase85-' + family + '-' + width + 'x' + height + '.png',
+              fullPage: true,
+            });
+            const record = { width, height, metrics, errors };
+            evidence[family].push(record);
+            fs.writeFileSync(
+              'phase85-browser-evidence.json',
+              JSON.stringify(evidence, null, 2),
+            );
+            if (errors.length) {
+              const scripts = await page.evaluate(() =>
+                Array.from(document.scripts).map(script => script.src).filter(Boolean),
+              );
+              const mainScript =
+                scripts.find(url => /main\.[a-f0-9]+\.dart\.js/.test(url)) ||
+                scripts.find(url => /main.*dart\.js/.test(url)) ||
+                null;
+              const stackText = errors
+                .map(error => error.message + '\n' + error.stack)
+                .join('\n');
+              const snippets = [];
+              if (mainScript) {
+                const source = await (await fetch(mainScript)).text();
+                const sourceLines = source.split('\n');
+                const wanted = new Set();
+                for (const match of stackText.matchAll(/\.dart\.js:(\d+):(\d+)/g)) {
+                  wanted.add(Number(match[1]));
+                }
+                for (const line of [...wanted].sort((a, b) => a - b)) {
+                  const from = Math.max(1, line - 8);
+                  const to = Math.min(sourceLines.length, line + 8);
+                  snippets.push({
+                    line,
+                    from,
+                    to,
+                    text: sourceLines
+                      .slice(from - 1, to)
+                      .map((text, index) => (from + index) + ': ' + text)
+                      .join('\n'),
+                  });
+                }
+              }
+              record.mainScript = mainScript;
+              record.bundleSnippets = snippets;
+              fs.writeFileSync(
+                'phase85-browser-evidence.json',
+                JSON.stringify(evidence, null, 2),
+              );
+              console.error(
+                'PHASE85_BROWSER_ERRORS ' +
+                family + ' ' + width + 'x' + height + ' ' +
+                JSON.stringify({ errors, mainScript, snippets }),
+              );
+              await context.close();
+              throw new Error(
+                family + ' ' + width + 'x' + height +
+                ': fatal runtime error(s): ' +
+                errors.map(error => error.message).join(' | '),
+              );
+            }
+
+            await context.close();
+            return record;
+          }
+
+          const chrome = await chromium.launch({ headless: true });
+          for (const [width, height] of viewports) {
+            await inspect(chrome, 'chromium', width, height);
+          }
+          await chrome.close();
+
+          const safari = await webkit.launch({ headless: true });
+          for (const [width, height] of [[390, 844], [430, 932], [844, 390]]) {
+            await inspect(safari, 'webkit', width, height);
+          }
+          await safari.close();
+
+          fs.writeFileSync('phase85-browser-evidence.json', JSON.stringify(evidence, null, 2));
+          console.log('PASS: Phase 85 local browser/responsive matrix on ' + process.env.GITHUB_SHA);
+          JS
+          node phase85-browser.mjs
+
+      - name: Same candidate SHA guard
+        run: test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase85-browser-evidence
+          path: |
+            phase85-browser-evidence.json
+            phase85-*.png
+          if-no-files-found: warn
+
+  # B15: was its own workflow "Contract copy"; same job id and check name.
+  contract-copy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      # Fails when contracts/ differs from movera-contracts main at the version
+      # it claims (or from its own CHECKSUMS). The message says how to sync.
+      - run: bash tool/check_contract_copy.sh
+        env:
+          CONTRACTS_TOKEN: ${{ secrets.CONTRACTS_TOKEN }}
+
   gate:
     name: gate
     if: always()
-    needs: [static, test, integration, web-build, web-memory, secret-scan]
+    needs: [static, test, time-zones, coverage, integration, web-build, web-memory, secret-scan, phase-guards, flavor-builds]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
