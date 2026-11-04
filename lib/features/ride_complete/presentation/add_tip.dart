@@ -91,7 +91,7 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
             autofocus: true,
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
-              suffixText: max.currency == 'SEK' ? 'kr' : max.currency,
+              suffixText: currencySymbol(max.currency),
               helperText: context.l10n.tipMax(formatMoneyShort(max)),
               errorText: error,
             ),
