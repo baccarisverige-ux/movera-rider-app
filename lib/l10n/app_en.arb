@@ -3319,5 +3319,23 @@
   },
   "favouriteDriverTitle": "Save as a favourite driver",
   "favouriteDriverHelp": "Your booked rides can go to your favourite drivers first.",
-  "favouriteDriverFailed": "Couldn't save. Check your connection and try again."
+  "favouriteDriverFailed": "Couldn't save. Check your connection and try again.",
+  "resErrZoneOff": "Not available in this area yet",
+  "bookingFreeRule": "Free change and cancel more than {time} before pickup",
+  "@bookingFreeRule": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "freeRuleHours": "{count, plural, =1{1 hour} other{{count} hours}}",
+  "@freeRuleHours": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "scheduleForLaterChip": "Book a ride for later"
 }

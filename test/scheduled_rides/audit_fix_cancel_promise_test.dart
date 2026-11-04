@@ -32,11 +32,10 @@ void main() {
 
     expect(find.textContaining('before a driver is assigned'), findsNothing);
     expect(find.textContaining('shown before booking'), findsNothing);
+    // LOW 12 (live test 2026-11-03): the zone's real rule, with its
+    // number (booking.freeChangeBeforeMin, 60 by default).
     expect(
-      find.text(
-        'Cancelling is free until a set time before pickup, which depends '
-        'on the ride type. Your reservation shows the exact terms.',
-      ),
+      find.text('Free change and cancel more than 1 hour before pickup'),
       findsOneWidget,
     );
   });

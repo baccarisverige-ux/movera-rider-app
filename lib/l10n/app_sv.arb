@@ -1654,5 +1654,9 @@
   "resErrChangeTooLate": "Mindre än {minutes} minuter före hämtning kan resan inte ändras. Din resa är oförändrad.",
   "favouriteDriverTitle": "Spara som favoritförare",
   "favouriteDriverHelp": "Dina bokade resor kan gå till dina favoritförare först.",
-  "favouriteDriverFailed": "Kunde inte spara. Kontrollera anslutningen och försök igen."
+  "favouriteDriverFailed": "Kunde inte spara. Kontrollera anslutningen och försök igen.",
+  "resErrZoneOff": "Inte tillgängligt i det här området än",
+  "bookingFreeRule": "Gratis ändring och avbokning mer än {time} före upphämtning",
+  "freeRuleHours": "{count, plural, =1{1 timme} other{{count} timmar}}",
+  "scheduleForLaterChip": "Boka en resa till senare"
 }

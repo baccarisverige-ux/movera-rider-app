@@ -35,6 +35,8 @@ class BookLaterRefusedException implements Exception {
     'booking_too_far',
     'trip_too_long',
     'change_too_late',
+    // Owner A (v0.18.19): Book later is off in this zone.
+    'reservations_off',
   };
 
   @override

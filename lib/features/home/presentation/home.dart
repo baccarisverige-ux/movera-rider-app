@@ -1250,10 +1250,19 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         pickup.position.longitude,
       );
       if (!mounted) return null;
+      // Owner A (v0.18.19): Book later is off in this zone: say so, book
+      // nothing (the button stays on screen).
+      if (!window.reservationsOn) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(context.l10n.resErrZoneOff)));
+        return null;
+      }
       scheduledAt = await ScheduleDateTimeSelector.choose(
         context,
         timeZone: window.timeZone,
         horizonDays: window.horizonDays,
+        freeChangeBeforeMin: window.freeChangeBeforeMin,
         tripMinutes: estimatedTripMinutes(
           GeoPoint(pickup.position.latitude, pickup.position.longitude),
           destinationPoint,

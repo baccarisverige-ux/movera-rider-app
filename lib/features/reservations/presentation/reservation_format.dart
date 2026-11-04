@@ -196,9 +196,12 @@ abstract final class ReservationFormat {
         return L10n.current.resStatusCancelled;
       case ReservationStatus.completed:
         return L10n.current.resStatusCompleted;
+      // Owner D (v0.18.19): "Driver assigned" until the driver drives,
+      // then "The driver is on the way".
       case ReservationStatus.driverAssigned:
-      case ReservationStatus.driverEnRoute:
         return L10n.current.driverAssigned;
+      case ReservationStatus.driverEnRoute:
+        return L10n.current.etaOnTheWay;
       case ReservationStatus.driverArrived:
         return L10n.current.etaDriverArrived;
       case ReservationStatus.inProgress:
@@ -231,7 +234,10 @@ abstract final class ReservationFormat {
       case ReservationStatus.driverArrived:
       case ReservationStatus.inProgress:
         final driver = ride.driver;
-        if (driver == null || !showDriver) {
+        // Owner D: no driver details before driver_to_pickup.
+        if (driver == null ||
+            !showDriver ||
+            ride.status == ReservationStatus.driverAssigned) {
           return L10n.current.resBodyDriverAssigned;
         }
         return L10n.current.resBodyNameAssigned(driver.firstName);
@@ -318,6 +324,16 @@ abstract final class ReservationFormat {
       return L10n.current.freeUntilThen(until, before, money(terms.lateFee));
     }
     return L10n.current.noFeeToCancel;
+  }
+
+  /// LOW 12: "Free change and cancel more than 1 hour before pickup",
+  /// from the zone's `booking.freeChangeBeforeMin`.
+  static String freeRule(int minutes) {
+    final l = L10n.current;
+    final time = minutes % 60 == 0 && minutes > 0
+        ? l.freeRuleHours(minutes ~/ 60)
+        : l.durMin('$minutes');
+    return l.bookingFreeRule(time);
   }
 
   /// The admin cancel rule in one line, for the terms page.

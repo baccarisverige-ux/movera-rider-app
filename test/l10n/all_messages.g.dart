@@ -1661,6 +1661,10 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'favouriteDriverTitle': l.favouriteDriverTitle,
   'favouriteDriverHelp': l.favouriteDriverHelp,
   'favouriteDriverFailed': l.favouriteDriverFailed,
+  'resErrZoneOff': l.resErrZoneOff,
+  'bookingFreeRule': l.bookingFreeRule('<time>'),
+  'freeRuleHours': l.freeRuleHours(37),
+  'scheduleForLaterChip': l.scheduleForLaterChip,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -1682,6 +1686,7 @@ Map<String, String> allMessagesWithOne(AppLocalizations l) => {
   'resErrTooSoon': l.resErrTooSoon(1),
   'resErrTooFar': l.resErrTooFar(1),
   'resErrChangeTooLate': l.resErrChangeTooLate(1),
+  'freeRuleHours': l.freeRuleHours(1),
 };
 
 /// The String placeholders of each message, by key.
@@ -1877,6 +1882,8 @@ const messagePlaceholders = <String, List<String>>{
   'resErrTooSoon': [],
   'resErrTooFar': [],
   'resErrChangeTooLate': [],
+  'bookingFreeRule': ['time'],
+  'freeRuleHours': [],
 };
 
 /// The count placeholders (rendered as 37) of each message, by key.
@@ -1897,6 +1904,7 @@ const messageCounts = <String, List<String>>{
   'resErrTooSoon': ['minutes'],
   'resErrTooFar': ['days'],
   'resErrChangeTooLate': ['minutes'],
+  'freeRuleHours': ['count'],
 };
 
 // Compile-time completeness: implements every member of the
@@ -5215,4 +5223,12 @@ class _Exhaustive implements AppLocalizations {
   String get favouriteDriverHelp => '';
   @override
   String get favouriteDriverFailed => '';
+  @override
+  String get resErrZoneOff => '';
+  @override
+  String bookingFreeRule(String time) => '';
+  @override
+  String freeRuleHours(int count) => '';
+  @override
+  String get scheduleForLaterChip => '';
 }

@@ -104,6 +104,7 @@ class RiderAppConfig {
     this.bookingHorizonDays = defaultBookingHorizonDays,
     this.minAheadMin = defaultMinAheadMin,
     this.freeChangeBeforeMin = defaultFreeChangeBeforeMin,
+    this.reservationsOn = true,
     this.maxPickupMoveMeters = defaultMaxPickupMoveAfterAcceptMeters,
     this.country = 'SE',
     this.languages = const AppLanguages(rider: 'sv', driver: 'sv', admin: 'sv'),
@@ -171,6 +172,11 @@ class RiderAppConfig {
 
   /// Contract v0.18.17 `booking.freeChangeBeforeMin` (owner Q6, default 60).
   final int freeChangeBeforeMin;
+
+  /// Contract v0.18.19 `booking.reservationsOn` (owner A): the zone's Book
+  /// later switch. Off: Book later stays on screen and says "Not
+  /// available in this area yet" when tapped.
+  final bool reservationsOn;
 
   /// `booking.maxPickupMoveMeters`: how far the pickup may move after
   /// accept (Q40).
@@ -413,6 +419,9 @@ class RiderAppConfig {
           ) ??
           fallback?.freeChangeBeforeMin ??
           defaultFreeChangeBeforeMin,
+      reservationsOn: booking is Map && booking['reservationsOn'] is bool
+          ? booking['reservationsOn'] as bool
+          : fallback?.reservationsOn ?? true,
       liveCancelFees: table('live', base?.liveCancelFees ?? const {}),
       reservationCancelFees: table(
         'reservation',

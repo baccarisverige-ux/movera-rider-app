@@ -6,6 +6,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
@@ -1302,6 +1303,9 @@ class _SelectRideState extends State<SelectRide>
         tripMinutes: _tripMinutes(),
         timeZone: _pickupSchedule.timeZone,
         horizonDays: _pickupSchedule.horizonDays,
+        freeChangeBeforeMin:
+            _zoneConfig?.freeChangeBeforeMin ??
+            RiderAppConfig.defaultFreeChangeBeforeMin,
       );
       if (when == null || !mounted) return;
       // Only the time here; the pickup is set once, on Set pickup after
@@ -1602,6 +1606,9 @@ class _SelectRideState extends State<SelectRide>
             tripMinutes: _tripMinutes(),
             timeZone: _pickupSchedule.timeZone,
             horizonDays: _pickupSchedule.horizonDays,
+            freeChangeBeforeMin:
+                _zoneConfig?.freeChangeBeforeMin ??
+                RiderAppConfig.defaultFreeChangeBeforeMin,
           );
           if (when == null || !mounted) return;
           _selection.scheduleFor(when);
@@ -3151,6 +3158,20 @@ class _SelectRideState extends State<SelectRide>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // LOW 12: the booking summary says the free change / cancel rule.
+          if (_scheduledPickup != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                ReservationFormat.freeRule(
+                  _zoneConfig?.freeChangeBeforeMin ??
+                      RiderAppConfig.defaultFreeChangeBeforeMin,
+                ),
+                key: const ValueKey<String>('select-ride-free-rule'),
+                textAlign: TextAlign.center,
+                style: _text(11.5, weight: FontWeight.w500, color: _muted),
+              ),
+            ),
           _paymentButton(),
           const SizedBox(height: 6),
           Row(

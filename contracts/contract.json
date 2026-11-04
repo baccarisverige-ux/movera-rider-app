@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.18",
+  "version": "0.18.19",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -3131,7 +3131,10 @@
       "listHomeKm": 5,
       "listAtTimeKm": 5,
       "listAtTimeMin": 30,
-      "changeAnswerMin": 15
+      "changeAnswerMin": 15,
+      "arriveEarlyMin": 10,
+      "raiseFare": true,
+      "raiseMax": null
     },
     "countries": {
       "SE": {
@@ -6727,7 +6730,10 @@
         "reservation_change_ask",
         "reservation_unassigned",
         "reservation_not_started",
-        "reservation_assigned"
+        "reservation_assigned",
+        "reservation_offered",
+        "reservation_leave_now",
+        "reservation_late_risk"
       ],
       "note": "Push and Notifications list (bell), in the person's language (else the zone country's, else English); {time} is the pickup time HH:MM in the zone's time zone, {driver} the driver's first name. Deep links: rider movera://trips/{tripId}, driver movera-driver://reservations/{tripId}.",
       "texts": {
@@ -6810,9 +6816,9 @@
             "en": "Driver ready for your ride"
           },
           "body": {
-            "sv": "{driver} hämtar dig kl. {time}.",
-            "fr": "{driver} viendra vous chercher à {time}.",
-            "en": "{driver} will pick you up at {time}."
+            "sv": "En förare hämtar dig kl. {time}.",
+            "fr": "Un chauffeur viendra vous chercher à {time}.",
+            "en": "A driver will pick you up at {time}."
           }
         },
         "reservation_no_driver": {
@@ -6874,6 +6880,42 @@
             "fr": "Prise en charge à {time}. Elle est dans Courses réservées.",
             "en": "Pickup at {time}. It is in Booked rides."
           }
+        },
+        "reservation_offered": {
+          "title": {
+            "sv": "Movera erbjuder dig en bokad resa",
+            "fr": "Movera vous propose une course réservée",
+            "en": "Movera offers you a booked ride"
+          },
+          "body": {
+            "sv": "Hämtning kl. {time}. Öppna appen och svara.",
+            "fr": "Prise en charge à {time}. Ouvrez l'appli et répondez.",
+            "en": "Pickup at {time}. Open the app and answer."
+          }
+        },
+        "reservation_leave_now": {
+          "title": {
+            "sv": "Starta nu mot upphämtningen",
+            "fr": "Partez maintenant vers la prise en charge",
+            "en": "Start now towards the pickup"
+          },
+          "body": {
+            "sv": "Kör nu för att vara framme {early} min före kl. {time}.",
+            "fr": "Partez maintenant pour arriver {early} min avant {time}.",
+            "en": "Drive now to arrive {early} min before {time}."
+          }
+        },
+        "reservation_late_risk": {
+          "title": {
+            "sv": "Du hinner kanske inte till den bokade resan",
+            "fr": "Vous risquez d’être en retard pour la course réservée",
+            "en": "You may be late for the booked ride"
+          },
+          "body": {
+            "sv": "Hämtningen är kl. {time}. Starta nu eller lämna tillbaka resan.",
+            "fr": "La prise en charge est à {time}. Partez maintenant ou rendez la course.",
+            "en": "The pickup is at {time}. Start now or give the ride back."
+          }
         }
       }
     },
@@ -6888,7 +6930,8 @@
       "reservation_too_early",
       "change_too_late",
       "not_a_reservation",
-      "trip_too_long"
+      "trip_too_long",
+      "no_show_too_early"
     ],
     "timers": "Server timer kinds (durable, contract §timers): resv_popup, resv_open_all, resv_dispatch, resv_no_driver, resv_rider_reminder, resv_driver_reminder, resv_go_online, resv_offline_check, resv_change_ask, resv_overdue. Planned at booking / accept / change, taken back when the trip leaves the state they need.",
     "openQuestions": [],
@@ -6899,6 +6942,66 @@
       "M6-d": "offlineBackupAfterMin 5.",
       "M6-e": "After the pickup time each new round asks again the drivers who declined.",
       "M6-f": "The gap between two booked rides (smart gap) is the same for every ride type (normal spareMin)."
-    }
+    },
+    "liveFixes": {
+      "note": "v0.18.19 (Book later live test 2026-11-03, Rules audits/live-book-later-2026-11-03.md). Builds on v0.18.18 (merged; test-account list for admins only).",
+      "noShowTime": "HIGH 1: POST /admin/trips/{tripId}/no-show on a booked ride (kind scheduled) is refused before the pickup time plus the trip's no-show wait (terms.noShowAfterMin, else the category's waiting): 409 conflict, reason no_show_too_early. Live rides keep their rule (status arrived and the wait over).",
+      "ownerDefaults": "MED 4: a zone document whose reservations.rideTypes still hold the old built-in values (onlineBeforeMin 30 for normal, reminderMin [60, 15]) and that no admin changed since (no publish after 2026-11-03 touching them) gets the owner values (normal onlineBeforeMin 60, reminderMin [120]) by a server migration; every other value stays.",
+      "offlineGive": "MED 7: an admin may give (assign) or offer (radar group) a booked ride to a driver who is offline when the pickup is more than dispatchBeforeMin away: the offer reaches him as a notice and the must-be-online rule applies. A group offer skips drivers who cannot take it (offline for a ride soon, on a trip, wrong category) and answers skipped: [{ driverId, reason }]; only when nobody can → 409 no_free_driver. Such an offer stays open until dispatchAt (not the usual seconds) and the driver gets push kind reservation_offered. A driver who already has an open offer of this ride is not offered it again: his offer is answered under kept (no second offer, no second notice).",
+      "driverFoundOnce": "MED 9: the rider gets 'driver found' once per driver of a ride: never again for a keep (Yes) or a re-accept by the same driver; a new driver after a change or a give-back → once for him.",
+      "riderReminder": "MED 8: the rider reminder (riderReminderMin) is planned again after every change, admin send-now and give-back, and is sent while the ride is not over (also when a driver is already on the way).",
+      "horizon": "LOW 15: RiderAppConfig.booking.bookingHorizonDays is served equal to maxAheadDays (older apps).",
+      "zoneOff": "Owner A: with the zone's reservations.on false, POST /quotes and POST /trips with kind scheduled answer 403 forbidden, reason reservations_off. The rider app never hides Book later / Later: tapping it there shows bookLater.texts.zoneOff.",
+      "includedWaiting": "Owner B: a booked ride's free waiting (waiting.rideTypes.scheduled.freeWaitMin, per zone, the admin's 'Included waiting') counts from the pickup time, never from the driver's arrival: Waiting.freeUntil = scheduledAt + freeWaitMin (also when the driver arrives late). Riders and drivers see it in TripProjection.terms / waiting.",
+      "raiseFare": "Owner C: a booked ride being searched (searching / offered) takes POST /trips/{tripId}/raise-price exactly like a live ride (same steps, raisePrice.maxFactor, same screens).",
+      "driverShown": "Owner D: the rider sees the driver (name, photo, car: TripProjection.driver) only from driver_to_pickup on; while a driver holds the booked ride for later the rider view has driverAssigned true and no driver details, and reservation_driver_found names nobody. The admin switch 'Rider sees the driver at once' becomes this fixed rule.",
+      "noEarlyAssign": "Owner E: no early auto-assign and no backup driver: an untaken or given-back booked ride stays on the list until dispatchBeforeMin (30) before pickup, then Exclusive + Radar. The admin fields for those show 'Coming soon'.",
+      "raiseFare": "Owner C (v0.18.19): raising the driver's fare of a booked ride works exactly like a live ride: the admin call is POST /admin/trips/{tripId}/driver-bonus with the same Pricing bonus limit. The zone's DriverAppConfig.reservations.raiseFare (false: refused, reason raise_off) and raiseMax (major units; the lower of it and the live limit applies; null, the default, = no cap of its own: the live limit only) are saved on the server from Dispatch › Bokningar.",
+      "includedWaitingPolicy": "Owner 2026-11-03: ONE included waiting for every zone (admin 'Included waiting' of the reservation policy), saved on the server: GET /admin/reservations/policy (trips.read) → ReservationPolicy { includedWaitingMinutes, rev, updatedAt }; PUT /admin/reservations/policy { expectedRev, includedWaitingMinutes 0–60 } (trips.intervene; 409 version_mismatch when another admin saved first). A kind scheduled trip's free waiting is this many minutes, counted from the pickup time; the no-show time is never before its end.",
+      "riderZoneSwitch": "Owner A (v0.18.19): RiderAppConfig.booking.reservationsOn is the zone's DriverAppConfig.reservations.on, written by the server when it serves the rider document. The rider app never hides Book later; with reservationsOn false a tap says bookLater.texts.zoneOff and no booking starts. POST /quotes and POST /trips with kind scheduled still answer 403 forbidden, reason reservations_off.",
+      "driverListReservation": "Live test 2026-11-03 HIGH 2: each DriverReservation row of GET /driver/reservations carries reservation (ReservationInfo, driver view) with changeAsk, leaveAt and driveSeconds, so the driver app asks Keep it at the new time? (new time and new earnings) from the list, the notice tap and the details screen. Before, the row had no changeAsk and the question never showed.",
+      "leaveOnTime": "Owner 2026-11-03: for a booked ride a driver holds, the server works out the drive from his live position to the pickup (by the real road route from the server's router, Movera's OSRM, else the straight-line estimate: the same live ETA source as a normal ride's pickupWaiting.eta) and when he must start to arrive arriveEarlyMin (zone setting, default 10) before the pickup time: TripProjection.reservation.leaveAt and driveSeconds (driver and admin views), recomputed every 2 minutes from 3 hours before pickup as he moves. At leaveAt he gets push kind reservation_leave_now (once); the driver app counts down to leaveAt. If he has not started 5 minutes after leaveAt, or his drive no longer fits before the pickup time, reservation.atRisk becomes true (admin alert 'Driver may be late for a booked ride') and he gets reservation_late_risk (once). Smart assign: when a booked ride is searched (dispatchBeforeMin, Exclusive), drivers who can arrive arriveEarlyMin before the pickup time are asked first. The 3 steps (early, on time, the rest) rank by dispatch's own drive estimate (straight line × road factor at dispatch.score.pickupKmh, the number the offer shows as pickupEtaSeconds): routing every candidate by road inside a dispatch round would add one road request per driver per round; the leave-time check, one driver every 2 minutes, uses the road route. The rider sees the driver ('Driver on the way') from driver_to_pickup on (liveFixes.driverShown).",
+      "badge": "Owner 2026-11-03: a booked ride always shows the reservation badge ('Booked ride' + pickup time) wherever a driver sees it: Booked rides, Home popup, Exclusive offer, Radar (Home and the Live list) and the accepted trip. Offer.reservation is true for every offer of a kind scheduled trip (with Offer.scheduledAt); TripProjection.kind scheduled for the trip."
+    },
+    "texts": {
+      "zoneOff": {
+        "sv": "Inte tillgängligt i det här området än",
+        "fr": "Pas encore disponible dans cette zone",
+        "en": "Not available in this area yet"
+      },
+      "driverAssigned": {
+        "sv": "Förare tilldelad",
+        "fr": "Chauffeur attribué",
+        "en": "Driver assigned"
+      },
+      "freeRule": {
+        "sv": "Gratis ändring och avbokning mer än {time} före upphämtning",
+        "fr": "Modification et annulation gratuites plus de {time} avant la prise en charge",
+        "en": "Free change and cancel more than {time} before pickup"
+      },
+      "includedWaiting": {
+        "sv": "{minutes} min gratis väntan räknas från upphämtningstiden",
+        "fr": "{minutes} min d’attente gratuite comptées à partir de l’heure de prise en charge",
+        "en": "{minutes} min free waiting count from the pickup time"
+      },
+      "leaveIn": {
+        "sv": "Starta om {minutes} min",
+        "fr": "Partez dans {minutes} min",
+        "en": "Start in {minutes} min"
+      },
+      "driverOnTheWay": {
+        "sv": "Föraren är på väg",
+        "fr": "Le chauffeur est en route",
+        "en": "The driver is on the way"
+      },
+      "badge": {
+        "sv": "Bokad resa · {time}",
+        "fr": "Course réservée · {time}",
+        "en": "Booked ride · {time}"
+      }
+    },
+    "ownerQuestions": [
+      "LOW 13: the driver give-back reason 'Vehicle issue · does not count' contradicts 'every give-back counts in the cancel rate' (left as it is)."
+    ]
   }
 }

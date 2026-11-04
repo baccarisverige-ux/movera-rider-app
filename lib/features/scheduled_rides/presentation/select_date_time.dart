@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/core/config/zone_clock.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
@@ -38,6 +39,9 @@ class ScheduleDateTimeSelector extends StatefulWidget {
   /// (`booking.bookingHorizonDays` of its config).
   final int horizonDays;
 
+  /// LOW 12: the zone's `booking.freeChangeBeforeMin`, said on screen.
+  final int freeChangeBeforeMin;
+
   const ScheduleDateTimeSelector({
     super.key,
     required this.body,
@@ -49,6 +53,7 @@ class ScheduleDateTimeSelector extends StatefulWidget {
     this.tripMinutes,
     this.timeZone = ZoneClock.stockholm,
     this.horizonDays = RiderAppConfig.defaultBookingHorizonDays,
+    this.freeChangeBeforeMin = RiderAppConfig.defaultFreeChangeBeforeMin,
   });
 
   /// Same "When should we pick you up?" screen, used when Book now
@@ -60,6 +65,7 @@ class ScheduleDateTimeSelector extends StatefulWidget {
     int? tripMinutes,
     String timeZone = ZoneClock.stockholm,
     int horizonDays = RiderAppConfig.defaultBookingHorizonDays,
+    int freeChangeBeforeMin = RiderAppConfig.defaultFreeChangeBeforeMin,
   }) {
     // rider-u225: the prefill goes in as it is; initState clamps it and
     // says so when it moved (captureSchedule would clamp it silently).
@@ -76,6 +82,7 @@ class ScheduleDateTimeSelector extends StatefulWidget {
           tripMinutes: tripMinutes,
           timeZone: timeZone,
           horizonDays: horizonDays,
+          freeChangeBeforeMin: freeChangeBeforeMin,
           onConfirm: () {},
         ),
       ),
@@ -625,8 +632,10 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                         _estimateRow(estimatedTime),
                       ],
                       const SizedBox(height: 25),
+                      // LOW 12: the zone's free change / cancel rule.
                       Text(
-                        context.l10n.scheduleCancelTermsNote,
+                        ReservationFormat.freeRule(widget.freeChangeBeforeMin),
+                        key: const ValueKey<String>('schedule-free-rule'),
                         style: _style(
                           10.5,
                           weight: FontWeight.w400,

@@ -1,11 +1,11 @@
-# Movera API v0.18.18 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.19 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.18
+  version: 0.18.19
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.18 in this folder; this file must agree with them.
+    v0.18.19 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -83,7 +83,7 @@ tags:
 - name: Driver · Home
 x-contract:
   name: movera
-  version: 0.18.18
+  version: 0.18.19
   source: contract.json
 paths:
   /auth/otp/request:
@@ -14986,6 +14986,96 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/reservations/policy:
+    get:
+      operationId: getReservationPolicy
+      summary: The reservation policy for every zone (included waiting)
+      description: 'v0.18.19. Owner 2026-11-03: ONE included waiting for every zone (admin ''Included waiting'' of the reservation
+        policy), saved on the server: GET /admin/reservations/policy (trips.read) → ReservationPolicy { includedWaitingMinutes,
+        rev, updatedAt }; PUT /admin/reservations/policy { expectedRev, includedWaitingMinutes 0–60 } (trips.intervene; 409
+        version_mismatch when another admin saved first). A kind scheduled trip''s free waiting is this many minutes, counted
+        from the pickup time; the no-show time is never before its end.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationPolicy'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: saveReservationPolicy
+      summary: Save the reservation policy for every zone
+      description: 'v0.18.19. Owner 2026-11-03: ONE included waiting for every zone (admin ''Included waiting'' of the reservation
+        policy), saved on the server: GET /admin/reservations/policy (trips.read) → ReservationPolicy { includedWaitingMinutes,
+        rev, updatedAt }; PUT /admin/reservations/policy { expectedRev, includedWaitingMinutes 0–60 } (trips.intervene; 409
+        version_mismatch when another admin saved first). A kind scheduled trip''s free waiting is this many minutes, counted
+        from the pickup time; the no-show time is never before its end.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: trips.intervene
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReservationPolicyCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationPolicy'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /driver/home-area:
     put:
       operationId: setDriverHomeArea
@@ -17029,6 +17119,13 @@ components:
           description: 'Deprecated in v0.18.6 and no longer sent (owner G4-E7, contract.json#driverOffers.whyYouRemoved):
             the offer card shows no ''why you got this trip'' line. Older builds read it as optional.'
           deprecated: true
+        reservation:
+          type: boolean
+          description: 'v0.18.19: a booked ride (Trip.kind scheduled): the app shows the reservation badge with scheduledAt.
+            Owner 2026-11-03: a booked ride always shows the reservation badge (''Booked ride'' + pickup time) wherever a
+            driver sees it: Booked rides, Home popup, Exclusive offer, Radar (Home and the Live list) and the accepted trip.
+            Offer.reservation is true for every offer of a kind scheduled trip (with Offer.scheduledAt); TripProjection.kind
+            scheduled for the trip.'
     Quote:
       type: object
       required:
@@ -20784,6 +20881,13 @@ components:
           minimum: 5
           maximum: 240
           default: 30
+        arriveEarlyMin:
+          type: integer
+          minimum: 0
+          maximum: 60
+          description: 'v0.18.19 (owner): the driver should arrive this many minutes before the pickup time; leaveAt is worked
+            out from it.'
+          default: 10
         changeAnswerMin:
           type: integer
           minimum: 1
@@ -20803,6 +20907,21 @@ components:
             back on the list (transition release, push reservation_changed) and the ride is planned again (bookLater.plan).
             Later → 409 conflict, reason change_too_late. Not a scheduled trip, or not before pickup → 409 not_a_reservation.'
           default: 60
+        raiseFare:
+          type: boolean
+          description: 'v0.18.19 (owner C): an admin may raise the driver''s fare of a booked ride (POST /admin/trips/{tripId}/driver-bonus,
+            the same call and the same Pricing bonus limit as a live ride). false: the server refuses it for kind scheduled
+            (403 forbidden, reason raise_off). Missing = true.'
+          default: true
+        raiseMax:
+          oneOf:
+          - type: number
+            minimum: 0
+          - type: 'null'
+          default: null
+          description: 'v0.18.19 (owner C): the highest raise of a booked ride, in the zone''s money (major units, e.g. 500
+            = 500 kr); the server also keeps the live-ride bonus limit, whichever is lower. Missing or null = the live-ride
+            limit only. Over it: 400 invalid_request, reason bonus_over_limit.'
     PickupRange:
       type: object
       description: 'One pickup-distance range (contract.json#pickupPay.ranges): the first starts at 0, each next one where
@@ -21558,6 +21677,11 @@ components:
               maximum: 1440
               description: 'v0.18.17: written by the server from the zone''s DriverAppConfig.reservations.freeChangeBeforeMin'
               default: 60
+            reservationsOn:
+              type: boolean
+              description: 'v0.18.19 (owner A): the zone''s Book later switch (DriverAppConfig.reservations.on), written by
+                the server. Off: the app still shows Book later and says ''Not available in this area yet'' when tapped; the
+                server refuses (403 reservations_off).'
         cancelFees:
           $ref: '#/components/schemas/CancelFees'
         waiting:
@@ -29916,6 +30040,16 @@ components:
         overdue:
           type: boolean
           description: 'BL-Q7: the pickup time passed with no driver.'
+        notStarted:
+          type: boolean
+        atRisk:
+          type: boolean
+          description: 'v0.18.19: the driver may be late.'
+        leaveAt:
+          $ref: '#/components/schemas/Timestamp'
+        driveSeconds:
+          type: integer
+          minimum: 0
         changeAsk:
           type: object
           description: 'Q6: more than freeChangeBeforeMin minutes (default 60) before pickup the rider may change the booking:
@@ -29998,6 +30132,11 @@ components:
         popup:
           type: boolean
           description: The Home popup step was reached (reservation_popup sent).
+        reservation:
+          allOf:
+          - $ref: '#/components/schemas/ReservationInfo'
+          description: 'v0.18.19 (live test HIGH 2): the same reservation as the trip read, so the list knows changeAsk (Keep
+            it at the new time?) and leaveAt.'
     DriverReservationPage:
       type: object
       description: v0.18.17.
@@ -30113,3 +30252,38 @@ components:
                 $ref: '#/components/schemas/Id'
               firstName:
                 type: string
+    ReservationPolicy:
+      type: object
+      description: 'v0.18.19: Owner 2026-11-03: ONE included waiting for every zone (admin ''Included waiting'' of the reservation
+        policy), saved on the server: GET /admin/reservations/policy (trips.read) → ReservationPolicy { includedWaitingMinutes,
+        rev, updatedAt }; PUT /admin/reservations/policy { expectedRev, includedWaitingMinutes 0–60 } (trips.intervene; 409
+        version_mismatch when another admin saved first). A kind scheduled trip''s free waiting is this many minutes, counted
+        from the pickup time; the no-show time is never before its end.'
+      required:
+      - includedWaitingMinutes
+      - rev
+      - updatedAt
+      properties:
+        includedWaitingMinutes:
+          type: integer
+          minimum: 0
+          maximum: 60
+        rev:
+          type: integer
+          minimum: 1
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+    ReservationPolicyCommand:
+      type: object
+      description: v0.18.19.
+      required:
+      - expectedRev
+      - includedWaitingMinutes
+      properties:
+        expectedRev:
+          type: integer
+          minimum: 1
+        includedWaitingMinutes:
+          type: integer
+          minimum: 0
+          maximum: 60
