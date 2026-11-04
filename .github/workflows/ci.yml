@@ -176,7 +176,12 @@ jobs:
           restore-keys: pub-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-
       - run: flutter pub get --enforce-lockfile
       - name: Shard of the unit + widget suite with coverage
-        run: flutter test --coverage --total-shards=4 --shard-index=$(( ${{ matrix.shard }} - 1 ))
+        # Whole test files per shard (test-case sharding split setUpAll
+        # groups and loaded every file in every shard).
+        run: |
+          mapfile -t files < <(find test -name '*_test.dart' | sort | awk -v n=4 -v i=${{ matrix.shard }} '(NR - 1) % n == i - 1')
+          echo "${#files[@]} test files in this shard"
+          flutter test --coverage "${files[@]}"
       - uses: actions/upload-artifact@v4
         with:
           name: coverage-shard-${{ matrix.shard }}
