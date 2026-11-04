@@ -14,6 +14,10 @@ abstract interface class WalletBalanceRepository {
   /// with nowhere authoritative to credit the money, and no ride is debited.
   bool get available;
 
+  /// False when a card top-up has nowhere authoritative to land (fix job 6:
+  /// the server wallet has no top-up yet), so no card is ever charged.
+  bool get topUpAvailable;
+
   /// ISO-4217 code of the balance and every movement. A balance pays only
   /// trips in this currency; the app never converts (Q7).
   String get currency;

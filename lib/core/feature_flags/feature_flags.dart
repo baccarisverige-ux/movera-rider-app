@@ -45,8 +45,9 @@ class FeatureFlags {
   /// ARCH-7): the wallet ledger and saved cards. Contract v0.18.17 (owner
   /// 2026-11-03 "Build it for real"): Book for later is on, on the server
   /// (`ApiReservationRepository`).
+  /// Movera fix job 6 (owner 2026-11-04 "Turn it on"): the wallet is on,
+  /// on the server (`ApiWalletRepository`, one balance per currency).
   static const release = FeatureFlags(
-    enableWallet: false,
     enableSavedCards: false,
   );
 

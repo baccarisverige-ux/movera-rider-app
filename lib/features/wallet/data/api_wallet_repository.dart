@@ -4,7 +4,7 @@ import 'package:movera_rider/core/contracts/repository_authority.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_balance_repository.dart';
 
 /// The rider's wallet on the server, one balance per currency (contract
-/// v0.18.28 §47, `contract.json#walletCurrency`; Movera fix job 6, owner Q4
+/// v0.18.28 §51, `contract.json#walletCurrency`; Movera fix job 6, owner Q4
 /// 2026-11-04: "balances per currency from now on").
 ///
 /// `GET /api/v1/wallet?currency=EUR` →
@@ -32,6 +32,10 @@ class ApiWalletRepository
 
   @override
   bool get available => true;
+
+  /// The server has no wallet top-up yet: no card is charged for one.
+  @override
+  bool get topUpAvailable => false;
 
   @override
   WalletBalanceRepository inCurrency(String currency) =>

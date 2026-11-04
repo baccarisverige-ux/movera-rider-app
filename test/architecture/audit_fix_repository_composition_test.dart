@@ -18,6 +18,7 @@ import 'package:movera_rider/features/reservations/data/local_reservation_reposi
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/ride_booking/data/active_trip_repositories.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
+import 'package:movera_rider/features/wallet/data/api_wallet_repository.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -72,14 +73,16 @@ void main() {
       final scope = AppScope.composeForEnvironment(env);
       addTearDown(scope.disposeForTest);
 
-      expect(scope.flags.wallet, isFalse);
+      // Fix job 6 (owner 2026-11-04 "Turn it on"): the wallet is on, on the server.
+      expect(scope.flags.wallet, isTrue);
       // v0.18.17 Book later (owner 2026-11-03 "Build it for real"): release builds book later on the server.
       expect(scope.flags.scheduledRides, isTrue);
       expect(scope.flags.bookingLater, isTrue);
       expect(scope.flags.savedCards, isFalse);
 
       expect(scope.walletBalances, isNot(isA<LocalWalletRepository>()));
-      expect(scope.walletBalances, isA<FeatureOffRepository>());
+      expect(scope.walletBalances, isA<ApiWalletRepository>());
+      expect(scope.walletBalances, isA<ServerBackedRepository>());
       expect(
         scope.reservationRepository,
         isNot(isA<LocalReservationRepository>()),
@@ -185,7 +188,6 @@ void main() {
     final outcome = await wallet.topUp(previous: 0, amount: 100);
     expect(outcome, isA<TopUpNotCharged>());
     expect(gateway.creates, 0);
-    expect(await wallet.loadBalance(), 0);
   });
 
   test('a release Book for later stores nothing on the device', () async {

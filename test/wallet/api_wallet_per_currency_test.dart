@@ -80,4 +80,11 @@ void main() {
       const [Money(1200, 'SEK')],
     );
   });
+
+  test('owner "Turn it on": the server wallet is available but never takes '
+      'a card top-up (no server top-up yet)', () {
+    final wallet = repo('EUR');
+    expect(wallet.available, isTrue);
+    expect(wallet.topUpAvailable, isFalse);
+  });
 }
