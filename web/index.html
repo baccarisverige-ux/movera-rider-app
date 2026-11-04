@@ -40,7 +40,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <!-- MOVERA_API_PRECONNECT -->
   <link rel="preload" href="flutter_bootstrap.js" as="script">
-  <link rel="preload" href="main.dart.js" as="script">
+  <!-- No main.dart.js preload: the wasm build (owner 2026-11-04) loads
+       main.dart.wasm where the browser supports it and main.dart.js only as
+       the fallback, so preloading it would waste the download. -->
   <title>Movera</title>
   <link rel="manifest" href="manifest.json">
   <style>

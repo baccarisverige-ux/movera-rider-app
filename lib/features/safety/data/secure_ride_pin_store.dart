@@ -75,7 +75,10 @@ class SecureRidePinStore {
     if (fake != null) return fake[_key];
     try {
       return await const FlutterSecureStorage(
-        aOptions: AndroidOptions(encryptedSharedPreferences: true),
+        aOptions: // B9 (v10): data kept by the old EncryptedSharedPreferences
+            // setting is moved to v10 storage on first read, so a signed-in
+            // rider stays signed in.
+            AndroidOptions(migrateOnAlgorithmChange: true),
       ).read(key: _key);
     } catch (_) {
       return null;
@@ -93,7 +96,10 @@ class SecureRidePinStore {
     }
     try {
       await const FlutterSecureStorage(
-        aOptions: AndroidOptions(encryptedSharedPreferences: true),
+        aOptions: // B9 (v10): data kept by the old EncryptedSharedPreferences
+            // setting is moved to v10 storage on first read, so a signed-in
+            // rider stays signed in.
+            AndroidOptions(migrateOnAlgorithmChange: true),
       ).delete(key: _key);
     } catch (error) {
       AppLog.warning('safety.pin_delete_failed', extra: {'error': '$error'});
@@ -113,7 +119,10 @@ class SecureRidePinStore {
     }
     try {
       await const FlutterSecureStorage(
-        aOptions: AndroidOptions(encryptedSharedPreferences: true),
+        aOptions: // B9 (v10): data kept by the old EncryptedSharedPreferences
+            // setting is moved to v10 storage on first read, so a signed-in
+            // rider stays signed in.
+            AndroidOptions(migrateOnAlgorithmChange: true),
       ).write(key: _key, value: pin);
     } catch (error) {
       AppLog.warning('safety.pin_write_failed', extra: {'error': '$error'});

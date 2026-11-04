@@ -261,11 +261,13 @@ jobs:
       - name: Staging
         run: |
           rm -rf build/web
-          flutter build web --release \
+          # B9: same --wasm as the live deploy (JS fallback included).
+          flutter build web --release --wasm \
             -t lib/main_staging.dart \
             --dart-define=MOVERA_FLAVOR=staging \
             --dart-define=MOVERA_API_BASE_URL=https://api.staging.movera.example
           test -f build/web/main.dart.js
+          test -f build/web/main.dart.wasm
 
   web-memory:
     name: Web memory over repeated bookings (audit Phase 7)
