@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.19",
+  "version": "0.18.26",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -7003,5 +7003,196 @@
     "ownerQuestions": [
       "LOW 13: the driver give-back reason 'Vehicle issue · does not count' contradicts 'every give-back counts in the cancel rate' (left as it is)."
     ]
+  }
+,
+  "dispatchDriverFacts": {
+    "note": "v0.18.21 (owner 2026-11-04, BASE 'real driver facts'): the admin Dispatch page reads each online driver's dispatch facts from the server instead of making them up. GET /admin/zones/{zoneId}/driver-facts (trips.read; the zone must be in the admin's scope, else 403 zone_out_of_scope). Builds on v0.18.19; additive; X-Api-Version stays 0.5. Numbered after v0.18.20 (server alerts) so the two jobs do not share a number.",
+    "who": "Drivers of the zone (zone_ids contains zoneId) with account active and online status online (state free) or on_trip (state trip), nearest-first order is the admin's job; items are sorted by driverId.",
+    "real": {
+      "rating": "Driver.performance.rating (contract.json#driverHome.performance; null below minRatings).",
+      "acceptancePct": "Driver.performance.acceptancePct (null below minOffers).",
+      "cancelPct": "Driver.performance.cancellationPct (null below minTrips).",
+      "idleMin": "Whole minutes since the driver was last free (drivers.last_free_at, the §3.6 idle factor); null on a trip or when unknown.",
+      "categoryIds": "The categories the driver may take (Driver.categoryIds).",
+      "missedInRow": "Exclusive or assigned offers of live trips missed in a row since going online, counted exactly as contract.json#autoOffline (an accept resets it).",
+      "ridesThisHour": "Trips of this driver that ended completed in the last 60 minutes.",
+      "restNeeded": "true when the driving-time limit is reached (contract.json#drivingLimits)."
+    },
+    "notYet": [
+      "finishingInMin",
+      "extras",
+      "female",
+      "skipsInRow",
+      "favourite",
+      "goingHome",
+      "homeDirectionOk",
+      "priorityUntilMin",
+      "queuePos"
+    ],
+    "notYetRule": "The server does not track these yet: they are always null. The admin shows a dash (—) and never invents a value; alerts never fire on a null fact.",
+    "apps": "Driver and rider apps: no change (admin-only read)."
+  },
+  "adminLiveEvents": {
+    "version": "0.18.22",
+    "note": "BASE job 'admin live updates' (Rules plan/BASE-JOBS-SPEC-2026-11-04.md §3; owner L1 2026-11-04: a small 'Reconnecting…' badge, data still refreshes every minute). One admin stream instead of 15 s polling. An event only says WHAT changed (type + id + zone); the admin panel then reads the record again with the normal list/detail routes and their permissions. No names, money or text on the stream.",
+    "path": "/admin/events",
+    "permission": "overview.read",
+    "transport": "Accept: text/event-stream → SSE: `id:` is the sequence, `data:` one AdminLiveEvent, a heartbeat comment every 15 s. Without it: a JSON page AdminLiveEventPage of the events after `after` (polling fallback, same scope).",
+    "envelope": [
+      "sequence",
+      "type",
+      "entityId",
+      "zoneId",
+      "occurredAt",
+      "serverTime"
+    ],
+    "types": {
+      "trip.changed": {
+        "permission": "trips.read",
+        "when": "a trip is created, or its status, driver, zone or payment status changes"
+      },
+      "driver.status": {
+        "permission": "drivers.read",
+        "when": "a driver's online status or account status changes (one event per zone of the driver)"
+      },
+      "zone.supply": {
+        "permission": "overview.read",
+        "when": "the free / busy driver count of a zone may have changed (a driver went online, offline, on or off a trip in it); entityId = zoneId"
+      },
+      "alert.changed": {
+        "permission": "overview.read",
+        "when": "an alert is created or taken, passed, done, snoozed (admin_alert_records)"
+      },
+      "ticket.changed": {
+        "permission": "support.reply",
+        "when": "a support ticket is created or its status, owner or last message changes"
+      },
+      "incident.changed": {
+        "permission": "incidents.read",
+        "when": "an incident is created or its status changes"
+      },
+      "approval.changed": {
+        "permission": "approval.decide",
+        "when": "an approval is asked for or decided"
+      },
+      "payment.failed": {
+        "permission": "finance.read",
+        "when": "a trip's payment status becomes failed; entityId = tripId (a trip.changed is sent as well)"
+      },
+      "resync": {
+        "permission": "overview.read",
+        "when": "the cursor is older than the kept events (retentionHours): the panel reloads every live list once; entityId = the admin's id, zoneId null"
+      }
+    },
+    "scope": [
+      "An admin hears an event only for a zone he covers (token zones; '*' = all zones). An event with zoneId null (no zone) only reaches '*' admins — the same rule as the dispatch feed and the alert desk.",
+      "Optional query zoneId / zoneIds / country narrows the stream inside the admin's own zones (contract.json#adminListFilters rules: a named zone outside them is 403 zone_out_of_scope).",
+      "An admin without a type's permission never gets that type.",
+      "Country managers (roles/zones job) are scoped by the same zone list; nothing on this stream changes when that job lands."
+    ],
+    "replay": "`after` query or the Last-Event-ID header: the stream starts with every event after that sequence (in scope), then goes live. Events are kept retentionHours; an older cursor gets one `resync` event first, then live events.",
+    "retentionHours": 24,
+    "limits": {
+      "maxStreamsPerAdmin": 5,
+      "maxStreamsTotal": 2000,
+      "overLimit": "429 rate_limited, reason too_many_streams, Retry-After; the panel keeps polling every fallbackPollSeconds and tries again later",
+      "serverReads": "one shared read per change for all open streams (not one per stream)"
+    },
+    "reconnectBackoff": {
+      "firstMs": 1000,
+      "maxMs": 30000,
+      "jitter": "full jitter: a random wait between 0 and the current step",
+      "stopOn": ["401 unauthenticated", "sign-out"]
+    },
+    "client": {
+      "invalidates": {
+        "trip.changed": [
+          "trips",
+          "reservations",
+          "overview",
+          "dispatch",
+          "payments"
+        ],
+        "driver.status": [
+          "drivers",
+          "dispatch",
+          "overview"
+        ],
+        "zone.supply": [
+          "zoneSupply",
+          "overview",
+          "dispatch"
+        ],
+        "alert.changed": [
+          "alerts",
+          "overview"
+        ],
+        "ticket.changed": [
+          "tickets"
+        ],
+        "incident.changed": [
+          "incidents",
+          "alerts"
+        ],
+        "approval.changed": [
+          "approvals"
+        ],
+        "payment.failed": [
+          "payments",
+          "alerts"
+        ],
+        "resync": [
+          "*"
+        ]
+      },
+      "pages": [
+        "Overview/Dashboard",
+        "Alerts",
+        "Live map/Dispatch",
+        "Trips",
+        "Reservations",
+        "Support tickets",
+        "Incidents",
+        "Approvals",
+        "Payments"
+      ],
+      "fallbackPollSeconds": 60,
+      "whileConnectedPollSeconds": 0,
+      "reconnect": "EventSource reconnects by itself with Last-Event-ID. While it is not open the panel shows a small 'Reconnecting…' badge (owner L1 a) and refreshes the live lists every fallbackPollSeconds; never a big warning banner.",
+      "badgeText": "Reconnecting…"
+    },
+    "apps": "Rider and driver apps: no change (they use their own trip / offer / config streams). RULE 0 check only."
+  },
+  "phoneDataToServer": {
+    "note": "v0.18.26 (BASE B13, owner 2026-11-03 \"Phone-only data: Yes, all to server\", Rules decisions/admin-fake-by-group.md): the rider's saved places, the driver's ride preferences (switched-off categories) and the driver's emergency contacts are kept on the server, not only on the phone. Builds on v0.18.22; v0.18.23-0.18.25 are reserved by other open jobs. Additive except SavedPlace / SavedPlaceRequest (never served before: no server had /rider/places); X-Api-Version stays 0.5.",
+    "privacy": "Each list is read and changed only by its owner (the signed-in rider for places, the signed-in driver for preferences and contacts); another rider or driver never sees it and an id of someone else's place is 404 place_not_found. Admins never read saved places or ride preferences rows directly; an admin reads a driver's emergency contacts only through a safety incident of that driver (see admin), and every such read is written to the admin audit. Logs never carry the addresses, names or phone numbers.",
+    "riderPlaces": {
+      "routes": "GET /rider/places -> SavedPlacePage (every place, nextCursor null); POST /rider/places SavedPlaceRequest -> 201 SavedPlace; PUT /rider/places/{placeId} SavedPlaceRequest -> 200 SavedPlace; DELETE /rider/places/{placeId} -> 204; POST /rider/places/import SavedPlaceImport -> 200 SavedPlacePage.",
+      "kinds": "kind home and kind work: one each; saving a new home (or work) replaces the old one and keeps its placeId. kind other: as many as maxPlaces allows, each with its own placeId. type is the app's finer word for an other place (gym, mall, school, airport, family, restaurant, other); the app picks the icon and label from it.",
+      "place": "SavedPlaceAddress { address (required, 1-512), lat?, lng? }: places saved on phones before v0.18.26 have only the address text, so the position is optional.",
+      "maxPlaces": 50,
+      "tooMany": "409 conflict, reason too_many_places, past maxPlaces (home and work count).",
+      "import": "One-time upload of the places a phone kept before v0.18.26. Applied only the first time for this rider (the server remembers it); later calls change nothing and answer the server's list. Items follow the POST rules (home / work replace, others added); items past maxPlaces are dropped. The app calls it once after sign-in, then reads GET /rider/places and from then on the server's list is the one shown.",
+      "app": "Rider app: Home and Saved places read the server's list; add, edit and delete call the routes above; the phone keeps a copy only to show something while offline. Sign-out clears the phone copy (the server keeps the places)."
+    },
+    "driverPreferences": {
+      "routes": "GET /driver/preferences -> DriverPreferences; PUT /driver/preferences DriverPreferencesUpdate -> DriverPreferences.",
+      "categoriesOff": "The ride categories the driver switched off in Ride preferences (CategoryId[]; an unknown id is 400 invalid_request, reason unknown_category). Empty = every category his account and car allow.",
+      "dispatch": "The server does not send a switched-off category: the automatic dispatch rounds (Exclusive and Radar), the admin's Add money sent through the zone's dispatch, and the Scheduled rides list skip a driver whose categoriesOff holds the trip's category. Driver.categoryIds (given by the admin from the car) is unchanged by this choice.",
+      "updatedAt": "null until the driver saves once on the server; the app then uploads the choice it kept on the phone once (one-time upload) and afterwards follows the server.",
+      "app": "Driver app: Ride preferences reads and saves through these routes; the phone copy only shows something while offline. Offers already filtered by the server stay filtered in the app too."
+    },
+    "driverEmergencyContacts": {
+      "routes": "GET /driver/emergency-contacts -> EmergencyContactList; PUT /driver/emergency-contacts EmergencyContactListUpdate -> EmergencyContactList (the whole list each time).",
+      "item": "EmergencyContact { name 1-80, phone (digits, optional leading +, 3-15 digits), relation? 0-40 }. 112 is built into the app and never stored.",
+      "maxContacts": 10,
+      "tooMany": "400 invalid_request, reason too_many_contacts, past maxContacts.",
+      "updatedAt": "null until saved once on the server; the app then uploads its phone list once (one-time upload).",
+      "app": "Driver app: Emergency contacts reads and saves through these routes."
+    },
+    "admin": {
+      "emergencyContacts": "GET /admin/incidents/{incidentId}/emergency-contacts (incidents.read; the incident's zone must be in the admin's scope, else 403 zone_out_of_scope) -> IncidentEmergencyContacts { incidentId, driverId, items, updatedAt }: the emergency contacts of the incident's driver, read-only. An incident without a driver answers items []. Every read writes the admin audit line incident.emergency_contacts_viewed (who, when, which incident; never the numbers).",
+      "panel": "Admin > Safety incident detail: a read-only 'Driver's emergency contacts' box with a 'Show' button (the read is audited), name, relation and phone. Admins never edit them. Saved places and ride preferences have no admin screen (not needed for safety; dispatch already sees Driver.categoryIds)."
+    }
   }
 }
