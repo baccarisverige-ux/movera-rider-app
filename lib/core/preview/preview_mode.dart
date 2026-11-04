@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'package:movera_rider/l10n/generated/app_localizations.dart';
+
 import 'package:movera_rider/core/auth/token_store.dart';
 
 /// Contract v0.18.25 `previewSession` (BASE job B7, owner P1 a / P2 b):
@@ -77,18 +79,15 @@ class PreviewMode {
   }
 
   /// "Preview" in the app's language (contract `previewSession.appTexts`).
-  static String bannerText(String language) => switch (language) {
-    'sv' => 'Förhandsvisning',
-    'fr' => 'Aperçu',
-    _ => 'Preview',
-  };
+  static String bannerText(String language) =>
+      lookupAppLocalizations(_locale(language)).previewBanner;
 
   /// "Preview – not sent" in the app's language.
-  static String notSentText(String language) => switch (language) {
-    'sv' => 'Förhandsvisning – inte skickat',
-    'fr' => 'Aperçu – non envoyé',
-    _ => 'Preview – not sent',
-  };
+  static String notSentText(String language) =>
+      lookupAppLocalizations(_locale(language)).previewNotSent;
+
+  static Locale _locale(String language) =>
+      Locale(const {'sv', 'fr'}.contains(language) ? language : 'en');
 
   /// The device language, for texts made outside a widget.
   static String get deviceLanguage =>

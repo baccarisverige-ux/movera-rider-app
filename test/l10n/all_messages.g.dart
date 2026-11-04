@@ -1665,6 +1665,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'bookingFreeRule': l.bookingFreeRule('<time>'),
   'freeRuleHours': l.freeRuleHours(37),
   'scheduleForLaterChip': l.scheduleForLaterChip,
+  'previewBanner': l.previewBanner,
+  'previewNotSent': l.previewNotSent,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -5231,4 +5233,8 @@ class _Exhaustive implements AppLocalizations {
   String freeRuleHours(int count) => '';
   @override
   String get scheduleForLaterChip => '';
+  @override
+  String get previewBanner => '';
+  @override
+  String get previewNotSent => '';
 }

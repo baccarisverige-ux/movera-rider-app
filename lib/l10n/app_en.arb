@@ -3337,5 +3337,7 @@
       }
     }
   },
-  "scheduleForLaterChip": "Book a ride for later"
+  "scheduleForLaterChip": "Book a ride for later",
+  "previewBanner": "Preview",
+  "previewNotSent": "Preview – not sent"
 }
