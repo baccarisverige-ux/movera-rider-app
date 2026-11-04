@@ -18,7 +18,8 @@ permissions:
 
 jobs:
   critical-rider-flow:
-    runs-on: ubuntu-latest
+    # Playwright 1.55 cannot install its deps on ubuntu-latest (26.04).
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -275,11 +276,13 @@ jobs:
             await openSelection(page, 'payment');
             await page.screenshot({ path: 'qa-critical-payment-before.png', fullPage: true });
 
-            // Round 2: the methods are Cash, Card, Apple Pay and Google Pay;
-            // the row under the categories opens the 'Pay with' sheet and
-            // picking a method closes it. Switch away first so choosing Cash
-            // is a real change, then pick Cash.
-            const paymentRow = /^(Cash|Card|Apple Pay|Google Pay)\b/;
+            // Owner decision (Rules/decisions/driver-g8.md item 2): "we keep
+            // only Apple Pay and card and cash and change the text of cash to
+            // pay in car" => the methods are Pay in car, Card and Apple Pay
+            // (Google Pay removed); the row under the categories opens the
+            // 'Pay with' sheet and picking a method closes it. Switch away
+            // first so choosing Pay in car is a real change, then pick it.
+            const paymentRow = /^(Pay in car|Card|Apple Pay)\b/;
             async function pickPayment(method, tag) {
               await tapNamed(page, paymentRow, 'Payment: Select ride payment row');
               await page.waitForTimeout(900);
@@ -298,11 +301,13 @@ jobs:
               });
             }
             await pickPayment('Apple Pay', 'apple');
-            await pickPayment('Cash', 'cash');
+            await pickPayment('Pay in car', 'cash');
             await page.screenshot({ path: 'qa-critical-payment-cash.png', fullPage: true });
 
             await bookFromSelection(page, 'payment');
             const snapshot = await activeRideSnapshot(page);
+            // The snapshot keeps the stable key 'Cash'; the app shows it as
+            // 'Pay in car' (lib/features/payments/presentation/payment_labels.dart).
             if (snapshot.paymentMethod !== 'Cash') {
               throw new Error(`Payment: expected ride snapshot Cash, got ${snapshot.paymentMethod}`);
             }
