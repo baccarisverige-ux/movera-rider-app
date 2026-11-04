@@ -15,6 +15,7 @@ import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/features/wallet/application/top_up_message.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
+import 'package:movera_rider/features/wallet/presentation/wallet_balances_line.dart';
 import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
@@ -632,6 +633,16 @@ class _WalletHomeState extends State<WalletHome> {
                           34,
                           weight: FontWeight.w700,
                           color: Colors.white,
+                        ),
+                      ),
+                      // Fix job 6 (owner Q4 / "Turn it on"): every balance in
+                      // its own currency, never a sum (only when 2 or more).
+                      WalletBalancesLine(
+                        key: ValueKey('balances-$_currency-$_balance'),
+                        load: _wallet.loadBalances,
+                        style: _style(
+                          12,
+                          color: Colors.white.withValues(alpha: 0.72),
                         ),
                       ),
                       const SizedBox(height: 22),
