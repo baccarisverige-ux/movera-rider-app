@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Base job 2 (split the biggest screens, no behaviour change): a text
@@ -14,12 +13,22 @@ String treeSnapshot(WidgetTester tester) {
   void visit(Element element, int depth) {
     final widget = element.widget;
     final line = StringBuffer('${'  ' * depth}${widget.runtimeType}');
-    if (widget is Text) line.write(' "${widget.data ?? widget.textSpan?.toPlainText()}"');
-    if (widget is RichText) line.write(' "${widget.text.toPlainText()}"');
-    if (widget is Icon) line.write(' icon=${widget.icon?.codePoint}');
-    if (widget is EditableText) line.write(' "${widget.controller.text}"');
+    if (widget is Text) {
+      line.write(' "${widget.data ?? widget.textSpan?.toPlainText()}"');
+    }
+    if (widget is RichText) {
+      line.write(' "${widget.text.toPlainText()}"');
+    }
+    if (widget is Icon) {
+      line.write(' icon=${widget.icon?.codePoint}');
+    }
+    if (widget is EditableText) {
+      line.write(' "${widget.controller.text}"');
+    }
     final render = element.renderObject;
-    if (element is RenderObjectElement && render is RenderBox && render.hasSize) {
+    if (element is RenderObjectElement &&
+        render is RenderBox &&
+        render.hasSize) {
       final at = render.attached ? render.localToGlobal(Offset.zero) : null;
       line.write(' size=${_r(render.size.width)}x${_r(render.size.height)}');
       if (at != null) line.write(' at=${_r(at.dx)},${_r(at.dy)}');
@@ -45,6 +54,14 @@ void expectTreeSnapshot(WidgetTester tester, String name) {
     file.writeAsStringSync(now);
     return;
   }
-  expect(file.existsSync(), isTrue, reason: 'Run flutter test --update-goldens once to write $name.txt');
-  expect(now, file.readAsStringSync(), reason: 'The $name screen changed: $name.txt');
+  expect(
+    file.existsSync(),
+    isTrue,
+    reason: 'Run flutter test --update-goldens once to write $name.txt',
+  );
+  expect(
+    now,
+    file.readAsStringSync(),
+    reason: 'The $name screen changed: $name.txt',
+  );
 }
