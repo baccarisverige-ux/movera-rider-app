@@ -21,6 +21,12 @@ void main() {
     'lib/features/home/presentation/home.dart',
     'lib/features/home/presentation/home_map_style.dart',
     'lib/features/home/presentation/widgets/home_map_layer.dart',
+    // Base job 2 (2026-11-04) split more of Home into part files.
+    'lib/features/home/presentation/home_address_pickers.dart',
+    'lib/features/home/presentation/home_collapsed_sheet.dart',
+    'lib/features/home/presentation/home_location.dart',
+    'lib/features/home/presentation/home_map_controls.dart',
+    'lib/features/home/presentation/home_routes.dart',
   ];
 
   const selectRideScreenFiles = [
@@ -28,6 +34,12 @@ void main() {
     'lib/features/ride_selection/presentation/ride_picture.dart',
     'lib/features/ride_selection/presentation/select_ride_geometry.dart',
     'lib/features/ride_selection/presentation/widgets/select_ride_route_canvas.dart',
+    // Base job 2 (2026-11-04) split more of Select Ride into part files.
+    'lib/features/ride_selection/presentation/select_ride_options.dart',
+    'lib/features/ride_selection/presentation/select_ride_quotes.dart',
+    'lib/features/ride_selection/presentation/select_ride_reveal.dart',
+    'lib/features/ride_selection/presentation/select_ride_sheet_control.dart',
+    'lib/features/ride_selection/presentation/select_ride_tiles.dart',
   ];
 
   test('presentation does not import raw http or shared_preferences', () {
