@@ -72,6 +72,12 @@ import 'package:smooth_sheets/smooth_sheets.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/features/content/presentation/content_banners.dart';
 
+part 'home_address_pickers.dart';
+part 'home_collapsed_sheet.dart';
+part 'home_location.dart';
+part 'home_map_controls.dart';
+part 'home_routes.dart';
+
 typedef _SavedPlaceData = SavedPlaceData;
 
 /// Home's opening camera: the whole local area (about 10 km across a phone)
@@ -422,28 +428,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     await _detectCurrentAddress();
   }
 
-  Future<void> _persistAddressData() => _places.persist();
-
   /// Coarse camera hint from [HomeLocationController.quickCameraFix].
   LatLng? _cameraHint;
-
-  /// Batch 10 Phase 110: centre the camera on a fast cached fix while the
-  /// accurate one is fetched. Camera only — pickup, the puck and
-  /// [_currentLatLng] stay owned by [_detectCurrentAddress], whose accurate
-  /// fix still moves the camera when it lands.
-  Future<void> _centerCameraOnQuickFix() async {
-    final hint = await _locationCtl.quickCameraFix();
-    if (!mounted || hint == null || _currentLatLng != null) return;
-    _cameraHint = hint;
-    final maps = AppScope.instance.maps;
-    // Map not created yet: onMapCreated picks the hint up.
-    if (maps.activeOwner != MapOwners.home) return;
-    _quickCameraAt = hint;
-    await maps.moveCamera(
-      GeoPoint(hint.latitude, hint.longitude),
-      zoom: homeOpeningZoom,
-    );
-  }
 
   Future<void>? _detectInFlight;
 
@@ -452,46 +438,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// backoff while Home has no fix, instead of waiting for an app resume.
   Timer? _detectRetryTimer;
   int _detectRetries = 0;
-
-  void _scheduleDetectRetry() {
-    _detectRetryTimer?.cancel();
-    // 2, 4, 8, 16, then 30 s: the live stream's resubscribe backoff.
-    final delay = Duration(
-      seconds: math.min(30, 2 << _detectRetries.clamp(0, 4)),
-    );
-    _detectRetries += 1;
-    _detectRetryTimer = Timer(delay, () {
-      _detectRetryTimer = null;
-      if (!mounted || _hasFix) return;
-      // Parked under a ride screen or in the background: keep waiting (the
-      // booking flow and an app resume ask for their own fix).
-      final lifecycle = WidgetsBinding.instance.lifecycleState;
-      if (_mapParked.value ||
-          (lifecycle != null && lifecycle != AppLifecycleState.resumed)) {
-        _scheduleDetectRetry();
-        return;
-      }
-      unawaited(_detectCurrentAddress());
-    });
-  }
-
-  /// rider-u114: reads the accuracy grant again; when it changed, the
-  /// pickup label follows (the 'set pickup' state, or the current location
-  /// again). Never over a pickup the rider chose or during a flow.
-  Future<void> _recheckPrecision() async {
-    final changed = await _locationCtl.recheckPrecision();
-    if (changed) _applyPrecisionChange();
-  }
-
-  void _applyPrecisionChange() {
-    if (!mounted ||
-        _routeFlowOpen ||
-        _mapParkingGuard.isParked ||
-        _tripPickupLatLng != null) {
-      return;
-    }
-    _resetPickupLabel();
-  }
 
   /// rider-u114: the notice's "Turn on" button.
   Future<void> _turnOnPreciseLocation() async {
@@ -513,46 +459,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         _runDetectCurrentAddress(askPermission: askPermission).whenComplete(() {
           _detectInFlight = null;
         });
-  }
-
-  /// Waits briefly for a location fix when none has landed yet (first fix
-  /// still coming, permission prompt open). Null when there is still none.
-  Future<LatLng?> _awaitCurrentFix() async {
-    final known = _tripPickupLatLng ?? _gpsPickup;
-    if (known != null) return known;
-    // rider-u114: an approximate fix is no pickup; waiting brings no better.
-    if (_locationCtl.preciseLocationOff) return null;
-    final hint = Timer(const Duration(milliseconds: 700), () {
-      if (mounted) MoveraToast.show(context, context.l10n.homeFindingLocation);
-    });
-    final deadline = DateTime.now().add(const Duration(seconds: 8));
-    try {
-      // Two tries: the first may only join Home's own request, which can be
-      // about to time out (the prompt kept it waiting); the second starts
-      // fresh once permission is granted.
-      for (var attempt = 0; attempt < 2; attempt++) {
-        final left = deadline.difference(DateTime.now());
-        if (left <= Duration.zero) break;
-        // rider-43: only the first try may show the permission prompt; the
-        // second never asks again right after a "Deny".
-        final detecting = _detectCurrentAddress(askPermission: attempt == 0);
-        // Owner round 1: the accurate point is enough; the address it is
-        // still being named with fills in on its own.
-        final located = _locatedSignal?.future;
-        await (located == null
-                ? detecting
-                : Future.any<void>([detecting, located]))
-            .timeout(left, onTimeout: () {});
-        if (!mounted) return null;
-        final fix = _tripPickupLatLng ?? _gpsPickup;
-        if (fix != null) return fix;
-      }
-    } catch (_) {
-      // No fix: the caller falls back to a placeholder point.
-    } finally {
-      hint.cancel();
-    }
-    return _tripPickupLatLng ?? _gpsPickup;
   }
 
   Future<void> _runDetectCurrentAddress({bool askPermission = true}) async {
@@ -702,62 +608,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     }
   }
 
-  String _shortAddress(String? address, {int maxLength = 24}) {
-    final value = L10n.place(address?.trim() ?? '');
-    if (value.isEmpty) return context.l10n.setLocation;
-    return value.length <= maxLength
-        ? value
-        : '${value.substring(0, maxLength - 1)}…';
-  }
-
-  String _targetTitle(String target, String? customType) {
-    switch (target) {
-      case 'pickup':
-        return context.l10n.choosePickup;
-      case 'home':
-        return context.l10n.setHomeAddress;
-      case 'work':
-        return context.l10n.setWorkAddress;
-      case 'custom':
-        return context.l10n.setPlaceAddress(_placeLabel(customType ?? 'other'));
-      default:
-        return context.l10n.whereTo;
-    }
-  }
-
-  String? _existingAddressFor(String target) => _places.existingFor(target);
-
-  Future<String> _normaliseAddress(String input, {int? generation}) {
-    return _locationCtl.normaliseAddress(input, generation: generation);
-  }
-
-  Future<void> _moveMapToAddress(String address) async {
-    final target = await _locationCtl.geocodeLatLng(address);
-    if (target == null) return;
-    await AppScope.instance.maps.animateCamera(
-      GeoPoint(target.latitude, target.longitude),
-      zoom: 15,
-    );
-  }
-
-  void _rememberAddress(String address) {
-    // D-004: raw "lat, lng" strings and placeholders are not places; never
-    // offer them back as Recents.
-    if (isRawCoordinateLabel(address) || isPlaceholderPickupLabel(address)) {
-      return;
-    }
-    _places.remember(address);
-  }
-
-  Future<String> _bookingPickup(String label, LatLng position) =>
-      bookingPickupAddress(
-        label: label,
-        position: position,
-        reverse: (point) => AppScope.instance.geocoding.reverse(
-          GeoPoint(point.latitude, point.longitude),
-        ),
-      );
-
   Future<void> _saveAddressFor(
     String target,
     String address, {
@@ -819,26 +669,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       capture.stop();
     }
   });
-
-  /// A saved place that only says "Current location" was never really set.
-  String? _placeOrNull(String? address) {
-    final value = address?.trim() ?? '';
-    if (value.isEmpty || value == 'Current location') return null;
-    return value;
-  }
-
-  /// rider-46: the pickup label when it names a real place, else null. With
-  /// location off it is the placeholder 'Location off, set pickup', which
-  /// must never be saved as Home, Work or a Recent.
-  String? _currentAddressToSave() {
-    final value = _placeOrNull(_pickupAddress);
-    if (value == null ||
-        isPlaceholderPickupLabel(value) ||
-        isUnusablePickupLabel(value)) {
-      return null;
-    }
-    return value;
-  }
 
   /// Long-press on Home / Work / a custom place: change its address.
   Future<void> _editSavedPlace(String target, {String? customType}) =>
@@ -1033,57 +863,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       }
       setState(() => _pickupAddress = clean);
     }());
-  }
-
-  /// RIDE-9: runs one route flow at a time; a second tap while one is
-  /// opening or open does nothing. RIDE-10: when the flow ends, the pickup
-  /// label goes back to the rider's current location.
-  Future<void> _runRouteFlow(Future<void> Function() flow) async {
-    if (_routeFlowOpen) return;
-    _routeFlowOpen = true;
-    try {
-      await flow();
-    } finally {
-      _routeFlowOpen = false;
-      if (mounted) {
-        _resetPickupLabel();
-        // A flow that ended without opening another screen (Plan your ride
-        // closed) gives Home its map back now, not after the grace above.
-        _syncRouteParking();
-      }
-    }
-  }
-
-  /// RIDE-10: a live fix far from where the pickup label was resolved
-  /// makes that label wrong; derive it again from the new point.
-  void _refreshPickupLabelIfMoved(LatLng fix) {
-    final at = _pickupLabelAt;
-    if (at == null) {
-      _pickupLabelAt = fix;
-      return;
-    }
-    // Not during a flow, and never over a pickup the rider chose.
-    if (_routeFlowOpen ||
-        _mapParkingGuard.isParked ||
-        _tripPickupLatLng != null) {
-      return;
-    }
-    final moved = AppScope.instance.location.distanceBetween(
-      at.latitude,
-      at.longitude,
-      fix.latitude,
-      fix.longitude,
-    );
-    // N7: a pickup still unnamed (the first fix was too coarse to name)
-    // takes its street from the first fix that is good enough.
-    final askedAt = _pickupLabelAskedAt;
-    final unnamed =
-        isPlaceholderPickupLabel(_pickupAddress) &&
-        _pickupAddress != locationOffPickupLabel &&
-        HomeLocationController.nameable(_locationCtl.lastFixAccuracyMeters) &&
-        (askedAt == null ||
-            DateTime.now().difference(askedAt) > const Duration(seconds: 8));
-    if (moved > 75 || unnamed) _resetPickupLabel();
   }
 
   Future<PickupMapResult?> _openPickupMapPicker(
@@ -1510,313 +1289,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _showAddressPicker({
-    required String target,
-    String? customType,
-    String? placeId,
-  }) async {
-    final initialAddress = _existingAddressFor(target);
-    final controller = TextEditingController(
-      text: initialAddress == 'Current location' ? '' : initialAddress ?? '',
-    );
-    final focusNode = FocusNode();
-    var query = controller.text;
-    // Started before the sheet opens; see EarlyInputCapture.
-    final capture = EarlyInputCapture()..start();
-    capture.attach(controller, focusNode);
-    String? selected;
-    try {
-      selected = await MoveraSheet.show<String>(
-        context: context,
-        backgroundColor: Colors.transparent,
-        barrierColor: Colors.black.withValues(alpha: 0.24),
-        builder: (sheetContext) {
-          return MoveraSheetDisposables(
-            disposables: [controller, focusNode],
-            child: PointerInterceptor(
-              child: StatefulBuilder(
-                builder: (context, setModalState) {
-                  capture.onChanged = (value) {
-                    AppScope.instance.destinationSearch.type(value, (text) {
-                      // RIDE-20: the sheet's own context, not Home's — the
-                      // debounce can fire after the sheet has closed.
-                      if (!context.mounted) return;
-                      setModalState(() => query = text);
-                    });
-                  };
-                  final filteredRecent = _recentAddresses
-                      .where(
-                        (address) =>
-                            query.trim().isEmpty ||
-                            address.toLowerCase().contains(
-                              query.trim().toLowerCase(),
-                            ),
-                      )
-                      .take(6)
-                      .toList();
-                  // rider-u123: MoveraSheet already lifts the sheet over the
-                  // keyboard; padding by the inset again here doubled it.
-                  return Container(
-                    constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(context).size.height * 0.78,
-                    ),
-                    padding: EdgeInsets.fromLTRB(
-                      ResSize.w * 18,
-                      ResSize.h * 11,
-                      ResSize.w * 18,
-                      ResSize.h * 20,
-                    ),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(30),
-                        topRight: Radius.circular(30),
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: ResSize.w * 42,
-                          height: ResSize.h * 4,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFCED4D8),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        16.height,
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextWidget(
-                                text: _targetTitle(target, customType),
-                                color: _premiumInk,
-                                fontSize: 18,
-                                fontWeight: fwBold,
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () => Navigator.pop(sheetContext),
-                              icon: const Icon(Icons.close_rounded),
-                              color: _premiumInk,
-                              tooltip: context.l10n.close,
-                            ),
-                          ],
-                        ),
-                        10.height,
-                        TextField(
-                          controller: controller,
-                          focusNode: focusNode,
-                          autofocus: true,
-                          textInputAction: TextInputAction.search,
-                          onChanged: (value) {
-                            AppScope.instance.destinationSearch.type(value, (
-                              text,
-                            ) {
-                              if (!context.mounted) return;
-                              setModalState(() => query = text);
-                            });
-                          },
-                          onSubmitted: (value) {
-                            if (value.trim().isNotEmpty) {
-                              Navigator.pop(sheetContext, value.trim());
-                            }
-                          },
-                          style: TextStyle(
-                            color: _premiumInk,
-                            fontSize: ResSize.setSp(15),
-                            fontWeight: FontWeight.w500,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: context.l10n.searchOrEnterAddress,
-                            hintStyle: TextStyle(
-                              color: _premiumMuted.withValues(alpha: 0.72),
-                              fontSize: ResSize.setSp(14),
-                            ),
-                            prefixIcon: Icon(
-                              Icons.search_rounded,
-                              color: _premiumInk.withValues(alpha: 0.72),
-                            ),
-                            suffixIcon: query.isEmpty
-                                ? null
-                                : IconButton(
-                                    onPressed: () {
-                                      controller.clear();
-                                      setModalState(() => query = '');
-                                    },
-                                    tooltip: context.l10n.clear,
-                                    icon: const Icon(Icons.close_rounded),
-                                  ),
-                            filled: true,
-                            fillColor: const Color(0xFFF5F7F7),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: ResSize.w * 15,
-                              vertical: ResSize.h * 15,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(18),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                        ),
-                        12.height,
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            // Save the real street address, never the
-                            // words "Current location".
-                            onTap: _currentAddressToSave() == null
-                                ? null
-                                : () => Navigator.pop(
-                                    sheetContext,
-                                    _currentAddressToSave(),
-                                  ),
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: ResSize.w * 13,
-                                vertical: ResSize.h * 11,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _premiumAccentSoft.withValues(
-                                  alpha: 0.62,
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.my_location_rounded,
-                                    color: _premiumAccent,
-                                    size: ResSize.h * 20,
-                                  ),
-                                  11.width,
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        TextWidget(
-                                          text: context.l10n.useCurrentLocation,
-                                          color: _premiumInk,
-                                          fontSize: 12.5,
-                                          fontWeight: fwSemiBold,
-                                        ),
-                                        2.height,
-                                        TextWidget(
-                                          text:
-                                              _placeOrNull(_pickupAddress) ==
-                                                  null
-                                              ? context.l10n.findingYourAddress
-                                              : _shortAddress(
-                                                  _pickupAddress,
-                                                  maxLength: 38,
-                                                ),
-                                          color: _premiumMuted,
-                                          fontSize: 9,
-                                          fontWeight: fwNormal,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (filteredRecent.isNotEmpty) ...[
-                          16.height,
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: TextWidget(
-                              text: context.l10n.recentAddresses,
-                              color: _premiumMuted,
-                              fontSize: 10.5,
-                              fontWeight: fwSemiBold,
-                            ),
-                          ),
-                          6.height,
-                          Flexible(
-                            child: ListView.separated(
-                              shrinkWrap: true,
-                              physics: const BouncingScrollPhysics(),
-                              itemCount: filteredRecent.length,
-                              separatorBuilder: (_, __) => const Divider(
-                                color: Color(0xFFE7EBEE),
-                                height: 1,
-                              ),
-                              itemBuilder: (context, index) {
-                                final address = filteredRecent[index];
-                                return ListTile(
-                                  dense: true,
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: ResSize.w * 4,
-                                  ),
-                                  leading: Icon(
-                                    Icons.history_rounded,
-                                    color: _premiumMuted,
-                                    size: ResSize.h * 20,
-                                  ),
-                                  title: TextWidget(
-                                    text: address,
-                                    color: _premiumInk,
-                                    fontSize: 11,
-                                    fontWeight: fwMedium,
-                                  ),
-                                  onTap: () =>
-                                      Navigator.pop(sheetContext, address),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                        if (query.trim().isNotEmpty) ...[
-                          14.height,
-                          Material(
-                            color: _premiumAccent,
-                            borderRadius: BorderRadius.circular(17),
-                            child: InkWell(
-                              onTap: () => Navigator.pop(
-                                sheetContext,
-                                controller.text.trim(),
-                              ),
-                              borderRadius: BorderRadius.circular(17),
-                              child: SizedBox(
-                                height: ResSize.h * 46,
-                                width: double.infinity,
-                                child: Center(
-                                  child: TextWidget(
-                                    text: context.l10n.useThisAddress,
-                                    color: Colors.white,
-                                    fontSize: 12.5,
-                                    fontWeight: fwSemiBold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          );
-        },
-      );
-    } finally {
-      capture.stop();
-    }
-    if (selected == null || selected.trim().isEmpty || !mounted) return;
-    await _saveAddressFor(
-      target,
-      selected,
-      customType: customType,
-      placeId: placeId,
-    );
-  }
-
   Future<void> _openAddPlacePicker() async {
     if (_savedPlaces.length >= _maxCustomPlaces) {
       ScaffoldMessenger.of(
@@ -1922,83 +1394,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     await _showAddressPicker(target: 'custom', customType: type);
   }
 
-  String _placeLabel(String type) {
-    switch (type) {
-      case 'gym':
-        return context.l10n.placeGym;
-      case 'mall':
-        return context.l10n.placeMall;
-      case 'school':
-        return context.l10n.placeSchool;
-      case 'airport':
-        return context.l10n.placeAirport;
-      case 'family':
-        return context.l10n.placeFamily;
-      case 'restaurant':
-        return context.l10n.placeRestaurant;
-      default:
-        return context.l10n.placeOther;
-    }
-  }
-
-  IconData _placeIcon(String type) {
-    switch (type) {
-      case 'gym':
-        return Icons.fitness_center_rounded;
-      case 'mall':
-        return Icons.local_mall_outlined;
-      case 'school':
-        return Icons.school_outlined;
-      case 'airport':
-        return Icons.flight_takeoff_rounded;
-      case 'family':
-        return Icons.family_restroom_rounded;
-      case 'restaurant':
-        return Icons.restaurant_rounded;
-      default:
-        return Icons.place_outlined;
-    }
-  }
-
-  /// Owner 2026-10-31 (rider-pin SPEC): the flat pin, and the tilted pucks
-  /// when the pin leans with the camera
-  /// ([MoveraRiderPuckMarker.tiltsWithCamera]), all at the screen's pixel
-  /// ratio so they are sharp.
-  Future<void> _prepareLocationPuckIcons() async {
-    // Read from the platform, not the widget tree: this also runs from
-    // initState's first-fix path.
-    final ratio =
-        WidgetsBinding
-            .instance
-            .platformDispatcher
-            .implicitView
-            ?.devicePixelRatio ??
-        markerPixelRatio;
-    if (_pins[0] == null) {
-      _pins[0] ??= await _drawPin(0, ratio);
-    }
-    if (_halo == null) {
-      final halo = await RiderAccuracyHalo.createVisual(pixelRatio: ratio);
-      halo.image.dispose();
-      _halo ??= halo.icon;
-    }
-    if (_tiltPinsStarted || !MoveraRiderPuckMarker.tiltsWithCamera) return;
-    _tiltPinsStarted = true;
-    unawaited(() async {
-      for (
-        var tilt = MoveraRiderPuckMarker.tiltStep;
-        tilt <= 70;
-        tilt += MoveraRiderPuckMarker.tiltStep
-      ) {
-        _pins[tilt] = await _drawPin(tilt, ratio);
-      }
-      // A tilted camera got the flat pin while the pucks were drawn.
-      if (mounted && _paintedPinBucket != _pinBucket) {
-        _updateLocationVisuals();
-      }
-    }());
-  }
-
   /// A fresh draw each time (no shared in-flight future, so a draw that
   /// never finished cannot hold every later attempt).
   static Future<BitmapDescriptor> _drawPin(int tilt, double ratio) async {
@@ -2009,11 +1404,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     visual.image.dispose();
     return visual.icon;
   }
-
-  /// The pin bitmap the camera's tilt asks for.
-  int get _pinBucket => MoveraRiderPuckMarker.tiltsWithCamera
-      ? MoveraRiderPuckMarker.tiltBucket(_locationCtl.lastMapTilt)
-      : 0;
 
   /// Paints the rider's pin: a screen-fixed bitmap, the same size at every
   /// zoom ("Blue must be same in all zoom steps"). It is round, so the
@@ -2031,17 +1421,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       heading: 0,
       anchor: MoveraRiderPuckMarker.anchorFor(bucket.toDouble()),
       haloIcon: _halo,
-    );
-  }
-
-  Future<bool> _startHeadingTracking() {
-    return _locationCtl.startHeading(
-      isMounted: () => mounted,
-      onHeading: (heading) {
-        _locationHeading = heading;
-        _hasCompassHeading = true;
-        _updateLocationVisuals();
-      },
     );
   }
 
@@ -2125,34 +1504,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// running recenter.
   static const double _recenterRefineMeters = 15;
 
-  /// North-up, like the driver app's Home locate: the map does not turn
-  /// with the compass; the puck shows the heading.
-  Future<void> _flyToUser(LatLng target, {required bool follow}) {
-    return AppScope.instance.maps.animateCamera(
-      GeoPoint(target.latitude, target.longitude),
-      zoom: recenterZoom,
-      bearing: 0,
-      follow: follow,
-    );
-  }
-
-  void _loadMarkers() {
-    _locationCtl.clearOverlays();
-  }
-
   /// The rider's active promotion, shown as a ticket on top of the sheet.
   /// It is applied only while the sheet rests low, so a promotion arriving
   /// mid-gesture never changes the snaps under the rider's finger.
   RiderPromotion? _promotion;
   Timer? _settleTimer;
-
-  /// Room the promotion ticket takes at the low and middle snaps.
-  double get _promotionExtra =>
-      _promotion == null ? 0 : PromotionTicket.height + ResSize.h * 10;
-
-  double get _sheetMinPixels => ResSize.h * _sheetMinHeight + _promotionExtra;
-
-  double get _sheetMidPixels => ResSize.h * _sheetMaxHeight + _promotionExtra;
 
   /// Set once the sheet settles fully open; a swipe down from there goes all
   /// the way to the low snap instead of stopping at the middle.
@@ -2228,18 +1584,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     if (last != null && (offset - last).abs() > 6) _lastSettledSnap = null;
   }
 
-  bool get _isSheetAtMiddle => _sheetCtl.isAtMiddle;
-
-  void _cancelSheetIdleTimer() => _sheetCtl.cancelIdleTimer();
-
-  void _scheduleSheetIdleClose() {
-    _sheetCtl.scheduleIdleClose(
-      accessibleNavigation:
-          MediaQuery.maybeOf(context)?.accessibleNavigation ?? false,
-      isMounted: () => mounted,
-    );
-  }
-
   void _syncHomeSheetState() {
     if (!mounted || !_homeSheetController.hasClient) return;
     final offset = _homeSheetController.metrics?.offset;
@@ -2268,24 +1612,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   /// What [setWebOverlayOpen] was last told; null after the map was parked.
   bool? _webOverlayCovering;
-
-  /// Owner round 1: the web map ignores pointers while the sheet covers it.
-  /// Told once the sheet settles, not on every drag offset (each call
-  /// reaches the platform view and could nudge the map mid-drag); the
-  /// sheet itself never lets a pointer through to the map meanwhile.
-  void _syncWebOverlay(double offset) {
-    if (_mapParked.value) return;
-    final covering = offset > _sheetMinPixels + 12;
-    if (covering == _webOverlayCovering) return;
-    _webOverlayCovering = covering;
-    setWebOverlayOpen(covering);
-  }
-
-  Future<void> _animateHomeSheetTo(
-    SheetOffset target, {
-    Duration duration = MoveraDurations.large,
-    Curve curve = MoveraCurves.open,
-  }) => _sheetCtl.animateTo(target, duration: duration, curve: curve);
 
   Future<void> _openDestinationSheet() async {
     if (!_destinationSheetOpen) setState(() => _destinationSheetOpen = true);
@@ -2318,36 +1644,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   void _openPayment() => _openTab(HomeTabs.payment);
 
-  /// Opens a bottom-bar tab over Home. A horizontal swipe on that page
-  /// hands back the neighbouring tab's index, so the rider can slide
-  /// Home → Payment → Account and back without tapping. Schedule ride is a
-  /// booking flow, not a page, so the swipe skips it (NAV-5).
-  void _openTab(int first) {
-    unawaited(
-      _runRouteFlow(
-        () => _withParkedHomeMap<void>(() async {
-          var current = HomeTabs.home;
-          int? next = first;
-          while (next != null && next != HomeTabs.home && mounted) {
-            final forward = next > current;
-            current = next;
-            final page = HomeTabPage(
-              tab: next,
-              child: next == HomeTabs.payment
-                  ? walletAndPaymentsScreen(initialTab: 1)
-                  : const AccountHomePage(),
-            );
-            next = await Navigator.of(context).push<int>(
-              forward
-                  ? RightToLeftTransition(page)
-                  : LeftToRightTransition(page),
-            );
-          }
-        }),
-      ),
-    );
-  }
-
   /// The full-screen menu, with Home's map parked underneath like the
   /// other full-screen pages.
   void _openMenu() {
@@ -2370,35 +1666,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   void _openAccount() => _openTab(HomeTabs.account);
 
-  /// Owner round 3: how far the map rises with the sheet: a third of the
-  /// sheet's rise above its low stop, at most a quarter of the map.
-  double _mapLift(double mapHeight) {
-    if (!_homeSheetController.hasClient) return 0;
-    final offset = _homeSheetController.metrics?.offset;
-    if (offset == null || !offset.isFinite) return 0;
-    final rise = offset - _sheetMinPixels;
-    if (rise <= 0) return 0;
-    return (rise / 3).clamp(0.0, mapHeight / 4);
-  }
-
   /// The layout the map was sized for, see [_stableMapHeight].
   Size? _mapLayout;
-
-  /// Owner round 1: the map's height is read once per layout (a new width:
-  /// a rotation, a resized window), not per frame. Within one layout it
-  /// keeps the tallest height seen, so a viewport that shrinks and grows
-  /// again for a moment (a mobile browser's bars during a sheet drag) never
-  /// resizes the map, and the map never moves under the rider's finger.
-  /// The part below a shorter viewport is simply clipped.
-  double _stableMapHeight(Size viewport) {
-    final last = _mapLayout;
-    if (last == null ||
-        last.width != viewport.width ||
-        viewport.height > last.height) {
-      _mapLayout = viewport;
-    }
-    return _mapLayout!.height;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -2687,205 +1956,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                 ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _premiumCollapsedSheet(
-    double sheetProgress,
-    double detailProgress,
-    double sheetHeight, {
-    required Widget toggleHandle,
-    required Widget whereToCard,
-    required Widget Function(double reveal) savedPlacesContent,
-    required Widget detailContent,
-  }) {
-    final promotion = _promotion;
-    // Content keeps its full size and slides/fades in instead of being cut.
-    final placesReveal = Curves.easeOutCubic.transform(
-      ((sheetProgress - 0.25) / 0.75).clamp(0.0, 1.0),
-    );
-    final detailReveal = Curves.easeOutCubic.transform(
-      ((detailProgress - 0.15) / 0.85).clamp(0.0, 1.0),
-    );
-    final ticketVisible = 1 - Curves.easeOutCubic.transform(detailProgress);
-    // UI-4: the toggle handle's target is 12 px taller than the 32 px it
-    // used to be; half comes out of the padding above, half out of the gap.
-    final handleLift = math.min(6.0, ResSize.h * 11);
-    // Owner round 4: square corners, raised over the map by an upward
-    // shadow (HomeSheetEdge), like the sign-in card over its scene.
-    return Container(
-      key: const ValueKey('home-sheet-surface'),
-      decoration: HomeSheetEdge.decoration,
-      child: HorizontalSwipe(
-        onSwipeLeft: _openPayment,
-        child: SafeArea(
-          top: false,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              HomeSheetScroll(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    HomeSheetLayout.sideMargin,
-                    ResSize.h * 11 - handleLift,
-                    HomeSheetLayout.sideMargin,
-                    ResSize.h * 7,
-                  ),
-                  child: Column(
-                    children: [
-                      toggleHandle,
-                      SizedBox(
-                        height: math.max(0.0, ResSize.h * 12 + handleLift - 12),
-                      ),
-                      if (promotion != null)
-                        IgnorePointer(
-                          ignoring: ticketVisible < 0.6,
-                          child: Align(
-                            alignment: Alignment.topCenter,
-                            heightFactor: ticketVisible,
-                            child: Opacity(
-                              opacity: ticketVisible,
-                              child: Transform.translate(
-                                offset: Offset(0, -10 * (1 - ticketVisible)),
-                                child: Padding(
-                                  padding: EdgeInsets.only(
-                                    bottom: ResSize.h * 10,
-                                  ),
-                                  // Owner round 1: the "simple row" here;
-                                  // the ride list keeps the ticket.
-                                  child: PromotionTicket(
-                                    promotion: promotion,
-                                    flat: true,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      whereToCard,
-                      IgnorePointer(
-                        ignoring: sheetProgress < 0.92,
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          heightFactor: sheetProgress,
-                          child: savedPlacesContent(placesReveal),
-                        ),
-                      ),
-                      IgnorePointer(
-                        ignoring: detailProgress < 0.92,
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          heightFactor: detailProgress,
-                          child: Opacity(
-                            opacity: detailReveal,
-                            child: Transform.translate(
-                              offset: Offset(0, 12 * (1 - detailReveal)),
-                              child: Padding(
-                                padding: EdgeInsets.only(
-                                  top: HomeSheetLayout.sectionGap,
-                                ),
-                                child: detailContent,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Positioned(
-                left: ResSize.w * (18 + (12 * (1 - sheetProgress))),
-                right: ResSize.w * (18 + (12 * (1 - sheetProgress))),
-                // Owner 2026-11-02 ("Yes, move it up"): with the sheet open
-                // the docked bar sits just above the bottom safe area (home
-                // indicator), so the tabs are fully tappable. Unchanged with
-                // the sheet down.
-                top:
-                    sheetHeight -
-                    ResSize.h * (63 + (30 * (1 - sheetProgress))) -
-                    MediaQuery.paddingOf(context).bottom * sheetProgress,
-                child: Transform.scale(
-                  scale: 0.84 + (0.16 * sheetProgress),
-                  alignment: Alignment.bottomCenter,
-                  child: Container(
-                    // UI-4: the vertical padding is passed to the items as
-                    // hitSlop, so the targets reach the bar's edges.
-                    padding: EdgeInsets.symmetric(
-                      horizontal: ResSize.w * (4 * (1 - sheetProgress)),
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColor.white,
-                      borderRadius: BorderRadius.circular(
-                        32 * (1 - sheetProgress),
-                      ),
-                      border: Border.all(
-                        color: _premiumLine.withValues(
-                          alpha: 1 - sheetProgress,
-                        ),
-                        width: 0.8,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(
-                            alpha: 0.14 * (1 - sheetProgress),
-                          ),
-                          blurRadius: 28 * (1 - sheetProgress),
-                          offset: Offset(0, 10 * (1 - sheetProgress)),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Opacity(
-                          opacity: sheetProgress,
-                          child: const Divider(
-                            color: Color(0xFFE7EBEE),
-                            thickness: 0.8,
-                            height: 1,
-                          ),
-                        ),
-                        SizedBox(height: ResSize.h * (9 * sheetProgress)),
-                        LiquidGlassNavRow(
-                          selectedIndex: HomeTabs.home,
-                          floatingFraction: 1 - sheetProgress,
-                          hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
-                          itemHeight: ResSize.h * 52,
-                          entries: [
-                            LiquidGlassNavEntry(
-                              iconAsset: AppAssets.solarHome,
-                              label: context.l10n.navHome,
-                              onTap: () => _animateHomeSheetTo(
-                                SheetOffset.absolute(_sheetMinPixels),
-                              ),
-                            ),
-                            LiquidGlassNavEntry(
-                              iconAsset: AppAssets.solarWallet,
-                              label: context.l10n.navPayment,
-                              onTap: _openPayment,
-                            ),
-                            LiquidGlassNavEntry(
-                              iconAsset: AppAssets.solarCalendar,
-                              label: context.l10n.navScheduleRide,
-                              onTap: () => unawaited(_openSchedule()),
-                            ),
-                            LiquidGlassNavEntry(
-                              iconAsset: AppAssets.solarUser,
-                              label: context.l10n.navAccount,
-                              onTap: _openAccount,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
           ),
         ),
       ),
