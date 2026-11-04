@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   inbound-push:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # ubuntu-latest is 26.04: Java 25 does not run Gradle 8.14
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
