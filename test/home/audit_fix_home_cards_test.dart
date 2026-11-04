@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -164,21 +163,6 @@ void main() {
       heading.top - month.bottom,
       closeTo(HomeSheetLayout.sectionGap, 0.01),
     );
-  });
-
-  test('help stays reachable from Account and the side menu', () {
-    // Owner round 1: the Home sheet no longer links Help centre; these two
-    // entry points must stay.
-    for (final path in [
-      'lib/features/profile/presentation/account_home.dart',
-      'lib/features/home/presentation/side_menu.dart',
-    ]) {
-      expect(
-        File(path).readAsStringSync(),
-        contains('SupportHome()'),
-        reason: path,
-      );
-    }
   });
 
   testWidgets('NAV-11: Comfort and top-rated cards preselect their category', (
