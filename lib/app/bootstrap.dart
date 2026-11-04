@@ -102,7 +102,10 @@ Future<void> bootStep(String name, Future<void> Function() step) async {
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
   // UI-15: bundled Poppins, when present, means no font download at start.
-  await configureBundledFonts();
+  // B9 "Fast app start": on the web this reads AssetManifest over the
+  // network, so it now runs alongside the local start-up steps below and is
+  // awaited just before runApp (nothing in between draws text).
+  final bundledFonts = configureBundledFonts();
   // Before anything can call the API: a 401 during start-up still has a
   // Sign in screen to show.
   registerSessionExpiredNavigation();
@@ -223,6 +226,7 @@ Future<void> bootstrap() async {
   // (GET /legal/{country} needs no token); this answer is the one a
   // re-accept is asked for.
   unawaited(AppScope.instance.legal.load(start: true));
+  await bootStep('fonts.bundled', () => bundledFonts);
   AppLog.info('app.start', extra: {'platform': kIsWeb ? 'web' : 'native'});
 
   runZonedGuarded(

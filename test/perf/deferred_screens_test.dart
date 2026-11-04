@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -170,5 +171,66 @@ void main() {
     expect(asked, greaterThanOrEqualTo(1));
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 1));
+  });
+  // B9 "Fast app start" (owner 2026-11-04).
+  testWidgets('Help still opens, through its loader', (tester) async {
+    await open(tester, () => supportHomeScreen());
+    expect(screenNamed('SupportHome'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Help article still opens, through its loader', (tester) async {
+    await open(tester, () => helpArticleScreen(title: 'About', body: 'Body'));
+    expect(screenNamed('HelpArticle'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Security still opens, through its loader', (tester) async {
+    await open(tester, () => securityScreen());
+    expect(screenNamed('SecurityPage'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Privacy still opens, through its loader', (tester) async {
+    await open(tester, () => privacyScreen());
+    expect(screenNamed('PrivacyPage'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Personal info still opens, through its loader', (tester) async {
+    await open(tester, () => personalInfoScreen());
+    expect(screenNamed('PersonalInfoPage'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  test('B9: the load-on-open screens are not imported eagerly in lib/', () {
+    const screens = [
+      'features/support/presentation/support.dart',
+      'features/profile/presentation/personal_info.dart',
+      'features/profile/presentation/security.dart',
+      'features/profile/presentation/privacy.dart',
+    ];
+    final eager = <String>[];
+    for (final file in Directory('lib').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      final lines = file.readAsLinesSync();
+      for (var i = 0; i < lines.length; i++) {
+        final line = lines[i];
+        if (!line.startsWith('import ')) continue;
+        final target = screens.where(line.contains);
+        if (target.isEmpty) continue;
+        final next = i + 1 < lines.length ? lines[i + 1] : '';
+        if (line.contains(' deferred as ') || next.contains('deferred as ')) {
+          continue;
+        }
+        // A screen's own folder may import its siblings.
+        final folder = target.first.substring(0, target.first.lastIndexOf('/'));
+        if (file.path.contains(folder.replaceAll('%20', ' '))) {
+          continue;
+        }
+        eager.add('${file.path}: $line');
+      }
+    }
+    expect(eager, isEmpty);
   });
 }

@@ -1,12 +1,11 @@
 import 'dart:async';
 
+import 'package:movera_rider/app/deferred_screens.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
-import 'package:movera_rider/features/profile/presentation/personal_info.dart';
-import 'package:movera_rider/features/profile/presentation/security.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
@@ -91,7 +90,7 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
                     Navigator.push(
                       context,
                       RightToLeftTransition(
-                        PersonalInfoPage(
+                        personalInfoScreen(
                           controller: _profile,
                           securityController: _security,
                         ),
@@ -118,7 +117,7 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
                       Navigator.push(
                         context,
                         RightToLeftTransition(
-                          SecurityPage(securityController: _security),
+                          securityScreen(securityController: _security),
                         ),
                       );
                     },
@@ -145,7 +144,7 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
                       Navigator.push(
                         context,
                         RightToLeftTransition(
-                          SecurityPage(securityController: _security),
+                          securityScreen(securityController: _security),
                         ),
                       );
                     },

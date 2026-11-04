@@ -30,6 +30,17 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
+  <!-- B9 "Fast app start" (2026-11-04): open the connections and start the
+       app bundle while this page is still being read, instead of after
+       flutter_bootstrap.js runs. www.gstatic.com serves CanvasKit,
+       fonts.gstatic.com the fallback font; the API origin is filled in by
+       the live deploy (MOVERA_API_PRECONNECT). Hints only: a browser that
+       ignores them loads exactly as before. -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- MOVERA_API_PRECONNECT -->
+  <link rel="preload" href="flutter_bootstrap.js" as="script">
+  <link rel="preload" href="main.dart.js" as="script">
   <title>Movera</title>
   <link rel="manifest" href="manifest.json">
   <style>

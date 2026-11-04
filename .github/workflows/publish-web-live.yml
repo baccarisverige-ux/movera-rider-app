@@ -89,6 +89,8 @@ jobs:
           s = s.replace('<base href="/">', '<base href="/movera-rider-app/live/">')
           p.write_text(s)
           PY
+          # B9: let the page open the API connection early (hint only).
+          sed -i "s|  <!-- MOVERA_API_PRECONNECT -->|  <link rel=\"preconnect\" href=\"${LIVE_API%/}\" crossorigin>|" build/web/index.html
           rm -rf /tmp/movera-live
           cp -a build/web /tmp/movera-live
           git checkout -- .
