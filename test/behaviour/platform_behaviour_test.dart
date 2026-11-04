@@ -2,7 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/auth/secure_token_store.dart';
+import 'package:movera_rider/features/auth/data/auth_repository.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_durations.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -41,6 +45,56 @@ void main() {
           expect(secure.values.join(), contains('acc-b16-secret'));
         }
         await store.clear();
+        debugDefaultTargetPlatformOverride = null;
+      });
+    }
+  });
+
+  group('signing in keeps the session in secure storage, never in '
+      'SharedPreferences', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      FlutterSecureStorage.setMockInitialValues(<String, String>{});
+    });
+
+    for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+      testWidgets('on ${platform.name}', (tester) async {
+        debugDefaultTargetPlatformOverride = platform;
+        final tokens = SecureTokenStore();
+        final auth = AuthRepository(
+          api: ApiClient(
+            env: const AppEnv(
+              flavor: AppFlavor.test,
+              apiBaseUrl: 'https://api.test.movera.invalid',
+            ),
+            client: InProcessMockClient(),
+            tokens: tokens,
+          ),
+          tokens: tokens,
+        );
+        await tester.runAsync(() async {
+          final challenge = await auth.requestOtp(phone: '+46701234567');
+          await auth.verifyOtp(challenge: challenge, code: '1234');
+        });
+        final access = await tester.runAsync(tokens.readAccess);
+        final refresh = await tester.runAsync(tokens.readRefresh);
+        expect(access, isNotNull);
+        expect(access, isNotEmpty);
+        expect(refresh, isNotEmpty);
+
+        // In the Keychain / Keystore...
+        final secure = await tester.runAsync(
+          () => const FlutterSecureStorage().readAll(),
+        );
+        expect(secure!.values.join(), contains(access));
+        // ...and nowhere in SharedPreferences (values never printed).
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.reload();
+        for (final key in prefs.getKeys()) {
+          final value = '${prefs.get(key)}';
+          expect(value.contains(access!), isFalse, reason: key);
+          expect(value.contains(refresh!), isFalse, reason: key);
+        }
         debugDefaultTargetPlatformOverride = null;
       });
     }
