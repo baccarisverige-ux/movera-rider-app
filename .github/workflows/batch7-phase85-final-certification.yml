@@ -26,7 +26,7 @@ concurrency:
 jobs:
   responsive-browser:
     name: Local Chromium + WebKit responsive matrix
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # ubuntu-latest is 26.04: no Playwright Chromium, json.hpp fails to compile
     timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
