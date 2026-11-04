@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   device-pwa-responsive:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # ubuntu-latest is 26.04: Playwright 1.55 cannot install its browsers there
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
