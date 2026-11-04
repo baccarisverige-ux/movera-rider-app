@@ -2838,7 +2838,7 @@ _SP = OrderedDict([("label", s(minLength=1, maxLength=80)), ("kind", s(RP["kinds
 S["SavedPlace"] = obj(OrderedDict([("placeId", ref("Id"))] + list(_SP.items()) + [("createdAt", ref("Timestamp")), ("updatedAt", ref("Timestamp"))]),
                       ["placeId", "label", "kind", "place", "createdAt", "updatedAt"], "v0.18.26: one of the rider's saved places. " + PDS["privacy"])
 S["SavedPlaceRequest"] = obj(_SP, ["label", "kind", "place"], "v0.18.26: " + RP["kinds"])
-S["SavedPlaceImport"] = obj({"items": arr(ref("SavedPlaceRequest"), maxItems=RP["maxPlaces"])}, ["items"], "v0.18.26: " + RP["import"])
+S["SavedPlaceImport"] = obj({"items": arr(ref("SavedPlaceRequest"), maxItems=C["countryLimits"]["ranges"]["savedPlacesPerPerson"][1])}, ["items"], "v0.18.26: " + RP["import"])
 for _o in PATHS["/rider/places"].values(): _o["description"] = "v0.18.26: " + RP["routes"] + " " + RP["tooMany"] + " " + PDS["privacy"]
 PATHS["/rider/places/{placeId}"]["delete"]["description"] = "v0.18.26: only the rider's own place (else 404 place_not_found)."
 op("put", "/rider/places/{placeId}", "updateSavedPlace", "Change a saved place", ["rider"], "Rider · Account",
@@ -2856,16 +2856,17 @@ op("put", "/driver/preferences", "putDriverPreferences", "Save own ride preferen
    body="DriverPreferencesUpdate", ok=(200, "DriverPreferences"), mutation=True, desc="v0.18.26: " + DP["dispatch"])
 S["EmergencyContact"] = obj({"name": s(minLength=1, maxLength=80), "phone": s(pattern=r"^\+?[0-9]{3,15}$"), "relation": s(maxLength=40)},
                             ["name", "phone"], "v0.18.26: " + EC["item"])
-S["EmergencyContactList"] = obj({"items": arr(ref("EmergencyContact"), maxItems=EC["maxContacts"]),
+S["EmergencyContactList"] = obj({"items": arr(ref("EmergencyContact"), maxItems=C["countryLimits"]["ranges"]["emergencyContactsPerPerson"][1]),
                                  "updatedAt": {"oneOf": [ref("Timestamp"), {"type": "null"}], "description": EC["updatedAt"]}}, ["items", "updatedAt"])
-S["EmergencyContactListUpdate"] = obj({"items": arr(ref("EmergencyContact"), maxItems=EC["maxContacts"])}, ["items"], EC["tooMany"])
+S["EmergencyContactListUpdate"] = obj({"items": arr(ref("EmergencyContact"), maxItems=C["countryLimits"]["ranges"]["emergencyContactsPerPerson"][1])}, ["items"], EC["tooMany"])
 op("get", "/driver/emergency-contacts", "getDriverEmergencyContacts", "Own emergency contacts", ["driver"], "Driver · Account",
    ok=(200, "EmergencyContactList"), desc="v0.18.26: " + EC["routes"] + " " + PDS["privacy"])
 op("put", "/driver/emergency-contacts", "putDriverEmergencyContacts", "Save own emergency contacts", ["driver"], "Driver · Account",
    body="EmergencyContactListUpdate", ok=(200, "EmergencyContactList"), mutation=True, desc="v0.18.26: " + EC["routes"] + " " + EC["tooMany"])
 S["IncidentEmergencyContacts"] = obj({"incidentId": ref("Id"), "driverId": {"oneOf": [ref("Id"), {"type": "null"}]},
-                                      "items": arr(ref("EmergencyContact")), "updatedAt": {"oneOf": [ref("Timestamp"), {"type": "null"}]}},
-                                     ["incidentId", "driverId", "items", "updatedAt"], "v0.18.26: " + PDS["admin"]["emergencyContacts"])
+                                      "items": arr(ref("EmergencyContact")), "updatedAt": {"oneOf": [ref("Timestamp"), {"type": "null"}]},
+                                      "rider": {"oneOf": [obj({"riderId": ref("Id"), "items": arr(ref("EmergencyContact")), "updatedAt": {"oneOf": [ref("Timestamp"), {"type": "null"}]}}, ["riderId", "items", "updatedAt"]), {"type": "null"}]}},
+                                     ["incidentId", "driverId", "items", "updatedAt", "rider"], "v0.18.26: " + PDS["admin"]["emergencyContacts"])
 op("get", "/admin/incidents/{incidentId}/emergency-contacts", "adminIncidentEmergencyContacts", "The incident driver's emergency contacts (read-only, audited)",
    ["admin"], "Admin · Safety", params=[pref("IncidentId")], ok=(200, "IncidentEmergencyContacts"), permission="incidents.read",
    desc="v0.18.26: " + PDS["admin"]["emergencyContacts"])
@@ -2876,6 +2877,12 @@ S["AdminDriverPreferences"] = obj({"driverId": ref("Id"), "categoriesOff": arr(r
                                   ["driverId", "categoriesOff", "updatedAt"], "v0.18.26: " + PDS["admin"]["driverPreferences"])
 op("get", "/admin/drivers/{driverId}/preferences", "adminDriverPreferences", "A driver's ride preferences (read-only, audited)", ["admin"], "Admin · People",
    params=[pref("DriverId")], ok=(200, "AdminDriverPreferences"), permission="drivers.read", desc="v0.18.26: " + PDS["admin"]["driverPreferences"])
+
+REC = PDS["riderEmergencyContacts"]
+op("get", "/rider/emergency-contacts", "getRiderEmergencyContacts", "Own emergency contacts", ["rider"], "Rider · Account",
+   ok=(200, "EmergencyContactList"), desc="v0.18.26: " + REC["note"] + " " + REC["routes"] + " " + PDS["privacy"])
+op("put", "/rider/emergency-contacts", "putRiderEmergencyContacts", "Save own emergency contacts", ["rider"], "Rider · Account",
+   body="EmergencyContactListUpdate", ok=(200, "EmergencyContactList"), mutation=True, desc="v0.18.26: " + REC["routes"])
 
 def to_plain(x):
     if isinstance(x, dict): return {k: to_plain(v) for k, v in x.items()}

@@ -1487,11 +1487,11 @@ paths:
       description: 'v0.18.26: GET /rider/places -> SavedPlacePage (every place, nextCursor null); POST /rider/places SavedPlaceRequest
         -> 201 SavedPlace; PUT /rider/places/{placeId} SavedPlaceRequest -> 200 SavedPlace; DELETE /rider/places/{placeId}
         -> 204; POST /rider/places/import SavedPlaceImport -> 200 SavedPlacePage. 409 conflict, reason too_many_places, past
-        maxPlaces (home and work count). Each list is read and changed only by its owner (the signed-in rider for places,
-        the signed-in driver for preferences and contacts); another rider or driver never sees it and an id of someone else''s
-        place is 404 place_not_found. Admins only read (never edit): emergency contacts through an OPEN safety case of that
-        driver, saved places and ride preferences on the rider / driver profile page; every admin view is written to the admin
-        audit without the addresses, names or numbers. Logs never carry them.'
+        the country''s savedPlacesPerPerson (home and work count). Each list is read and changed only by its owner (the signed-in
+        rider for places, the signed-in driver for preferences and contacts); another rider or driver never sees it and an
+        id of someone else''s place is 404 place_not_found. Admins only read (never edit): emergency contacts through an OPEN
+        safety case of that driver, saved places and ride preferences on the rider / driver profile page; every admin view
+        is written to the admin audit without the addresses, names or numbers. Logs never carry them.'
     post:
       operationId: createSavedPlace
       summary: Save a place
@@ -1538,11 +1538,11 @@ paths:
       description: 'v0.18.26: GET /rider/places -> SavedPlacePage (every place, nextCursor null); POST /rider/places SavedPlaceRequest
         -> 201 SavedPlace; PUT /rider/places/{placeId} SavedPlaceRequest -> 200 SavedPlace; DELETE /rider/places/{placeId}
         -> 204; POST /rider/places/import SavedPlaceImport -> 200 SavedPlacePage. 409 conflict, reason too_many_places, past
-        maxPlaces (home and work count). Each list is read and changed only by its owner (the signed-in rider for places,
-        the signed-in driver for preferences and contacts); another rider or driver never sees it and an id of someone else''s
-        place is 404 place_not_found. Admins only read (never edit): emergency contacts through an OPEN safety case of that
-        driver, saved places and ride preferences on the rider / driver profile page; every admin view is written to the admin
-        audit without the addresses, names or numbers. Logs never carry them.'
+        the country''s savedPlacesPerPerson (home and work count). Each list is read and changed only by its owner (the signed-in
+        rider for places, the signed-in driver for preferences and contacts); another rider or driver never sees it and an
+        id of someone else''s place is 404 place_not_found. Admins only read (never edit): emergency contacts through an OPEN
+        safety case of that driver, saved places and ride preferences on the rider / driver profile page; every admin view
+        is written to the admin audit without the addresses, names or numbers. Logs never carry them.'
   /rider/places/{placeId}:
     delete:
       operationId: deleteSavedPlace
@@ -15719,7 +15719,9 @@ paths:
       description: 'v0.18.26: The server does not send a switched-off category: the automatic dispatch rounds (Exclusive and
         Radar), the admin''s Add money sent through the zone''s dispatch, and the Scheduled rides list skip a driver whose
         categoriesOff holds the trip''s category. Driver.categoryIds (given by the admin from the car) is unchanged by this
-        choice.'
+        choice. Owner 2026-11-04 ''Yes, respect it'': admin hand-sent offers (assign, radar to chosen drivers) and group /
+        radar-zone sends skip him too; the send lists him in skipped with reason category_switched_off, and a single assign
+        to only him is 409 invalid_transition, reason category_switched_off.'
       tags:
       - Driver · Account
       x-actor:
@@ -15805,7 +15807,8 @@ paths:
       operationId: putDriverEmergencyContacts
       summary: Save own emergency contacts
       description: 'v0.18.26: GET /driver/emergency-contacts -> EmergencyContactList; PUT /driver/emergency-contacts EmergencyContactListUpdate
-        -> EmergencyContactList (the whole list each time). 400 invalid_request, reason too_many_contacts, past maxContacts.'
+        -> EmergencyContactList (the whole list each time). 400 invalid_request, reason too_many_contacts, past the country''s
+        emergencyContactsPerPerson.'
       tags:
       - Driver · Account
       x-actor:
@@ -15853,9 +15856,9 @@ paths:
       description: 'v0.18.26: GET /admin/incidents/{incidentId}/emergency-contacts (incidents.read; the incident''s zone must
         be in the admin''s scope, else 403 zone_out_of_scope) ; owner 2026-11-04 ''Yes, during a safety case'': only while
         the case is open (status open or investigating), else 409 invalid_transition, reason incident_closed -> IncidentEmergencyContacts
-        { incidentId, driverId, items, updatedAt }: the emergency contacts of the incident''s driver, read-only. An incident
-        without a driver answers items []. Every read writes the admin audit line incident.emergency_contacts_viewed (who,
-        when, which incident; never the numbers).'
+        { incidentId, driverId, items, updatedAt, rider: { riderId, items, updatedAt } | null }: the emergency contacts of
+        the incident''s driver, read-only. An incident without a driver answers items []. Every read writes the admin audit
+        line incident.emergency_contacts_viewed (who, when, which incident; never the numbers).'
       tags:
       - Admin · Safety
       x-actor:
@@ -15965,6 +15968,95 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /rider/emergency-contacts:
+    get:
+      operationId: getRiderEmergencyContacts
+      summary: Own emergency contacts
+      description: 'v0.18.26: Owner 2026-11-04 ''Yes, same as drivers'': the rider''s emergency contacts (rider Safety) move
+        to the server like the driver''s. GET /rider/emergency-contacts -> EmergencyContactList; PUT /rider/emergency-contacts
+        EmergencyContactListUpdate -> EmergencyContactList (whole list). Same item, limit (countryLimits.emergencyContactsPerPerson)
+        and too_many_contacts as drivers. Each list is read and changed only by its owner (the signed-in rider for places,
+        the signed-in driver for preferences and contacts); another rider or driver never sees it and an id of someone else''s
+        place is 404 place_not_found. Admins only read (never edit): emergency contacts through an OPEN safety case of that
+        driver, saved places and ride preferences on the rider / driver profile page; every admin view is written to the admin
+        audit without the addresses, names or numbers. Logs never carry them.'
+      tags:
+      - Rider · Account
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmergencyContactList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: putRiderEmergencyContacts
+      summary: Save own emergency contacts
+      description: 'v0.18.26: GET /rider/emergency-contacts -> EmergencyContactList; PUT /rider/emergency-contacts EmergencyContactListUpdate
+        -> EmergencyContactList (whole list). Same item, limit (countryLimits.emergencyContactsPerPerson) and too_many_contacts
+        as drivers.'
+      tags:
+      - Rider · Account
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmergencyContactListUpdate'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmergencyContactList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -30629,6 +30721,20 @@ components:
           maximum: 60
           description: Sign-in codes per phone number and app per hour (429 otp_too_many). Range 3–60.
           default: 10
+        savedPlacesPerPerson:
+          type: integer
+          minimum: 1
+          maximum: 500
+          description: 'v0.18.26 (owner 2026-11-04): saved places per person (each rider), Home and Work included (409 too_many_places).
+            The rider''s country is his phone''s calling code. Range 1–500.'
+          default: 50
+        emergencyContactsPerPerson:
+          type: integer
+          minimum: 1
+          maximum: 50
+          description: 'v0.18.26 (owner 2026-11-04): emergency contacts per person (each rider and each driver; 112 is built
+            in and not counted) (400 too_many_contacts). Range 1–50.'
+          default: 10
     AccountPhoneChange:
       type: object
       required:
@@ -31055,13 +31161,15 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SavedPlaceRequest'
-          maxItems: 50
+          maxItems: 500
     DriverPreferences:
       type: object
       description: 'v0.18.26: The server does not send a switched-off category: the automatic dispatch rounds (Exclusive and
         Radar), the admin''s Add money sent through the zone''s dispatch, and the Scheduled rides list skip a driver whose
         categoriesOff holds the trip''s category. Driver.categoryIds (given by the admin from the car) is unchanged by this
-        choice.'
+        choice. Owner 2026-11-04 ''Yes, respect it'': admin hand-sent offers (assign, radar to chosen drivers) and group /
+        radar-zone sends skip him too; the send lists him in skipped with reason category_switched_off, and a single assign
+        to only him is 409 invalid_transition, reason category_switched_off.'
       required:
       - categoriesOff
       - updatedAt
@@ -31120,7 +31228,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/EmergencyContact'
-          maxItems: 10
+          maxItems: 50
         updatedAt:
           oneOf:
           - $ref: '#/components/schemas/Timestamp'
@@ -31128,7 +31236,7 @@ components:
           description: null until saved once on the server; the app then uploads its phone list once (one-time upload).
     EmergencyContactListUpdate:
       type: object
-      description: 400 invalid_request, reason too_many_contacts, past maxContacts.
+      description: 400 invalid_request, reason too_many_contacts, past the country's emergencyContactsPerPerson.
       required:
       - items
       properties:
@@ -31136,20 +31244,21 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/EmergencyContact'
-          maxItems: 10
+          maxItems: 50
     IncidentEmergencyContacts:
       type: object
       description: 'v0.18.26: GET /admin/incidents/{incidentId}/emergency-contacts (incidents.read; the incident''s zone must
         be in the admin''s scope, else 403 zone_out_of_scope) ; owner 2026-11-04 ''Yes, during a safety case'': only while
         the case is open (status open or investigating), else 409 invalid_transition, reason incident_closed -> IncidentEmergencyContacts
-        { incidentId, driverId, items, updatedAt }: the emergency contacts of the incident''s driver, read-only. An incident
-        without a driver answers items []. Every read writes the admin audit line incident.emergency_contacts_viewed (who,
-        when, which incident; never the numbers).'
+        { incidentId, driverId, items, updatedAt, rider: { riderId, items, updatedAt } | null }: the emergency contacts of
+        the incident''s driver, read-only. An incident without a driver answers items []. Every read writes the admin audit
+        line incident.emergency_contacts_viewed (who, when, which incident; never the numbers).'
       required:
       - incidentId
       - driverId
       - items
       - updatedAt
+      - rider
       properties:
         incidentId:
           $ref: '#/components/schemas/Id'
@@ -31164,6 +31273,25 @@ components:
         updatedAt:
           oneOf:
           - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        rider:
+          oneOf:
+          - type: object
+            required:
+            - riderId
+            - items
+            - updatedAt
+            properties:
+              riderId:
+                $ref: '#/components/schemas/Id'
+              items:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EmergencyContact'
+              updatedAt:
+                oneOf:
+                - $ref: '#/components/schemas/Timestamp'
+                - type: 'null'
           - type: 'null'
     AdminRiderSavedPlaces:
       type: object
