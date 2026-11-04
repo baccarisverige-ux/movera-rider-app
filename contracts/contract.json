@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.19",
+  "version": "0.18.25",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -7003,5 +7003,211 @@
     "ownerQuestions": [
       "LOW 13: the driver give-back reason 'Vehicle issue · does not count' contradicts 'every give-back counts in the cancel rate' (left as it is)."
     ]
+  }
+,
+  "dispatchDriverFacts": {
+    "note": "v0.18.21 (owner 2026-11-04, BASE 'real driver facts'): the admin Dispatch page reads each online driver's dispatch facts from the server instead of making them up. GET /admin/zones/{zoneId}/driver-facts (trips.read; the zone must be in the admin's scope, else 403 zone_out_of_scope). Builds on v0.18.19; additive; X-Api-Version stays 0.5. Numbered after v0.18.20 (server alerts) so the two jobs do not share a number.",
+    "who": "Drivers of the zone (zone_ids contains zoneId) with account active and online status online (state free) or on_trip (state trip), nearest-first order is the admin's job; items are sorted by driverId.",
+    "real": {
+      "rating": "Driver.performance.rating (contract.json#driverHome.performance; null below minRatings).",
+      "acceptancePct": "Driver.performance.acceptancePct (null below minOffers).",
+      "cancelPct": "Driver.performance.cancellationPct (null below minTrips).",
+      "idleMin": "Whole minutes since the driver was last free (drivers.last_free_at, the §3.6 idle factor); null on a trip or when unknown.",
+      "categoryIds": "The categories the driver may take (Driver.categoryIds).",
+      "missedInRow": "Exclusive or assigned offers of live trips missed in a row since going online, counted exactly as contract.json#autoOffline (an accept resets it).",
+      "ridesThisHour": "Trips of this driver that ended completed in the last 60 minutes.",
+      "restNeeded": "true when the driving-time limit is reached (contract.json#drivingLimits)."
+    },
+    "notYet": [
+      "finishingInMin",
+      "extras",
+      "female",
+      "skipsInRow",
+      "favourite",
+      "goingHome",
+      "homeDirectionOk",
+      "priorityUntilMin",
+      "queuePos"
+    ],
+    "notYetRule": "The server does not track these yet: they are always null. The admin shows a dash (—) and never invents a value; alerts never fire on a null fact.",
+    "apps": "Driver and rider apps: no change (admin-only read)."
+  },
+  "adminLiveEvents": {
+    "version": "0.18.22",
+    "note": "BASE job 'admin live updates' (Rules plan/BASE-JOBS-SPEC-2026-11-04.md §3; owner L1 2026-11-04: a small 'Reconnecting…' badge, data still refreshes every minute). One admin stream instead of 15 s polling. An event only says WHAT changed (type + id + zone); the admin panel then reads the record again with the normal list/detail routes and their permissions. No names, money or text on the stream.",
+    "path": "/admin/events",
+    "permission": "overview.read",
+    "transport": "Accept: text/event-stream → SSE: `id:` is the sequence, `data:` one AdminLiveEvent, a heartbeat comment every 15 s. Without it: a JSON page AdminLiveEventPage of the events after `after` (polling fallback, same scope).",
+    "envelope": [
+      "sequence",
+      "type",
+      "entityId",
+      "zoneId",
+      "occurredAt",
+      "serverTime"
+    ],
+    "types": {
+      "trip.changed": {
+        "permission": "trips.read",
+        "when": "a trip is created, or its status, driver, zone or payment status changes"
+      },
+      "driver.status": {
+        "permission": "drivers.read",
+        "when": "a driver's online status or account status changes (one event per zone of the driver)"
+      },
+      "zone.supply": {
+        "permission": "overview.read",
+        "when": "the free / busy driver count of a zone may have changed (a driver went online, offline, on or off a trip in it); entityId = zoneId"
+      },
+      "alert.changed": {
+        "permission": "overview.read",
+        "when": "an alert is created or taken, passed, done, snoozed (admin_alert_records)"
+      },
+      "ticket.changed": {
+        "permission": "support.reply",
+        "when": "a support ticket is created or its status, owner or last message changes"
+      },
+      "incident.changed": {
+        "permission": "incidents.read",
+        "when": "an incident is created or its status changes"
+      },
+      "approval.changed": {
+        "permission": "approval.decide",
+        "when": "an approval is asked for or decided"
+      },
+      "payment.failed": {
+        "permission": "finance.read",
+        "when": "a trip's payment status becomes failed; entityId = tripId (a trip.changed is sent as well)"
+      },
+      "resync": {
+        "permission": "overview.read",
+        "when": "the cursor is older than the kept events (retentionHours): the panel reloads every live list once; entityId = the admin's id, zoneId null"
+      }
+    },
+    "scope": [
+      "An admin hears an event only for a zone he covers (token zones; '*' = all zones). An event with zoneId null (no zone) only reaches '*' admins — the same rule as the dispatch feed and the alert desk.",
+      "Optional query zoneId / zoneIds / country narrows the stream inside the admin's own zones (contract.json#adminListFilters rules: a named zone outside them is 403 zone_out_of_scope).",
+      "An admin without a type's permission never gets that type.",
+      "Country managers (roles/zones job) are scoped by the same zone list; nothing on this stream changes when that job lands."
+    ],
+    "replay": "`after` query or the Last-Event-ID header: the stream starts with every event after that sequence (in scope), then goes live. Events are kept retentionHours; an older cursor gets one `resync` event first, then live events.",
+    "retentionHours": 24,
+    "limits": {
+      "maxStreamsPerAdmin": 5,
+      "maxStreamsTotal": 2000,
+      "overLimit": "429 rate_limited, reason too_many_streams, Retry-After; the panel keeps polling every fallbackPollSeconds and tries again later",
+      "serverReads": "one shared read per change for all open streams (not one per stream)"
+    },
+    "reconnectBackoff": {
+      "firstMs": 1000,
+      "maxMs": 30000,
+      "jitter": "full jitter: a random wait between 0 and the current step",
+      "stopOn": ["401 unauthenticated", "sign-out"]
+    },
+    "client": {
+      "invalidates": {
+        "trip.changed": [
+          "trips",
+          "reservations",
+          "overview",
+          "dispatch",
+          "payments"
+        ],
+        "driver.status": [
+          "drivers",
+          "dispatch",
+          "overview"
+        ],
+        "zone.supply": [
+          "zoneSupply",
+          "overview",
+          "dispatch"
+        ],
+        "alert.changed": [
+          "alerts",
+          "overview"
+        ],
+        "ticket.changed": [
+          "tickets"
+        ],
+        "incident.changed": [
+          "incidents",
+          "alerts"
+        ],
+        "approval.changed": [
+          "approvals"
+        ],
+        "payment.failed": [
+          "payments",
+          "alerts"
+        ],
+        "resync": [
+          "*"
+        ]
+      },
+      "pages": [
+        "Overview/Dashboard",
+        "Alerts",
+        "Live map/Dispatch",
+        "Trips",
+        "Reservations",
+        "Support tickets",
+        "Incidents",
+        "Approvals",
+        "Payments"
+      ],
+      "fallbackPollSeconds": 60,
+      "whileConnectedPollSeconds": 0,
+      "reconnect": "EventSource reconnects by itself with Last-Event-ID. While it is not open the panel shows a small 'Reconnecting…' badge (owner L1 a) and refreshes the live lists every fallbackPollSeconds; never a big warning banner.",
+      "badgeText": "Reconnecting…"
+    },
+    "apps": "Rider and driver apps: no change (they use their own trip / offer / config streams). RULE 0 check only."
+  },
+  "previewSession": {
+    "version": "0.18.25",
+    "note": "BASE job 'admin real app preview' (Rules plan/BASE-JOBS-SPEC-2026-11-04.md §1; owner P1 a, P2 b, P3 a, 2026-11-04). The admin panel shows the REAL rider and driver web apps inside a phone frame on every page that showed a drawn sample phone (Content, Design, Messages, Bonuses, Promos, Riders). The apps talk to the live server with a preview token; every real action is blocked.",
+    "path": "/admin/preview-sessions",
+    "permission": "settings.read",
+    "request": [
+      "role",
+      "zoneId",
+      "useDraft"
+    ],
+    "roles": [
+      "rider",
+      "driver"
+    ],
+    "response": [
+      "token",
+      "role",
+      "zoneId",
+      "useDraft",
+      "expiresAt",
+      "subjectId"
+    ],
+    "ttlSeconds": 900,
+    "token": "An access token (§8) with actor = role, zones = [zoneId], sub = 'preview:<role>:<zoneId>' and the extra claim pv = true (preview). No refresh token; no auth session row; after ttlSeconds the admin asks for a new one.",
+    "handoff": "The admin opens the app web build in an iframe at <appUrl>#movera-preview=<token>&zone=<zoneId>&draft=<0|1>. The token is in the fragment, so it never reaches a web server log. The panel can send a new token or draft choice with window.postMessage({type:'movera-preview', token, draft}) and the app reloads its config.",
+    "rules": [
+      "A preview token can only READ: every POST, PUT, PATCH and DELETE by it is refused with 403 forbidden, reason preview_blocked, before any route code runs (no booking, accept, payment, going online, payout, chat or profile change is ever stored).",
+      "GET /rider/config and GET /driver/config with ?draft=1 return the admin's saved draft of that zone (falls back to live when no draft) — ONLY for a preview token; any other caller gets the live document.",
+      "A preview token is never counted as a real rider or driver: no supply, no dispatch, no metrics.",
+      "Owner 2026-11-04 (B: Empty screens): a preview token's own-account reads answer what a brand-new account gets, never an error and never fake data: empty lists, a blank profile (firstName \"\", driver active + offline), a zero wallet; the normal 'no active trip' (204) and 'not in a fleet' (404 no_fleet) answers stay. The apps show their usual 'nothing yet' states.",
+      "An app that holds a preview token shows a 'Preview' banner, and every Book / Accept / Pay / Go online style action shows 'Preview – not sent' instead of calling the server (owner P1 a)."
+    ],
+    "errorReason": "preview_blocked",
+    "appTexts": {
+      "banner": {
+        "en": "Preview",
+        "sv": "Förhandsvisning",
+        "fr": "Aperçu"
+      },
+      "notSent": {
+        "en": "Preview – not sent",
+        "sv": "Förhandsvisning – inte skickat",
+        "fr": "Aperçu – non envoyé"
+      }
+    },
+    "embedding": "The app web builds must allow being framed by the admin origin (no X-Frame-Options DENY; Content-Security-Policy frame-ancestors, when set, includes the admin origin)."
   }
 }

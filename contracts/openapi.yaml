@@ -1,11 +1,11 @@
-# Movera API v0.18.19 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.25 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.19
+  version: 0.18.25
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.19 in this folder; this file must agree with them.
+    v0.18.25 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -83,7 +83,7 @@ tags:
 - name: Driver · Home
 x-contract:
   name: movera
-  version: 0.18.19
+  version: 0.18.25
   source: contract.json
 paths:
   /auth/otp/request:
@@ -1293,6 +1293,16 @@ paths:
       x-actor:
       - rider
       parameters:
+      - name: draft
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - '0'
+          - '1'
+        description: 'v0.18.25: ''1'' with a preview token (contract.json#previewSession) returns the zone''s saved draft;
+          ignored for every other token.'
       - $ref: '#/components/parameters/ZoneIdQuery'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
@@ -3017,6 +3027,16 @@ paths:
       x-actor:
       - driver
       parameters:
+      - name: draft
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - '0'
+          - '1'
+        description: 'v0.18.25: ''1'' with a preview token (contract.json#previewSession) returns the zone''s saved draft;
+          ignored for every other token.'
       - $ref: '#/components/parameters/ZoneIdQuery'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
@@ -10317,6 +10337,48 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/zones/{zoneId}/driver-facts:
+    get:
+      operationId: adminDispatchDriverFacts
+      summary: Real dispatch facts of the zone's online drivers
+      description: 'v0.18.21 (contract.json#dispatchDriverFacts): Drivers of the zone (zone_ids contains zoneId) with account
+        active and online status online (state free) or on_trip (state trip), nearest-first order is the admin''s job; items
+        are sorted by driverId. The server does not track these yet: they are always null. The admin shows a dash (—) and
+        never invents a value; alerts never fire on a null fact. A zone outside the admin''s scope: 403 forbidden (zone_out_of_scope);
+        unknown zone: 404.'
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/ZoneId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DispatchDriverFactsList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /admin/trips/{tripId}/trace:
     get:
       operationId: adminTripTrace
@@ -15447,6 +15509,126 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/events:
+    get:
+      operationId: adminStreamEvents
+      summary: Admin live updates (what changed, in the admin's zones)
+      tags:
+      - Realtime
+      x-actor:
+      - admin
+      x-permission: overview.read
+      parameters:
+      - $ref: '#/components/parameters/ZoneIdQuery'
+      - name: zoneIds
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Several zones, comma separated (inside the admin's zones).
+      - name: country
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: ^[A-Z]{2}$
+        description: Every zone of that country the admin covers.
+      - $ref: '#/components/parameters/After'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/LastEventId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: 'Server-sent events. Accept: text/event-stream → SSE: `id:` is the sequence, `data:` one AdminLiveEvent,
+                  a heartbeat comment every 15 s. Without it: a JSON page AdminLiveEventPage of the events after `after` (polling
+                  fallback, same scope). An admin hears an event only for a zone he covers (token zones; ''*'' = all zones).
+                  An event with zoneId null (no zone) only reaches ''*'' admins — the same rule as the dispatch feed and the
+                  alert desk. Optional query zoneId / zoneIds / country narrows the stream inside the admin''s own zones (contract.json#adminListFilters
+                  rules: a named zone outside them is 403 zone_out_of_scope). An admin without a type''s permission never
+                  gets that type. Country managers (roles/zones job) are scoped by the same zone list; nothing on this stream
+                  changes when that job lands. `after` query or the Last-Event-ID header: the stream starts with every event
+                  after that sequence (in scope), then goes live. Events are kept retentionHours; an older cursor gets one
+                  `resync` event first, then live events. Each SSE `data:` line is one JSON AdminLiveEvent; `id:` is the sequence;
+                  heartbeat comments every 15 s.'
+              x-sse-data: '#/components/schemas/AdminLiveEvent'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLiveEventPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/preview-sessions:
+    post:
+      operationId: adminCreatePreviewSession
+      summary: Open a read-only preview of the real rider or driver app
+      description: 'A preview token can only READ: every POST, PUT, PATCH and DELETE by it is refused with 403 forbidden,
+        reason preview_blocked, before any route code runs (no booking, accept, payment, going online, payout, chat or profile
+        change is ever stored). GET /rider/config and GET /driver/config with ?draft=1 return the admin''s saved draft of
+        that zone (falls back to live when no draft) — ONLY for a preview token; any other caller gets the live document.
+        A preview token is never counted as a real rider or driver: no supply, no dispatch, no metrics. Owner 2026-11-04 (B:
+        Empty screens): a preview token''s own-account reads answer what a brand-new account gets, never an error and never
+        fake data: empty lists, a blank profile (firstName "", driver active + offline), a zero wallet; the normal ''no active
+        trip'' (204) and ''not in a fleet'' (404 no_fleet) answers stay. The apps show their usual ''nothing yet'' states.
+        An app that holds a preview token shows a ''Preview'' banner, and every Book / Accept / Pay / Go online style action
+        shows ''Preview – not sent'' instead of calling the server (owner P1 a).'
+      tags:
+      - Config
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreviewSessionRequest'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreviewSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -25793,6 +25975,136 @@ components:
             minLength: 1
             maxLength: 40
           - type: 'null'
+    DispatchDriverFacts:
+      type: object
+      description: 'v0.18.21 (contract.json#dispatchDriverFacts): what dispatch knows about one online driver.'
+      required:
+      - driverId
+      - zoneId
+      - state
+      - rating
+      - acceptancePct
+      - cancelPct
+      - idleMin
+      - categoryIds
+      - missedInRow
+      - ridesThisHour
+      - restNeeded
+      - finishingInMin
+      - extras
+      - female
+      - skipsInRow
+      - favourite
+      - goingHome
+      - homeDirectionOk
+      - priorityUntilMin
+      - queuePos
+      properties:
+        driverId:
+          $ref: '#/components/schemas/Id'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        state:
+          type: string
+          enum:
+          - free
+          - trip
+        rating:
+          oneOf:
+          - type: number
+            minimum: 0
+            maximum: 5
+          - type: 'null'
+          description: Driver.performance.rating (contract.json#driverHome.performance; null below minRatings).
+        acceptancePct:
+          oneOf:
+          - type: number
+            minimum: 0
+            maximum: 100
+          - type: 'null'
+          description: Driver.performance.acceptancePct (null below minOffers).
+        cancelPct:
+          oneOf:
+          - type: number
+            minimum: 0
+            maximum: 100
+          - type: 'null'
+          description: Driver.performance.cancellationPct (null below minTrips).
+        idleMin:
+          oneOf:
+          - type: integer
+            minimum: 0
+          - type: 'null'
+          description: Whole minutes since the driver was last free (drivers.last_free_at, the §3.6 idle factor); null on
+            a trip or when unknown.
+        categoryIds:
+          type: array
+          items:
+            type: string
+          description: The categories the driver may take (Driver.categoryIds).
+        missedInRow:
+          type: integer
+          minimum: 0
+          description: Exclusive or assigned offers of live trips missed in a row since going online, counted exactly as contract.json#autoOffline
+            (an accept resets it).
+        ridesThisHour:
+          type: integer
+          minimum: 0
+          description: Trips of this driver that ended completed in the last 60 minutes.
+        restNeeded:
+          type: boolean
+          description: true when the driving-time limit is reached (contract.json#drivingLimits).
+        finishingInMin:
+          type: 'null'
+          description: 'The server does not track these yet: they are always null. The admin shows a dash (—) and never invents
+            a value; alerts never fire on a null fact.'
+        extras:
+          type: 'null'
+          description: 'The server does not track these yet: they are always null. The admin shows a dash (—) and never invents
+            a value; alerts never fire on a null fact.'
+        female:
+          type: 'null'
+          description: 'The server does not track these yet: they are always null. The admin shows a dash (—) and never invents
+            a value; alerts never fire on a null fact.'
+        skipsInRow:
+          type: 'null'
+          description: 'The server does not track these yet: they are always null. The admin shows a dash (—) and never invents
+            a value; alerts never fire on a null fact.'
+        favourite:
+          type: 'null'
+          description: 'The server does not track these yet: they are always null. The admin shows a dash (—) and never invents
+            a value; alerts never fire on a null fact.'
+        goingHome:
+          type: 'null'
+          description: 'The server does not track these yet: they are always null. The admin shows a dash (—) and never invents
+            a value; alerts never fire on a null fact.'
+        homeDirectionOk:
+          type: 'null'
+          description: 'The server does not track these yet: they are always null. The admin shows a dash (—) and never invents
+            a value; alerts never fire on a null fact.'
+        priorityUntilMin:
+          type: 'null'
+          description: 'The server does not track these yet: they are always null. The admin shows a dash (—) and never invents
+            a value; alerts never fire on a null fact.'
+        queuePos:
+          type: 'null'
+          description: 'The server does not track these yet: they are always null. The admin shows a dash (—) and never invents
+            a value; alerts never fire on a null fact.'
+    DispatchDriverFactsList:
+      type: object
+      required:
+      - zoneId
+      - serverTime
+      - items
+      properties:
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        serverTime:
+          $ref: '#/components/schemas/Timestamp'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DispatchDriverFacts'
     OnboardingDocumentLists:
       type: object
       description: 'v0.18.0 (owner item 10): the documents a person (driver), a company (fleet) and a car (vehicle) need in
@@ -30287,3 +30599,120 @@ components:
           type: integer
           minimum: 0
           maximum: 60
+    AdminLiveEventType:
+      type: string
+      enum:
+      - trip.changed
+      - driver.status
+      - zone.supply
+      - alert.changed
+      - ticket.changed
+      - incident.changed
+      - approval.changed
+      - payment.failed
+      - resync
+      description: 'v0.18.22: what changed; the panel reads the record again with the normal routes.'
+    AdminLiveEvent:
+      type: object
+      description: 'BASE job ''admin live updates'' (Rules plan/BASE-JOBS-SPEC-2026-11-04.md §3; owner L1 2026-11-04: a small
+        ''Reconnecting…'' badge, data still refreshes every minute). One admin stream instead of 15 s polling. An event only
+        says WHAT changed (type + id + zone); the admin panel then reads the record again with the normal list/detail routes
+        and their permissions. No names, money or text on the stream.'
+      required:
+      - sequence
+      - type
+      - entityId
+      - zoneId
+      - occurredAt
+      - serverTime
+      properties:
+        sequence:
+          type: integer
+          minimum: 1
+        type:
+          $ref: '#/components/schemas/AdminLiveEventType'
+        entityId:
+          $ref: '#/components/schemas/Id'
+        zoneId:
+          oneOf:
+          - $ref: '#/components/schemas/Id'
+          - type: 'null'
+        occurredAt:
+          $ref: '#/components/schemas/Timestamp'
+        serverTime:
+          $ref: '#/components/schemas/Timestamp'
+    AdminLiveEventPage:
+      type: object
+      required:
+      - items
+      - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminLiveEvent'
+        nextCursor:
+          type:
+          - string
+          - 'null'
+    PreviewRole:
+      type: string
+      enum:
+      - rider
+      - driver
+      description: 'v0.18.25: which real app the preview opens.'
+    PreviewSessionRequest:
+      type: object
+      description: BASE job 'admin real app preview' (Rules plan/BASE-JOBS-SPEC-2026-11-04.md §1; owner P1 a, P2 b, P3 a,
+        2026-11-04). The admin panel shows the REAL rider and driver web apps inside a phone frame on every page that showed
+        a drawn sample phone (Content, Design, Messages, Bonuses, Promos, Riders). The apps talk to the live server with a
+        preview token; every real action is blocked.
+      required:
+      - role
+      - zoneId
+      properties:
+        role:
+          $ref: '#/components/schemas/PreviewRole'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        useDraft:
+          type: boolean
+          description: 'true: the app shows the zone''s saved draft settings (GET .../config?draft=1).'
+    PreviewSession:
+      type: object
+      description: 'The admin opens the app web build in an iframe at <appUrl>#movera-preview=<token>&zone=<zoneId>&draft=<0|1>.
+        The token is in the fragment, so it never reaches a web server log. The panel can send a new token or draft choice
+        with window.postMessage({type:''movera-preview'', token, draft}) and the app reloads its config. A preview token can
+        only READ: every POST, PUT, PATCH and DELETE by it is refused with 403 forbidden, reason preview_blocked, before any
+        route code runs (no booking, accept, payment, going online, payout, chat or profile change is ever stored). GET /rider/config
+        and GET /driver/config with ?draft=1 return the admin''s saved draft of that zone (falls back to live when no draft)
+        — ONLY for a preview token; any other caller gets the live document. A preview token is never counted as a real rider
+        or driver: no supply, no dispatch, no metrics. Owner 2026-11-04 (B: Empty screens): a preview token''s own-account
+        reads answer what a brand-new account gets, never an error and never fake data: empty lists, a blank profile (firstName
+        "", driver active + offline), a zero wallet; the normal ''no active trip'' (204) and ''not in a fleet'' (404 no_fleet)
+        answers stay. The apps show their usual ''nothing yet'' states. An app that holds a preview token shows a ''Preview''
+        banner, and every Book / Accept / Pay / Go online style action shows ''Preview – not sent'' instead of calling the
+        server (owner P1 a).'
+      required:
+      - token
+      - role
+      - zoneId
+      - useDraft
+      - expiresAt
+      - subjectId
+      properties:
+        token:
+          type: string
+          description: An access token (§8) with actor = role, zones = [zoneId], sub = 'preview:<role>:<zoneId>' and the extra
+            claim pv = true (preview). No refresh token; no auth session row; after ttlSeconds the admin asks for a new one.
+        role:
+          $ref: '#/components/schemas/PreviewRole'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        useDraft:
+          type: boolean
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+        subjectId:
+          type: string
+          description: preview:<role>:<zoneId>
