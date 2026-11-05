@@ -1,4 +1,8 @@
-# Movera shared contract v0.18.26
+# Movera shared contract v0.18.28
+
+v0.18.28 (fix job 6 "Wallet currency", ledger L11/R11, owner Q4 2026-11-04 "leave old wallet rows; show balances per currency from now on"; numbered after 0.18.24–0.18.27, reserved by other open jobs; builds on v0.18.23 main; X-Api-Version stays `0.5`, additive): **the rider's wallet keeps one balance per currency** — a France refund is a EUR balance, a trip is paid only from the balance in its own currency, nothing is converted or added. `GET /wallet?currency=EUR` → `Wallet { ownerId, balance, balances [Money], updatedAt }` (`balance` without `currency`: the rider's zone currency). Admin rider view adds `wallets [Money]`. Old rows untouched; the old single balance becomes the SEK balance. Driver app: no change. §51, `contract.json#walletCurrency`.
+
+v0.18.27 (fix plan Job 1 "Fast dispatch"; builds on v0.18.23; X-Api-Version stays `0.5`, additive; rider, driver and admin apps: no change needed): rides are offered in seconds under load (parallel timer loops, a dispatch-only loop, cheap set-based rounds that lock only the chosen drivers, no road routing inside locks); an overdue booked ride goes on as Exclusive only; no live ride that clashes with a held booking; with Radar off decliners are asked again in a new cycle (owner Q1); admin-sent offers use the dispatch seconds; an accept with an older version of a still-open offer goes through; `503 unavailable` reason `server_busy` with Retry-After under overload. §50, `contract.json#fastDispatch`.
 
 v0.18.26 (BASE B13 "phone data to the server", owner 2026-11-03 "Phone-only data: Yes, all to server"; builds on v0.18.23; 0.18.24 (rate limit) and 0.18.25 (preview) land first; X-Api-Version stays `0.5`; additive except the never-served `SavedPlace`): the rider's **saved places** (`/rider/places` + `PUT /rider/places/{placeId}` + one-time `POST /rider/places/import`), the driver's **ride preferences** (`GET|PUT /driver/preferences`, `categoriesOff`; **dispatch no longer sends a switched-off category**) and the driver's **emergency contacts** (`GET|PUT /driver/emergency-contacts`) live on the server, each visible only to its owner; the admin reads a driver's emergency contacts read-only from a safety incident (`GET /admin/incidents/{incidentId}/emergency-contacts`, audited). §49, `contract.json#phoneDataToServer`.
 
@@ -213,6 +217,7 @@ Document { documentId, ownerId, type, status: missing | in_review | approved | r
 PaymentIntent { paymentId, tripId, amount: Money, method, status: PaymentStatus, failureCode? }
 Refund { refundId, paymentId, amount: Money, reason, status: pending_approval | done | rejected }
 WalletEntry { entryId, ownerId, amount: Money, kind: topup | charge | refund | payout | adjustment, tripId?, at }
+Wallet { ownerId, balance: Money, balances: [Money], updatedAt }   (v0.18.28 §51: one balance per currency)
 Rating { tripId, from: rider | driver, stars: 1..5 (whole stars, integer), tags[], comment? }
 Notification { notificationId, audience: rider | driver, kind, title, body, at, read }
 Message { messageId, tripId, from: rider | driver | support, text, at }   (v0.13.0: §23)
@@ -1127,3 +1132,26 @@ Owner 2026-11-03: "Phone-only data: Yes, all to server". `contract.json#phoneDat
 - **Apps**: rider Home / Saved places and driver Ride preferences / Emergency contacts read and write the server; the phone copy is only shown while offline and is cleared at sign-out.
 - **Owner 2026-11-04 answers**: emergency contacts only from an OPEN safety case (status open or investigating; a resolved or dismissed case is `409 invalid_transition`, reason `incident_closed`), only with `incidents.read`, every view audited. Saved places and ride preferences are shown **read-only on the admin rider / driver profile pages**: `GET /admin/riders/{riderId}/saved-places` (`riders.read`; a zone-limited admin only for riders with a trip in his zones) and `GET /admin/drivers/{driverId}/preferences` (`drivers.read`, driver's zones), each view audited (`rider.saved_places_viewed`, `driver.preferences_viewed`, without addresses). No admin edit.
 - **Owner 2026-11-04, second answers**: (1) the limits are an **admin setting per country, per person**: `CountryRules.limits.savedPlacesPerPerson` (default 50, 1–500) and `emergencyContactsPerPerson` (default 10, 1–50), edited in Admin › Pricing › Tips & limits. (2) **Admin hand-sent and group / radar-zone offers also skip** a driver who switched the category off: he is in `skipped` with reason `category_switched_off`; a single assign to only him is `409 invalid_transition` `category_switched_off`. (3) **Rider emergency contacts on the server**, same as drivers: `GET|PUT /rider/emergency-contacts`, one-time upload; the open safety case shows them too (`IncidentEmergencyContacts.rider`), audited.
+
+## 50. Fast dispatch — fix plan Job 1 (v0.18.27)
+
+Owner: plan/FIX-PLAN-ORDER-2026-11-04b.md job 1, owner Q1 2026-11-04 (decliners asked again: YES). `contract.json#fastDispatch`.
+
+- **Timers**: several loops per instance (dispatch-only, trip-GPS-only, general); a busy timer keeps its place; 2 s lock timeout; OSRM before the transaction.
+- **Rounds**: drivers within reach only, one query per check, only the chosen drivers locked and re-checked.
+- **Overdue booked ride**: Exclusive only from the round after its pickup time (BL-Q7).
+- **Held booking**: never a clashing live offer (smart gap, `spareMin`), always — owner Q3; `hideClashing` is only about the list.
+- **Decliners** (Radar off): one wait of `exclusive.reaskAfterSeconds` (owner Q1: admin setting, default `exclusive.seconds`), then a new Exclusive cycle.
+- **Admin offers**: the zone's dispatch seconds of that kind; `assignAcceptSeconds` shown read-only in the admin (owner Q2, kept).
+- **Accept**: an older `expectedVersion` of a still-open offer is accepted.
+- **Overload**: `503 unavailable`, reason `server_busy`, Retry-After 2 (pool queue / event-loop limits, statement timeout) — only for low-priority work (quotes, address search, rider map, admin lists); SOS, accept, trip changes, cash, GPS and streams are never shed. Apps treat it like 429 (wait Retry-After, retry).
+- **Admin map box**: `GET /admin/live/drivers?minLat&minLng&maxLat&maxLng` (map-only answer); nearby cars capped.
+- **Reads**: settings cached (≤ 15 s, emptied on publish); `GET /driver/offers` one trips query; `GET /admin/live/drivers` only the admin's zones.
+## 51. Wallet per currency — fix job 6 (v0.18.28)
+Owner Q4 (2026-11-04, Rules `decisions/driver-g15.md` "Fix-plan Q4"): leave old wallet rows; balances per currency from now on. `contract.json#walletCurrency`.
+- **Rule**: one balance per rider and currency (SEK, EUR, TND). Money goes into the balance of its own currency; a trip is paid only from the balance in the trip's currency. Never converted, never added across currencies.
+- **Rider**: `GET /wallet?currency=XXX` → `Wallet { ownerId, balance, balances, updatedAt }`; `balance` is the asked currency (0 when none), without `currency` the currency of the rider's zone, else SEK; `balances` = every non-zero balance, sorted by code. Bad `currency` → 400.
+- **Used first**: unchanged (`rider.wallet.usedFirst`), from the balance in the trip's currency only (`walletApplied`, `cashToCollect`, `cashDue`, receipt `walletPaid`).
+- **Admin**: rider view keeps `wallet` (zone currency, else first held) and adds `wallets [Money]`; the panel shows each balance in its own currency.
+- **Old rows**: untouched; the single old balance (always shown as SEK) is copied once as the SEK balance and no longer written.
+- **Driver app**: no change.
