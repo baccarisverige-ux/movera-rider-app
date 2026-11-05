@@ -1,6 +1,8 @@
 # Movera shared contract v0.18.32
 
-v0.18.32 (fix plan Job 2 "Rider sees booked ride" + P21 / B-n; boss numbering v3, builds on v0.18.27; X-Api-Version stays `0.5`, additive, no migration): `GET /rider/trips/active` also returns a booked trip once its driver started driving to the pickup (owner Q5: from then on it is a regular ride); a live ride wins and the app shows a banner (owner Q1); after a driver change the rider sees "Searching for a new driver" only when the first driver had already started (Q2); no late message (Q3); `rider_trip_changed` on the rider config stream plus a Home poll, so a trip made elsewhere shows at once (P21); `reservation_leave_now` carries `riderFirstName`; the rider's booked-ride rules come from `/rider/config`; 409 `version_mismatch` → one retry with the projection's version. §51, `contract.json#bookedRideSeen`.
+v0.18.32 (fix plan Job 2 "Rider sees booked ride" + P21 / B-n; boss numbering v3, builds on v0.18.28; X-Api-Version stays `0.5`, additive, no migration): `GET /rider/trips/active` also returns a booked trip once its driver started driving to the pickup (owner Q5: from then on it is a regular ride); a live ride wins and the app shows a banner (owner Q1); after a driver change the rider sees "Searching for a new driver" only when the first driver had already started (Q2); no late message (Q3); `rider_trip_changed` on the rider config stream plus a Home poll, so a trip made elsewhere shows at once (P21); `reservation_leave_now` carries `riderFirstName`; the rider's booked-ride rules come from `/rider/config`; 409 `version_mismatch` → one retry with the projection's version. §53, `contract.json#bookedRideSeen`.
+
+v0.18.28 (fix job 6 "Wallet currency", ledger L11/R11, owner Q4 2026-11-04 "leave old wallet rows; show balances per currency from now on"; numbered after 0.18.24–0.18.27, reserved by other open jobs; builds on v0.18.23 main; X-Api-Version stays `0.5`, additive): **the rider's wallet keeps one balance per currency** — a France refund is a EUR balance, a trip is paid only from the balance in its own currency, nothing is converted or added. `GET /wallet?currency=EUR` → `Wallet { ownerId, balance, balances [Money], updatedAt }` (`balance` without `currency`: the rider's zone currency). Admin rider view adds `wallets [Money]`. Old rows untouched; the old single balance becomes the SEK balance. Driver app: no change. §51, `contract.json#walletCurrency`.
 
 v0.18.27 (fix plan Job 1 "Fast dispatch"; builds on v0.18.23; X-Api-Version stays `0.5`, additive; rider, driver and admin apps: no change needed): rides are offered in seconds under load (parallel timer loops, a dispatch-only loop, cheap set-based rounds that lock only the chosen drivers, no road routing inside locks); an overdue booked ride goes on as Exclusive only; no live ride that clashes with a held booking; with Radar off decliners are asked again in a new cycle (owner Q1); admin-sent offers use the dispatch seconds; an accept with an older version of a still-open offer goes through; `503 unavailable` reason `server_busy` with Retry-After under overload. §50, `contract.json#fastDispatch`.
 
@@ -217,6 +219,7 @@ Document { documentId, ownerId, type, status: missing | in_review | approved | r
 PaymentIntent { paymentId, tripId, amount: Money, method, status: PaymentStatus, failureCode? }
 Refund { refundId, paymentId, amount: Money, reason, status: pending_approval | done | rejected }
 WalletEntry { entryId, ownerId, amount: Money, kind: topup | charge | refund | payout | adjustment, tripId?, at }
+Wallet { ownerId, balance: Money, balances: [Money], updatedAt }   (v0.18.28 §51: one balance per currency)
 Rating { tripId, from: rider | driver, stars: 1..5 (whole stars, integer), tags[], comment? }
 Notification { notificationId, audience: rider | driver, kind, title, body, at, read }
 Message { messageId, tripId, from: rider | driver | support, text, at }   (v0.13.0: §23)
@@ -1146,8 +1149,16 @@ Owner: plan/FIX-PLAN-ORDER-2026-11-04b.md job 1, owner Q1 2026-11-04 (decliners 
 - **Overload**: `503 unavailable`, reason `server_busy`, Retry-After 2 (pool queue / event-loop limits, statement timeout) — only for low-priority work (quotes, address search, rider map, admin lists); SOS, accept, trip changes, cash, GPS and streams are never shed. Apps treat it like 429 (wait Retry-After, retry).
 - **Admin map box**: `GET /admin/live/drivers?minLat&minLng&maxLat&maxLng` (map-only answer); nearby cars capped.
 - **Reads**: settings cached (≤ 15 s, emptied on publish); `GET /driver/offers` one trips query; `GET /admin/live/drivers` only the admin's zones.
+## 51. Wallet per currency — fix job 6 (v0.18.28)
+Owner Q4 (2026-11-04, Rules `decisions/driver-g15.md` "Fix-plan Q4"): leave old wallet rows; balances per currency from now on. `contract.json#walletCurrency`.
+- **Rule**: one balance per rider and currency (SEK, EUR, TND). Money goes into the balance of its own currency; a trip is paid only from the balance in the trip's currency. Never converted, never added across currencies.
+- **Rider**: `GET /wallet?currency=XXX` → `Wallet { ownerId, balance, balances, updatedAt }`; `balance` is the asked currency (0 when none), without `currency` the currency of the rider's zone, else SEK; `balances` = every non-zero balance, sorted by code. Bad `currency` → 400.
+- **Used first**: unchanged (`rider.wallet.usedFirst`), from the balance in the trip's currency only (`walletApplied`, `cashToCollect`, `cashDue`, receipt `walletPaid`).
+- **Admin**: rider view keeps `wallet` (zone currency, else first held) and adds `wallets [Money]`; the panel shows each balance in its own currency.
+- **Old rows**: untouched; the single old balance (always shown as SEK) is copied once as the SEK balance and no longer written.
+- **Driver app**: no change.
 
-## 51. Rider sees booked ride — fix plan Job 2 + P21 (v0.18.32)
+## 53. Rider sees booked ride — fix plan Job 2 + P21 (v0.18.32)
 
 Owner: fix-plan Q5 2026-11-04; job-2 Q1 "Live ride + banner", Q2 (driver change), Q3 "no late message" 2026-11-05 (Rules `decisions/driver-g15.md`). `contract.json#bookedRideSeen`.
 

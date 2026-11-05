@@ -7499,5 +7499,15 @@
       "updatedAt": "null until saved once on the server; the rider app then uploads its phone list once.",
       "app": "Rider app: Safety > Emergency contacts reads and saves through these routes; the phone copy only shows something offline."
     }
+  },
+  "walletCurrency": {
+    "note": "v0.18.28 (fix job 6, ledger L11/R11, owner Q4 2026-11-04, Rules decisions/driver-g15.md 'Fix-plan Q4: leave old wallet rows; show balances per currency from now on'). Numbered after 0.18.24-0.18.27 (reserved by other open jobs). Additive; X-Api-Version stays 0.5.",
+    "rule": "The rider's wallet keeps ONE balance PER CURRENCY (SEK, EUR, TND). Money goes into the balance of its own currency (a France refund is EUR) and a trip is paid only from the balance in the trip's currency. Nothing is ever converted or added across currencies.",
+    "getWallet": "GET /wallet?currency=EUR (rider): Wallet { ownerId, balance: Money, balances: [Money], updatedAt }. balance is the balance in the asked currency (0 when the rider holds none); without currency, in the currency of the rider's zone (the zone of his last map or price call), else SEK. balances lists every non-zero balance, one per currency, sorted by currency code. currency must be 3 capital letters, else 400 invalid_request.",
+    "usedFirst": "The wallet still pays first (rider.wallet.usedFirst), but only the balance in the trip's currency: walletApplied, cashToCollect, complete-preview cashDue and the receipt's walletPaid are computed from that balance.",
+    "entries": "WalletEntry.amount carries the currency of the money moved (unchanged shape).",
+    "admin": "The admin rider view (GET /admin/riders, rider status changes) keeps wallet: Money (the balance in the currency of the rider's zone, else the first he holds) and adds wallets: [Money] (every non-zero balance, one per currency). The admin panel shows each balance in its own currency, never a sum.",
+    "oldRows": "Old rows are untouched (owner Q4, rule 21): earlier wallet entries keep their values; the single old balance (always shown to the rider as SEK) is copied once as the SEK balance and is no longer written.",
+    "apps": "Rider app: shows each balance in its own currency (never a sum) and pays a trip only from the balance in its currency. Driver app: no change (the driver never sees the rider's wallet; cashToCollect already comes from the server)."
   }
 }

@@ -1928,6 +1928,7 @@ paths:
       x-actor:
       - rider
       parameters:
+      - $ref: '#/components/parameters/WalletCurrency'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
       responses:
@@ -16413,6 +16414,14 @@ components:
       schema:
         type: string
         maxLength: 200
+    WalletCurrency:
+      name: currency
+      in: query
+      required: false
+      description: 'v0.18.28: which balance is `balance` (ISO 4217, e.g. EUR). Default: the currency of the rider''s zone.'
+      schema:
+        type: string
+        pattern: ^[A-Z]{3}$
     CategoryIdPath:
       name: categoryId
       in: path
@@ -17939,6 +17948,12 @@ components:
           allOf:
           - $ref: '#/components/schemas/RiderConsents'
           description: 'v0.5.1: the rider''s message consents.'
+        wallets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Money'
+          description: 'v0.18.28 (admin rider view only, contract.json#walletCurrency.admin): every non-zero wallet balance,
+            one per currency.'
         outstandingByCurrency:
           type: array
           items:
@@ -18800,9 +18815,17 @@ components:
         ownerId:
           $ref: '#/components/schemas/Id'
         balance:
-          $ref: '#/components/schemas/Money'
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.28: the balance in the asked currency (query currency), else in the currency of the rider''s
+            zone.'
         updatedAt:
           $ref: '#/components/schemas/Timestamp'
+        balances:
+          type: array
+          items:
+            $ref: '#/components/schemas/Money'
+          description: 'v0.18.28: every non-zero balance, one per currency, sorted by currency code. Never added across currencies.'
     SavedPaymentMethod:
       type: object
       required:

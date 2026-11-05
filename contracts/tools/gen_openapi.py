@@ -338,6 +338,9 @@ S["WalletEntry"] = obj({"entryId": ref("Id"), "ownerId": ref("Id"), "amount": re
                         "at": ref("Timestamp")}, ["entryId", "ownerId", "amount", "kind", "at"])
 S["Wallet"] = obj({"ownerId": ref("Id"), "balance": ref("Money"), "updatedAt": ref("Timestamp")},
                   ["ownerId", "balance", "updatedAt"], "Server-owned balance; clients never compute it.")
+# v0.18.28 (fix job 6, owner Q4): one balance per currency (contract.json#walletCurrency).
+S["Wallet"]["properties"]["balance"] = {"allOf": [ref("Money")], "description": "v0.18.28: the balance in the asked currency (query currency), else in the currency of the rider's zone."}
+S["Wallet"]["properties"]["balances"] = arr(ref("Money"), description="v0.18.28: every non-zero balance, one per currency, sorted by currency code. Never added across currencies.")
 S["SavedPaymentMethod"] = obj({"paymentMethodId": ref("Id"), "method": ref("PaymentMethod"),
                                "brand": s(examples=["visa", "mastercard"]), "last4": s(pattern=r"^\d{4}$"),
                                "expMonth": i(minimum=1, maximum=12), "expYear": i(minimum=2000),
@@ -1482,7 +1485,8 @@ op("get", "/payments/{paymentId}", "getPayment", "Get a payment intent", ["rider
    params=[pref("PaymentId")], ok=(200, "PaymentIntent"))
 op("post", "/payments/{paymentId}/confirm", "confirmPayment", "Confirm a payment intent after PSP client step", ["rider"], "Rider · Payments",
    params=[pref("PaymentId")], ok=(200, "PaymentIntent"), mutation=True)
-op("get", "/wallet", "getWallet", "Wallet balance (server-owned)", ["rider"], "Rider · Payments", ok=(200, "Wallet"))
+PARAMS["WalletCurrency"] = {"name": "currency", "in": "query", "required": False, "description": "v0.18.28: which balance is `balance` (ISO 4217, e.g. EUR). Default: the currency of the rider's zone.", "schema": {"type": "string", "pattern": "^[A-Z]{3}$"}}
+op("get", "/wallet", "getWallet", "Wallet balance (server-owned)", ["rider"], "Rider · Payments", params=[pref("WalletCurrency")], ok=(200, "Wallet"))
 op("get", "/wallet/entries", "listWalletEntries", "Wallet ledger", ["rider"], "Rider · Payments",
    params=[pref("Cursor"), pref("Limit"), pref("From"), pref("To")], ok=(200, "WalletEntryPage"))
 op("post", "/wallet/topup", "topUpWallet", "Top up the wallet", ["rider"], "Rider · Payments",
@@ -2386,6 +2390,7 @@ S["Cancellation"]["properties"].update({
     "feeKind": s("v0.18.7 (Q2): " + PW["cancelAfterArrived"]["cancellationFields"]["feeKind"], enum=["cancel", "no_show"]),
     "driverShare": {"allOf": [ref("Money")], "description": "v0.18.7 (Q6): " + PW["cancelAfterArrived"]["cancellationFields"]["driverShare"]},
 })
+S["Rider"]["properties"]["wallets"] = arr(ref("Money"), description="v0.18.28 (admin rider view only, contract.json#walletCurrency.admin): every non-zero wallet balance, one per currency.")
 S["Rider"]["properties"]["outstandingByCurrency"] = arr(ref("Money"), description="v0.18.7 (Q3): " + PW["debtByCurrency"]["riderView"])
 S["Rider"]["properties"]["outstanding"]["description"] += " v0.18.7: the owed fees in the rider's oldest owed currency (contract.json#pickupWaiting.debtByCurrency)."
 S["RealtimeEvent"]["properties"]["eta"] = {"allOf": [ref("TripEta")], "description": "v0.18.7: on a kind=location event sent by the ETA tick (every " + str(PW["eta"]["everySeconds"]) + " s)."}
