@@ -22374,9 +22374,12 @@ components:
             searching or offered) noDriverStopAfterMin minutes after its pickup time (DriverAppConfig.reservations.noDriverStopAfterMin,
             default 15, 1-240, per zone, Admin › Dispatch › Book later) is ended by the server: open offers withdrawn, system
             expire (status expired, ended_by_command expire), TripProjection.reservation.noDriverFound true, searchStep {
-            kind no_driver_found, message ''No driver was found for your booked ride. You pay nothing.'' }. No fee (nothing
-            is charged; a captured booking payment is refunded in full). The rider gets push reservation_no_driver_found.
-            Replaces ''the ride never expires by itself'' of contract.json#bookLater.noDriver (BL-Q7) after noDriverStopAfterMin.'
+            kind no_driver_found, message ''No driver was found for your booked ride. You pay nothing.'' }. No fee. Nothing
+            is charged at booking today: the server takes cash only (server src/trips/finish.ts SERVER_PAYMENT_METHODS = [cash];
+            POST /trips refuses card with payment_method_coming_soon), and a wallet part is only reserved until boarding,
+            so there is nothing to refund. When card payments start, the free-cancel refund of contract.json#bookLater.card
+            applies to this end too. The rider gets push reservation_no_driver_found. Replaces ''the ride never expires by
+            itself'' of contract.json#bookLater.noDriver (BL-Q7) after noDriverStopAfterMin.'
           default: 15
         minAheadMin:
           type: integer
@@ -24573,9 +24576,12 @@ components:
         (requested, searching or offered) noDriverStopAfterMin minutes after its pickup time (DriverAppConfig.reservations.noDriverStopAfterMin,
         default 15, 1-240, per zone, Admin › Dispatch › Book later) is ended by the server: open offers withdrawn, system
         expire (status expired, ended_by_command expire), TripProjection.reservation.noDriverFound true, searchStep { kind
-        no_driver_found, message ''No driver was found for your booked ride. You pay nothing.'' }. No fee (nothing is charged;
-        a captured booking payment is refunded in full). The rider gets push reservation_no_driver_found. Replaces ''the ride
-        never expires by itself'' of contract.json#bookLater.noDriver (BL-Q7) after noDriverStopAfterMin.).'
+        no_driver_found, message ''No driver was found for your booked ride. You pay nothing.'' }. No fee. Nothing is charged
+        at booking today: the server takes cash only (server src/trips/finish.ts SERVER_PAYMENT_METHODS = [cash]; POST /trips
+        refuses card with payment_method_coming_soon), and a wallet part is only reserved until boarding, so there is nothing
+        to refund. When card payments start, the free-cancel refund of contract.json#bookLater.card applies to this end too.
+        The rider gets push reservation_no_driver_found. Replaces ''the ride never expires by itself'' of contract.json#bookLater.noDriver
+        (BL-Q7) after noDriverStopAfterMin.).'
       required:
       - id
       - kind
