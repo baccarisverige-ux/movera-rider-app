@@ -133,12 +133,6 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'phoneCountryCode': l.phoneCountryCode('<country>', '<dial>'),
   'errTooManyWrongCodes': l.errTooManyWrongCodes('<button>'),
   'signInRestricted': l.signInRestricted,
-  'testNumbersTitle': l.testNumbersTitle,
-  'testNumbersButton': l.testNumbersButton,
-  'testNumbersAskAdmin': l.testNumbersAskAdmin,
-  'testStatusNew': l.testStatusNew,
-  'testStatusActive': l.testStatusActive,
-  'testStatusSuspended': l.testStatusSuspended,
   'authNeedHelp': l.authNeedHelp,
   'authHelpComingSoon': l.authHelpComingSoon,
   'authHelpCompany': l.authHelpCompany,
@@ -154,6 +148,17 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'appTitle': l.appTitle,
   'previewBanner': l.previewBanner,
   'previewNotSent': l.previewNotSent,
+  'callFailed': l.callFailed,
+  'callCalling': l.callCalling,
+  'callConnecting': l.callConnecting,
+  'callConnected': l.callConnected,
+  'callIncomingFromDriver': l.callIncomingFromDriver,
+  'callAnswer': l.callAnswer,
+  'callDecline': l.callDecline,
+  'callEnd': l.callEnd,
+  'callMute': l.callMute,
+  'callSpeaker': l.callSpeaker,
+  'callEnded': l.callEnded,
   'cancelRide': l.cancelRide,
   'cancelReasonPickupIncorrect': l.cancelReasonPickupIncorrect,
   'cancelReasonWrongRideOption': l.cancelReasonWrongRideOption,
@@ -2174,18 +2179,6 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get signInRestricted => '';
   @override
-  String get testNumbersTitle => '';
-  @override
-  String get testNumbersButton => '';
-  @override
-  String get testNumbersAskAdmin => '';
-  @override
-  String get testStatusNew => '';
-  @override
-  String get testStatusActive => '';
-  @override
-  String get testStatusSuspended => '';
-  @override
   String get authNeedHelp => '';
   @override
   String get authHelpComingSoon => '';
@@ -2215,6 +2208,28 @@ class _Exhaustive implements AppLocalizations {
   String get previewBanner => '';
   @override
   String get previewNotSent => '';
+  @override
+  String get callFailed => '';
+  @override
+  String get callCalling => '';
+  @override
+  String get callConnecting => '';
+  @override
+  String get callConnected => '';
+  @override
+  String get callIncomingFromDriver => '';
+  @override
+  String get callAnswer => '';
+  @override
+  String get callDecline => '';
+  @override
+  String get callEnd => '';
+  @override
+  String get callMute => '';
+  @override
+  String get callSpeaker => '';
+  @override
+  String get callEnded => '';
   @override
   String get cancelRide => '';
   @override

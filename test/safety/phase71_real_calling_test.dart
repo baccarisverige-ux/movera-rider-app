@@ -143,9 +143,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    // Contract v0.13.0 §22: no masked call without a provider; never a
-    // real number.
-    expect(find.text('Calls coming soon – use the chat'), findsOne);
+    // v0.18.38 §62 (owner G15 "Just 'Call failed'"): no call in the demo;
+    // never a real number.
+    expect(find.text('Call failed'), findsOne);
     realtime.dispose();
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));

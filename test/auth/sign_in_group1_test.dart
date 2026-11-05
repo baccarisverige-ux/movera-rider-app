@@ -16,7 +16,6 @@ import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/application/auth_error_message.dart';
 import 'package:movera_rider/features/auth/data/auth_repository.dart';
-import 'package:movera_rider/features/auth/domain/build_test_numbers.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
 import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in.dart';
@@ -164,9 +163,7 @@ void main() {
         }
         return _json(404, {'code': 'not_found', 'message': 'x'});
       });
-      await tester.pumpWidget(
-        _app(SignIn(controller: _controller(server), showTestAccounts: false)),
-      );
+      await tester.pumpWidget(_app(SignIn(controller: _controller(server))));
       await tester.pump(const Duration(seconds: 6));
       await _continueWith(tester, '70 174 06 05');
       await tester.pump(const Duration(seconds: 4));
@@ -200,9 +197,7 @@ void main() {
         }
         return _json(404, {'code': 'not_found', 'message': 'x'});
       });
-      await tester.pumpWidget(
-        _app(SignIn(controller: _controller(server), showTestAccounts: false)),
-      );
+      await tester.pumpWidget(_app(SignIn(controller: _controller(server))));
       await tester.pump(const Duration(seconds: 6));
       await _continueWith(tester, '70 555 12 34');
       await _settle(tester);
@@ -222,136 +217,19 @@ void main() {
     });
   });
 
-  group('decision 6: test numbers only in test builds', () {
-    _Server accounts() => _Server((request) {
-      if (request.url.path == '/api/v1/auth/test-accounts') {
-        return _json(200, {
-          'accounts': [
-            {'phone': '+46701740605', 'app': 'rider', 'status': 'test'},
-            {
-              'phone': '+46701740606',
-              'app': 'rider',
-              'status': 'active',
-              'name': 'Ada',
-            },
-            {'phone': '+46701740606', 'app': 'driver', 'status': 'pending'},
-          ],
-        });
-      }
-      return _json(404, {'code': 'not_found', 'message': 'x'});
-    });
-
-    testWidgets('a test build lists the rider numbers; a tap fills the field', (
-      tester,
-    ) async {
+  group('job A12 (owner 2026-11-05 "Remove everywhere"): no test numbers', () {
+    testWidgets('a staging build never asks for test accounts', (tester) async {
       _phoneSize(tester);
-      await tester.pumpWidget(
-        _app(
-          SignIn(controller: _controller(accounts()), showTestAccounts: true),
-        ),
+      final server = _Server(
+        (request) => _json(404, {'code': 'not_found', 'message': 'x'}),
       );
+      await tester.pumpWidget(_app(SignIn(controller: _controller(server))));
       await tester.pump(const Duration(seconds: 6));
       expect(find.byKey(const ValueKey('auth-test-accounts')), findsNothing);
-      final button = find.byKey(const ValueKey('auth-test-numbers-button'));
-      await tester.ensureVisible(button);
-      await tester.tap(button);
-      await tester.pump();
-      expect(find.byKey(const ValueKey('auth-test-accounts')), findsOneWidget);
-      expect(find.text(L10n.current.testStatusNew), findsOneWidget);
-      expect(find.text(L10n.current.testStatusActive), findsOneWidget);
-      final row = find.byKey(const ValueKey('auth-test-+46701740606'));
-      await tester.ensureVisible(row);
-      await tester.pump();
-      await tester.tap(row);
-      await tester.pump();
-      final typed = tester
-          .widgetList<EditableText>(find.byType(EditableText))
-          .map((field) => field.controller.text.replaceAll(' ', ''));
-      expect(typed, contains('701740606'));
-    });
-
-    testWidgets('owner 2026-11-03 "Close it now": signed out the list is '
-        'admin-only (401); the button stays and says to ask an admin, and a '
-        'typed number still asks for a code', (tester) async {
-      _phoneSize(tester);
-      final closed = _Server((request) {
-        if (request.url.path == '/api/v1/auth/test-accounts') {
-          return _json(401, {'code': 'unauthenticated', 'message': 'x'});
-        }
-        return _json(404, {'code': 'not_found', 'message': 'x'});
-      });
-      await tester.pumpWidget(
-        _app(SignIn(controller: _controller(closed), showTestAccounts: true)),
-      );
-      await tester.pump(const Duration(seconds: 6));
-      final button = find.byKey(const ValueKey('auth-test-numbers-button'));
-      expect(button, findsOneWidget);
-      await tester.ensureVisible(button);
-      await tester.tap(button);
-      await tester.pump();
-      expect(find.byKey(const ValueKey('auth-test-accounts')), findsNothing);
-      expect(find.text(L10n.current.testNumbersAskAdmin), findsOneWidget);
-      await _continueWith(tester, '70 555 12 34');
-      await _settle(tester);
       expect(
-        closed.requests.map((r) => r.url.path),
-        contains('/api/v1/auth/otp/request'),
+        server.requests.map((r) => r.url.path),
+        isNot(contains('/api/v1/auth/test-accounts')),
       );
-    });
-
-    testWidgets('owner 2026-11-03: the list closed, a test build shows the '
-        'numbers it was built with (no names); a tap fills the field', (
-      tester,
-    ) async {
-      _phoneSize(tester);
-      final closed = _Server(
-        (request) => _json(401, {'code': 'unauthenticated', 'message': 'x'}),
-      );
-      await tester.pumpWidget(
-        _app(
-          SignIn(
-            controller: _controller(closed),
-            showTestAccounts: true,
-            buildTestNumbers: parseTestNumbers(
-              '+46700000001, nope,+33600000001',
-            ),
-          ),
-        ),
-      );
-      await tester.pump(const Duration(seconds: 6));
-      final button = find.byKey(const ValueKey('auth-test-numbers-button'));
-      await tester.ensureVisible(button);
-      await tester.tap(button);
-      await tester.pump();
-      expect(find.text(L10n.current.testNumbersAskAdmin), findsNothing);
-      expect(
-        find.byKey(const ValueKey('auth-test-+46700000001')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('auth-test-+33600000001')),
-        findsOneWidget,
-      );
-      expect(find.text(L10n.current.testStatusNew), findsNothing);
-      final row = find.byKey(const ValueKey('auth-test-+46700000001'));
-      await tester.ensureVisible(row);
-      await tester.tap(row);
-      await tester.pump();
-      final typed = tester
-          .widgetList<EditableText>(find.byType(EditableText))
-          .map((field) => field.controller.text.replaceAll(' ', ''));
-      expect(typed, contains('700000001'));
-    });
-
-    testWidgets('a store build never asks', (tester) async {
-      _phoneSize(tester);
-      final server = accounts();
-      await tester.pumpWidget(
-        _app(SignIn(controller: _controller(server), showTestAccounts: false)),
-      );
-      await tester.pump(const Duration(seconds: 6));
-      expect(find.byKey(const ValueKey('auth-test-accounts')), findsNothing);
-      expect(server.requests, isEmpty);
     });
   });
 
@@ -512,9 +390,7 @@ void main() {
     ) async {
       _phoneSize(tester);
       final server = _Server((_) => http.Response('', 204));
-      await tester.pumpWidget(
-        _app(SignIn(controller: _controller(server), showTestAccounts: false)),
-      );
+      await tester.pumpWidget(_app(SignIn(controller: _controller(server))));
       await tester.pump(const Duration(seconds: 6));
       final link = find.byKey(const ValueKey('auth-need-help'));
       expect(link, findsOneWidget);

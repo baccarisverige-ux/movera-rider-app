@@ -233,12 +233,6 @@
   "errTooManyWrongCodes": "Too many wrong tries – tap {button}",
   "@errTooManyWrongCodes": {"description": "Owner decision 3: after 5 wrong codes. {button} is the resend button label.", "placeholders": {"button": {"type": "String"}}},
   "signInRestricted": "This number isn’t open for sign-in yet. Join the waiting list and we’ll let you know.",
-  "testNumbersTitle": "Test numbers (test build only)",
-  "testNumbersButton": "Test numbers",
-  "testNumbersAskAdmin": "Ask an admin for the test numbers",
-  "testStatusNew": "Test · no account yet",
-  "testStatusActive": "Active",
-  "testStatusSuspended": "Suspended",
   "authNeedHelp": "Need help?",
   "authHelpComingSoon": "Contact details coming soon",
   "authHelpCompany": "Company",
@@ -263,6 +257,50 @@
   "appTitle": "Movera",
   "previewBanner": "Preview",
   "previewNotSent": "Preview – not sent",
+  "callFailed": "Call failed",
+  "@callFailed": {
+    "description": "v0.18.38 §62 in-app call screen (fix job 8)."
+  },
+  "callCalling": "Calling…",
+  "@callCalling": {
+    "description": "v0.18.38 §62 in-app call screen (fix job 8)."
+  },
+  "callConnecting": "Connecting…",
+  "@callConnecting": {
+    "description": "v0.18.38 §62 in-app call screen (fix job 8)."
+  },
+  "callConnected": "In call",
+  "@callConnected": {
+    "description": "v0.18.38 §62 in-app call screen (fix job 8)."
+  },
+  "callIncomingFromDriver": "Your driver is calling",
+  "@callIncomingFromDriver": {
+    "description": "v0.18.38 §62 in-app call screen (fix job 8)."
+  },
+  "callAnswer": "Answer",
+  "@callAnswer": {
+    "description": "v0.18.38 §62 in-app call screen (fix job 8)."
+  },
+  "callDecline": "Decline",
+  "@callDecline": {
+    "description": "v0.18.38 §62 in-app call screen (fix job 8)."
+  },
+  "callEnd": "End",
+  "@callEnd": {
+    "description": "v0.18.38 §62 in-app call screen (fix job 8)."
+  },
+  "callMute": "Mute",
+  "@callMute": {
+    "description": "v0.18.38 §62 in-app call screen (fix job 8)."
+  },
+  "callSpeaker": "Speaker",
+  "@callSpeaker": {
+    "description": "v0.18.38 §62 in-app call screen (fix job 8)."
+  },
+  "callEnded": "Call ended",
+  "@callEnded": {
+    "description": "v0.18.38 §62 in-app call screen (fix job 8)."
+  },
   "cancelRide": "Cancel ride",
   "cancelReasonPickupIncorrect": "Pickup point is incorrect",
   "cancelReasonWrongRideOption": "I chose the wrong ride option",
