@@ -67,10 +67,6 @@
   "walletTooLowChooseAnother": "Your wallet balance does not cover this ride. Choose another way to pay.",
   "walletFirst": "Use wallet balance first",
   "walletFirstBody": "Your balance is taken off every fare; the rest goes to the method you choose.",
-  "walletUsedFirst": "Your wallet is used first",
-  "@walletUsedFirst": {
-    "description": "Fix job 5 (contract v0.18.33, owner Q6): Select ride, above the wallet split of the chosen ride while Use wallet first is on for this ride."
-  },
   "paymentMethods": "Payment methods",
   "vouchers": "Vouchers",
   "voucherSoon": "Voucher codes open soon",
@@ -200,45 +196,105 @@
     }
   },
   "paymentComingSoon": "Coming soon",
-  "@paymentComingSoon": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "@paymentComingSoon": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
   "paymentMethodOff": "This payment method is not offered here. Choose another one.",
-  "@paymentMethodOff": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "@paymentMethodOff": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
   "paymentMethodComingSoon": "This payment method is coming soon. Choose Pay in car.",
-  "@paymentMethodComingSoon": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "@paymentMethodComingSoon": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
   "paymentMethodNotAvailable": "This payment method cannot be used. Choose another one.",
-  "@paymentMethodNotAvailable": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "@paymentMethodNotAvailable": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
   "tipCustomAmount": "Other amount",
-  "@tipCustomAmount": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "@tipCustomAmount": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
   "tipCustomAmountLabel": "Tip: other amount",
-  "@tipCustomAmountLabel": {"description": "Live G8 round 3: screen-reader name of the Other amount tip button"},
+  "@tipCustomAmountLabel": {
+    "description": "Live G8 round 3: screen-reader name of the Other amount tip button"
+  },
   "tipMax": "At most {amount}",
-  "@tipMax": {"description": "Rider G8 (contract 0.18.10 finish)", "placeholders": {"amount": {"type": "String"}}},
+  "@tipMax": {
+    "description": "Rider G8 (contract 0.18.10 finish)",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "tipAmountNotAllowed": "Choose one of the amounts.",
-  "@tipAmountNotAllowed": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "@tipAmountNotAllowed": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
   "tipAboveMax": "The amount is too high.",
-  "@tipAboveMax": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "@tipAboveMax": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
   "tipAllToDriver": "The whole tip goes to the driver.",
-  "@tipAllToDriver": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "@tipAllToDriver": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
   "tipCashInHand": "Give the tip to the driver in cash.",
-  "@tipCashInHand": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "@tipCashInHand": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
   "tipAlreadyGiven": "You already tipped for this trip.",
-  "@tipAlreadyGiven": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "@tipAlreadyGiven": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
   "tipNotAllowed": "A tip is only possible after a finished trip.",
-  "@tipNotAllowed": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "@tipNotAllowed": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
   "tipCashAfterTripOff": "A cash tip can only be given in the car.",
-  "@tipCashAfterTripOff": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "@tipCashAfterTripOff": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
   "receiptDriverEnded": "The driver ended the trip before the destination.",
-  "@receiptDriverEnded": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "@receiptDriverEnded": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
   "receiptRiderEnded": "You ended the trip early.",
-  "@receiptRiderEnded": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "@receiptRiderEnded": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
   "receiptDebtIncluded": "Earlier unpaid fee",
-  "@receiptDebtIncluded": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "@receiptDebtIncluded": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
   "receiptTip": "Tip",
-  "@receiptTip": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "@receiptTip": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
   "receiptRefunded": "Refunded",
-  "@receiptRefunded": {"description": "Rider G8 (contract 0.18.10 finish)"},
+  "@receiptRefunded": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
   "priceIncludesUnpaidFee": "Includes {amount} unpaid fee from an earlier trip",
-  "@priceIncludesUnpaidFee": {"description": "Deep-fix 2026-11-02", "placeholders": {"amount": {"type": "String"}}},
+  "@priceIncludesUnpaidFee": {
+    "description": "Deep-fix 2026-11-02",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "receiptHeading": "Receipt",
-  "@receiptHeading": {"description": "Deep-fix 2026-11-02"}
+  "@receiptHeading": {
+    "description": "Deep-fix 2026-11-02"
+  },
+  "receiptDebtIncludedNote": "An unpaid fee from an earlier trip was added to this trip.",
+  "@receiptDebtIncludedNote": {
+    "description": "Fix job 0 (A2-2, contract 0.18.39 outstandingFee.receiptText.rider): under the earlier unpaid fee line on the next trip's receipt."
+  },
+  "walletUsedFirst": "Your wallet is used first",
+  "@walletUsedFirst": {
+    "description": "Fix job 5 (contract v0.18.33, owner Q6): Select ride, above the wallet split of the chosen ride while Use wallet first is on for this ride."
+  }
 }

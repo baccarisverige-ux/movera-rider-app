@@ -738,7 +738,6 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'walletTooLowChooseAnother': l.walletTooLowChooseAnother,
   'walletFirst': l.walletFirst,
   'walletFirstBody': l.walletFirstBody,
-  'walletUsedFirst': l.walletUsedFirst,
   'paymentMethods': l.paymentMethods,
   'vouchers': l.vouchers,
   'voucherSoon': l.voucherSoon,
@@ -823,6 +822,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'receiptRefunded': l.receiptRefunded,
   'priceIncludesUnpaidFee': l.priceIncludesUnpaidFee('<amount>'),
   'receiptHeading': l.receiptHeading,
+  'receiptDebtIncludedNote': l.receiptDebtIncludedNote,
+  'walletUsedFirst': l.walletUsedFirst,
   'scheduleForLater': l.scheduleForLater,
   'later': l.later,
   'scheduleARide': l.scheduleARide,
@@ -3382,8 +3383,6 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get walletFirstBody => '';
   @override
-  String get walletUsedFirst => '';
-  @override
   String get paymentMethods => '';
   @override
   String get vouchers => '';
@@ -3551,6 +3550,10 @@ class _Exhaustive implements AppLocalizations {
   String priceIncludesUnpaidFee(String amount) => '';
   @override
   String get receiptHeading => '';
+  @override
+  String get receiptDebtIncludedNote => '';
+  @override
+  String get walletUsedFirst => '';
   @override
   String get scheduleForLater => '';
   @override

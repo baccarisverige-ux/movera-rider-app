@@ -17,6 +17,8 @@ class RideQuote {
     this.outstandingFeeMinor = 0,
     this.signedPayload,
     this.serverHeld = false,
+    this.pickupAt,
+    this.samePointWarning,
   });
 
   final String id;
@@ -41,6 +43,16 @@ class RideQuote {
   /// trip to it by [id] alone, so it carries no [signedPayload].
   final bool serverHeld;
 
+  /// FIX JOB 7 (contract v0.18.30 `Quote.pickupAt`, owner Q8 "only for
+  /// booked rides"): the pickup time of a booked ride; null on a live quote,
+  /// which shows no pickup time.
+  final DateTime? pickupAt;
+
+  /// FIX JOB 7 (contract v0.18.30 `QuoteList.warnings`, owner Q9 "warn him
+  /// but can accept booking"): pickup and drop-off are this close; the
+  /// rider is warned and can still book ([bookable] does not change).
+  final SamePointWarning? samePointWarning;
+
   /// Whether booking may send this quote: it has an id and either the
   /// server holds it ([serverHeld]) or it carries the mock's signature.
   bool get bookable =>
@@ -49,4 +61,29 @@ class RideQuote {
 
   /// rider-r4-32: [expiresAt] is server time, judged on the server clock.
   bool get expired => ServerClock.now().isAfter(expiresAt);
+}
+
+/// `QuoteWarning { reason: same_pickup_dropoff, meters, limitMeters }`.
+class SamePointWarning {
+  const SamePointWarning({required this.meters, required this.limitMeters});
+
+  final int meters;
+  final int limitMeters;
+
+  /// The warning in a `QuoteList`, or null when it has none.
+  static SamePointWarning? fromQuoteList(Object? warnings) {
+    if (warnings is! List) return null;
+    for (final item in warnings) {
+      if (item is Map &&
+          item['reason'] == 'same_pickup_dropoff' &&
+          item['meters'] is num &&
+          item['limitMeters'] is num) {
+        return SamePointWarning(
+          meters: (item['meters'] as num).round(),
+          limitMeters: (item['limitMeters'] as num).round(),
+        );
+      }
+    }
+    return null;
+  }
 }
