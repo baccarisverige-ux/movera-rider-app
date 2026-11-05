@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:movera_rider/core/preview/preview_mode.dart';
 import 'package:movera_rider/features/messages/data/chat_read_marks.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -101,6 +102,7 @@ Future<void> bootStep(String name, Future<void> Function() step) async {
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  PreviewMode.readFromUrl();
   // UI-15: bundled Poppins, when present, means no font download at start.
   await configureBundledFonts();
   // Before anything can call the API: a 401 during start-up still has a

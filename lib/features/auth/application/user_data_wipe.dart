@@ -155,6 +155,7 @@ abstract final class UserDataWipe {
       ..point = null;
     scope.profile.clearLocal();
     scope.savedPlaces.clearLocal();
+    scope.savedPlacesServer?.reset();
     scope.savedCards.clearLocal();
     scope.payments.clearLocal();
     scope.wallet.clear();

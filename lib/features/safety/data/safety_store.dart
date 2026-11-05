@@ -96,8 +96,12 @@ class SafetyStore {
   /// (`/safety/*`, `/rides/{id}/share`, `/rides/{id}/safety-*`; not in the
   /// contract), so on the contract wire nothing is asked and every change
   /// says so, instead of a 404 behind a generic failure.
+  ///
+  /// BASE B13 (contract v0.18.26 §47; owner 2026-11-04 "Yes, same as
+  /// drivers"): the emergency contacts are the exception, kept on the
+  /// server (`GET|PUT /rider/emergency-contacts`).
   static SafetyRemoteDataSource _remoteFor(ApiClient api) => api.contractWire
-      ? const UnservedSafetyRemoteDataSource()
+      ? ContractContactsRemoteDataSource(api)
       : ApiSafetyRemoteDataSource(api);
 
   /// False when the server keeps no Safety settings (the contract wire).
@@ -125,6 +129,19 @@ class SafetyStore {
     // Never display cached digits after a network failure or while refreshing.
     _cache.pin = RidePin.unavailable;
     if (!served) {
+      final remote = _remote;
+      if (remote is ContractContactsRemoteDataSource) {
+        try {
+          // The one-time upload of the contacts this phone kept before.
+          _cache.contacts = await remote.syncContacts(_cache.contacts);
+          await _local.save(_cache);
+        } catch (error) {
+          AppLog.warning(
+            'safety.contacts_sync_failed',
+            extra: {'error': error.runtimeType.toString()},
+          );
+        }
+      }
       _loaded = true;
       return;
     }
@@ -939,4 +956,100 @@ class UnservedSafetyRemoteDataSource implements SafetyRemoteDataSource {
     required String rideId,
     required String recordingId,
   }) => _no();
+}
+
+/// BASE B13 (contract v0.18.26 §47, owner 2026-11-04 "Yes, same as
+/// drivers"): on the contract wire the rider's emergency contacts live on the
+/// server as one list (`GET|PUT /rider/emergency-contacts`); the other Safety
+/// settings are still not on the server. Only name, phone and relation are
+/// kept there; the phone keeps the rest (primary, share trips, on/off).
+class ContractContactsRemoteDataSource extends UnservedSafetyRemoteDataSource {
+  ContractContactsRemoteDataSource(this._api);
+
+  final ApiClient _api;
+  static const _path = '/api/v1/rider/emergency-contacts';
+  List<EmergencyContact> _known = const <EmergencyContact>[];
+
+  /// The server's list; when the server never had one, [local] goes up once.
+  Future<List<EmergencyContact>> syncContacts(
+    List<EmergencyContact> local,
+  ) async {
+    final answer = await _api.get(_path);
+    if (answer['updatedAt'] == null) {
+      if (local.isNotEmpty) await _put(local);
+      return _known = local;
+    }
+    return _known = merge(answer['items'], local);
+  }
+
+  /// Server rows as contacts, keeping the phone's extra fields by number.
+  static List<EmergencyContact> merge(
+    Object? items,
+    List<EmergencyContact> local,
+  ) {
+    final out = <EmergencyContact>[];
+    if (items is! List) return out;
+    for (var i = 0; i < items.length; i++) {
+      final item = items[i];
+      if (item is! Map || item['name'] is! String || item['phone'] is! String) {
+        continue;
+      }
+      final phone = item['phone'] as String;
+      final mine = local.where((c) => c.phoneE164 == phone).firstOrNull;
+      final relation = item['relation'];
+      out.add(
+        (mine ??
+                EmergencyContact(
+                  id: 'contact_$phone',
+                  userId: '',
+                  name: item['name'] as String,
+                  phoneE164: phone,
+                  isPrimary: i == 0,
+                ))
+            .copyWith(
+              name: item['name'] as String,
+              relationship: relation is String ? relation : null,
+            ),
+      );
+    }
+    return out;
+  }
+
+  static Map<String, String> itemOf(EmergencyContact c) => {
+    'name': c.name.trim(),
+    'phone': c.phoneE164.replaceAll(RegExp(r'[\s()-]'), ''),
+    if (c.relationship.trim().isNotEmpty) 'relation': c.relationship.trim(),
+  };
+
+  Future<void> _put(List<EmergencyContact> list) async {
+    await _api.put(_path, body: {'items': list.map(itemOf).toList()});
+    _known = list;
+  }
+
+  @override
+  Future<List<EmergencyContact>> listContacts() async => syncContacts(_known);
+
+  @override
+  Future<EmergencyContact> createContact(
+    EmergencyContact contact, {
+    String? idempotencyKey,
+  }) async {
+    await _put([..._known.where((c) => c.id != contact.id), contact]);
+    return contact;
+  }
+
+  @override
+  Future<EmergencyContact> updateContact(EmergencyContact contact) async {
+    await _put([for (final c in _known) c.id == contact.id ? contact : c]);
+    return contact;
+  }
+
+  @override
+  Future<void> deleteContact(String id) =>
+      _put(_known.where((c) => c.id != id).toList());
+
+  @override
+  Future<List<EmergencyContact>> setPrimary(String id) async => [
+    for (final c in _known) c.copyWith(isPrimary: c.id == id),
+  ];
 }

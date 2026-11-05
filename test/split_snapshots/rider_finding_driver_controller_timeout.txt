@@ -1,0 +1,12 @@
+tick 0
+# start
+{"elapsed":0,"delayed":false,"bumpVisible":false,"price":259.0,"priceUpdated":false,"headline":"Finding your driver","rideId":"split-fd-2","assigned":false,"assignmentPending":false,"editInFlight":false,"editFeedback":null,"terminated":false,"cancelInFlight":false,"cancelled":false,"cancelQueued":false,"stillLooking":false,"status":"findingDriver","offerConfirmation":null,"nearby":0,"pickupAddress":"Klockarvägen 37","pickupLat":59.3,"pickupLng":18.0}
+requests []
+tick 31
+tick 31
+tick 31
+{"elapsed":31,"delayed":false,"bumpVisible":true,"price":259.0,"priceUpdated":false,"headline":"Still looking for a driver","rideId":"split-fd-2","assigned":false,"assignmentPending":false,"editInFlight":false,"editFeedback":null,"terminated":false,"cancelInFlight":false,"cancelled":false,"cancelQueued":false,"stillLooking":true,"status":"findingDriver","offerConfirmation":null,"nearby":0,"pickupAddress":"Klockarvägen 37","pickupLat":59.3,"pickupLng":18.0}
+stored split-fd-2
+# end
+{"elapsed":31,"delayed":false,"bumpVisible":true,"price":259.0,"priceUpdated":false,"headline":"Still looking for a driver","rideId":"split-fd-2","assigned":false,"assignmentPending":false,"editInFlight":false,"editFeedback":null,"terminated":false,"cancelInFlight":false,"cancelled":false,"cancelQueued":false,"stillLooking":true,"status":"findingDriver","offerConfirmation":null,"nearby":0,"pickupAddress":"Klockarvägen 37","pickupLat":59.3,"pickupLng":18.0}
+requests [GET /api/v1/rides/split-fd-2/nearby, GET /api/v1/rides/split-fd-2]
