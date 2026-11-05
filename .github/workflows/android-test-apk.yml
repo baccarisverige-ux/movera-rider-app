@@ -1,9 +1,17 @@
 name: Android test APK (staging)
 
-# Owner test: install a build, sign in, then install a later build over it
-# (same release key, higher version code) and check the user stays signed in.
+# Owner upgrade test: builds APK 1 from `old_ref` and APK 2 from `new_ref` in ONE run,
+# both signed with the same throw-away test key (generated here, never stored), with
+# APK 2 having the higher version code, so APK 2 installs over APK 1 and keeps app data.
 on:
   workflow_dispatch:
+    inputs:
+      old_ref:
+        description: Branch/commit for APK 1 (installed first)
+        default: main
+      new_ref:
+        description: Branch/commit for APK 2 (installed over APK 1)
+        default: base/fast-app-start
 
 permissions:
   contents: read
@@ -11,79 +19,79 @@ permissions:
 jobs:
   test-apk:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
+    env:
+      LIVE_API: https://movera-server.onrender.com
+      MAPS_API_KEY: ${{ secrets.ANDROID_MAPS_API_KEY || secrets.MAPS_API_KEY || secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS1 || secrets.MAPS || secrets.GOOGLE_MAPS_WEB_API_KEY }}
+      MOVERA_TEST_NUMBERS: ${{ secrets.MOVERA_TEST_NUMBERS }}
+      RIDER_MAP_ID: ${{ vars.RIDER_MAP_ID || '9fdc5d9e56d4a0916c77a424' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           flutter-version: '3.47.7'
           cache: true
-      - name: Prepare release keystore
-        env:
-          KEYSTORE_BASE64: ${{ secrets.MOVERA_RELEASE_KEYSTORE_BASE64 }}
-          MOVERA_RELEASE_STORE_PASSWORD: ${{ secrets.MOVERA_RELEASE_STORE_PASSWORD }}
-          MOVERA_RELEASE_KEY_ALIAS: ${{ secrets.MOVERA_RELEASE_KEY_ALIAS }}
-          MOVERA_RELEASE_KEY_PASSWORD: ${{ secrets.MOVERA_RELEASE_KEY_PASSWORD }}
+      - name: Make a throw-away test signing key
         run: |
           set -euo pipefail
-          test -n "$KEYSTORE_BASE64"
-          test -n "$MOVERA_RELEASE_STORE_PASSWORD"
-          test -n "$MOVERA_RELEASE_KEY_ALIAS"
-          test -n "$MOVERA_RELEASE_KEY_PASSWORD"
-          install -m 700 -d "$RUNNER_TEMP/release-signing"
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release-signing/keystore.jks"
-          chmod 600 "$RUNNER_TEMP/release-signing/keystore.jks"
-          echo "MOVERA_RELEASE_KEYSTORE_PATH=$RUNNER_TEMP/release-signing/keystore.jks" >> "$GITHUB_ENV"
-      - name: Build signed staging APK (live test server)
+          install -m 700 -d "$RUNNER_TEMP/test-signing"
+          pw="$(openssl rand -hex 16)"
+          echo "::add-mask::$pw"
+          keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/test-signing/test.jks" \
+            -storepass "$pw" -keypass "$pw" -alias movera-test -keyalg RSA -keysize 2048 \
+            -validity 30 -dname "CN=Movera owner test, O=Movera"
+          {
+            echo "MOVERA_RELEASE_KEYSTORE_PATH=$RUNNER_TEMP/test-signing/test.jks"
+            echo "MOVERA_RELEASE_STORE_PASSWORD=$pw"
+            echo "MOVERA_RELEASE_KEY_ALIAS=movera-test"
+            echo "MOVERA_RELEASE_KEY_PASSWORD=$pw"
+          } >> "$GITHUB_ENV"
+      - name: Build APK 1 and APK 2
         env:
-          MOVERA_RELEASE_STORE_PASSWORD: ${{ secrets.MOVERA_RELEASE_STORE_PASSWORD }}
-          MOVERA_RELEASE_KEY_ALIAS: ${{ secrets.MOVERA_RELEASE_KEY_ALIAS }}
-          MOVERA_RELEASE_KEY_PASSWORD: ${{ secrets.MOVERA_RELEASE_KEY_PASSWORD }}
-          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
-          MOVERA_TEST_NUMBERS: ${{ secrets.MOVERA_TEST_NUMBERS }}
-          RIDER_MAP_ID: ${{ vars.RIDER_MAP_ID || '9fdc5d9e56d4a0916c77a424' }}
-          LIVE_API: https://movera-server.onrender.com
-          BUILD_NUMBER: ${{ github.run_number }}
+          OLD_REF: ${{ inputs.old_ref }}
+          NEW_REF: ${{ inputs.new_ref }}
         run: |
           set -euo pipefail
           if [ -z "${MAPS_API_KEY:-}" ]; then
-            echo '::error::Missing Google Maps key (MAPS_API_KEY repository secret).'
-            exit 1
+            # Test-only build: the owner checks sign-in, not the map. Gradle refuses an empty key.
+            echo '::warning::No Google Maps key secret: test build uses a placeholder, the map will be grey.'
+            echo "MAPS_API_KEY=TEST_BUILD_NO_MAP" >> "$GITHUB_ENV"
+            export MAPS_API_KEY=TEST_BUILD_NO_MAP
           fi
-          if ! printf '%s' "$RIDER_MAP_ID" | grep -Eq '^[A-Za-z0-9]+$'; then
-            echo '::error::Invalid RIDER_MAP_ID (letters and digits only).'
-            exit 1
-          fi
-          flutter pub get
-          app_version="$(sed -n 's/^version: *//p' pubspec.yaml)"
-          test -n "$app_version"
-          flutter build apk --release \
-            -t lib/main_staging.dart \
-            --build-number="$BUILD_NUMBER" \
-            --dart-define=MOVERA_FLAVOR=staging \
-            --dart-define=MOVERA_API_BASE_URL="$LIVE_API" \
-            --dart-define=MOVERA_AUTH_REQUIRED=true \
-            --dart-define=MOVERA_APP_VERSION="$app_version" \
-            --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID" \
-            --dart-define=MOVERA_TEST_NUMBERS="$MOVERA_TEST_NUMBERS"
-          apk=build/app/outputs/flutter-apk/app-release.apk
-          test -f "$apk"
-          apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
-          "$apksigner" verify "$apk"
-          if "$apksigner" verify --print-certs "$apk" | grep -qi 'CN=Android Debug'; then
-            echo '::error::APK is debug-signed'
-            exit 1
-          fi
-          short_sha="$(printf '%s' "$GITHUB_SHA" | cut -c1-7)"
-          echo "SHORT_SHA=$short_sha" >> "$GITHUB_ENV"
-          echo "Built version code $BUILD_NUMBER from $short_sha"
-      - name: Remove keystore
+          printf '%s' "$RIDER_MAP_ID" | grep -Eq '^[A-Za-z0-9]+$'
+          mkdir -p out
+          build() {
+            ref="$1"; number="$2"; name="$3"
+            git checkout -q --force "$ref" 2>/dev/null || git checkout -q --force "origin/$ref"
+            flutter pub get
+            app_version="$(sed -n 's/^version: *//p' pubspec.yaml)"
+            flutter build apk --release \
+              -t lib/main_staging.dart \
+              --build-number="$number" \
+              --dart-define=MOVERA_FLAVOR=staging \
+              --dart-define=MOVERA_API_BASE_URL="$LIVE_API" \
+              --dart-define=MOVERA_AUTH_REQUIRED=true \
+              --dart-define=MOVERA_APP_VERSION="$app_version" \
+              --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID" \
+              --dart-define=MOVERA_TEST_NUMBERS="${MOVERA_TEST_NUMBERS:-}"
+            cp build/app/outputs/flutter-apk/app-release.apk "out/$name"
+          }
+          build "$OLD_REF" 100000 "1-install-first-old.apk"
+          build "$NEW_REF" 100001 "2-install-second-new.apk"
+          ls -la out
+      - name: Remove test key
         if: always()
-        run: rm -rf "$RUNNER_TEMP/release-signing"
+        run: rm -rf "$RUNNER_TEMP/test-signing"
       - uses: actions/upload-artifact@v4
         with:
-          name: rider-test-apk-${{ env.SHORT_SHA }}
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: rider-upgrade-test-apks
+          path: out/*.apk
           retention-days: 7
           if-no-files-found: error

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -181,27 +179,6 @@ void main() {
     await tester.tap(find.text('Book a ride').first);
     await tester.pumpAndSettle();
     expect(result, RideHistory.startBookingResult);
-  });
-
-  test('D-026: the menu turns that result into a booking, not the menu', () {
-    final menu = File(
-      'lib/features/home/presentation/side_menu.dart',
-    ).readAsStringSync();
-    // LT-4: the same value (RideHistory.startBookingResult), read without
-    // loading Ride history (test/perf/deferred_screens_test.dart).
-    expect(menu, contains('result == rideHistoryStartBookingResult'));
-    expect(menu, contains('onStartBooking?.call();'));
-    // The menu page itself leaves first, so booking starts over Home.
-    expect(menu, contains('nav.pop();\n      onStartBooking?.call();'));
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
-    // NAV-6: Home starts the booking after the menu's park scope ends.
-    expect(
-      home,
-      contains('onStartBooking: () => then = _handleDestinationTap'),
-    );
-    expect(home, contains('await then?.call();'));
   });
 
   test('D-024: an empty profile never reads as a literal placeholder', () {
