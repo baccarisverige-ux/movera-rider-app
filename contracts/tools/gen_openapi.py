@@ -1382,6 +1382,7 @@ import glob as _glob, os as _os
 for _part in sorted(_glob.glob(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "openapi_parts", "*.py"))):
     exec(compile(open(_part).read(), _part, "exec"), globals())
 
+
 def to_plain(x):
     if isinstance(x, dict): return {k: to_plain(v) for k, v in x.items()}
     if isinstance(x, list): return [to_plain(v) for v in x]
