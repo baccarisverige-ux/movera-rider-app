@@ -40,6 +40,9 @@ void main() {
     'lib/features/ride_selection/presentation/select_ride_reveal.dart',
     'lib/features/ride_selection/presentation/select_ride_sheet_control.dart',
     'lib/features/ride_selection/presentation/select_ride_tiles.dart',
+    // Base split (2026-11-05) moved more of Select Ride into part files.
+    'lib/features/ride_selection/presentation/select_ride_booking_helpers.dart',
+    'lib/features/ride_selection/presentation/select_ride_list.dart',
   ];
 
   test('presentation does not import raw http or shared_preferences', () {
