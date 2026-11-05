@@ -1658,5 +1658,7 @@
   "resErrZoneOff": "Pas encore disponible dans cette zone",
   "bookingFreeRule": "Modification et annulation gratuites plus de {time} avant la prise en charge",
   "freeRuleHours": "{count, plural, =1{1 heure} other{{count} heures}}",
-  "scheduleForLaterChip": "Réserver une course pour plus tard"
+  "scheduleForLaterChip": "Réserver une course pour plus tard",
+  "previewBanner": "Aperçu",
+  "previewNotSent": "Aperçu – non envoyé"
 }
