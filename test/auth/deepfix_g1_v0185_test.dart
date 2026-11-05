@@ -173,7 +173,6 @@ void main() {
                 tokens: MemoryTokenStore(),
               ),
             ),
-            showTestAccounts: false,
           ),
         ),
       );
@@ -408,7 +407,6 @@ void main() {
                 tokens: MemoryTokenStore(),
               ),
             ),
-            showTestAccounts: false,
           ),
         ),
       );
@@ -547,9 +545,7 @@ void main() {
           ),
         ),
       );
-      await tester.pumpWidget(
-        _app(SignIn(controller: auth, showTestAccounts: false)),
-      );
+      await tester.pumpWidget(_app(SignIn(controller: auth)));
       await tester.pump(const Duration(seconds: 6));
       await tester.enterText(find.byType(EditableText).first, '701740605');
       final consent = find.byKey(const ValueKey('auth-consent'));
