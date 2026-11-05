@@ -997,7 +997,8 @@ S["CompletePreview"] = obj({"previewId": ref("Id"), "expiresAt": {"allOf": [ref(
                             "fareLines": arr(ref("FareLine"))},
                            ["previewId", "expiresAt", "tripId", "total", "cashDue", "driverEarnings", "earlyEnd", "fareLines"],
                            "v0.18.1 (CONTRACT.md §26): the final price complete would set now, frozen for " + str(CPV["freezeSeconds"]) + " s. " + CPV["same"], addl=False)
-S["RouteRequest"] = obj({"mode": s(enum=MP["routeModes"]), "from": ref("LatLng"), "to": ref("LatLng")}, ["mode", "from", "to"])
+S["RouteRequest"] = obj({"mode": s(enum=MP["routeModes"]), "from": ref("LatLng"), "to": ref("LatLng"),
+                         "via": arr(ref("LatLng"), maxItems=10, description="v0.18.41 §66: " + C["routeVia"]["request"])}, ["mode", "from", "to"])
 S["RoadRoute"] = obj({"points": arr(ref("LatLng"), minItems=2, description="The road geometry, in order."), "distanceMeters": i(minimum=0),
                       "durationSeconds": ref("DurationSeconds"), "provider": s(examples=["osrm"])}, ["points"],
                      "Road route for drawing. ETA shown to the rider stays TripProjection.etaSeconds.")
@@ -1043,7 +1044,9 @@ S["ZoneSupply"] = obj(OrderedDict([("zoneId", ref("Id")), ("online", i(minimum=0
                       ["zoneId", "online", "free", "busy", "waiting", "level", "shortage"], "v0.18.4 (G3-D5): " + DS["note"])
 S["LiveDriverList"] = obj({"zoneSupply": arr(ref("ZoneSupply"), description="v0.18.4 (G3-D5): supply and demand per zone; the Dashboard's rows and shortage alert."),"items": arr(ref("LiveDriver")), "staleAfterSeconds": {**i(minimum=1), "default": LD["staleAfterSeconds"]}, "serverTime": ref("Timestamp"),
                            "ridersOnline": arr(ref("ZoneRidersOnline"), description="v0.18.4 (G3-R4): real riders online per zone of the admin, the Dashboard's 'Riders online'."),
-                           "ridersOnlineWindowSeconds": {**i(minimum=1), "default": C["driverHome"]["ridersOnline"]["windowSeconds"]}},
+                           "ridersOnlineWindowSeconds": {**i(minimum=1), "default": C["driverHome"]["ridersOnline"]["windowSeconds"]},
+                           "total": {**i(minimum=0), "description": "v0.18.34 §65: " + C["liveDriversPaging"]["total"]},
+                           "nextCursor": {"oneOf": [s(), {"type": "null"}], "description": "v0.18.34 §65: " + C["liveDriversPaging"]["paging"]}},
                           ["items", "staleAfterSeconds", "serverTime"], f"Drivers on the admin live map; the panel polls about every {LD['pollSeconds']} s.")
 S["TripTrace"] = obj({"tripId": ref("Id"), "fixes": arr(ref("GeoFix"), description="In time order."), "keptUntil": ref("Timestamp")}, ["tripId", "fixes"],
                      f"The trip's GPS trace; deleted {LD['traceKeepDays']} days after the trip (owner decision 11).")
@@ -1903,7 +1906,7 @@ op("post", "/locations/geocode", "geocodeAddress", "Coordinates for an address o
 op("post", "/locations/reverse-geocode", "reverseGeocode", "Address of a point", ["rider", "driver"], "Maps",
    body="ReverseGeocodeRequest", ok=(200, "ReverseGeocodeResult"), read_only=True, desc="Bad coordinates → 400 invalid_request (invalid_coordinates).")
 op("post", "/routes", "routeBetween", "Road route between two points (Movera OSRM)", ["rider", "driver"], "Maps",
-   body="RouteRequest", ok=(200, "RoadRoute"), read_only=True, desc="No route → 404 not_found (reason no_route); the app then draws a straight line. lat / lng as everywhere else.")
+   body="RouteRequest", ok=(200, "RoadRoute"), read_only=True, desc="No route → 404 not_found (reason no_route); the app then draws a straight line. lat / lng as everywhere else. v0.18.41 §66: " + C["routeVia"]["fallback"])
 op("get", "/routes/driving/{coordinates}", "osrmDrivingRoute", "Turn-by-turn route for driver navigation (OSRM v5 pass-through)", ["driver"], "Maps",
    params=[{"name": "coordinates", "in": "path", "required": True, "description": C["maps"]["osrm"]["coordinates"],
             "schema": {"type": "string", "pattern": r"^-?\d+(\.\d+)?,-?\d+(\.\d+)?(;-?\d+(\.\d+)?,-?\d+(\.\d+)?){1,9}$"}},
@@ -1947,8 +1950,9 @@ op("put", "/admin/zones/{zoneId}/dispatch-control", "adminPutDispatchControl", "
    desc="CONTRACT.md §3.6. v0.7.2 (one admin is enough): pause, force a mode, resume and back to rules run at once (200) for every admin with dispatch.edit. "
         "Forcing a mode that is off → 400 invalid_request (mode_off). Running searches stop new offers while paused; a forced mode applies to new searches.")
 op("get", "/admin/live/drivers", "adminLiveDrivers", "Driver positions for the admin live map", ["admin"], "Admin · Dispatch",
-   params=ZF, ok=(200, "LiveDriverList"), permission="trips.read",
-   desc="Limited to the zones in the admin's scope. stale = no fix for staleAfterSeconds." + ZF_DESC)
+   params=ZF + [q("limit", i(minimum=1, maximum=1000), "v0.18.34 §65: page size; without it every driver in one answer."), q("cursor", s(minLength=1, maxLength=128), "v0.18.34 §65: the nextCursor of the page before.")],
+   ok=(200, "LiveDriverList"), permission="trips.read",
+   desc="Limited to the zones in the admin's scope. stale = no fix for staleAfterSeconds. v0.18.34 §65: " + C["liveDriversPaging"]["adminLiveCard"] + ZF_DESC)
 DDF = C["dispatchDriverFacts"]
 def _nn(desc, **kw): return {"oneOf": [n(**kw), {"type": "null"}], "description": desc}
 def _ni(desc, **kw): return {"oneOf": [i(**kw), {"type": "null"}], "description": desc}

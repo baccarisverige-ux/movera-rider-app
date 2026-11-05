@@ -27,7 +27,7 @@ import 'package:movera_rider/features/active_ride/presentation/route_change_flow
     show routeStopMarkers;
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
-import 'package:movera_rider/core/maps/straight_line.dart';
+import 'package:movera_rider/features/ride_booking/application/trip_route_line.dart';
 import 'package:movera_rider/core/performance/route_transition_metrics.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
@@ -264,9 +264,9 @@ class _SelectRideState extends State<SelectRide>
       );
   bool _mapReady = false;
 
-  /// uat-r1: the road for the pickup → destination leg, drawn in place of
-  /// the straight first-paint line once the routing seam answers.
+  /// uat-r1/A14: the road pickup → stops → destination, and whether a leg had no road.
   List<LatLng>? _roadRoutePoints;
+  bool _roadApproximate = false;
   Stopwatch? _nextMapReadyWatch;
   bool _mapMountScheduled = false;
   bool _mapParked = false;
@@ -468,32 +468,24 @@ class _SelectRideState extends State<SelectRide>
     }
   }
 
-  /// uat-r1 (owner's iPhone report): this map drew its own straight
-  /// pickup → destination line and never asked the routing seam for the
-  /// road. The straight line is only the first paint now; the road route
-  /// replaces it when the provider answers, also when it answers late. A
-  /// provider failure keeps the straight line and never reaches the
-  /// screen. With stops the straight line stays, as on Finding.
+  /// uat-r1/A14: the straight first paint is replaced by the road through
+  /// every stop when the routing seam answers, also late; a failure keeps
+  /// what is drawn and never reaches the screen.
   Future<void> _refreshRoadRoute() async {
-    if (_locatedStops.isNotEmpty) return;
     final from = _pickupPosition;
-    final to = widget.destinationPosition;
-    final Polyline route;
-    try {
-      route = await roadRoutePolyline(
-        id: 'route',
-        from: from,
-        to: to,
-        color: RiderRouteStyle.color,
-      );
-    } catch (_) {
-      return;
-    }
-    if (!mounted || route.points.length < 2) return;
-    // The pickup moved (or stops arrived) while this answer was on its
-    // way: the newer request draws the line.
-    if (from != _pickupPosition || _locatedStops.isNotEmpty) return;
-    setState(() => _roadRoutePoints = route.points);
+    final stops = _locatedStops;
+    final route = await roadTripLine(
+      from: from,
+      stops: stops,
+      to: widget.destinationPosition,
+    );
+    if (!mounted || route == null) return;
+    // The pickup or the stops changed meanwhile: the newer request draws.
+    if (from != _pickupPosition || !identical(stops, _locatedStops)) return;
+    setState(() {
+      _roadRoutePoints = route.points;
+      _roadApproximate = route.approximate;
+    });
     // Owner N6: a road that answers after the rider pinched or panned the
     // map leaves their camera alone (it snapped back to the overview).
     if (AppScope.instance.maps.movedByHand) return;
@@ -524,8 +516,9 @@ class _SelectRideState extends State<SelectRide>
       generation: generation,
       pickup: _pickupAddress,
       destination: widget.destinationAddress,
-      distanceMeters: straightLineMeters(
+      distanceMeters: tripStraightMeters(
         _pickupPosition,
+        stops,
         widget.destinationPosition,
       ),
       pickupPoint: _geoPoint(_pickupPosition),
@@ -1077,12 +1070,12 @@ class _SelectRideState extends State<SelectRide>
     if (mounted) {
       setState(() {
         _locatedStops = List.unmodifiable(located);
-        // uat-r1: with stops the line goes through them, not along the
-        // road from pickup straight to the destination.
+        // A14: the line goes through the stops, by road once it answers.
         if (located.isNotEmpty) _roadRoutePoints = null;
         _stopsNotice = _stopsLeftOutNotice(notFound: notFound, failed: failed);
         _stopsRetry = failed.isNotEmpty;
       });
+      if (located.isNotEmpty) unawaited(_refreshRoadRoute());
     }
     return located;
   }
@@ -1194,10 +1187,13 @@ class _SelectRideState extends State<SelectRide>
                                     points: _roadRoutePoints!,
                                     color: RiderRouteStyle.color,
                                   )
-                                : routePolyline(
+                                : resolvedRoutePolyline(
                                     id: 'route',
-                                    from: _pickupPosition,
-                                    to: widget.destinationPosition,
+                                    points: straightTripLine(
+                                      _pickupPosition,
+                                      _locatedStops,
+                                      widget.destinationPosition,
+                                    ),
                                     color: RiderRouteStyle.color,
                                   ),
                           ),
@@ -1258,9 +1254,8 @@ class _SelectRideState extends State<SelectRide>
                     : const SelectRideRouteCanvas(),
               ),
             ),
-            // Owner N2: no road route, only the direct line: say so.
-            if (showLiveMap &&
-                ApproximateRouteBadge.isStraight(_roadRoutePoints))
+            // Owner N2/A14: a leg without road (direct line): say so.
+            if (showLiveMap && _roadRoutePoints != null && _roadApproximate)
               Positioned(
                 left: 12,
                 bottom: minSheet + 12,
