@@ -935,6 +935,7 @@
   "resErrZoneOff": "Pas encore disponible dans cette zone",
   "bookingFreeRule": "Modification et annulation gratuites plus de {time} avant la prise en charge",
   "scheduleForLaterChip": "Réserver une course pour plus tard",
+  "bookedDriverOnTheWay": "Votre chauffeur réservé est en route",
   "findingDriver": "Recherche de votre chauffeur",
   "findingYourAddress": "Recherche de votre adresse…",
   "destinationLabel": "Destination {address}",

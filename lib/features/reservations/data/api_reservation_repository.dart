@@ -201,12 +201,12 @@ class ApiReservationRepository
       paymentMethod: patch.paymentMethod ?? current.paymentMethod,
     );
     final trip = await _refusals(
-      () => _api.post(
-        '$tripsPath/${Uri.encodeComponent(reservationId)}/reschedule',
-        body: {
-          'quoteId': quoted['quoteId'],
-          'expectedVersion': _versions[reservationId] ?? 1,
-        },
+      () => _withVersion(
+        reservationId,
+        (version) => _api.post(
+          '$tripsPath/${Uri.encodeComponent(reservationId)}/reschedule',
+          body: {'quoteId': quoted['quoteId'], 'expectedVersion': version},
+        ),
       ),
     );
     return _keep(trip);
@@ -221,12 +221,15 @@ class ApiReservationRepository
     if (!_versions.containsKey(reservationId)) {
       await getReservation(reservationId);
     }
-    final trip = await _api.post(
-      '$tripsPath/${Uri.encodeComponent(reservationId)}/cancel',
-      body: {
-        'expectedVersion': _versions[reservationId] ?? 1,
-        'reasonCode': riderReasonCode(reason),
-      },
+    final trip = await _withVersion(
+      reservationId,
+      (version) => _api.post(
+        '$tripsPath/${Uri.encodeComponent(reservationId)}/cancel',
+        body: {
+          'expectedVersion': version,
+          'reasonCode': riderReasonCode(reason),
+        },
+      ),
     );
     return _keep(trip);
   }
@@ -293,6 +296,24 @@ class ApiReservationRepository
         reason,
         limit: number == null ? null : int.tryParse(number),
       );
+    }
+  }
+
+  /// v0.18.32 (contract.json#bookedRideSeen.versionRetry, fix job 2 L3):
+  /// sends with the version held; a 409 `version_mismatch` carries the
+  /// trip, so its version is kept and the command is sent once more. A
+  /// second refusal reaches the rider.
+  Future<Map<String, dynamic>> _withVersion(
+    String reservationId,
+    Future<Map<String, dynamic>> Function(int version) send,
+  ) async {
+    try {
+      return await send(_versions[reservationId] ?? 1);
+    } on ApiError catch (error) {
+      final fresh = error.projection?['version'];
+      if (error.code != 'version_mismatch' || fresh is! num) rethrow;
+      _versions[reservationId] = fresh.toInt();
+      return send(fresh.toInt());
     }
   }
 

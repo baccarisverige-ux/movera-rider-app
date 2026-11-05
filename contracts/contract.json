@@ -3716,6 +3716,20 @@
     "clients": "All three apps treat 503 unavailable (server_busy) like 429: retryable, wait Retry-After (else a short backoff), then try again; nothing is shown as a failure while retries remain.",
     "reads": "Live settings documents are kept in memory (at most 15 s; emptied at once by every config_published). GET /driver/offers reads the offers' trips in one query. GET /admin/live/drivers reads only drivers of the admin's zones and their current trips in one query."
   },
+  "bookedRideSeen": {
+    "note": "v0.18.32 (fix job 2 'Rider sees booked ride', Rules plan/FIX-JOBS-2-4-5-7-PLAN-2026-11-04.md L2, L3, L33, Q5 popup; plan/LIVE-50x50-FIX-PLAN-2026-11-04.md P21 / B-n; owner fix-plan Q5 2026-11-04 'from leave time a booked ride = a regular ride' and job-2 answers Q1-Q3, Rules decisions/driver-g15.md). Additive; X-Api-Version stays 0.5; no migration.",
+    "activeTrip": "GET /rider/trips/active returns the rider's non-terminal live trip; when there is none, the rider's non-terminal booked trip (kind scheduled) whose driver has started driving to the pickup at least once (the trip reached driver_to_pickup). It stays returned while a new driver is searched for, offered or accepted after the first one gave it back. Before the driver starts driving the booked ride is not returned: it lives under Upcoming (GET /rider/trips?kind=scheduled). From then on the rider app shows the normal ride screens (driver on the way, arrived, on trip, receipt).",
+    "liveWins": "Owner Q1 2026-11-05 'Live ride + banner': when a live trip and a started booked trip are both active, the live trip is returned and stays on screen; the rider app shows a banner 'Your booked driver is on the way' while GET /rider/trips?kind=scheduled&status=driver_to_pickup&status=arrived lists a trip. When the live trip ends, the next read returns the booked trip.",
+    "driverChanged": "Owner Q2 2026-11-05: a booked driver who gives the ride back before he started driving changes nothing the rider sees (silent swap). After he started driving the rider sees the normal 'Searching for a new driver' (status searching / offered), then the new driver heading to the pickup like a normal trip.",
+    "noLateMessage": "Owner Q3 2026-11-05 'Nothing he already track the trip on his screen': no late message to the rider when a booked driver is late but keeps the ride.",
+    "riderTripEvent": "P21 / B-n: GET /rider/config/stream also carries rider_trip_changed { eventId, kind: 'rider_trip_changed', tripId, occurredAt, serverTime } for every event of any trip of the signed-in rider (created, accepted, every status change; also a trip made by an admin, the API or another phone). Its SSE id is the app document version already sent (as for zones and content), so Last-Event-ID stays that version. The rider app reads GET /rider/trips/active (and its Upcoming list) again on it.",
+    "pollFallback": "While the rider's Home shows no trip and the app is in front, the app also reads GET /rider/trips/active every pollSeconds, in case the stream is down.",
+    "pollSeconds": 8,
+    "leaveNowName": "Push reservation_leave_now (driver) carries data.riderFirstName (the trip's rider first name; may be empty, then the title ends without ' · ') and the title 'Time to drive to pickup · {riderFirstName}'. GET /driver/reservations?scope=accepted rows carry the same riderFirstName. The driver app's popup shows that title with a Start button that opens the normal trip screen; no new screen.",
+    "rulesSource": "The rider app reads its booked-ride rules from GET /rider/config: booking.freeChangeBeforeMin (free change and cancel before pickup) and cancelFees.reservation (the fee per category); the driver is shown from driver_to_pickup on (bookLater.liveFixes.driverShown). GET /rider/scheduled-rides/rules was PROPOSED, is not served and is not used.",
+    "versionRetry": "A 409 version_mismatch on a trip command (reschedule, cancel, raise-price) carries projection (the caller's own view, contract errors). Clients take projection.version and retry the same command once; a second 409 is shown to the person. The rider app also keeps the version from every list read, trip stream event and answer.",
+    "admin": "Admin Trips: a booked trip from driver_to_pickup on shows the label 'Booked ride · now live' next to its status (the trip view itself is unchanged). No setting."
+  },
   "errors": {
     "shape": "{ code, message, requestId, retryable, reason?, projection?, details? }",
     "details": "v0.14.0: optional string[] detail list; documents_not_approved lists the missing or unapproved required document types",
@@ -4188,7 +4202,7 @@
         "solved": "Owner A2 'Alert become green color with new info': the cause ended by itself (e.g. a driver took the ride). The alert STAYS visible, shown GREEN with solvedText (e.g. 'Driver Ali took it 17:48'); an admin can still take it and mark it done. If the same cause comes back before anyone marks it done, the same alert is open again (solved info cleared).",
         "done": "An admin marked it done (AlertRecord status done): it leaves the open list. While the cause is still there no new alert is made for it; once the cause ended and comes back later, a new alert (new alertId) starts."
       },
-      "liveAlert": "LiveAlert { alertId, causeKey, kind, level critical | important | info, title, titleT { t, a[] }, detail, detailT? { t, a[] }, zoneId?, country, since, state open | solved, solvedAt?, solvedText?, solvedT? { t, a[] }, ref { tripId?, driverId?, riderId?, incidentId?, rideCheckId?, ticketId?, payoutId?, refundId?, ruleId? } }. title / detail / solvedText are English; titleT / detailT / solvedT are the same text as an English template with {0}, {1} places and its values, which the panel shows in sv / fr / en. Times in texts are HH:MM in the zone's time zone.",
+      "liveAlert": "LiveAlert { alertId, causeKey, kind, level critical | important | info, title, titleT { t, a[] }, detail, detailT? { t, a[] }, zoneId?, country, since, state open | solved, solvedAt?, solvedText?, solvedT? { t, a[] }, old? (v0.18.31, true only on an old SOS / safety case, see alertsOldList), oldSince? (v0.18.31), ref { tripId?, driverId?, riderId?, incidentId?, rideCheckId?, ticketId?, payoutId?, refundId?, ruleId? } }. title / detail / solvedText are English; titleT / detailT / solvedT are the same text as an English template with {0}, {1} places and its values, which the panel shows in sv / fr / en. Times in texts are HH:MM in the zone's time zone.",
       "settings": {
         "note": "The server reads the country's alert settings document (PUT /admin/alerts/settings): kinds[kind] { on, level, limits { info, important, critical } } and zones[zoneId] (below); missing values use the defaults here and in kindDefaults. A kind switched off makes no alerts; its open alerts are solved.",
         "zones": "zones[zoneId] { bookedAtRiskMin, liveAtRiskMin, fewDriversLimit, noDriverLimit } — owner A1: the at-risk minutes are an admin setting per zone, separate for booked and live rides.",
@@ -7137,9 +7151,9 @@
         },
         "reservation_leave_now": {
           "title": {
-            "sv": "Starta nu mot upphämtningen",
-            "fr": "Partez maintenant vers la prise en charge",
-            "en": "Start now towards the pickup"
+            "sv": "Dags att köra till upphämtningen · {riderFirstName}",
+            "fr": "C'est l'heure d'aller à la prise en charge · {riderFirstName}",
+            "en": "Time to drive to pickup · {riderFirstName}"
           },
           "body": {
             "sv": "Kör nu för att vara framme {early} min före kl. {time}.",
@@ -7430,7 +7444,7 @@
       "rider": "riderErrorKind maps 429 / rate_limited / too_many_requests to rateLimited and shows the wait from Retry-After",
       "admin": "ApiError.retryable from the body, Retry-After read into retryAfterSeconds; reads retry at most twice and wait Retry-After (at most 60 s) before retrying; message 'Too many attempts. Wait N s.'"
     }
-    },
+  },
   "previewSession": {
     "version": "0.18.25",
     "note": "BASE job 'admin real app preview' (Rules plan/BASE-JOBS-SPEC-2026-11-04.md §1; owner P1 a, P2 b, P3 a, 2026-11-04). The admin panel shows the REAL rider and driver web apps inside a phone frame on every page that showed a drawn sample phone (Content, Design, Messages, Bonuses, Promos, Riders). The apps talk to the live server with a preview token; every real action is blocked.",
@@ -7677,8 +7691,17 @@
       "dates": "B-l: admin date filters show and take dates in the admin's language format (sv YYYY-MM-DD, fr DD/MM/YYYY, en DD/MM/YYYY); the wire stays ISO YYYY-MM-DD."
     }
   },
+  "alertsOldList": {
+    "note": "v0.18.31 (owner Q-Bj 2026-11-05 'Never auto-close', Rules decisions/driver-g15.md; pre-merge B-j/P20). Builds on v0.18.30 main. Additive; X-Api-Version stays 0.5.",
+    "rideCheck": "A ride_check alert turns solved (green, kept, owner A2) once its trip has ended (trip status completed, cancelled_*, no_show or expired, or the trip's end time set). solvedT: 'Trip ended {0}'.",
+    "neverAutoClose": "SOS and safety alerts (kinds sos, sos_slow, car_lost) are NEVER closed or solved by the server while their incident is open or investigating: only an admin closes them (Incidents) or marks them done.",
+    "old": "When the alert's trip ended more than oldAfterHours ago, the alert stays open and LiveAlert carries old: true and oldSince (= trip end + oldAfterHours). An alert without a trip never becomes old. old is missing on every other alert.",
+    "oldAfterHours": 24,
+    "admin": "The Alerts page shows old alerts only in a separate 'Old' tab (sv 'Gamla', fr 'Anciennes', en 'Old'), never in the open list; an admin can still take and close them there.",
+    "apps": "Rider and driver apps: no change (RULE 0 check only)."
+  },
   "afterTestRules": {
-    "note": "v0.18.33 (fix job 5 'After-test rules', ledger R25/L36/R28/R29; owner fix-plan Q1/Q3 2026-11-04 and fix plan 2/4/5/7 Q5/Q6/Q7, Rules decisions/driver-g15.md). Numbered after 0.18.29-0.18.32 (other open jobs). CONTRACT.md §58. Additive; X-Api-Version stays 0.5.",
+    "note": "v0.18.33 (fix job 5 'After-test rules', ledger R25/L36/R28/R29; owner fix-plan Q1/Q3 2026-11-04 and fix plan 2/4/5/7 Q5/Q6/Q7, Rules decisions/driver-g15.md). Builds on v0.18.32 main. CONTRACT.md §58. Additive; X-Api-Version stays 0.5.",
     "earlyEnd": {
       "rule": "Owner fix-plan Q1: a driver who ends before the drop-off re-prices the trip only when it is BOTH more than repriceOverKm km AND more than repriceOverMin minutes shorter than booked (before: either one). Example (2 km / 10 min): 3 km and 5 min shorter = the booked price stands; 3 km and 12 min shorter = the driven price (never more than booked).",
       "defaults": "DriverAppConfig.cancelFees.earlyEnd { repriceOverKm 2, repriceOverMin 10 } (configDefaults.earlyEnd; ranges unchanged). A trip keeps the numbers of booking time (bookingSnapshot earlyEnd); a trip booked before v0.18.33 keeps its stored numbers but is judged with the BOTH rule.",
@@ -7686,15 +7709,15 @@
     },
     "bookedCancel": {
       "rule": "Owner fix-plan Q3: a rider who cancels a booked ride less than freeChangeBeforeMin minutes (default 60) before pickup always pays the reservation cancel fee of booking time (RiderAppConfig.cancelFees, reservation), also when no driver has taken the ride yet. More than freeChangeBeforeMin before pickup stays free.",
-      "noDriver": "Owner Q5 ('Movera keeps it'): with no driver yet the whole fee is Movera's (cancellation.driverShare 0, no driver earnings). TripProjection.cancellation { fee, feeStatus owed, feeKind cancel } as for any rider cancel fee; the fee is owed by the rider (outstandingFee). A booked ride whose pickup time has passed with still no driver is always free to cancel (Movera did not deliver it).",
+      "noDriver": "Owner Q5 ('Movera keeps it'): with no driver yet the whole fee is Movera's (cancellation.driverShare 0, no driver earnings). TripProjection.cancellation { fee, feeStatus owed, feeKind cancel } as for any rider cancel fee; the fee is owed by the rider (outstandingFee). A booked ride whose pickup time has passed with still no driver is always free to cancel (Movera did not deliver it): owner Q-P17 (Rules decisions/driver-g15.md, 'booked ride past pickup with no driver … rider told, no fee').",
       "apps": "Rider: the cancel sheet shows the fee under freeChangeBeforeMin minutes before pickup even with no driver (sv 'Avbokning mindre än {min} min före hämtning kostar {fee}', fr 'Annuler moins de {min} min avant la prise en charge coûte {fee}', en 'Cancelling less than {min} min before pickup costs {fee}'). Admin › Book later: freeChangeBeforeMin help text 'Cancel under (min) costs the fee, even before a driver takes it'."
     },
     "bookedNext": {
       "rule": "Owner Q7 + answer 2026-11-05 ('Driver on trip can receive exclusive (can be exclusive trip or reservation but it's exclusive! Any kind of exclusive) but driver receives trip when he soon arrives to drop off! Maybe 70% of the route to drop'): a driver on a trip gets only Exclusive offers (never Radar, never a list), for a live ride or a booked ride alike, and only once the rider is on board and he has driven at least CountryRules.onTripOffers.minRouteDonePct (default 70) % of his current trip's route: done = 1 − (dispatchKm from his position to its drop-off) / (its booked km). A booked ride also needs its pickup at most bookedNext.withinMin minutes away and his current trip (+ the drive from its drop-off) to end by the booked time. km and the score are counted from the current trip's drop-off.",
       "settings": "DispatchDocument.bookedNext { on (default true), withinMin (default 60, 0-240) } — Admin › Dispatch, per zone: 'Driver on a trip can get a booked ride starting within (min)' + on/off. Missing = the defaults.",
       "accept": "POST /offers/{offerId}/accept of such an Exclusive while his current trip runs: a booked ride is a held accept (reservation.held true, as a list accept); a live ride is queued as his next trip (TripProjection status accepted, trips.next_after_trip_id = his current trip; no ETA, heading check or waiting until it starts). He stays on his current trip; when it ends (complete, end early, any cancel) the queued trip starts at once (driver_to_pickup clock, ETA). The leave-now check and the late rule still apply to a booked ride. Any other offer while on a trip is still 409 driver_on_trip.",
-      "driverApp": "Driver app: during the current trip a card 'Next: booked ride at {time}' (sv 'Nästa: bokad resa kl. {time}', fr 'Suivante : course réservée à {time}'); after Complete the booked ride's pickup opens (leave-now as today).",
-      "liveRides": "Live rides: also offered as Exclusive under the same 70 % rule, only when the zone's exclusiveWhileDriving is on (Admin › Dispatch › Exclusive while driving) — owner answer 2026-11-05. Before v0.18.33 a driver on a trip got no offers at all (owner decision 10)."
+      "driverApp": "Driver app (owner 2026-11-05 'Add on sheet when on trip after accept second trip or if its time to drive to reservation! Notification popup after finish current trip'): during the current trip a next-trip card on the trip sheet: a queued live trip 'Next: {rider} · after this trip' (sv 'Nästa: {rider} · efter den här resan', fr 'Suivante : {rider} · après cette course'), or a held booked ride whose time to drive is near (leaveAt within 30 min, else pickup within 60 min) 'Next: booked ride at {time}' (sv 'Nästa: bokad resa kl. {time}', fr 'Suivante : course réservée à {time}'), with its pickup and 'After this trip, drive to the pickup'. The card goes away when that trip is cancelled. After the current trip ends, the next trip the server started (queued live, or a booked ride whose leave time came) opens on screen automatically with an information popup: title 'Your next trip' (sv 'Din nästa resa', fr 'Votre prochaine course'), body '{rider} is waiting at {pickup}. Drive there now.' / 'Booked ride at {time} · {pickup}. Drive to the pickup now.', and ONE button OK (sv/fr 'OK') that only closes it — it accepts or declines nothing.",
+      "liveRides": "Live rides: offered as Exclusive under the same 70 % rule in every zone — no zone switch (owner answer 2026-11-05 'any kind of exclusive'; the zone's exclusiveWhileDriving does not gate it). Before v0.18.33 a driver on a trip got no offers at all (owner decision 10)."
     },
     "walletFirst": {
       "rule": "Owner Q6 ('Switch per ride, starts ON'): CreateTripRequest.walletFirst (default true when missing). true = the rider's wallet balance in the trip's currency pays first: POST /trips reserves walletApplied = min(balance in that currency, fare) and TripProjection.walletApplied / cashToCollect show it from booking on; it is worked out again at boarding (never more than the balance). false = this trip pays nothing from the wallet (walletApplied 0). Another currency's balance is never used (contract.json#walletCurrency).",

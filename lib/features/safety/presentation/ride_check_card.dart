@@ -4,6 +4,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/features/active_ride/presentation/booked_driver_banner.dart';
 import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_questions.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
@@ -222,7 +223,9 @@ class _RideCheckLayerState extends State<RideCheckLayer>
   Widget build(BuildContext context) {
     final session = _ctl.sessionFor(widget.rideId);
     final shown = session ?? _shown;
-    if (shown == null) return const SizedBox.shrink();
+    // v0.18.32 owner Q1: with no ride check, this layer (on every live ride
+    // screen) carries the "booked driver on the way" banner.
+    if (shown == null) return const BookedDriverBanner();
     final media = MediaQuery.of(context);
     final answering = session != null;
     return PopScope(

@@ -1194,8 +1194,10 @@ paths:
   /rider/trips/active:
     get:
       operationId: getRiderActiveTrip
-      summary: The rider's current non-terminal live trip
-      description: 204 when there is none.
+      summary: The rider's current non-terminal live trip, else a booked trip whose driver started driving
+      description: '204 when there is none. v0.18.32 (contract.json#bookedRideSeen): a booked trip (kind scheduled) is returned
+        once it reached driver_to_pickup, until it ends; a live trip wins when both are active (owner Q1, the app shows a
+        banner for the booked one).'
       tags:
       - Rider · Booking
       x-actor:
@@ -1364,8 +1366,9 @@ paths:
             text/event-stream:
               schema:
                 type: string
-                description: Server-sent events. Each SSE `data:` line is one JSON ConfigEvent; `id:` is the sequence; heartbeat
-                  comments every 15 s.
+                description: 'Server-sent events. v0.18.32: also RiderTripEvent (kind rider_trip_changed) for the signed-in
+                  rider''s trips, id = the document version already sent. Each SSE `data:` line is one JSON ConfigEvent; `id:`
+                  is the sequence; heartbeat comments every 15 s.'
               x-sse-data: '#/components/schemas/ConfigEvent'
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -25193,6 +25196,28 @@ components:
           $ref: '#/components/schemas/Timestamp'
         serverTime:
           $ref: '#/components/schemas/Timestamp'
+    RiderTripEvent:
+      type: object
+      description: 'v0.18.32 (contract.json#bookedRideSeen.riderTripEvent, P21): a trip of this rider changed (made, accepted,
+        any status), also when made elsewhere. The rider app reads GET /rider/trips/active again.'
+      required:
+      - eventId
+      - kind
+      - tripId
+      - occurredAt
+      - serverTime
+      properties:
+        eventId:
+          $ref: '#/components/schemas/Id'
+        kind:
+          type: string
+          const: rider_trip_changed
+        tripId:
+          $ref: '#/components/schemas/Id'
+        occurredAt:
+          $ref: '#/components/schemas/Timestamp'
+        serverTime:
+          $ref: '#/components/schemas/Timestamp'
     Error:
       type: object
       required:
@@ -31472,6 +31497,10 @@ components:
         popup:
           type: boolean
           description: The Home popup step was reached (reservation_popup sent).
+        riderFirstName:
+          type: string
+          description: 'v0.18.32 (contract.json#bookedRideSeen.leaveNowName): scope=accepted only, the rider''s first name
+            for the leave-now popup.'
         reservation:
           allOf:
           - $ref: '#/components/schemas/ReservationInfo'

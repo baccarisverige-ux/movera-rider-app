@@ -81,6 +81,7 @@ void main() {
     // PR that changes a text updates these to the values the failure prints.
     const before = {
       'en': (
+<<<<<<< HEAD
         'ad6ad5900c7dcb3ebfde56af25f3e7dd2acf8559637acbf1dc6c5f76ac843cec',
         2018,
       ),
@@ -91,6 +92,18 @@ void main() {
       'sv': (
         'eab6b755028cd446ea45fcc5bfc20bfb5ea193b22ab74aae050da156cde4729f',
         1665,
+=======
+        '07ffd60fdb7f688c4b59e063e53c1288e72e4a7bcf39041ccf8f7e32ad0041ec',
+        2016,
+      ),
+      'fr': (
+        'c6d041c603a07e5d2e11be67e5f78539e29f588a8b3f8493ad69cae0412d72ea',
+        1664,
+      ),
+      'sv': (
+        'dffcdb6e31e3910246546d3d8bfb0be8ca257b628b973daca051f00c0459c226',
+        1664,
+>>>>>>> origin/main
       ),
     };
     for (final lang in _langs) {
