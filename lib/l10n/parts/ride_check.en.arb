@@ -1,0 +1,186 @@
+{
+  "rcYes": "Yes",
+  "rcNo": "No",
+  "rcNotSure": "Not sure",
+  "rcMe": "Me",
+  "rcTheDriver": "The driver",
+  "rcSomeoneElse": "Someone else",
+  "rcQAnyoneHurt": "Is anyone hurt?",
+  "rcQCarSafePlace": "Is the car in a safe place?",
+  "rcQOtherPersonOk": "Is the other person OK?",
+  "rcQWhoNeedsHelp": "Who needs help?",
+  "rcQInDanger": "Are you in danger right now?",
+  "rcQCanContinue": "Can you continue the trip?",
+  "rcThanksSaved": "Thanks, this is saved to the trip.",
+  "rcRowAccident": "There was an accident",
+  "rcRowHurt": "Someone is hurt or feels ill",
+  "rcRowUnsafe": "I feel unsafe",
+  "rcRowCarBrokeDown": "The car broke down",
+  "rcRowSomethingElse": "Something else",
+  "rcRowWrongPlace": "I was left at the wrong place",
+  "rcRowAskedToLeave": "The driver asked me to leave the car",
+  "rcRowAskedStop": "I asked the driver to stop",
+  "rcRowAskedRoute": "I asked for this route",
+  "rcHeadAccident": "Accident",
+  "rcHeadSomeoneHurt": "Someone hurt",
+  "rcHeadUnsafe": "Unsafe",
+  "rcHeadCarProblem": "Car problem",
+  "rcHeadSomethingElse": "Something else",
+  "rcHeadWrongPlace": "Wrong place",
+  "rcHeadAskedToLeave": "Asked to leave",
+  "rcHeadStop": "Stop",
+  "rcHeadRoute": "Route",
+  "rcImOk": "I'm OK",
+  "rcCalled112": "Called 112",
+  "rcNoAnswerYet": "No answer yet",
+  "rcTriggerDroppedFar": "Dropped far away",
+  "rcTriggerLongStop": "Long stop",
+  "rcTriggerOffRoute": "Off the route",
+  "rcTriggerPossibleCrash": "Possible crash",
+  "rcReasonEndedBefore": "Your trip ended ",
+  "rcReasonFromDropoff": " from your drop-off",
+  "rcReasonFromPlace": " from {place}",
+  "@rcReasonFromPlace": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "rcReasonStoppedBefore": "Your car has stopped for ",
+  "rcReasonLongerBefore": "Your trip is taking ",
+  "rcReasonLongerAfter": " longer than expected",
+  "rcReasonOffRouteBefore": "Your car is ",
+  "rcReasonOffRouteAfter": " off the route",
+  "rcReasonCrashBefore": "We noticed a ",
+  "rcReasonCrashBold": "very hard stop",
+  "rcIsEverythingOk": "Is everything OK?",
+  "rcRideCheck": "Trip check",
+  "rcHeaderCaps": "RIDE CHECK",
+  "rcHeaderCapsWith": "RIDE CHECK · {heading}",
+  "@rcHeaderCapsWith": {
+    "placeholders": {
+      "heading": {
+        "type": "String"
+      }
+    }
+  },
+  "rcTellWhatHappened": "Or tell us what happened",
+  "rcTellWhatsHappening": "Or tell us what's happening",
+  "rcCall112": "Call 112",
+  "rcAnswerSaved": "Your answer is saved to this trip.",
+  "rcWhatHappened": "What happened?",
+  "rcAnswersSaved": "Your answers are saved to this trip.",
+  "rcCall112NowSemantics": "Call 112 now. If someone is hurt or in danger, call emergency services.",
+  "rcCall112Now": "Call 112 now",
+  "rcCall112NowBody": "If someone is hurt or in danger, call emergency services.",
+  "rcSent": "Sent",
+  "@rcSent": {"description": "Ride check (live builds): the answer reached Movera. Nothing else is shown."},
+  "rcAlertSentTitle": "Movera safety team alerted",
+  "rcAlertSentBody": "Trip, driver and rider details were sent.",
+  "rcAlertSendingTitle": "Alerting the Movera safety team…",
+  "rcAlertSendingBody": "Sending trip, driver and rider details.",
+  "rcAlertFailedTitle": "Couldn't reach Movera",
+  "rcAlertFailedBody": "Call 112 if you need help. Tap to try again.",
+  "rcStopRecordingSemantics": "Stop recording. Saved only on this phone.",
+  "rcRecordAudioSemantics": "Record audio. Saved only on this phone.",
+  "rcRecordingClock": "Recording {clock}",
+  "@rcRecordingClock": {
+    "placeholders": {
+      "clock": {
+        "type": "String"
+      }
+    }
+  },
+  "rcRecordAudio": "Record audio",
+  "rcTapToStop": " · tap to stop",
+  "rcSavedOnPhone": " · saved only on this phone",
+  "rcAFewWords": "A few words",
+  "rcPageIntro": "When something on a trip looks wrong, Ride check asks if everything is OK. You can call 112 from it at any time.",
+  "rcAlertsToggle": "Trip check alerts",
+  "rcLooksFor": "What trip check looks for",
+  "rcSetByMovera": "Set by Movera.",
+  "rcFinishedFarTitle": "Finished far from drop-off",
+  "rcFinishedFarBody": "Your driver finishes the trip more than {km} km from your drop-off.",
+  "@rcFinishedFarBody": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "rcLongStopBody": "The car stops for more than {minutes} min, not at a planned stop.",
+  "@rcLongStopBody": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "rcOffRouteBody": "More than {km} km off the route, or the trip {percent}% longer than expected.",
+  "@rcOffRouteBody": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "rcCrashBody": "A very hard stop. The card opens at once.",
+  "rcWhatHappens": "What happens",
+  "rcWhatHappensBody1": "The card stays until you answer. If you tap an accident, someone hurt or feeling unsafe, the Movera safety team is alerted with the trip, driver and rider details.",
+  "rcWhatHappensBody2": "Movera never calls 112 for you: Call 112 opens your phone. Audio you record is saved only on this phone.",
+  "rcTryDemo": "Try it (demo)",
+  "rcTryDemoBody": "Plays a made-up trip and shows what you would see.",
+  "rcDemoDroppedFar": "Driver finished far from drop-off",
+  "rcPlay": "Play",
+  "rcDemoDroppedFarScenario": "Your driver tapped Finish more than {km} km from {place}. Trip check opens right after the trip ends.",
+  "@rcDemoDroppedFarScenario": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      },
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "rcDemoLongStopScenario": "Mid-trip, the car stood still for more than {minutes} min, not at a planned stop. Trip check opens right away, during the trip.",
+  "@rcDemoLongStopScenario": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "rcDemoOtherScenario": "Trip check opens on the trip.",
+  "rcDemoStarting": "Starting the demo trip…",
+  "rcDemoAnswered": "Answered. Play it again any time.",
+  "rcDemoRiderOff": "Trip check alerts are off. Turn them on to see the demo.",
+  "rcDemoTriggerOff": "Movera has turned this check off.",
+  "rcDemoBusy": "Another trip check is open. Answer it first.",
+  "rcDemoNotOpened": "The demo didn't open trip check.",
+  "rcDemoTitle": "Trip check demo",
+  "rcPlayAgain": "Play again",
+  "rcEntrySemantics": "Ride check at {time}, {trigger}. {answers}",
+  "@rcEntrySemantics": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "trigger": {
+        "type": "String"
+      },
+      "answers": {
+        "type": "String"
+      }
+    }
+  },
+  "rcDialerFailed": "Could not open the phone dialer. Dial 112 yourself.",
+  "rcRecordingSaved": "Recording saved on this phone only.",
+  "rcRecordingUnsupported": "Recording isn't available on this device.",
+  "rcAllowMicrophone": "Allow the microphone to record.",
+  "rcRecordingStartFailed": "Couldn't start recording. Try again."
+}
