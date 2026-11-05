@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Movera uses the microphone only when you choose to record audio during a ride.</string>
+    <string>Movera uses the microphone for in-app calls with your driver, and when you choose to record audio during a ride. Calls are not recorded.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Movera uses your location while you use the app to set your pickup point, find nearby drivers and show your driver where to meet you.</string>
     <key>NSLocationTemporaryUsageDescriptionDictionary</key>

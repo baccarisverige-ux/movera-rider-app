@@ -148,6 +148,17 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'appTitle': l.appTitle,
   'previewBanner': l.previewBanner,
   'previewNotSent': l.previewNotSent,
+  'callFailed': l.callFailed,
+  'callCalling': l.callCalling,
+  'callConnecting': l.callConnecting,
+  'callConnected': l.callConnected,
+  'callIncomingFromDriver': l.callIncomingFromDriver,
+  'callAnswer': l.callAnswer,
+  'callDecline': l.callDecline,
+  'callEnd': l.callEnd,
+  'callMute': l.callMute,
+  'callSpeaker': l.callSpeaker,
+  'callEnded': l.callEnded,
   'cancelRide': l.cancelRide,
   'cancelReasonPickupIncorrect': l.cancelReasonPickupIncorrect,
   'cancelReasonWrongRideOption': l.cancelReasonWrongRideOption,
@@ -369,12 +380,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'completeRateBody': l.completeRateBody,
   'readyForFeedback': l.readyForFeedback,
   'completeDefaultBody': l.completeDefaultBody,
-  'droppedPinLabel': l.droppedPinLabel(
-    '<lat>',
-    '<latSide>',
-    '<lng>',
-    '<lngSide>',
-  ),
+  'droppedPinLabel': l.droppedPinLabel('<lat>', '<latSide>', '<lng>', '<lngSide>'),
   'compassNorth': l.compassNorth,
   'compassSouth': l.compassSouth,
   'compassEast': l.compassEast,
@@ -1644,10 +1650,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'supportExit': l.supportExit,
   'supportFailed': l.supportFailed,
   'supportPriceCancelled': l.supportPriceCancelled('<price>'),
-  'supportPriceCancelledExtra': l.supportPriceCancelledExtra(
-    '<price>',
-    '<extra>',
-  ),
+  'supportPriceCancelledExtra': l.supportPriceCancelledExtra('<price>', '<extra>'),
   'supportIssueAck': l.supportIssueAck,
   'supportFollowUp': l.supportFollowUp,
   'supportWelcomeRide': l.supportWelcomeRide,
@@ -2208,6 +2211,28 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get previewNotSent => '';
   @override
+  String get callFailed => '';
+  @override
+  String get callCalling => '';
+  @override
+  String get callConnecting => '';
+  @override
+  String get callConnected => '';
+  @override
+  String get callIncomingFromDriver => '';
+  @override
+  String get callAnswer => '';
+  @override
+  String get callDecline => '';
+  @override
+  String get callEnd => '';
+  @override
+  String get callMute => '';
+  @override
+  String get callSpeaker => '';
+  @override
+  String get callEnded => '';
+  @override
   String get cancelRide => '';
   @override
   String get cancelReasonPickupIncorrect => '';
@@ -2650,12 +2675,7 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get completeDefaultBody => '';
   @override
-  String droppedPinLabel(
-    String lat,
-    String latSide,
-    String lng,
-    String lngSide,
-  ) => '';
+  String droppedPinLabel(String lat, String latSide, String lng, String lngSide) => '';
   @override
   String get compassNorth => '';
   @override

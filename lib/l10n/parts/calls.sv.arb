@@ -1,0 +1,13 @@
+{
+  "callFailed": "Samtalet misslyckades",
+  "callCalling": "Ringer…",
+  "callConnecting": "Ansluter…",
+  "callConnected": "I samtal",
+  "callIncomingFromDriver": "Din förare ringer",
+  "callAnswer": "Svara",
+  "callDecline": "Avvisa",
+  "callEnd": "Avsluta",
+  "callMute": "Ljud av",
+  "callSpeaker": "Högtalare",
+  "callEnded": "Samtalet avslutat"
+}
