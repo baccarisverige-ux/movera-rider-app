@@ -1681,6 +1681,8 @@
   "@priceIncludesUnpaidFee": {"description": "Deep-fix 2026-11-02", "placeholders": {"amount": {"type": "String"}}},
   "receiptHeading": "Receipt",
   "@receiptHeading": {"description": "Deep-fix 2026-11-02"},
+  "receiptDebtIncludedNote": "An unpaid fee from an earlier trip was added to this trip.",
+  "@receiptDebtIncludedNote": {"description": "Fix job 0 (A2-2, contract 0.18.39 outstandingFee.receiptText.rider): under the earlier unpaid fee line on the next trip's receipt."},
   "scheduleForLater": "Schedule for later",
   "later": "Later",
   "scheduleARide": "Schedule a ride",

@@ -2787,6 +2787,48 @@ PATHS["/trips/{tripId}/cancel"]["post"]["description"] += " v0.18.17: " + BL["ri
 S["Offer"]["properties"]["reservation"] = b("v0.18.19: a booked ride (Trip.kind scheduled): the app shows the reservation badge with scheduledAt. " + BL["liveFixes"]["badge"])
 PATHS["/quotes"]["post"]["description"] = PATHS["/quotes"]["post"].get("description", "") + " v0.18.17: " + BL["window"]
 PATHS["/trips"]["post"]["description"] += " v0.18.17: " + BL["window"] + " " + BL["card"]
+# ---- v0.18.29 A2: hold one driver's payouts (owner build-spec Q4; contract.json#payoutHold)
+PH = C["payoutHold"]
+S["PayoutHold"] = obj({"reason": s(maxLength=PH["reasonMax"]), "at": ref("Timestamp"), "by": ref("Id")}, ["reason", "at"], PH["note"])
+S["PayoutHoldCommand"] = obj({"held": b(), "reason": s(minLength=1, maxLength=PH["reasonMax"])}, ["held", "reason"])
+S["Driver"]["properties"]["payoutHold"] = {"allOf": [ref("PayoutHold")], "description": "v0.18.29: admin view only; absent = payouts not held."}
+op("post", "/admin/drivers/{driverId}/payout-hold", "adminHoldDriverPayouts", "Pause or release one driver's payouts", ["admin"], "Admin · People",
+   params=[pref("DriverId")], body="PayoutHoldCommand", ok=(200, "Driver"), mutation=True, permission="finance.edit", permission_v050="finance.edit", desc=PH["note"])
+
+# ---- v0.18.29 A2: rider moderation (Warn → Pause → Ban, owner G16 Q16-1/Q16-2; contract.json#riderModeration)
+RM = C["riderModeration"]
+S["RiderModerationLevel"] = s(enum=list(RM["levels"].keys()), description="; ".join(f"{k} = {v}" for k, v in RM["levels"].items()))
+S["RiderModeration"] = obj({"level": ref("RiderModerationLevel"), "reason": s(maxLength=300), "until": {"oneOf": [ref("Timestamp"), {"type": "null"}], "description": "paused: when the pause ends by itself; otherwise null."},
+                            "setAt": ref("Timestamp")}, ["level"], RM["note"])
+S["RiderModerationCommand"] = obj(dict(EV, level=ref("RiderModerationLevel"), reason=s(minLength=1, maxLength=300),
+                                       pauseDays=i(minimum=RM["pauseDays"]["min"], maximum=RM["pauseDays"]["max"], description="required when level is paused")),
+                                  ["expectedVersion", "level", "reason"], RM["reasons"]["note"])
+S["Rider"]["properties"]["moderation"] = {"allOf": [ref("RiderModeration")], "description": "v0.18.29: the rider's moderation level (rider and admin views)."}
+op("post", "/admin/riders/{riderId}/moderation", "adminModerateRider", "Warn, pause, ban or clear a rider", ["admin"], "Admin · People",
+   params=[pref("RiderId")], body="RiderModerationCommand", ok=(200, "Rider"), mutation=True, permission="riders.block", permission_v050="riders.edit",
+   desc=RM["note"] + " " + RM["levels"]["paused"] + ". " + RM["statusCommand"])
+
+
+# ---- v0.18.29 A2: Add money to wallet (owner G12 Q5 + Q-D, build-spec Q1/Q2; contract.json#walletCredit)
+WC = C["walletCredit"]
+S["WalletCreditCommand"] = obj({"amount": ref("Money"), "reason": s(minLength=1, maxLength=WC["reasonMax"])}, ["amount", "reason"], WC["note"])
+S["CountryRules"]["properties"]["walletCreditMax"] = {"allOf": [ref("Money")], "description": "v0.18.29 (owner A2-1): the largest single Add money to wallet for riders of this country, in its currency; read from the country Standard only (a zone's own value is ignored). Default " + ", ".join(f"{k} {v['amountMinor']} {v['currency']}" for k, v in WC["defaultMax"].items()) + " (minor units)."}
+op("post", "/admin/riders/{riderId}/wallet-credit", "adminCreditRiderWallet", "Add money to a rider's wallet", ["admin"], "Admin · People",
+   params=[pref("RiderId")], body="WalletCreditCommand", ok=(200, "Rider"), mutation=True, permission="finance.edit", permission_v050="finance.edit", desc=WC["note"])
+
+# ---- v0.18.29 A2: payouts Automatic / Manual per country + approve a run (owner build-spec Q4; contract.json#payoutMode)
+PM = C["payoutMode"]
+S["CountryRules"]["properties"]["payoutMode"] = s(PM["note"], enum=PM["values"])
+S["PayoutRunApproveCommand"] = obj({"country": s(pattern="^[A-Z]{2}$"), "periodEnd": ref("Timestamp"), "reason": s("v0.18.29 (owner A2-3): why the run is approved; kept in the audit.", minLength=1, maxLength=300)}, ["country", "periodEnd", "reason"])
+S["PayoutRunApproved"] = obj({"country": s(), "periodEnd": ref("Timestamp"), "approved": i(minimum=0), "total": arr(ref("Money"))}, ["country", "periodEnd", "approved", "total"])
+op("post", "/admin/payouts/runs/approve", "adminApprovePayoutRun", "Approve a manual payout run", ["admin"], "Admin · Finance",
+   body="PayoutRunApproveCommand", ok=(200, "PayoutRunApproved"), mutation=True, permission="finance.edit", permission_v050="finance.edit", desc=PM["note"])
+
+# ---- v0.18.29 fix job 0 (owner A2-2): Mark as paid on an owed fee (contract.json#outstandingFee.adminMarkPaid)
+OMP = C["outstandingFee"]["adminMarkPaid"]
+S["RiderFeeMarkPaidCommand"] = obj({"reason": s(minLength=1, maxLength=OMP["reasonMax"])}, ["reason"], OMP["note"])
+op("post", "/admin/riders/{riderId}/fees/{tripId}/mark-paid", "adminMarkRiderFeePaid", "Mark a rider's owed fee as paid", ["admin"], "Admin · People",
+   params=[pref("RiderId"), pref("TripId")], body="RiderFeeMarkPaidCommand", ok=(200, "Rider"), mutation=True, permission="finance.edit", permission_v050="finance.edit", desc=OMP["note"])
 
 doc = OrderedDict()
 doc["openapi"] = "3.1.0"

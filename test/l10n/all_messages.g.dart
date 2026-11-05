@@ -821,6 +821,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'receiptRefunded': l.receiptRefunded,
   'priceIncludesUnpaidFee': l.priceIncludesUnpaidFee('<amount>'),
   'receiptHeading': l.receiptHeading,
+  'receiptDebtIncludedNote': l.receiptDebtIncludedNote,
   'scheduleForLater': l.scheduleForLater,
   'later': l.later,
   'scheduleARide': l.scheduleARide,
@@ -3545,6 +3546,8 @@ class _Exhaustive implements AppLocalizations {
   String priceIncludesUnpaidFee(String amount) => '';
   @override
   String get receiptHeading => '';
+  @override
+  String get receiptDebtIncludedNote => '';
   @override
   String get scheduleForLater => '';
   @override
