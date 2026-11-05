@@ -58,6 +58,7 @@ void main() {
     );
 
     expect(find.text('Reservation confirmed'), findsNothing);
-    expect(find.text('No driver found'), findsOneWidget);
+    // v0.18.39 §63: the banner title and the page subtitle both say it.
+    expect(find.text('No driver found'), findsNWidgets(2));
   });
 }
