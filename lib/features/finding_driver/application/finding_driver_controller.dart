@@ -256,7 +256,12 @@ class FindingDriverController {
       !_cancelInFlight &&
       !_cancelQueued &&
       !_assignmentPending;
+
+  /// v0.18.39 §63 (P17): the server ended this booked ride, no driver found.
+  bool get noDriverFound => searchStep?.kind == 'no_driver_found';
+
   bool get showPriceBump =>
+      !noDriverFound &&
       elapsedSeconds >= priceBumpAfter.inSeconds &&
       canRaise &&
       !_bumpDismissed &&
@@ -318,7 +323,9 @@ class FindingDriverController {
   String get pickupAddress => _snapshot?.pickupAddress ?? '';
   double? get pickupLat => _snapshot?.pickupLat;
   double? get pickupLng => _snapshot?.pickupLng;
-  SearchCopy get copy => cancelQueued
+  SearchCopy get copy => noDriverFound
+      ? noDriverFoundCopy
+      : cancelQueued
       ? cancellingCopy
       : stillLooking
       ? stillLookingCopy
@@ -327,6 +334,12 @@ class FindingDriverController {
   static SearchCopy get cancellingCopy => SearchCopy(
     headline: L10n.current.findCancelling,
     subtitle: L10n.current.findCancelOffline,
+  );
+
+  /// v0.18.39 §63: no "busier than usual" once the server ended the ride.
+  static SearchCopy get noDriverFoundCopy => SearchCopy(
+    headline: L10n.current.termNoDriverAvailable,
+    subtitle: L10n.current.termNoDriverAvailableBody,
   );
 
   static SearchCopy get stillLookingCopy => SearchCopy(

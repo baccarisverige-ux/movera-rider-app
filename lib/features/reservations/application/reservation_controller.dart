@@ -365,6 +365,21 @@ class ReservationController extends ChangeNotifier {
     );
   }
 
+  /// v0.18.39 §63 (screenshot review rider-510): the pickup time passed, no
+  /// driver yet, and the server has not ended it (pickup + 15 min): the page
+  /// says "Still looking for a driver", never "Reservation confirmed".
+  bool isStillLookingPastPickup(Reservation ride, {DateTime? now}) {
+    final status = ride.status;
+    if (status != ReservationStatus.scheduled &&
+        status != ReservationStatus.driverAssignmentPending) {
+      return false;
+    }
+    if (ride.driver != null) return false;
+    final currentTime = now ?? _clock();
+    return !currentTime.isBefore(ride.scheduledPickupAt) &&
+        !isNoDriverFound(ride, now: currentTime);
+  }
+
   /// Upcoming reservations currently in the "No driver found" state.
   List<Reservation> noDriverFound({DateTime? now}) =>
       upcoming().where((ride) => isNoDriverFound(ride, now: now)).toList();
