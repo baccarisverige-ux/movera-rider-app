@@ -3692,7 +3692,7 @@
       "unavailable",
       "internal"
     ],
-    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show."
+    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit)."
   },
   "headers": {
     "Idempotency-Key": "required on every mutation, 16–128 chars",
@@ -6794,6 +6794,8 @@
       "codesPerAddressPerHour": 60,
       "uploadsPerHour": 30,
       "codesPerPhonePerHour": 10,
+      "writesPerUserPerMinute": 120,
+      "writesPerAddressPerMinute": 60,
       "savedPlacesPerPerson": 50,
       "emergencyContactsPerPerson": 10
     },
@@ -6814,6 +6816,14 @@
         3,
         60
       ],
+      "writesPerUserPerMinute": [
+        30,
+        10000
+      ],
+      "writesPerAddressPerMinute": [
+        20,
+        10000
+      ],
       "savedPlacesPerPerson": [
         1,
         500
@@ -6828,6 +6838,8 @@
       "codesPerAddressPerHour": "Sign-in codes per client address (one wifi) per hour (429 otp_too_many).",
       "uploadsPerHour": "Document uploads per driver per hour (429 rate_limited reason upload_limit); the driver's country.",
       "codesPerPhonePerHour": "Sign-in codes per phone number and app per hour (429 otp_too_many).",
+      "writesPerUserPerMinute": "v0.18.24 (owner 2026-11-04 \"Yes, admin setting\"): writes (POST/PUT/PATCH/DELETE) per signed-in user per minute (contract.json#rateLimit; 429 rate_limited reason too_many_requests); the user's country (first zone of the token).",
+      "writesPerAddressPerMinute": "v0.18.24: writes per client address per minute for callers without a valid token (sign-in, waiting list); the country of the server's default zone.",
       "savedPlacesPerPerson": "v0.18.26 (owner 2026-11-04): saved places per person (each rider), Home and Work included (409 too_many_places). The rider's country is his phone's calling code.",
       "emergencyContactsPerPerson": "v0.18.26 (owner 2026-11-04): emergency contacts per person (each rider and each driver; 112 is built in and not counted) (400 too_many_contacts)."
     }
@@ -7346,6 +7358,78 @@
       "badgeText": "Reconnecting…"
     },
     "apps": "Rider and driver apps: no change (they use their own trip / offer / config streams). RULE 0 check only."
+  },
+  "rateLimit": {
+    "version": "0.18.24",
+    "note": "BASE job B11 (architecture audit 2026-11-03 item 9): one general write limit on top of the existing sign-in limits (auth.limits, countryLimits, waitlist, admin sign-in), which stay as they are.",
+    "applies": "every POST, PUT, PATCH and DELETE under /api/v1; reads (GET, HEAD) and CORS preflights (OPTIONS) are never counted",
+    "key": "a valid access token: its actor and user (sub), so many accounts behind one address never share a budget; no or an invalid token: the client address (the address the trusted proxy saw, TRUST_PROXY_HOPS)",
+    "window": "fixed 60 s window per key, in the server's memory",
+    "signInOutsideProduction": "Owner 2026-11-04: on staging only, a test number (auth.testSignIn, no real SMS) has no resend wait (otp.retryAfterSeconds; the challenge says retryAfterSeconds 0) and no hourly per-number or per-address code limit, under a cap of 30 codes per number per minute (429 otp_too_many); production keeps every OTP limit and has no test numbers. staging and development: POST /auth/otp/request and /auth/otp/verify are not counted per address (load test); the OTP limits still apply. Production counts them.",
+    "defaults": {
+      "production": {
+        "userPerMinute": 120,
+        "addressPerMinute": 60
+      },
+      "stagingAndDevelopment": {
+        "userPerMinute": 1200,
+        "addressPerMinute": 600
+      }
+    },
+    "settings": "v0.18.24 owner 2026-11-04 \"Yes, admin setting\": per country in CountryRules.limits of the country standard (contract.json#countryLimits writesPerUserPerMinute, writesPerAddressPerMinute; Admin › Settings › Request limits), applied within about 60 s without a server release. The server environment RATE_LIMIT_WRITES_PER_USER_PER_MINUTE / RATE_LIMIT_WRITES_PER_ADDRESS_PER_MINUTE is the fallback and the floor: the limit used is the higher of the two (staging keeps its higher env values); env 0 turns that limit off.",
+    "error": "429 rate_limited, reason too_many_requests, retryable true, header Retry-After = whole seconds until the window ends",
+    "clients": {
+      "driver": "ApiError.isRetryable is true for 429; the queued trip commands keep their Idempotency-Key and retry; account screens show the wait from Retry-After",
+      "rider": "riderErrorKind maps 429 / rate_limited / too_many_requests to rateLimited and shows the wait from Retry-After",
+      "admin": "ApiError.retryable from the body, Retry-After read into retryAfterSeconds; reads retry at most twice and wait Retry-After (at most 60 s) before retrying; message 'Too many attempts. Wait N s.'"
+    }
+    },
+  "previewSession": {
+    "version": "0.18.25",
+    "note": "BASE job 'admin real app preview' (Rules plan/BASE-JOBS-SPEC-2026-11-04.md §1; owner P1 a, P2 b, P3 a, 2026-11-04). The admin panel shows the REAL rider and driver web apps inside a phone frame on every page that showed a drawn sample phone (Content, Design, Messages, Bonuses, Promos, Riders). The apps talk to the live server with a preview token; every real action is blocked.",
+    "path": "/admin/preview-sessions",
+    "permission": "settings.read",
+    "request": [
+      "role",
+      "zoneId",
+      "useDraft"
+    ],
+    "roles": [
+      "rider",
+      "driver"
+    ],
+    "response": [
+      "token",
+      "role",
+      "zoneId",
+      "useDraft",
+      "expiresAt",
+      "subjectId"
+    ],
+    "ttlSeconds": 900,
+    "token": "An access token (§8) with actor = role, zones = [zoneId], sub = 'preview:<role>:<zoneId>' and the extra claim pv = true (preview). No refresh token; no auth session row; after ttlSeconds the admin asks for a new one.",
+    "handoff": "The admin opens the app web build in an iframe at <appUrl>#movera-preview=<token>&zone=<zoneId>&draft=<0|1>. The token is in the fragment, so it never reaches a web server log. The panel can send a new token or draft choice with window.postMessage({type:'movera-preview', token, draft}) and the app reloads its config.",
+    "rules": [
+      "A preview token can only READ: every POST, PUT, PATCH and DELETE by it is refused with 403 forbidden, reason preview_blocked, before any route code runs (no booking, accept, payment, going online, payout, chat or profile change is ever stored).",
+      "GET /rider/config and GET /driver/config with ?draft=1 return the admin's saved draft of that zone (falls back to live when no draft) — ONLY for a preview token; any other caller gets the live document.",
+      "A preview token is never counted as a real rider or driver: no supply, no dispatch, no metrics.",
+      "Owner 2026-11-04 (B: Empty screens): a preview token's own-account reads answer what a brand-new account gets, never an error and never fake data: empty lists, a blank profile (firstName \"\", driver active + offline), a zero wallet; the normal 'no active trip' (204) and 'not in a fleet' (404 no_fleet) answers stay. The apps show their usual 'nothing yet' states.",
+      "An app that holds a preview token shows a 'Preview' banner, and every Book / Accept / Pay / Go online style action shows 'Preview – not sent' instead of calling the server (owner P1 a)."
+    ],
+    "errorReason": "preview_blocked",
+    "appTexts": {
+      "banner": {
+        "en": "Preview",
+        "sv": "Förhandsvisning",
+        "fr": "Aperçu"
+      },
+      "notSent": {
+        "en": "Preview – not sent",
+        "sv": "Förhandsvisning – inte skickat",
+        "fr": "Aperçu – non envoyé"
+      }
+    },
+    "embedding": "The app web builds must allow being framed by the admin origin (no X-Frame-Options DENY; Content-Security-Policy frame-ancestors, when set, includes the admin origin)."
   },
   "phoneDataToServer": {
     "note": "v0.18.26 (BASE B13, owner 2026-11-03 \"Phone-only data: Yes, all to server\", Rules decisions/admin-fake-by-group.md): the rider's saved places, the driver's ride preferences (switched-off categories) and the driver's emergency contacts are kept on the server, not only on the phone. Builds on v0.18.23; 0.18.24 (rate limit) and 0.18.25 (preview) land first. Additive except SavedPlace / SavedPlaceRequest (never served before: no server had /rider/places); X-Api-Version stays 0.5.",

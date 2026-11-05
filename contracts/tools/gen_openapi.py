@@ -2827,7 +2827,21 @@ op("get", ALE["path"], "adminStreamEvents", "Admin live updates (what changed, i
    content=sse("Server-sent events. " + ALE["transport"] + " " + " ".join(ALE["scope"]) + " " + ALE["replay"], "AdminLiveEvent", "AdminLiveEventPage"),
    permission=ALE["permission"])
 
-# v0.18.26 phone data to the server (CONTRACT.md §47, contract.json#phoneDataToServer; BASE B13, owner 2026-11-03).
+# v0.18.25 admin real app preview (CONTRACT.md §48, contract.json#previewSession): a read-only preview token for the real apps.
+PVS = C["previewSession"]
+S["PreviewRole"] = s("v0.18.25: which real app the preview opens.", enum=PVS["roles"])
+S["PreviewSessionRequest"] = obj({"role": ref("PreviewRole"), "zoneId": ref("Id"), "useDraft": b("true: the app shows the zone's saved draft settings (GET .../config?draft=1).")},
+                                 ["role", "zoneId"], PVS["note"])
+S["PreviewSession"] = obj({"token": s(PVS["token"]), "role": ref("PreviewRole"), "zoneId": ref("Id"), "useDraft": b(),
+                           "expiresAt": ref("Timestamp"), "subjectId": s("preview:<role>:<zoneId>")},
+                          PVS["response"], PVS["handoff"] + " " + " ".join(PVS["rules"]))
+op("post", PVS["path"], "adminCreatePreviewSession", "Open a read-only preview of the real rider or driver app", ["admin"], "Config",
+   body="PreviewSessionRequest", ok=(201, "PreviewSession"), permission=PVS["permission"],
+   desc=" ".join(PVS["rules"]))
+for _p in ["/rider/config", "/driver/config"]:
+    for _m in PATHS[_p].values():
+        _m["parameters"].insert(0, q("draft", {"type": "string", "enum": ["0", "1"]}, "v0.18.25: '1' with a preview token (contract.json#previewSession) returns the zone's saved draft; ignored for every other token."))
+# v0.18.26 phone data to the server (CONTRACT.md §49, contract.json#phoneDataToServer; BASE B13, owner 2026-11-03).
 PDS = C["phoneDataToServer"]
 RP, DP, EC = PDS["riderPlaces"], PDS["driverPreferences"], PDS["driverEmergencyContacts"]
 S["SavedPlaceAddress"] = obj({"address": s(minLength=1, maxLength=512), "lat": n(minimum=-90, maximum=90), "lng": n(minimum=-180, maximum=180)},

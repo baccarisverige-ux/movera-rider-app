@@ -1293,6 +1293,16 @@ paths:
       x-actor:
       - rider
       parameters:
+      - name: draft
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - '0'
+          - '1'
+        description: 'v0.18.25: ''1'' with a preview token (contract.json#previewSession) returns the zone''s saved draft;
+          ignored for every other token.'
       - $ref: '#/components/parameters/ZoneIdQuery'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
@@ -3082,6 +3092,16 @@ paths:
       x-actor:
       - driver
       parameters:
+      - name: draft
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - '0'
+          - '1'
+        description: 'v0.18.25: ''1'' with a preview token (contract.json#previewSession) returns the zone''s saved draft;
+          ignored for every other token.'
       - $ref: '#/components/parameters/ZoneIdQuery'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
@@ -15628,6 +15648,58 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/preview-sessions:
+    post:
+      operationId: adminCreatePreviewSession
+      summary: Open a read-only preview of the real rider or driver app
+      description: 'A preview token can only READ: every POST, PUT, PATCH and DELETE by it is refused with 403 forbidden,
+        reason preview_blocked, before any route code runs (no booking, accept, payment, going online, payout, chat or profile
+        change is ever stored). GET /rider/config and GET /driver/config with ?draft=1 return the admin''s saved draft of
+        that zone (falls back to live when no draft) — ONLY for a preview token; any other caller gets the live document.
+        A preview token is never counted as a real rider or driver: no supply, no dispatch, no metrics. Owner 2026-11-04 (B:
+        Empty screens): a preview token''s own-account reads answer what a brand-new account gets, never an error and never
+        fake data: empty lists, a blank profile (firstName "", driver active + offline), a zero wallet; the normal ''no active
+        trip'' (204) and ''not in a fleet'' (404 no_fleet) answers stay. The apps show their usual ''nothing yet'' states.
+        An app that holds a preview token shows a ''Preview'' banner, and every Book / Accept / Pay / Go online style action
+        shows ''Preview – not sent'' instead of calling the server (owner P1 a).'
+      tags:
+      - Config
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreviewSessionRequest'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreviewSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /rider/places/import:
     post:
       operationId: importSavedPlaces
@@ -24707,7 +24779,7 @@ components:
             auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far,
             driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival,
             route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now,
-            pin_blocked, pin_trip_over, not_a_no_show.'
+            pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit).'
         details:
           type: array
           items:
@@ -30721,6 +30793,21 @@ components:
           maximum: 60
           description: Sign-in codes per phone number and app per hour (429 otp_too_many). Range 3–60.
           default: 10
+        writesPerUserPerMinute:
+          type: integer
+          minimum: 30
+          maximum: 10000
+          description: 'v0.18.24 (owner 2026-11-04 "Yes, admin setting"): writes (POST/PUT/PATCH/DELETE) per signed-in user
+            per minute (contract.json#rateLimit; 429 rate_limited reason too_many_requests); the user''s country (first zone
+            of the token). Range 30–10000.'
+          default: 120
+        writesPerAddressPerMinute:
+          type: integer
+          minimum: 20
+          maximum: 10000
+          description: 'v0.18.24: writes per client address per minute for callers without a valid token (sign-in, waiting
+            list); the country of the server''s default zone. Range 20–10000.'
+          default: 60
         savedPlacesPerPerson:
           type: integer
           minimum: 1
@@ -31129,6 +31216,67 @@ components:
           type:
           - string
           - 'null'
+    PreviewRole:
+      type: string
+      enum:
+      - rider
+      - driver
+      description: 'v0.18.25: which real app the preview opens.'
+    PreviewSessionRequest:
+      type: object
+      description: BASE job 'admin real app preview' (Rules plan/BASE-JOBS-SPEC-2026-11-04.md §1; owner P1 a, P2 b, P3 a,
+        2026-11-04). The admin panel shows the REAL rider and driver web apps inside a phone frame on every page that showed
+        a drawn sample phone (Content, Design, Messages, Bonuses, Promos, Riders). The apps talk to the live server with a
+        preview token; every real action is blocked.
+      required:
+      - role
+      - zoneId
+      properties:
+        role:
+          $ref: '#/components/schemas/PreviewRole'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        useDraft:
+          type: boolean
+          description: 'true: the app shows the zone''s saved draft settings (GET .../config?draft=1).'
+    PreviewSession:
+      type: object
+      description: 'The admin opens the app web build in an iframe at <appUrl>#movera-preview=<token>&zone=<zoneId>&draft=<0|1>.
+        The token is in the fragment, so it never reaches a web server log. The panel can send a new token or draft choice
+        with window.postMessage({type:''movera-preview'', token, draft}) and the app reloads its config. A preview token can
+        only READ: every POST, PUT, PATCH and DELETE by it is refused with 403 forbidden, reason preview_blocked, before any
+        route code runs (no booking, accept, payment, going online, payout, chat or profile change is ever stored). GET /rider/config
+        and GET /driver/config with ?draft=1 return the admin''s saved draft of that zone (falls back to live when no draft)
+        — ONLY for a preview token; any other caller gets the live document. A preview token is never counted as a real rider
+        or driver: no supply, no dispatch, no metrics. Owner 2026-11-04 (B: Empty screens): a preview token''s own-account
+        reads answer what a brand-new account gets, never an error and never fake data: empty lists, a blank profile (firstName
+        "", driver active + offline), a zero wallet; the normal ''no active trip'' (204) and ''not in a fleet'' (404 no_fleet)
+        answers stay. The apps show their usual ''nothing yet'' states. An app that holds a preview token shows a ''Preview''
+        banner, and every Book / Accept / Pay / Go online style action shows ''Preview – not sent'' instead of calling the
+        server (owner P1 a).'
+      required:
+      - token
+      - role
+      - zoneId
+      - useDraft
+      - expiresAt
+      - subjectId
+      properties:
+        token:
+          type: string
+          description: An access token (§8) with actor = role, zones = [zoneId], sub = 'preview:<role>:<zoneId>' and the extra
+            claim pv = true (preview). No refresh token; no auth session row; after ttlSeconds the admin asks for a new one.
+        role:
+          $ref: '#/components/schemas/PreviewRole'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        useDraft:
+          type: boolean
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+        subjectId:
+          type: string
+          description: preview:<role>:<zoneId>
     SavedPlaceAddress:
       type: object
       description: 'v0.18.26: SavedPlaceAddress { address (required, 1-512), lat?, lng? }: places saved on phones before v0.18.26
