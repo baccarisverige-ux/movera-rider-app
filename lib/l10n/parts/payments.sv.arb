@@ -16,6 +16,7 @@
   "walletTooLowChooseAnother": "Ditt saldo räcker inte för den här resan. Välj ett annat betalsätt.",
   "walletFirst": "Använd plånbokssaldot först",
   "walletFirstBody": "Ditt saldo dras från varje resa; resten betalas med det sätt du väljer.",
+  "walletUsedFirst": "Din plånbok används först",
   "paymentMethods": "Betalsätt",
   "vouchers": "Värdekoder",
   "voucherSoon": "Värdekoder kommer snart",

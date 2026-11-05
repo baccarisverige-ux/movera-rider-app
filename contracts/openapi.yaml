@@ -1,11 +1,11 @@
-# Movera API v0.18.28 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.33 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.28
+  version: 0.18.33
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.28 in this folder; this file must agree with them.
+    v0.18.33 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -83,7 +83,7 @@ tags:
 - name: Driver · Home
 x-contract:
   name: movera
-  version: 0.18.28
+  version: 0.18.33
   source: contract.json
 paths:
   /auth/otp/request:
@@ -805,7 +805,9 @@ paths:
         and the app keeps the built-in list as the offline backup. The server accepts every contract code of the sheet (contract.json#cancelReasons),
         so an old app that shows the built-in list keeps working; a code of another sheet → 400 invalid_request, reason invalid_reason_code.
         v0.18.17: Q6: POST /trips/{tripId}/cancel more than freeChangeBeforeMin minutes before pickup is always free; later
-        the reservation cancel fee rule of booking time applies (RiderAppConfig.cancelFees, reservation; unchanged).'
+        the reservation cancel fee rule of booking time applies (RiderAppConfig.cancelFees, reservation; unchanged). v0.18.33
+        (fix job 5, owner fix-plan Q3 + Q5): this also holds before any driver took the ride: under freeChangeBeforeMin the
+        fee is charged even with no driver, and Movera keeps all of it (no driver share). contract.json#afterTestRules.bookedCancel.'
       tags:
       - Trips
       x-actor:
@@ -17678,6 +17680,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/ReservationInfo'
           description: 'v0.18.17: kind scheduled only.'
+        walletFirst:
+          type: boolean
+          description: 'v0.18.33: TripProjection.walletFirst: boolean (rider and admin views): the switch the trip was booked
+            with.'
     DriverSilentAlert:
       type: object
       description: 'v0.7.0: documents the server''s alert of 2026-10-26: no position for 30 min with the rider on board; the
@@ -21043,7 +21049,8 @@ components:
           - $ref: '#/components/schemas/EarlyEndSettings'
           description: 'DriverAppConfig only. v0.18.10 (owner G8 Q2, 2026-11-01): DriverAppConfig.cancelFees.earlyEnd { repriceOverKm
             (default 2, 0–50), repriceOverMin (default 8, 0–120) }, Admin › Cancellation, per zone (or the country standard).
-            See finish.earlyEnd.driver.'
+            See finish.earlyEnd.driver. v0.18.33 (fix job 5, owner fix-plan Q1): repriceOverMin default 10 and the rule is
+            BOTH (more than repriceOverKm km AND more than repriceOverMin minutes shorter), contract.json#afterTestRules.earlyEnd.'
     LocalizedLine:
       type: object
       description: 'v0.7.1: a short text in each app language.'
@@ -22352,7 +22359,10 @@ components:
           properties:
             usedFirst:
               type: boolean
-              description: The balance (one per currency, no conversion) pays first.
+              description: 'The balance (one per currency, no conversion) pays first. v0.18.33: RiderAppConfig.wallet.usedFirst
+                (Admin › Payments ''Use wallet first'', per zone, default true): false = the wallet never pays a trip in that
+                zone, whatever walletFirst says. features.wallet false = the same.'
+              default: true
         tips:
           type: array
           items:
@@ -23455,6 +23465,28 @@ components:
         usesStandard:
           type: boolean
           description: 'v0.8.0: set by the server when it serves or uses the country standard for this zone (contract.json#configDocs.standard).'
+        bookedNext:
+          type: object
+          description: 'v0.18.33: Owner Q7 (''While on trip driver get only exclusive and can be reservation exclusive''):
+            a driver who is on a trip gets no Radar offers; a BOOKED ride whose pickup is at most withinMin minutes away can
+            be offered to him as an Exclusive offer when his current trip ends in time: now (or the current trip''s start)
+            + its booked minutes (+ the drive to its pickup when the rider is not on board yet) + the drive from its drop-off
+            to the booked pickup (dispatchKm at pickupKmh) is not after the booked pickup time. km and the score are counted
+            from the current trip''s drop-off. DispatchDocument.bookedNext { on (default true), withinMin (default 60, 0-240)
+            } — Admin › Dispatch, per zone: ''Driver on a trip can get a booked ride starting within (min)'' + on/off. Missing
+            = the defaults.'
+          required:
+          - 'on'
+          - withinMin
+          properties:
+            'on':
+              type: boolean
+              default: true
+            withinMin:
+              type: integer
+              minimum: 0
+              maximum: 240
+              default: 60
       x-server-only: true
       x-ranges:
         radar.drivers:
@@ -24088,13 +24120,13 @@ components:
           description: 'v0.18.10: Owner G8 Q2: the driver completes farther than pricing.completeNearDropoffMeters (300 m)
             from the drop-off. Paid stop waiting (fee and minutes) is always kept. The price is worked out again only when
             the trip is shorter than booked by MORE than DriverAppConfig.cancelFees.earlyEnd.repriceOverKm km (default 2)
-            OR MORE than repriceOverMin minutes (default 8): then the rider pays what was driven (never more than booked)
-            plus the stop waiting; otherwise the booked price stands (plus the stop waiting) and the trip is still marked
-            ended early. Distance short = booked distance − km on board (trip trace); time short = booked minutes − minutes
-            on board. The numbers are kept on the trip at booking (bookingSnapshot earlyEnd), read from the zone''s live driver
-            document (or the country standard), out of range = default. The same rule applies when the driver cancels with
-            the rider on board (builder question 4, one rule): re-priced only over the limits, else the booked price (+ stop
-            waiting).'
+            AND MORE than repriceOverMin minutes (default 10) (v0.18.33, owner fix-plan Q1: BOTH; before v0.18.33 either one
+            was enough and the minutes default was 8): then the rider pays what was driven (never more than booked) plus the
+            stop waiting; otherwise the booked price stands (plus the stop waiting) and the trip is still marked ended early.
+            Distance short = booked distance − km on board (trip trace); time short = booked minutes − minutes on board. The
+            numbers are kept on the trip at booking (bookingSnapshot earlyEnd), read from the zone''s live driver document
+            (or the country standard), out of range = default. The same rule applies when the driver cancels with the rider
+            on board (builder question 4, one rule): re-priced only over the limits, else the booked price (+ stop waiting).'
         shortKm:
           type: number
           description: 'v0.18.10: booked km − km on board (early end only).'
@@ -25317,7 +25349,12 @@ components:
           $ref: '#/components/schemas/Id'
         walletFirst:
           type: boolean
-          description: Use wallet balance before the method.
+          description: 'v0.18.33: Owner Q6 (''Switch per ride, starts ON''): CreateTripRequest.walletFirst (default true when
+            missing). true = the rider''s wallet balance in the trip''s currency pays first: POST /trips reserves walletApplied
+            = min(balance in that currency, fare) and TripProjection.walletApplied / cashToCollect show it from booking on;
+            it is worked out again at boarding (never more than the balance). false = this trip pays nothing from the wallet
+            (walletApplied 0). Another currency''s balance is never used (contract.json#walletCurrency).'
+          default: true
         notes:
           type: string
           maxLength: 500
@@ -30149,19 +30186,19 @@ components:
           description: 'v0.18.10: Owner G8 Q2: the driver completes farther than pricing.completeNearDropoffMeters (300 m)
             from the drop-off. Paid stop waiting (fee and minutes) is always kept. The price is worked out again only when
             the trip is shorter than booked by MORE than DriverAppConfig.cancelFees.earlyEnd.repriceOverKm km (default 2)
-            OR MORE than repriceOverMin minutes (default 8): then the rider pays what was driven (never more than booked)
-            plus the stop waiting; otherwise the booked price stands (plus the stop waiting) and the trip is still marked
-            ended early. Distance short = booked distance − km on board (trip trace); time short = booked minutes − minutes
-            on board. The numbers are kept on the trip at booking (bookingSnapshot earlyEnd), read from the zone''s live driver
-            document (or the country standard), out of range = default. The same rule applies when the driver cancels with
-            the rider on board (builder question 4, one rule): re-priced only over the limits, else the booked price (+ stop
-            waiting).'
+            AND MORE than repriceOverMin minutes (default 10) (v0.18.33, owner fix-plan Q1: BOTH; before v0.18.33 either one
+            was enough and the minutes default was 8): then the rider pays what was driven (never more than booked) plus the
+            stop waiting; otherwise the booked price stands (plus the stop waiting) and the trip is still marked ended early.
+            Distance short = booked distance − km on board (trip trace); time short = booked minutes − minutes on board. The
+            numbers are kept on the trip at booking (bookingSnapshot earlyEnd), read from the zone''s live driver document
+            (or the country standard), out of range = default. The same rule applies when the driver cancels with the rider
+            on board (builder question 4, one rule): re-priced only over the limits, else the booked price (+ stop waiting).'
           default: 2
         repriceOverMin:
           type: number
           minimum: 0
           maximum: 120
-          default: 8
+          default: 10
     TipRules:
       type: object
       description: 'v0.18.10: RiderAppConfig.tipRules { cashAfterTrip (default false), cashInCarMinutes (default 5, 0–60),

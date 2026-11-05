@@ -638,20 +638,33 @@ extension _SelectRideTiles on _SelectRideState {
           ),
           const SizedBox(width: 4),
           Expanded(
-            child: split.paidByWallet
-                ? Text(
-                    context.l10n.paidByWallet,
-                    style: _text(12, weight: FontWeight.w600, color: green),
-                  )
-                : Text(
-                    context.l10n.walletSplit(
-                      split.walletLabel,
-                      split.remainderLabel,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: _text(12, weight: FontWeight.w500, color: green),
-                  ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Fix job 5 (v0.18.33, owner Q6): the per-ride switch is on.
+                Text(
+                  context.l10n.walletUsedFirst,
+                  key: const ValueKey('select-ride-wallet-used-first'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _text(12, weight: FontWeight.w600, color: green),
+                ),
+                split.paidByWallet
+                    ? Text(
+                        context.l10n.paidByWallet,
+                        style: _text(12, weight: FontWeight.w600, color: green),
+                      )
+                    : Text(
+                        context.l10n.walletSplit(
+                          split.walletLabel,
+                          split.remainderLabel,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _text(12, weight: FontWeight.w500, color: green),
+                      ),
+              ],
+            ),
           ),
         ],
       ),

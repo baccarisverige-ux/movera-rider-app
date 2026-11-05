@@ -374,7 +374,12 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'completeRateBody': l.completeRateBody,
   'readyForFeedback': l.readyForFeedback,
   'completeDefaultBody': l.completeDefaultBody,
-  'droppedPinLabel': l.droppedPinLabel('<lat>', '<latSide>', '<lng>', '<lngSide>'),
+  'droppedPinLabel': l.droppedPinLabel(
+    '<lat>',
+    '<latSide>',
+    '<lng>',
+    '<lngSide>',
+  ),
   'compassNorth': l.compassNorth,
   'compassSouth': l.compassSouth,
   'compassEast': l.compassEast,
@@ -737,6 +742,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'walletTooLowChooseAnother': l.walletTooLowChooseAnother,
   'walletFirst': l.walletFirst,
   'walletFirstBody': l.walletFirstBody,
+  'walletUsedFirst': l.walletUsedFirst,
   'paymentMethods': l.paymentMethods,
   'vouchers': l.vouchers,
   'voucherSoon': l.voucherSoon,
@@ -1639,7 +1645,10 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'supportExit': l.supportExit,
   'supportFailed': l.supportFailed,
   'supportPriceCancelled': l.supportPriceCancelled('<price>'),
-  'supportPriceCancelledExtra': l.supportPriceCancelledExtra('<price>', '<extra>'),
+  'supportPriceCancelledExtra': l.supportPriceCancelledExtra(
+    '<price>',
+    '<extra>',
+  ),
   'supportIssueAck': l.supportIssueAck,
   'supportFollowUp': l.supportFollowUp,
   'supportWelcomeRide': l.supportWelcomeRide,
@@ -2652,7 +2661,12 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get completeDefaultBody => '';
   @override
-  String droppedPinLabel(String lat, String latSide, String lng, String lngSide) => '';
+  String droppedPinLabel(
+    String lat,
+    String latSide,
+    String lng,
+    String lngSide,
+  ) => '';
   @override
   String get compassNorth => '';
   @override
@@ -3377,6 +3391,8 @@ class _Exhaustive implements AppLocalizations {
   String get walletFirst => '';
   @override
   String get walletFirstBody => '';
+  @override
+  String get walletUsedFirst => '';
   @override
   String get paymentMethods => '';
   @override

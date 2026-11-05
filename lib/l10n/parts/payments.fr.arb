@@ -16,6 +16,7 @@
   "walletTooLowChooseAnother": "Votre solde ne couvre pas cette course. Choisissez un autre moyen de paiement.",
   "walletFirst": "Utiliser d’abord le solde du portefeuille",
   "walletFirstBody": "Votre solde est déduit de chaque course ; le reste est payé avec le moyen choisi.",
+  "walletUsedFirst": "Votre portefeuille est utilisé en premier",
   "paymentMethods": "Moyens de paiement",
   "vouchers": "Bons de réduction",
   "voucherSoon": "Les codes promo arrivent bientôt",

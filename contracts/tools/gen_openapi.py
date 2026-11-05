@@ -2904,6 +2904,15 @@ op("get", "/rider/emergency-contacts", "getRiderEmergencyContacts", "Own emergen
 op("put", "/rider/emergency-contacts", "putRiderEmergencyContacts", "Save own emergency contacts", ["rider"], "Rider · Account",
    body="EmergencyContactListUpdate", ok=(200, "EmergencyContactList"), mutation=True, desc="v0.18.26: " + REC["routes"])
 
+# v0.18.33 (fix job 5, contract.json#afterTestRules): booked ride next for an on-trip driver; wallet first per ride.
+ATR = C["afterTestRules"]
+S["DispatchDocument"]["properties"]["bookedNext"] = obj({"on": {**b(), "default": C["configDefaults"]["dispatch"]["zone"]["bookedNext"]["on"]},
+                                                         "withinMin": {**i(minimum=0, maximum=240), "default": C["configDefaults"]["dispatch"]["zone"]["bookedNext"]["withinMin"]}},
+                                                        ["on", "withinMin"], "v0.18.33: " + ATR["bookedNext"]["rule"] + " " + ATR["bookedNext"]["settings"])
+S["CreateTripRequest"]["properties"]["walletFirst"] = {**b("v0.18.33: " + ATR["walletFirst"]["rule"]), "default": True}
+S["TripProjection"]["properties"]["walletFirst"] = b("v0.18.33: " + ATR["walletFirst"]["projection"])
+S["RiderAppConfig"]["properties"]["wallet"] = obj({"usedFirst": {**b("The balance (one per currency, no conversion) pays first. v0.18.33: " + ATR["walletFirst"]["zone"]), "default": True}})
+
 def to_plain(x):
     if isinstance(x, dict): return {k: to_plain(v) for k, v in x.items()}
     if isinstance(x, list): return [to_plain(v) for v in x]

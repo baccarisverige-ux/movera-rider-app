@@ -173,6 +173,8 @@ class ApiReservationRepository
           'kind': 'scheduled',
           'scheduledAt': quoted['scheduledAt'],
           'paymentMethod': quoted['paymentMethod'],
+          // Fix job 5 (v0.18.33, owner Q6): the per-ride wallet switch.
+          'walletFirst': draft.walletFirst,
           if (draft.note != null && draft.note!.trim().isNotEmpty)
             'notes': draft.note!.trim(),
         },

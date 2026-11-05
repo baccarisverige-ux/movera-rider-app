@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.28",
+  "version": "0.18.33",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -3510,6 +3510,10 @@
           "on": true,
           "count": 1
         },
+        "bookedNext": {
+          "on": true,
+          "withinMin": 60
+        },
         "waiting": [
           {
             "id": "w1",
@@ -3590,7 +3594,7 @@
     },
     "earlyEnd": {
       "repriceOverKm": 2,
-      "repriceOverMin": 8
+      "repriceOverMin": 10
     },
     "tipRules": {
       "cashAfterTrip": false,
@@ -3716,7 +3720,7 @@
   "cancelFees": {
     "note": "v0.8.0 (owner 2026-10-27): DriverAppConfig.cancelFees.driverSharePct, set in Admin › Dispatch per zone: the driver's share of a rider's cancel fee, 0–100, default 100. Movera keeps the rest.",
     "driverSharePctDefault": 100,
-    "earlyEnd": "v0.18.10 (owner G8 Q2, 2026-11-01): DriverAppConfig.cancelFees.earlyEnd { repriceOverKm (default 2, 0–50), repriceOverMin (default 8, 0–120) }, Admin › Cancellation, per zone (or the country standard). See finish.earlyEnd.driver."
+    "earlyEnd": "v0.18.10 (owner G8 Q2, 2026-11-01): DriverAppConfig.cancelFees.earlyEnd { repriceOverKm (default 2, 0–50), repriceOverMin (default 8, 0–120) }, Admin › Cancellation, per zone (or the country standard). See finish.earlyEnd.driver. v0.18.33 (fix job 5, owner fix-plan Q1): repriceOverMin default 10 and the rule is BOTH (more than repriceOverKm km AND more than repriceOverMin minutes shorter), contract.json#afterTestRules.earlyEnd."
   },
   "bookingSnapshot": {
     "note": "v0.8.0 (owner 2026-10-27): a booked trip keeps ALL its rules from booking time (POST /trips). The server keeps on the trip: the pricing document (version and scope) it was quoted with, the category's cancel fee rule (live or reservation by Trip.kind, from RiderAppConfig.cancelFees, else the built-in default), DriverAppConfig.cancelFees.driverSharePct, the category's waiting terms (free wait, per minute, no-show after, no-show fee), DriverAppConfig.waiting.driverSharePct (no-show share) and driverShareWaitPct. A later publish never changes a booked trip; fixtures/settings_flow.json#snapshot. v0.18.7: the trip also keeps the zone's waiting.cancelAfterArrivedIsNoShow and booking.maxPickupMoveMeters of booking time (TripProjection.terms shows them). v0.18.8: also the zone's waiting.farPickup / rideTypes (waitingRules), waiting.stopFreeWaitMin and pickupPin.required (Trip.pinRequired) of booking time (contract.json#arrivedWaiting).",
@@ -6509,7 +6513,7 @@
     },
     "earlyEnd": {
       "rider": "Owner G8 Q1 'Cash screen + rating (Recommended)': when the rider ends early (POST /trips/{tripId}/end-early) the driver gets the normal finish: TripProjection.finish (driver and admin views; rider view without the driver's money) with endedEarly true, endedBy rider, the amount for the distance driven (finish.total), the cash to collect (finish.cashToCollect), his money (finish.driverTotal + earningsBreakdown) and ratingAllowed true; driverRatingStatus is pending, so POST /driver/trips/{tripId}/rating works on a cancelled_by_rider trip ended by end_early. The driver app shows the cash sheet with this amount (texts.driverRiderEnded), then the rating, never straight Home. Stop waiting already charged is kept.",
-      "driver": "Owner G8 Q2: the driver completes farther than pricing.completeNearDropoffMeters (300 m) from the drop-off. Paid stop waiting (fee and minutes) is always kept. The price is worked out again only when the trip is shorter than booked by MORE than DriverAppConfig.cancelFees.earlyEnd.repriceOverKm km (default 2) OR MORE than repriceOverMin minutes (default 8): then the rider pays what was driven (never more than booked) plus the stop waiting; otherwise the booked price stands (plus the stop waiting) and the trip is still marked ended early. Distance short = booked distance − km on board (trip trace); time short = booked minutes − minutes on board. The numbers are kept on the trip at booking (bookingSnapshot earlyEnd), read from the zone's live driver document (or the country standard), out of range = default. The same rule applies when the driver cancels with the rider on board (builder question 4, one rule): re-priced only over the limits, else the booked price (+ stop waiting).",
+      "driver": "Owner G8 Q2: the driver completes farther than pricing.completeNearDropoffMeters (300 m) from the drop-off. Paid stop waiting (fee and minutes) is always kept. The price is worked out again only when the trip is shorter than booked by MORE than DriverAppConfig.cancelFees.earlyEnd.repriceOverKm km (default 2) AND MORE than repriceOverMin minutes (default 10) (v0.18.33, owner fix-plan Q1: BOTH; before v0.18.33 either one was enough and the minutes default was 8): then the rider pays what was driven (never more than booked) plus the stop waiting; otherwise the booked price stands (plus the stop waiting) and the trip is still marked ended early. Distance short = booked distance − km on board (trip trace); time short = booked minutes − minutes on board. The numbers are kept on the trip at booking (bookingSnapshot earlyEnd), read from the zone's live driver document (or the country standard), out of range = default. The same rule applies when the driver cancels with the rider on board (builder question 4, one rule): re-priced only over the limits, else the booked price (+ stop waiting).",
       "settings": {
         "where": "DriverAppConfig.cancelFees.earlyEnd { repriceOverKm, repriceOverMin } — Admin › Cancellation, per zone or country standard.",
         "ranges": {
@@ -6917,7 +6921,7 @@
     "rider": {
       "reminder": "Q5 rider: push kind reservation_reminder at scheduledAt − riderReminderMin (default 60; 0 = off), and reservation_driver_found when a driver takes the ride.",
       "change": "Q6: more than freeChangeBeforeMin minutes (default 60) before pickup the rider may change the booking: POST /trips/{tripId}/reschedule { quoteId, expectedVersion } with a new kind=scheduled quote (the app shows its new price first) → TripProjection with the new places, time and price; a driver who held it is asked 'Keep it at the new time?' (push kind reservation_change_ask, TripProjection.reservation.changeAsk { until, previousAt }; POST /driver/reservations/{tripId}/keep { keep }); Yes keeps it (rider told reservation_driver_found), No or no answer within changeAnswerMin (default 15) puts it back on the list (transition release, push reservation_changed) and the ride is planned again (bookLater.plan). Later → 409 conflict, reason change_too_late. Not a scheduled trip, or not before pickup → 409 not_a_reservation.",
-      "cancel": "Q6: POST /trips/{tripId}/cancel more than freeChangeBeforeMin minutes before pickup is always free; later the reservation cancel fee rule of booking time applies (RiderAppConfig.cancelFees, reservation; unchanged).",
+      "cancel": "Q6: POST /trips/{tripId}/cancel more than freeChangeBeforeMin minutes before pickup is always free; later the reservation cancel fee rule of booking time applies (RiderAppConfig.cancelFees, reservation; unchanged). v0.18.33 (fix job 5, owner fix-plan Q3 + Q5): this also holds before any driver took the ride: under freeChangeBeforeMin the fee is charged even with no driver, and Movera keeps all of it (no driver share). contract.json#afterTestRules.bookedCancel.",
       "projection": "TripProjection.reservation (kind scheduled only) = { mode: now | list, dispatchAt, freeChangeUntil, noDriver, overdue, changeAsk? { until, previousAt }, mustBeOnlineAt? (driver views) }.",
       "favourites": "GET /rider/favourite-drivers → { items: [{ driverId, firstName }] }; PUT /rider/favourite-drivers/{driverId} (only a driver of one of the rider's completed trips, else 404 driver_not_found) and DELETE (owner BL-Q4: marked after a ride)."
     },
@@ -7495,5 +7499,31 @@
     "admin": "The admin rider view (GET /admin/riders, rider status changes) keeps wallet: Money (the balance in the currency of the rider's zone, else the first he holds) and adds wallets: [Money] (every non-zero balance, one per currency). The admin panel shows each balance in its own currency, never a sum.",
     "oldRows": "Old rows are untouched (owner Q4, rule 21): earlier wallet entries keep their values; the single old balance (always shown to the rider as SEK) is copied once as the SEK balance and is no longer written.",
     "apps": "Rider app: shows each balance in its own currency (never a sum) and pays a trip only from the balance in its currency. Driver app: no change (the driver never sees the rider's wallet; cashToCollect already comes from the server)."
+  },
+  "afterTestRules": {
+    "note": "v0.18.33 (fix job 5 'After-test rules', ledger R25/L36/R28/R29; owner fix-plan Q1/Q3 2026-11-04 and fix plan 2/4/5/7 Q5/Q6/Q7, Rules decisions/driver-g15.md). Numbered after 0.18.29-0.18.32 (other open jobs). CONTRACT.md §58. Additive; X-Api-Version stays 0.5.",
+    "earlyEnd": {
+      "rule": "Owner fix-plan Q1: a driver who ends before the drop-off re-prices the trip only when it is BOTH more than repriceOverKm km AND more than repriceOverMin minutes shorter than booked (before: either one). Example (2 km / 10 min): 3 km and 5 min shorter = the booked price stands; 3 km and 12 min shorter = the driven price (never more than booked).",
+      "defaults": "DriverAppConfig.cancelFees.earlyEnd { repriceOverKm 2, repriceOverMin 10 } (configDefaults.earlyEnd; ranges unchanged). A trip keeps the numbers of booking time (bookingSnapshot earlyEnd); a trip booked before v0.18.33 keeps its stored numbers but is judged with the BOTH rule.",
+      "admin": "Admin › Cancellation, per zone or country standard: 'New price only when BOTH shorter by more than (km)' default 2 'and (minutes)' default 10."
+    },
+    "bookedCancel": {
+      "rule": "Owner fix-plan Q3: a rider who cancels a booked ride less than freeChangeBeforeMin minutes (default 60) before pickup always pays the reservation cancel fee of booking time (RiderAppConfig.cancelFees, reservation), also when no driver has taken the ride yet. More than freeChangeBeforeMin before pickup stays free.",
+      "noDriver": "Owner Q5 ('Movera keeps it'): with no driver yet the whole fee is Movera's (cancellation.driverShare 0, no driver earnings). TripProjection.cancellation { fee, feeStatus owed, feeKind cancel } as for any rider cancel fee; the fee is owed by the rider (outstandingFee). A booked ride whose pickup time has passed with still no driver is always free to cancel (Movera did not deliver it).",
+      "apps": "Rider: the cancel sheet shows the fee under freeChangeBeforeMin minutes before pickup even with no driver (sv 'Avbokning mindre än {min} min före hämtning kostar {fee}', fr 'Annuler moins de {min} min avant la prise en charge coûte {fee}', en 'Cancelling less than {min} min before pickup costs {fee}'). Admin › Book later: freeChangeBeforeMin help text 'Cancel under (min) costs the fee, even before a driver takes it'."
+    },
+    "bookedNext": {
+      "rule": "Owner Q7 ('While on trip driver get only exclusive and can be reservation exclusive'): a driver who is on a trip gets no Radar offers; a BOOKED ride whose pickup is at most withinMin minutes away can be offered to him as an Exclusive offer when his current trip ends in time: now (or the current trip's start) + its booked minutes (+ the drive to its pickup when the rider is not on board yet) + the drive from its drop-off to the booked pickup (dispatchKm at pickupKmh) is not after the booked pickup time. km and the score are counted from the current trip's drop-off.",
+      "settings": "DispatchDocument.bookedNext { on (default true), withinMin (default 60, 0-240) } — Admin › Dispatch, per zone: 'Driver on a trip can get a booked ride starting within (min)' + on/off. Missing = the defaults.",
+      "accept": "POST /driver/offers/{offerId}/accept of such an offer while his current trip runs is a held accept (reservation.held true, as a list accept): he stays on his current trip, the booked ride becomes his next trip (reminders, leave-now check). The leave-now check and the late rule still apply. Any other offer while on a trip is still 409 driver_on_trip.",
+      "driverApp": "Driver app: during the current trip a card 'Next: booked ride at {time}' (sv 'Nästa: bokad resa kl. {time}', fr 'Suivante : course réservée à {time}'); after Complete the booked ride's pickup opens (leave-now as today).",
+      "liveRides": "Live (not booked) rides are still not offered to a driver on a trip (owner decision 10 unchanged)."
+    },
+    "walletFirst": {
+      "rule": "Owner Q6 ('Switch per ride, starts ON'): CreateTripRequest.walletFirst (default true when missing). true = the rider's wallet balance in the trip's currency pays first: POST /trips reserves walletApplied = min(balance in that currency, fare) and TripProjection.walletApplied / cashToCollect show it from booking on; it is worked out again at boarding (never more than the balance). false = this trip pays nothing from the wallet (walletApplied 0). Another currency's balance is never used (contract.json#walletCurrency).",
+      "zone": "RiderAppConfig.wallet.usedFirst (Admin › Payments 'Use wallet first', per zone, default true): false = the wallet never pays a trip in that zone, whatever walletFirst says. features.wallet false = the same.",
+      "projection": "TripProjection.walletFirst: boolean (rider and admin views): the switch the trip was booked with.",
+      "riderApp": "Rider app: the confirm / payment screen shows a switch 'Use wallet first' (sv 'Använd plånboken först', fr 'Utiliser le portefeuille d'abord'), on by default, only when the wallet has a balance in the trip's currency, with the line 'Your wallet is used first' (sv 'Din plånbok används först', fr 'Votre portefeuille est utilisé en premier')."
+    }
   }
 }

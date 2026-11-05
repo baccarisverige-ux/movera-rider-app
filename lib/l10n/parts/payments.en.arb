@@ -67,6 +67,10 @@
   "walletTooLowChooseAnother": "Your wallet balance does not cover this ride. Choose another way to pay.",
   "walletFirst": "Use wallet balance first",
   "walletFirstBody": "Your balance is taken off every fare; the rest goes to the method you choose.",
+  "walletUsedFirst": "Your wallet is used first",
+  "@walletUsedFirst": {
+    "description": "Fix job 5 (contract v0.18.33, owner Q6): Select ride, above the wallet split of the chosen ride while Use wallet first is on for this ride."
+  },
   "paymentMethods": "Payment methods",
   "vouchers": "Vouchers",
   "voucherSoon": "Voucher codes open soon",
