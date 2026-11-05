@@ -133,12 +133,6 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'phoneCountryCode': l.phoneCountryCode('<country>', '<dial>'),
   'errTooManyWrongCodes': l.errTooManyWrongCodes('<button>'),
   'signInRestricted': l.signInRestricted,
-  'testNumbersTitle': l.testNumbersTitle,
-  'testNumbersButton': l.testNumbersButton,
-  'testNumbersAskAdmin': l.testNumbersAskAdmin,
-  'testStatusNew': l.testStatusNew,
-  'testStatusActive': l.testStatusActive,
-  'testStatusSuspended': l.testStatusSuspended,
   'authNeedHelp': l.authNeedHelp,
   'authHelpComingSoon': l.authHelpComingSoon,
   'authHelpCompany': l.authHelpCompany,
@@ -2173,18 +2167,6 @@ class _Exhaustive implements AppLocalizations {
   String errTooManyWrongCodes(String button) => '';
   @override
   String get signInRestricted => '';
-  @override
-  String get testNumbersTitle => '';
-  @override
-  String get testNumbersButton => '';
-  @override
-  String get testNumbersAskAdmin => '';
-  @override
-  String get testStatusNew => '';
-  @override
-  String get testStatusActive => '';
-  @override
-  String get testStatusSuspended => '';
   @override
   String get authNeedHelp => '';
   @override
