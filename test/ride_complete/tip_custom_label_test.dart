@@ -16,6 +16,19 @@ class _CustomAllowed extends RideCompleteController {
       const TipRules(customAmount: true, customMax: Money(20000, 'SEK'));
 }
 
+/// Job 3 (L12, rider side): a France zone's custom tip.
+class _CustomEuro extends RideCompleteController {
+  @override
+  Future<TipRules> tipRules({String? rideId}) async =>
+      const TipRules(customAmount: true, customMax: Money(2000, 'EUR'));
+
+  @override
+  Future<List<Money>> tips({String? rideId}) async => const [
+    Money(200, 'EUR'),
+    Money(500, 'EUR'),
+  ];
+}
+
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
@@ -57,4 +70,34 @@ void main() {
       semantics.dispose();
     });
   }
+
+  testWidgets('Job 3 / L12: the custom tip field in France ends with €, '
+      'not "EUR" or "kr"', (tester) async {
+    tester.view.physicalSize = const Size(390, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    L10n.use('fr');
+    addTearDown(() => L10n.use('en'));
+    await tester.pumpWidget(
+      MoveraScreenUtilInit(
+        builder: (_, __) => MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: RideCompletedAddTip(controller: _CustomEuro()),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('tip-custom')));
+    await tester.pumpAndSettle();
+    final field = tester.widget<TextField>(
+      find.byKey(const ValueKey('tip-custom-field')),
+    );
+    expect(field.decoration?.suffixText, '€');
+  });
 }
