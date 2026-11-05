@@ -56,14 +56,15 @@ extension _FindingDriverRaise on FindingDriverController {
       // its own command, with the trip version the rider last saw; the
       // server answers the TripProjection with the new fare. The demo's
       // mock keeps the pre-v0.5 PATCH.
-      Future<Map<String, dynamic>> raise() => api.contractWire
+      Future<Map<String, dynamic>> raise({int? fresh, String? freshKey}) =>
+          api.contractWire
           ? api.post(
               '/api/v1/trips/${Uri.encodeComponent(id)}/raise-price',
               body: {
                 'increase': increase.toJson(),
-                'expectedVersion': ?version,
+                'expectedVersion': ?(fresh ?? version),
               },
-              idempotencyKey: key,
+              idempotencyKey: freshKey ?? key,
             )
           : api.patch(
               '/api/v1/rides/$id',
@@ -77,6 +78,27 @@ extension _FindingDriverRaise on FindingDriverController {
       Map<String, dynamic> response;
       try {
         response = await raise();
+      } on ApiError catch (error) {
+        // v0.18.32 L33 (contract.json#bookedRideSeen.versionRetry): the trip
+        // moved on (a booked ride being searched, a new offer): the 409
+        // carries it; the raise is sent once more with its version (a new
+        // key: nothing was applied). A second refusal reaches the rider.
+        final fresh = error.code == 'version_mismatch'
+            ? (error.projection?['version'])
+            : null;
+        if (fresh is! num) {
+          // Not stale: as before (rider-u97), a retryable error is sent
+          // again with the same key; anything else reaches the rider.
+          if (!error.isRetryable) rethrow;
+          if (_appliedEditDropped(editToken)) return false;
+          response = await raise();
+        } else {
+          if (_appliedEditDropped(editToken)) return false;
+          _priceMutation.reset();
+          final freshKey = _priceMutation.keyFor(intent);
+          _priceMutation.versionFor(intent, fresh.toInt());
+          response = await raise(fresh: fresh.toInt(), freshKey: freshKey);
+        }
       } catch (error) {
         // rider-u97: a timeout or dropped connection says nothing about
         // whether the server applied the raise. The same request again
