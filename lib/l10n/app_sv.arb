@@ -1660,5 +1660,6 @@
   "freeRuleHours": "{count, plural, =1{1 timme} other{{count} timmar}}",
   "scheduleForLaterChip": "Boka en resa till senare",
   "previewBanner": "Förhandsvisning",
-  "previewNotSent": "Förhandsvisning – inte skickat"
+  "previewNotSent": "Förhandsvisning – inte skickat",
+  "bookedDriverOnTheWay": "Din bokade förare är på väg"
 }

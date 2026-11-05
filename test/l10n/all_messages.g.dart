@@ -1667,6 +1667,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'scheduleForLaterChip': l.scheduleForLaterChip,
   'previewBanner': l.previewBanner,
   'previewNotSent': l.previewNotSent,
+  'bookedDriverOnTheWay': l.bookedDriverOnTheWay,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -5237,4 +5238,6 @@ class _Exhaustive implements AppLocalizations {
   String get previewBanner => '';
   @override
   String get previewNotSent => '';
+  @override
+  String get bookedDriverOnTheWay => '';
 }

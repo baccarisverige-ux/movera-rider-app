@@ -3339,5 +3339,9 @@
   },
   "scheduleForLaterChip": "Book a ride for later",
   "previewBanner": "Preview",
-  "previewNotSent": "Preview – not sent"
+  "previewNotSent": "Preview – not sent",
+  "bookedDriverOnTheWay": "Your booked driver is on the way",
+  "@bookedDriverOnTheWay": {
+    "description": "v0.18.32 owner Q1: banner on a live ride while a booked ride's driver drives to the rider."
+  }
 }

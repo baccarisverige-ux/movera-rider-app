@@ -301,7 +301,7 @@ def search(doc, case):
         nxt = max(declined.values()) if len(declined) == len(ids) else exp
         run_until(nxt)
         return nxt
-    t, step, cur, tried, asked, switched, repeat = 0, 0, mode, 0, set(), set(), False
+    t, step, cur, tried, asked, switched, repeat, again = 0, 0, mode, 0, set(), set(), False, False
     while mode:
         run_until(t)
         if S['outcome'] or t >= S['end']: break
@@ -309,10 +309,17 @@ def search(doc, case):
             km = steps[-1]; ex = in_range('exclusive', t, km); nxt = next((r for r in ex if r['id'] not in asked), None)
             shown = in_range('radar', t, km)[:doc['radar']['drivers']]
             if doc['exclusive']['on'] and nxt:
-                asked.add(nxt['id'])
+                asked.add(nxt['id']); again = False
                 t = offer('exclusive', t, km, [nxt['id']], 'favourite' if nxt['fav'] else 'finishing-nearby' if nxt['near'] else 'best-match' if nxt is ex[0] else 'nearby')
             elif doc['radar']['on'] and shown: t = offer('radar', t, km, [r['id'] for r in shown])
-            else: t += doc['radar']['seconds'] if doc['radar']['on'] else doc['exclusive']['seconds']
+            elif doc['exclusive']['on'] and not doc['radar']['on'] and ex and again:
+                # v0.18.27 (owner Q1 2026-11-04, BL M6-e): Radar off and everyone in range asked -> after one wait, a new Exclusive cycle
+                asked -= {r['id'] for r in ex}; again = False; first = ex[0]; asked.add(first['id'])
+                t = offer('exclusive', t, km, [first['id']], 'favourite' if first['fav'] else 'finishing-nearby' if first['near'] else 'best-match')
+            else:
+                if doc['exclusive']['on'] and not doc['radar']['on'] and ex:
+                    again = True; t += doc['exclusive'].get('reaskAfterSeconds', doc['exclusive']['seconds'])
+                else: t += doc['radar']['seconds'] if doc['radar']['on'] else doc['exclusive']['seconds']
             continue
         km = steps[step]; ring = in_range(cur, t, km); widest = step == len(steps) - 1
         if cur == 'radar':

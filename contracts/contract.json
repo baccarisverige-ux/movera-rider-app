@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.26",
+  "version": "0.18.32",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -1388,7 +1388,7 @@
       "candidates at each offer, ranked again each time: eligible first (category allowed, km <= widest step, a driver on a ride only when finishing within finishing.withinMin and withinKm and the finishing factor is on), then score descending, km ascending, driverId ascending. Radar never goes to a driver with a rider; Exclusive does only when finishing.exclusive and exclusiveWhileDriving.on.",
       "score = sum over the factors that are on of round(weight / (sum of on weights) × 100 × clamp01(ratio)): eta 1 − etaMin / etaFullMin; rating (rating − ratingFloor) / ratingSpan; acceptance pct / 100; cancel 1 − pct / cancelZeroPct; idle idleMin / idleFullMin; finishing 1 when finishing nearby; favourite 1 when the rider favourited the driver, favourite.on and km <= favourite.maxKm. A factor that does not apply still counts in the sum of weights.",
       "Radar round: the top radar.drivers in range at the current step, all at once, for radar.seconds; the first accept wins (others claimed_elsewhere). Radar adds nobody to asked: a driver who declined or missed may see the trip again on a later round (owner decision 23).",
-      "Exclusive: one driver at a time, the best in range not yet asked, for exclusive.seconds; at most exclusive.drivers per step; each driver is asked once per search (asked). A decline moves on at once.",
+      "Exclusive: one driver at a time, the best in range not yet asked, for exclusive.seconds; at most exclusive.drivers per step; each driver is asked once per search (asked). A decline moves on at once. v0.18.27 (owner Q1 2026-11-04 \"a driver who declined a live exclusive offer may get it again in a later round: YES\", BL M6-e): when Radar is off (an overdue booked ride, or a zone with Radar off) and every driver in range at the widest step was asked, the search waits once — DispatchDocument.exclusive.reaskAfterSeconds (owner 2026-11-04: an admin setting, 5–600 s; missing = exclusive.seconds) — and then starts a new Exclusive cycle: the drivers in range are asked again, best first (a driver who cancelled the trip never is). With Radar on, decliners already see the trip again on the Radar rounds.",
       "after a Radar round nobody accepted: widen (then widen or widen_then_exclusive, not at the widest step); else switch to Exclusive at the same step (then exclusive or widen_then_exclusive, exclusive on, not switched into before; tried = 0); else widen; else the steps are used up. After an Exclusive step: widen (widen, widen_then_radar; tried = 0); else switch to Radar (radar, widen_then_radar, radar on, not switched before); else widen; else used up. The start mode is not counted as switched into.",
       "a round with nobody in range moves on at once (no time passes).",
       "steps used up before the search end (owner decision 22, approved as \"Radar every 15 s at the widest area, and Exclusive to any driver not yet asked\"): the search never goes silent. Each repeat round at the widest step is: when exclusive.on and a driver in range has not been asked on Exclusive in this search (newly free drivers count), an Exclusive offer to the best such driver for exclusive.seconds; otherwise, when radar.on, a Radar round to the top radar.drivers in range for radar.seconds; otherwise wait radar.seconds (exclusive.seconds when Radar is off) and look again. Rounds go on until the search end.",
@@ -3674,6 +3674,34 @@
       "v0.18.7: pickup_moved carries the projection like trip_projection (the pickup changed, version + 1); a location event may carry eta (TripEta) as well as etaSeconds",
       "v0.18.9: a server ride check and its answers (TripProjection.rideCheck) go out as trip_projection events WITHOUT a version change, like the waiting alerts; a route change request and its answer (TripProjection.routeChange) are trip_projection events with version + 1. No new event kinds."
     ]
+  },
+  "fastDispatch": {
+    "note": "v0.18.27 (fix plan Job 1 'Fast dispatch', Rules plan/FIX-PLAN-ORDER-2026-11-04b.md ledger L1, L9, L10, L17, L29, L30, L31, R26; stress test 2026-11-04 H1-H3, M1, M4, M5, L1, L2). Server behaviour; apps: no change needed (they already retry 503 and read the newest offer).",
+    "timers": "Several timer loops per instance (TIMER_LANES, default 4), each FOR UPDATE SKIP LOCKED: one only for dispatch rounds and withdrawals, one only for trip GPS work (trip_eta, ride_check_scan, near_dropoff), the others for any other timer. A timer whose rows are busy keeps its due time (it is not pushed behind later ones) and is tried again after 250 ms, 500 ms, 1 s, then every 2 s. Timer transactions never wait more than 2 s for a row lock. Road routing (OSRM) for the ETA tick and the ride check runs before the timer's transaction, never while a row is locked.",
+    "rounds": "A dispatch round reads only drivers within the widest search step (a box around the pickup), checks all of them with one query per check (open offers, current trip, held booking clash, expired papers, driving-time limit, score numbers) and locks only the drivers it sends to, checking them again under that lock (a driver who just got another Exclusive or a trip is left out).",
+    "overdueBooked": "A booked ride whose search is still running at its pickup time continues with Exclusive offers only from that round on (BL-Q7), also when its search started before the pickup time.",
+    "heldBookingClash": "A driver who holds a booked ride (accepted, held for later) gets no live offer that would clash with it: the live ride [now, now + drive to pickup + trip + spareMin] overlapping the booked [scheduledAt, scheduledAt + trip + spareMin] (the reservations smart gap, rideTypes.normal.spareMin). Owner Q3 2026-11-04: ALWAYS, whatever reservations.hideClashing says (that switch is only about the Scheduled rides list; the admin explains this).",
+    "adminOfferSeconds": "An offer an admin sends (assign = Exclusive, radar group) stays open the zone's dispatch exclusive.seconds / radar.seconds, the same as the automatic offer of that kind; DriverAppConfig.offers.assignAcceptSeconds / exclusiveSeconds / radarSeconds are used only when the zone has no dispatch rules (a radar zone rule's own seconds still win). Owner Q2 2026-11-04: the admin shows reservations 'Time to accept a ride assigned by Movera' (assignAcceptSeconds) READ-ONLY with a note that the zone's Exclusive time is used; the setting is kept, never deleted.",
+    "acceptVersion": "POST /offers/{offerId}/accept with an expectedVersion OLDER than the offer's while the offer is still open is accepted (an open offer's version only moves for money / badge refreshes, offer_updated). A newer-than-real version, or an offer no longer open, is refused as before.",
+    "backPressure": "503 unavailable, reason server_busy, retryable, Retry-After 2: while the server's database queue (SHED_POOL_WAITING, default 200) or event-loop delay (SHED_LOOP_DELAY_MS, default 500) is over its limit, new low-priority requests are refused at once (shedOnly); a request whose client has gone is not started; a query that waits too long for a connection, runs over DATABASE_STATEMENT_TIMEOUT_MS (default 30 s) or over a lock timeout also answers server_busy.",
+    "adminMapBox": "GET /admin/live/drivers takes an optional map box minLat, minLng, maxLat, maxLng (all four, degrees; min above max → 400 invalid_request, reason invalid_map_box): only drivers whose last position is inside are read and the answer is { items, staleAfterSeconds, serverTime } for the map only (no ridersOnline / zoneSupply, which need every driver). GET /rider/nearby-vehicles reads at most 4 × maxVehicles cars, nearest first.",
+    "shedOnly": "Only new low-priority work is ever refused with server_busy: POST /quotes, POST /locations/*, GET /rider/nearby-vehicles, GET /places/*, GET /admin/* lists (never a stream). SOS / safety, offer accept / decline, trip changes, payment and cash, trip GPS, event streams and their resume, sign-in are never shed.",
+    "clients": "All three apps treat 503 unavailable (server_busy) like 429: retryable, wait Retry-After (else a short backoff), then try again; nothing is shown as a failure while retries remain.",
+    "reads": "Live settings documents are kept in memory (at most 15 s; emptied at once by every config_published). GET /driver/offers reads the offers' trips in one query. GET /admin/live/drivers reads only drivers of the admin's zones and their current trips in one query."
+  },
+  "bookedRideSeen": {
+    "note": "v0.18.32 (fix job 2 'Rider sees booked ride', Rules plan/FIX-JOBS-2-4-5-7-PLAN-2026-11-04.md L2, L3, L33, Q5 popup; plan/LIVE-50x50-FIX-PLAN-2026-11-04.md P21 / B-n; owner fix-plan Q5 2026-11-04 'from leave time a booked ride = a regular ride' and job-2 answers Q1-Q3, Rules decisions/driver-g15.md). Additive; X-Api-Version stays 0.5; no migration.",
+    "activeTrip": "GET /rider/trips/active returns the rider's non-terminal live trip; when there is none, the rider's non-terminal booked trip (kind scheduled) whose driver has started driving to the pickup at least once (the trip reached driver_to_pickup). It stays returned while a new driver is searched for, offered or accepted after the first one gave it back. Before the driver starts driving the booked ride is not returned: it lives under Upcoming (GET /rider/trips?kind=scheduled). From then on the rider app shows the normal ride screens (driver on the way, arrived, on trip, receipt).",
+    "liveWins": "Owner Q1 2026-11-05 'Live ride + banner': when a live trip and a started booked trip are both active, the live trip is returned and stays on screen; the rider app shows a banner 'Your booked driver is on the way' while GET /rider/trips?kind=scheduled&status=driver_to_pickup&status=arrived lists a trip. When the live trip ends, the next read returns the booked trip.",
+    "driverChanged": "Owner Q2 2026-11-05: a booked driver who gives the ride back before he started driving changes nothing the rider sees (silent swap). After he started driving the rider sees the normal 'Searching for a new driver' (status searching / offered), then the new driver heading to the pickup like a normal trip.",
+    "noLateMessage": "Owner Q3 2026-11-05 'Nothing he already track the trip on his screen': no late message to the rider when a booked driver is late but keeps the ride.",
+    "riderTripEvent": "P21 / B-n: GET /rider/config/stream also carries rider_trip_changed { eventId, kind: 'rider_trip_changed', tripId, occurredAt, serverTime } for every event of any trip of the signed-in rider (created, accepted, every status change; also a trip made by an admin, the API or another phone). Its SSE id is the app document version already sent (as for zones and content), so Last-Event-ID stays that version. The rider app reads GET /rider/trips/active (and its Upcoming list) again on it.",
+    "pollFallback": "While the rider's Home shows no trip and the app is in front, the app also reads GET /rider/trips/active every pollSeconds, in case the stream is down.",
+    "pollSeconds": 8,
+    "leaveNowName": "Push reservation_leave_now (driver) carries data.riderFirstName (the trip's rider first name; may be empty, then the title ends without ' · ') and the title 'Time to drive to pickup · {riderFirstName}'. GET /driver/reservations?scope=accepted rows carry the same riderFirstName. The driver app's popup shows that title with a Start button that opens the normal trip screen; no new screen.",
+    "rulesSource": "The rider app reads its booked-ride rules from GET /rider/config: booking.freeChangeBeforeMin (free change and cancel before pickup) and cancelFees.reservation (the fee per category); the driver is shown from driver_to_pickup on (bookLater.liveFixes.driverShown). GET /rider/scheduled-rides/rules was PROPOSED, is not served and is not used.",
+    "versionRetry": "A 409 version_mismatch on a trip command (reschedule, cancel, raise-price) carries projection (the caller's own view, contract errors). Clients take projection.version and retry the same command once; a second 409 is shown to the person. The rider app also keeps the version from every list read, trip stream event and answer.",
+    "admin": "Admin Trips: a booked trip from driver_to_pickup on shows the label 'Booked ride · now live' next to its status (the trip view itself is unchanged). No setting."
   },
   "errors": {
     "shape": "{ code, message, requestId, retryable, reason?, projection?, details? }",
@@ -7090,9 +7118,9 @@
         },
         "reservation_leave_now": {
           "title": {
-            "sv": "Starta nu mot upphämtningen",
-            "fr": "Partez maintenant vers la prise en charge",
-            "en": "Start now towards the pickup"
+            "sv": "Dags att köra till upphämtningen · {riderFirstName}",
+            "fr": "C'est l'heure d'aller à la prise en charge · {riderFirstName}",
+            "en": "Time to drive to pickup · {riderFirstName}"
           },
           "body": {
             "sv": "Kör nu för att vara framme {early} min före kl. {time}.",
@@ -7383,7 +7411,7 @@
       "rider": "riderErrorKind maps 429 / rate_limited / too_many_requests to rateLimited and shows the wait from Retry-After",
       "admin": "ApiError.retryable from the body, Retry-After read into retryAfterSeconds; reads retry at most twice and wait Retry-After (at most 60 s) before retrying; message 'Too many attempts. Wait N s.'"
     }
-    },
+  },
   "previewSession": {
     "version": "0.18.25",
     "note": "BASE job 'admin real app preview' (Rules plan/BASE-JOBS-SPEC-2026-11-04.md §1; owner P1 a, P2 b, P3 a, 2026-11-04). The admin panel shows the REAL rider and driver web apps inside a phone frame on every page that showed a drawn sample phone (Content, Design, Messages, Bonuses, Promos, Riders). The apps talk to the live server with a preview token; every real action is blocked.",

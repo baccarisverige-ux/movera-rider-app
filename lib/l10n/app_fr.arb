@@ -1660,5 +1660,6 @@
   "freeRuleHours": "{count, plural, =1{1 heure} other{{count} heures}}",
   "scheduleForLaterChip": "Réserver une course pour plus tard",
   "previewBanner": "Aperçu",
-  "previewNotSent": "Aperçu – non envoyé"
+  "previewNotSent": "Aperçu – non envoyé",
+  "bookedDriverOnTheWay": "Votre chauffeur réservé est en route"
 }

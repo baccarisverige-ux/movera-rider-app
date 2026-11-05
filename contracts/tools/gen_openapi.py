@@ -889,7 +889,8 @@ S["PricingDocument"] = obj(OrderedDict([
     **{"x-server-only": True})
 S["DispatchModeRules"] = obj({"on": b(), "drivers": i(minimum=1, maximum=30, description="radar: shown at once (1-30); exclusive: tried one after the other per radius step (1-10)."),
                               "seconds": i(minimum=5, maximum=120, description="radar 5-120, exclusive 5-60."), "then": s(enum=sorted(set(DP["then"]["radar"] + DP["then"]["exclusive"]))),
-                              "steps": arr(n(exclusiveMinimum=0, maximum=50), minItems=1, maxItems=5, description="v0.18.11 dispatch start: optional own search steps (km, strictly increasing) for this mode. Missing = radius.steps.")},
+                              "steps": arr(n(exclusiveMinimum=0, maximum=50), minItems=1, maxItems=5, description="v0.18.11 dispatch start: optional own search steps (km, strictly increasing) for this mode. Missing = radius.steps."),
+                              "reaskAfterSeconds": i(minimum=5, maximum=600, description="v0.18.27 (owner Q1 2026-11-04, exclusive only): with Radar off, the wait before drivers who all said no are asked again. Missing = this mode's seconds.")},
                              ["on", "drivers", "seconds", "then"], "Radar: then is widen | exclusive | widen_then_exclusive. Exclusive: then is radar | widen | widen_then_radar.")
 S["DispatchTimeRule"] = obj({"id": s(minLength=1), "on": b(), "from": s(pattern=r"^\d\d:\d\d$"), "to": s(pattern=r"^\d\d:\d\d$"), "mode": s(enum=DP["modes"])},
                             ["id", "on", "from", "to", "mode"], "Zone-local [from, to); wraps midnight when from > to.")
@@ -1086,6 +1087,11 @@ S["ConfigEvent"] = obj({"eventId": ref("Id"), "kind": s(const="config_published"
                         "occurredAt": ref("Timestamp"), "serverTime": ref("Timestamp")},
                        ["eventId", "kind", "doc", "zoneId", "version", "publishedAt", "occurredAt", "serverTime"],
                        "Apps re-fetch the config document on this event.")
+S["RiderTripEvent"] = obj({"eventId": ref("Id"), "kind": s(const="rider_trip_changed"), "tripId": ref("Id"),
+                           "occurredAt": ref("Timestamp"), "serverTime": ref("Timestamp")},
+                          ["eventId", "kind", "tripId", "occurredAt", "serverTime"],
+                          "v0.18.32 (contract.json#bookedRideSeen.riderTripEvent, P21): a trip of this rider changed (made, accepted, any status), "
+                          "also when made elsewhere. The rider app reads GET /rider/trips/active again.")
 
 # --- error
 S["Error"] = obj({"code": ref("ErrorCode"), "message": s(), "requestId": s(), "retryable": b(),
@@ -1438,8 +1444,9 @@ op("post", "/trips/{tripId}/rating", "rateTrip", "Rate the other party (and opti
 op("get", "/rider/trips", "listRiderTrips", "Rider trip history and reservations", ["rider"], "Rider · Booking",
    params=[pref("Cursor"), pref("Limit"), q("status", ref("TripStatus"), multi=True), q("kind", ref("TripKind")), pref("From"), pref("To")],
    ok=(200, "TripProjectionPage"))
-op("get", "/rider/trips/active", "getRiderActiveTrip", "The rider's current non-terminal live trip", ["rider"], "Rider · Booking",
-   ok=(200, TP), desc="204 when there is none.")
+op("get", "/rider/trips/active", "getRiderActiveTrip", "The rider's current non-terminal live trip, else a booked trip whose driver started driving", ["rider"], "Rider · Booking",
+   ok=(200, TP), desc="204 when there is none. v0.18.32 (contract.json#bookedRideSeen): a booked trip (kind scheduled) is returned once it reached driver_to_pickup, "
+                      "until it ends; a live trip wins when both are active (owner Q1, the app shows a banner for the booked one).")
 PATHS["/rider/trips/active"]["get"]["responses"]["204"] = {"description": "No active trip", "headers": HDR_REQ}
 op("get", "/rider/nearby-vehicles", "getRiderNearbyVehicles", "Free cars near a point, for the rider's map", ["rider"], "Rider · Booking",
    params=[{**q("lat", n(minimum=-90, maximum=90)), "required": True}, {**q("lng", n(minimum=-180, maximum=180)), "required": True}],
@@ -1450,7 +1457,7 @@ op("get", "/rider/nearby-vehicles", "getRiderNearbyVehicles", "Free cars near a 
 op("get", "/rider/config", "getRiderConfig", "Published RiderAppConfig for a zone", ["rider"], "Config",
    params=[pref("ZoneIdQuery")], ok=(200, "RiderAppConfig"))
 op("get", "/rider/config/stream", "streamRiderConfig", "config_published events for the rider document", ["rider"], "Realtime",
-   params=[pref("ZoneIdQuery")], content=sse("Server-sent events.", "ConfigEvent"))
+   params=[pref("ZoneIdQuery")], content=sse("Server-sent events. v0.18.32: also RiderTripEvent (kind rider_trip_changed) for the signed-in rider's trips, id = the document version already sent.", "ConfigEvent"))
 op("get", "/rider/profile", "getRiderProfile", "Get own rider profile", ["rider"], "Rider · Account", ok=(200, "Rider"))
 op("patch", "/rider/profile", "updateRiderProfile", "Update own rider profile", ["rider"], "Rider · Account",
    body="RiderProfileUpdate", ok=(200, "Rider"), mutation=True)
@@ -2744,6 +2751,7 @@ S["DriverReservation"] = obj(OrderedDict([("tripId", ref("Id")), ("version", i(m
                               ("pickup", ref("Place")), ("dropoff", ref("Place")), ("stops", i(minimum=0)), ("distanceMeters", i(minimum=0)), ("durationSeconds", i(minimum=0)),
                               ("earnings", ref("Money")), ("status", ref("TripStatus")), ("mustBeOnlineAt", ref("Timestamp")), ("canStartAt", ref("Timestamp")),
                               ("popup", b("The Home popup step was reached (reservation_popup sent).")),
+                              ("riderFirstName", s(description="v0.18.32 (contract.json#bookedRideSeen.leaveNowName): scope=accepted only, the rider's first name for the leave-now popup.")),
                               ("reservation", {"allOf": [ref("ReservationInfo")], "description": "v0.18.19 (live test HIGH 2): the same reservation as the trip read, so the list knows changeAsk (Keep it at the new time?) and leaveAt."})]),
                              ["tripId", "version", "scheduledAt", "categoryId", "rideType", "pickup", "dropoff", "earnings", "status", "mustBeOnlineAt", "canStartAt"], "v0.18.17: one booked ride in the driver's lists.")
 S["DriverReservationPage"] = obj({"items": arr(ref("DriverReservation")), "nextCursor": {"oneOf": [s(), {"type": "null"}]}}, ["items", "nextCursor"], "v0.18.17.")
