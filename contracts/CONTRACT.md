@@ -1,4 +1,8 @@
-# Movera shared contract v0.18.36
+# Movera shared contract v0.18.38
+
+v0.18.38 (fix job 8 "in-app calling", Rules `plan/FIX-JOBS-8-9-10-PLAN-2026-11-05.md`, owner G15 2026-11-05: "In-app calls only", "Both rider and driver", "Just 'Call failed'"; builds on v0.18.34 main; X-Api-Version stays `0.5`, additive; server migration 0085): **the trip's rider and driver call each other inside the apps (WebRTC, the server relays the signalling)** from driver assignment until **60 min after drop-off** (`CountryRules.calls.callWindowAfterTripMin`); outside it 409 `call_window_closed`; ring 30 s then `call_missed`; never a phone number. Admin › Pricing › Tips & limits per country › Calls; Admin › Trip details › Calls (call log). See §62 and `contract.json#inAppCalls`.
+
+v0.18.37 (go offline after trips, owner 2026-11-05, Rules `decisions/driver-g15.md`; builds on v0.18.36; X-Api-Version stays `0.5`, additive; server migration 0084; rider app: no change): **"Go offline" during a trip is scheduled offline.** `POST /driver/availability` offline while on a trip answers **200** (was 409 `on_trip`): he stays `on_trip` with `Driver.offlineAfterTrip` true; from the tap he gets **no new offers** (the 70 % on-trip Exclusives too; an accept in the race window is 409 `going_offline`); he finishes the current trip, a queued next trip and a held booked ride that is due, then goes offline with `offlineReason` `after_trip`. Undo = online while on the trip. Booked rides for later stay his. No admin switch. §61, `contract.json#goOfflineAfterTrips`.
 
 v0.18.36 (FIX JOB 9 "airport queue", R27, owner G15 Q5 2026-11-02 "Build it for real" and job 9 answers 2026-11-05, Rules `decisions/driver-g15.md`; builds on v0.18.35 main; X-Api-Version stays `0.5`, additive; server migration 0086; rider app: no change): drivers inside an admin-drawn **queue area** of an airport zone wait in a **first-in-first-out queue** kept in the database; a trip picked up at that airport goes first as an Exclusive (`airport-queue`) to the first driver in line, then the next (a decline **keeps his place**), at most `maxQueueOffers`, then normal nearest dispatch. A driver who drops a rider at the airport **joins at once**. **Riders see nothing.** `GET /driver/airport-queue`, `GET|PUT /admin/zones/{zoneId}/queue-area`, `GET /admin/airport-queues`. §60, `contract.json#airportQueue`.
 
@@ -1228,6 +1232,28 @@ Owner G15 Q5 (2026-11-02): "Build it for real" — drivers in an admin-drawn air
 - **Admin**: Zones › airport zone › Queue area (draw, on/off, numbers); Dashboard airport card from `GET /admin/airport-queues` (waiting, longest wait, pickups last hour).
 - **Rider**: no change (owner: riders see nothing).
 - **Several server copies (rule 33)**: queue rows and their order live in the database (`airport_queue_entries`, one open row per driver, unique index); the queue offer is sent in the round's transaction with the trip row locked and the driver row locked NOWAIT and re-checked.
+
+## 61. Go offline after trips (v0.18.37)
+
+Owner (2026-11-05, verbatim): "When on trip and want go offline, that mean he is set offline after the trip ends and if he have ongoing trip and another one after so go offline mean after all trips finish". Booked ride later the same day: "Keep it, remind him". Admin switch: "No switch". Full rules: `contract.json#goOfflineAfterTrips`.
+
+- **Tap:** `POST /driver/availability { onlineStatus: offline }` while on a trip → **200**, `onlineStatus` stays `on_trip`, `Driver.offlineAfterTrip: true`, `offlineAfterTripSince`. Idempotent. **Undo:** `{ onlineStatus: online }` while on the trip clears it.
+- **No offers from the tap:** none of any kind (the on-trip Exclusives after `minRouteDonePct` included); open offers withdrawn at once; a late accept → 409 `conflict` reason `going_offline`.
+- **End (rule 33):** in the trip-release transaction, driver row locked: a queued live trip starts (stays `on_trip`, flag kept), else a held booked ride that is due starts (same), else **offline**, `offlineReason` `after_trip`, `set_offline` notice (`data.reason` `after_trip`), flag cleared. A block during the trip wins (its own reason).
+- **Booked rides for later** stay his; the normal reminders tell him to go online.
+- **Admin:** no setting; driver view and live drivers carry `offlineAfterTrip` ("Going offline after trips"). **Driver app:** banner "Going offline after this trip" + Undo, location keeps going, offline card `after_trip`. **Rider app:** no change.
+
+## 62. In-app calls — fix job 8 (v0.18.38)
+
+Owner G15 (2026-11-05): calls before a phone company → "In-app calls only"; who calls → "Both rider and driver"; a call that fails → "Just 'Call failed'".
+- **Start**: `POST /trips/{tripId}/call` (rider or driver of the trip) → `TripCall { tripId, mode: "in_app", callId, ice { servers, ttlSeconds }, ringSeconds, maxCallMin, expiresAt }`; event `call_ringing` (field `call`: `CallView`) on the trip stream; the other app shows the incoming-call sheet (Answer / Decline).
+- **Window**: from driver assignment until `CountryRules.calls.callWindowAfterTripMin` (default 60, 0–240) minutes after a completed trip's drop-off; else 409 `invalid_transition`, reason `call_window_closed`. `calls.on` false → 403 `forbidden`, reason `calls_off`. One live call per trip, else 409 reason `call_busy`.
+- **Signalling**: `POST /calls/{callId}/signal { type: offer|answer|ice, sdp?, candidate? }` → 202, relayed as `call_signal` (field `signal`). `POST /calls/{callId}/answer` → `call_answered`. `POST /calls/{callId}/end { reason: hangup|declined|failed }` → `call_ended` (idempotent). Not ringing after `ringSeconds` (30, 10–120) → `call_missed`; talk longer than `maxCallMin` (15, 1–60) → ended, reason `max_length`. Audio goes peer to peer or through TURN; the server stores no audio.
+- **Realtime**: `call_ringing`, `call_answered`, `call_signal`, `call_ended`, `call_missed` carry no projection, keep the version, and pass the gate after a terminal status (`realtime.afterTerminal`).
+- **No numbers**: no call payload ever carries a phone number. Mode `phone` (proxyNumber, v0.13.0) only when `CountryRules.calls.mode` is `phone` AND a provider is configured; else in-app.
+- **Admin**: Pricing › Tips & limits per country › Calls (on, mode, window, ring time, longest call); Trip details › Calls (`GET /admin/trips/{tripId}/calls`, `trips.read`): who called whom, when, how long, how it ended. Admin Call stays "coming soon" (G9 Q6).
+- **Apps** (driver + rider): the call button opens the call screen (Calling…, Mute, Speaker, End), hidden outside the window; a failed start or connection shows only "Call failed" (sv "Samtalet misslyckades", fr "L'appel a échoué").
+- **Rule 33**: call state lives only in `trip_calls` (row locked on every change); ring and length limits are database timers; signals are trip events. Any server copy serves any request.
 
 ## 65. Admin live drivers, paged — fix plan A8/A10 (v0.18.34)
 

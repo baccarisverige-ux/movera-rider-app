@@ -148,6 +148,17 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'appTitle': l.appTitle,
   'previewBanner': l.previewBanner,
   'previewNotSent': l.previewNotSent,
+  'callFailed': l.callFailed,
+  'callCalling': l.callCalling,
+  'callConnecting': l.callConnecting,
+  'callConnected': l.callConnected,
+  'callIncomingFromDriver': l.callIncomingFromDriver,
+  'callAnswer': l.callAnswer,
+  'callDecline': l.callDecline,
+  'callEnd': l.callEnd,
+  'callMute': l.callMute,
+  'callSpeaker': l.callSpeaker,
+  'callEnded': l.callEnded,
   'cancelRide': l.cancelRide,
   'cancelReasonPickupIncorrect': l.cancelReasonPickupIncorrect,
   'cancelReasonWrongRideOption': l.cancelReasonWrongRideOption,
@@ -2197,6 +2208,28 @@ class _Exhaustive implements AppLocalizations {
   String get previewBanner => '';
   @override
   String get previewNotSent => '';
+  @override
+  String get callFailed => '';
+  @override
+  String get callCalling => '';
+  @override
+  String get callConnecting => '';
+  @override
+  String get callConnected => '';
+  @override
+  String get callIncomingFromDriver => '';
+  @override
+  String get callAnswer => '';
+  @override
+  String get callDecline => '';
+  @override
+  String get callEnd => '';
+  @override
+  String get callMute => '';
+  @override
+  String get callSpeaker => '';
+  @override
+  String get callEnded => '';
   @override
   String get cancelRide => '';
   @override
