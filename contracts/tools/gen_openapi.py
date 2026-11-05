@@ -1043,7 +1043,9 @@ S["ZoneSupply"] = obj(OrderedDict([("zoneId", ref("Id")), ("online", i(minimum=0
                       ["zoneId", "online", "free", "busy", "waiting", "level", "shortage"], "v0.18.4 (G3-D5): " + DS["note"])
 S["LiveDriverList"] = obj({"zoneSupply": arr(ref("ZoneSupply"), description="v0.18.4 (G3-D5): supply and demand per zone; the Dashboard's rows and shortage alert."),"items": arr(ref("LiveDriver")), "staleAfterSeconds": {**i(minimum=1), "default": LD["staleAfterSeconds"]}, "serverTime": ref("Timestamp"),
                            "ridersOnline": arr(ref("ZoneRidersOnline"), description="v0.18.4 (G3-R4): real riders online per zone of the admin, the Dashboard's 'Riders online'."),
-                           "ridersOnlineWindowSeconds": {**i(minimum=1), "default": C["driverHome"]["ridersOnline"]["windowSeconds"]}},
+                           "ridersOnlineWindowSeconds": {**i(minimum=1), "default": C["driverHome"]["ridersOnline"]["windowSeconds"]},
+                           "total": {**i(minimum=0), "description": "v0.18.34 §65: " + C["liveDriversPaging"]["total"]},
+                           "nextCursor": {"oneOf": [s(), {"type": "null"}], "description": "v0.18.34 §65: " + C["liveDriversPaging"]["paging"]}},
                           ["items", "staleAfterSeconds", "serverTime"], f"Drivers on the admin live map; the panel polls about every {LD['pollSeconds']} s.")
 S["TripTrace"] = obj({"tripId": ref("Id"), "fixes": arr(ref("GeoFix"), description="In time order."), "keptUntil": ref("Timestamp")}, ["tripId", "fixes"],
                      f"The trip's GPS trace; deleted {LD['traceKeepDays']} days after the trip (owner decision 11).")
@@ -1947,8 +1949,9 @@ op("put", "/admin/zones/{zoneId}/dispatch-control", "adminPutDispatchControl", "
    desc="CONTRACT.md §3.6. v0.7.2 (one admin is enough): pause, force a mode, resume and back to rules run at once (200) for every admin with dispatch.edit. "
         "Forcing a mode that is off → 400 invalid_request (mode_off). Running searches stop new offers while paused; a forced mode applies to new searches.")
 op("get", "/admin/live/drivers", "adminLiveDrivers", "Driver positions for the admin live map", ["admin"], "Admin · Dispatch",
-   params=ZF, ok=(200, "LiveDriverList"), permission="trips.read",
-   desc="Limited to the zones in the admin's scope. stale = no fix for staleAfterSeconds." + ZF_DESC)
+   params=ZF + [q("limit", i(minimum=1, maximum=1000), "v0.18.34 §65: page size; without it every driver in one answer."), q("cursor", s(minLength=1, maxLength=128), "v0.18.34 §65: the nextCursor of the page before.")],
+   ok=(200, "LiveDriverList"), permission="trips.read",
+   desc="Limited to the zones in the admin's scope. stale = no fix for staleAfterSeconds. v0.18.34 §65: " + C["liveDriversPaging"]["adminLiveCard"] + ZF_DESC)
 DDF = C["dispatchDriverFacts"]
 def _nn(desc, **kw): return {"oneOf": [n(**kw), {"type": "null"}], "description": desc}
 def _ni(desc, **kw): return {"oneOf": [i(**kw), {"type": "null"}], "description": desc}
@@ -2972,6 +2975,11 @@ S["CountryRules"]["properties"]["onTripOffers"] = obj({"minRouteDonePct": {**i(m
 S["TripProjection"]["properties"]["chain"] = obj({"queued": b("Still queued behind the driver's current trip (cancel free)."), "freeCancelAt": ref("Timestamp")}, ["queued"], "v0.18.33 (owner Q3 + Q5), all views: a trip a driver on a trip took next. " + ATR["onTripOffers"]["lateFreeCancel"])
 S["TripProjection"]["properties"]["nextAfterTripId"] = {"allOf": [ref("Id")], "description": "v0.18.33, driver and admin views: a live trip queued behind this driver's current trip (contract.json#afterTestRules.bookedNext.accept)."}
 S["RiderAppConfig"]["properties"]["wallet"] = obj({"usedFirst": {**b("The balance (one per currency, no conversion) pays first. v0.18.33: " + ATR["walletFirst"]["zone"]), "default": True}})
+
+# v0.18.39 §63 (rule 25: this file is over 1500 lines): newer surface lives in tools/openapi_parts/*.py, run here in order.
+import glob as _glob, os as _os
+for _part in sorted(_glob.glob(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "openapi_parts", "*.py"))):
+    exec(compile(open(_part).read(), _part, "exec"), globals())
 
 def to_plain(x):
     if isinstance(x, dict): return {k: to_plain(v) for k, v in x.items()}
