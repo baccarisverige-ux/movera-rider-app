@@ -107,7 +107,7 @@ void main() {
 
   group('P5-R3 Safety: /safety/*', () {
     test(
-      'live: loading and changing Safety sends nothing and says why',
+      'live: Safety settings send nothing and say why; contacts use only the contract route',
       () async {
         final r = recording(live);
         final store = SafetyStore(api: r.api);
@@ -125,12 +125,21 @@ void main() {
                 ),
           ),
         );
+        // BASE B13 (contract v0.18.26 §47, owner 2026-11-04 "Yes, same as
+        // drivers"): emergency contacts are the one Safety part on the
+        // server. The only calls are the contract's own route (here it
+        // answers 404, so the change is refused and undone); nothing goes
+        // to /safety/*.
         await expectLater(
           store.createContact(name: 'Anna', phone: '+46701234567'),
-          throwsA(isA<SafetyException>()),
+          throwsA(anything),
         );
         expect(store.contacts, isEmpty);
-        expect(r.calls, isEmpty);
+        expect(
+          r.calls.every((c) => c.endsWith('/api/v1/rider/emergency-contacts')),
+          isTrue,
+        );
+        expect(r.calls.where((c) => c.contains('/safety/')), isEmpty);
       },
     );
 

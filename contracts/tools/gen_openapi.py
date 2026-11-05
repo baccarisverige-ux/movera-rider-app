@@ -2827,7 +2827,7 @@ op("get", ALE["path"], "adminStreamEvents", "Admin live updates (what changed, i
    content=sse("Server-sent events. " + ALE["transport"] + " " + " ".join(ALE["scope"]) + " " + ALE["replay"], "AdminLiveEvent", "AdminLiveEventPage"),
    permission=ALE["permission"])
 
-# v0.18.25 admin real app preview (CONTRACT.md §47, contract.json#previewSession): a read-only preview token for the real apps.
+# v0.18.25 admin real app preview (CONTRACT.md §48, contract.json#previewSession): a read-only preview token for the real apps.
 PVS = C["previewSession"]
 S["PreviewRole"] = s("v0.18.25: which real app the preview opens.", enum=PVS["roles"])
 S["PreviewSessionRequest"] = obj({"role": ref("PreviewRole"), "zoneId": ref("Id"), "useDraft": b("true: the app shows the zone's saved draft settings (GET .../config?draft=1).")},
@@ -2841,6 +2841,62 @@ op("post", PVS["path"], "adminCreatePreviewSession", "Open a read-only preview o
 for _p in ["/rider/config", "/driver/config"]:
     for _m in PATHS[_p].values():
         _m["parameters"].insert(0, q("draft", {"type": "string", "enum": ["0", "1"]}, "v0.18.25: '1' with a preview token (contract.json#previewSession) returns the zone's saved draft; ignored for every other token."))
+# v0.18.26 phone data to the server (CONTRACT.md §49, contract.json#phoneDataToServer; BASE B13, owner 2026-11-03).
+PDS = C["phoneDataToServer"]
+RP, DP, EC = PDS["riderPlaces"], PDS["driverPreferences"], PDS["driverEmergencyContacts"]
+S["SavedPlaceAddress"] = obj({"address": s(minLength=1, maxLength=512), "lat": n(minimum=-90, maximum=90), "lng": n(minimum=-180, maximum=180)},
+                             ["address"], "v0.18.26: " + RP["place"])
+_SP = OrderedDict([("label", s(minLength=1, maxLength=80)), ("kind", s(RP["kinds"], enum=["home", "work", "other"])),
+                   ("type", s("v0.18.26: the app's word for an other place (gym, mall, ...).", pattern="^[a-z][a-z0-9_-]{0,31}$")),
+                   ("place", ref("SavedPlaceAddress"))])
+S["SavedPlace"] = obj(OrderedDict([("placeId", ref("Id"))] + list(_SP.items()) + [("createdAt", ref("Timestamp")), ("updatedAt", ref("Timestamp"))]),
+                      ["placeId", "label", "kind", "place", "createdAt", "updatedAt"], "v0.18.26: one of the rider's saved places. " + PDS["privacy"])
+S["SavedPlaceRequest"] = obj(_SP, ["label", "kind", "place"], "v0.18.26: " + RP["kinds"])
+S["SavedPlaceImport"] = obj({"items": arr(ref("SavedPlaceRequest"), maxItems=C["countryLimits"]["ranges"]["savedPlacesPerPerson"][1])}, ["items"], "v0.18.26: " + RP["import"])
+for _o in PATHS["/rider/places"].values(): _o["description"] = "v0.18.26: " + RP["routes"] + " " + RP["tooMany"] + " " + PDS["privacy"]
+PATHS["/rider/places/{placeId}"]["delete"]["description"] = "v0.18.26: only the rider's own place (else 404 place_not_found)."
+op("put", "/rider/places/{placeId}", "updateSavedPlace", "Change a saved place", ["rider"], "Rider · Account",
+   params=[pref("PlaceId")], body="SavedPlaceRequest", ok=(200, "SavedPlace"), mutation=True,
+   desc="v0.18.26: only the rider's own place (else 404 place_not_found). " + RP["kinds"])
+op("post", "/rider/places/import", "importSavedPlaces", "Upload the phone's saved places once", ["rider"], "Rider · Account",
+   body="SavedPlaceImport", ok=(200, "SavedPlacePage"), mutation=True, desc="v0.18.26: " + RP["import"])
+S["DriverPreferences"] = obj({"categoriesOff": arr(ref("CategoryId"), uniqueItems=True, description=DP["categoriesOff"]),
+                              "updatedAt": {"oneOf": [ref("Timestamp"), {"type": "null"}], "description": DP["updatedAt"]}},
+                             ["categoriesOff", "updatedAt"], "v0.18.26: " + DP["dispatch"])
+S["DriverPreferencesUpdate"] = obj({"categoriesOff": arr(ref("CategoryId"), uniqueItems=True, maxItems=50, description=DP["categoriesOff"])}, ["categoriesOff"])
+op("get", "/driver/preferences", "getDriverPreferences", "Own ride preferences", ["driver"], "Driver · Account",
+   ok=(200, "DriverPreferences"), desc="v0.18.26: " + DP["routes"])
+op("put", "/driver/preferences", "putDriverPreferences", "Save own ride preferences", ["driver"], "Driver · Account",
+   body="DriverPreferencesUpdate", ok=(200, "DriverPreferences"), mutation=True, desc="v0.18.26: " + DP["dispatch"])
+S["EmergencyContact"] = obj({"name": s(minLength=1, maxLength=80), "phone": s(pattern=r"^\+?[0-9]{3,15}$"), "relation": s(maxLength=40)},
+                            ["name", "phone"], "v0.18.26: " + EC["item"])
+S["EmergencyContactList"] = obj({"items": arr(ref("EmergencyContact"), maxItems=C["countryLimits"]["ranges"]["emergencyContactsPerPerson"][1]),
+                                 "updatedAt": {"oneOf": [ref("Timestamp"), {"type": "null"}], "description": EC["updatedAt"]}}, ["items", "updatedAt"])
+S["EmergencyContactListUpdate"] = obj({"items": arr(ref("EmergencyContact"), maxItems=C["countryLimits"]["ranges"]["emergencyContactsPerPerson"][1])}, ["items"], EC["tooMany"])
+op("get", "/driver/emergency-contacts", "getDriverEmergencyContacts", "Own emergency contacts", ["driver"], "Driver · Account",
+   ok=(200, "EmergencyContactList"), desc="v0.18.26: " + EC["routes"] + " " + PDS["privacy"])
+op("put", "/driver/emergency-contacts", "putDriverEmergencyContacts", "Save own emergency contacts", ["driver"], "Driver · Account",
+   body="EmergencyContactListUpdate", ok=(200, "EmergencyContactList"), mutation=True, desc="v0.18.26: " + EC["routes"] + " " + EC["tooMany"])
+S["IncidentEmergencyContacts"] = obj({"incidentId": ref("Id"), "driverId": {"oneOf": [ref("Id"), {"type": "null"}]},
+                                      "items": arr(ref("EmergencyContact")), "updatedAt": {"oneOf": [ref("Timestamp"), {"type": "null"}]},
+                                      "rider": {"oneOf": [obj({"riderId": ref("Id"), "items": arr(ref("EmergencyContact")), "updatedAt": {"oneOf": [ref("Timestamp"), {"type": "null"}]}}, ["riderId", "items", "updatedAt"]), {"type": "null"}]}},
+                                     ["incidentId", "driverId", "items", "updatedAt", "rider"], "v0.18.26: " + PDS["admin"]["emergencyContacts"])
+op("get", "/admin/incidents/{incidentId}/emergency-contacts", "adminIncidentEmergencyContacts", "The incident driver's emergency contacts (read-only, audited)",
+   ["admin"], "Admin · Safety", params=[pref("IncidentId")], ok=(200, "IncidentEmergencyContacts"), permission="incidents.read",
+   desc="v0.18.26: " + PDS["admin"]["emergencyContacts"])
+S["AdminRiderSavedPlaces"] = obj({"riderId": ref("Id"), "items": arr(ref("SavedPlace"))}, ["riderId", "items"], "v0.18.26: " + PDS["admin"]["riderPlaces"])
+op("get", "/admin/riders/{riderId}/saved-places", "adminRiderSavedPlaces", "A rider's saved places (read-only, audited)", ["admin"], "Admin · People",
+   params=[pref("RiderId")], ok=(200, "AdminRiderSavedPlaces"), permission="riders.read", desc="v0.18.26: " + PDS["admin"]["riderPlaces"])
+S["AdminDriverPreferences"] = obj({"driverId": ref("Id"), "categoriesOff": arr(ref("CategoryId")), "updatedAt": {"oneOf": [ref("Timestamp"), {"type": "null"}]}},
+                                  ["driverId", "categoriesOff", "updatedAt"], "v0.18.26: " + PDS["admin"]["driverPreferences"])
+op("get", "/admin/drivers/{driverId}/preferences", "adminDriverPreferences", "A driver's ride preferences (read-only, audited)", ["admin"], "Admin · People",
+   params=[pref("DriverId")], ok=(200, "AdminDriverPreferences"), permission="drivers.read", desc="v0.18.26: " + PDS["admin"]["driverPreferences"])
+
+REC = PDS["riderEmergencyContacts"]
+op("get", "/rider/emergency-contacts", "getRiderEmergencyContacts", "Own emergency contacts", ["rider"], "Rider · Account",
+   ok=(200, "EmergencyContactList"), desc="v0.18.26: " + REC["note"] + " " + REC["routes"] + " " + PDS["privacy"])
+op("put", "/rider/emergency-contacts", "putRiderEmergencyContacts", "Save own emergency contacts", ["rider"], "Rider · Account",
+   body="EmergencyContactListUpdate", ok=(200, "EmergencyContactList"), mutation=True, desc="v0.18.26: " + REC["routes"])
 
 def to_plain(x):
     if isinstance(x, dict): return {k: to_plain(v) for k, v in x.items()}
