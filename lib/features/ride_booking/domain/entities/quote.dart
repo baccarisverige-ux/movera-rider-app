@@ -43,12 +43,12 @@ class RideQuote {
   /// trip to it by [id] alone, so it carries no [signedPayload].
   final bool serverHeld;
 
-  /// FIX JOB 7 (contract v0.18.32 `Quote.pickupAt`, owner Q8 "only for
+  /// FIX JOB 7 (contract v0.18.30 `Quote.pickupAt`, owner Q8 "only for
   /// booked rides"): the pickup time of a booked ride; null on a live quote,
   /// which shows no pickup time.
   final DateTime? pickupAt;
 
-  /// FIX JOB 7 (contract v0.18.32 `QuoteList.warnings`, owner Q9 "warn him
+  /// FIX JOB 7 (contract v0.18.30 `QuoteList.warnings`, owner Q9 "warn him
   /// but can accept booking"): pickup and drop-off are this close; the
   /// rider is warned and can still book ([bookable] does not change).
   final SamePointWarning? samePointWarning;

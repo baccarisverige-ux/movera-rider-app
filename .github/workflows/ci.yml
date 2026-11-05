@@ -135,6 +135,8 @@ jobs:
                   sys.exit(f'::error::{lang}: missing {sorted(missing)} extra {sorted(extra)}')
           print(f"{len(keys['en'])} messages in en, fr and sv")
           PY
+          # Base split (2026-11-05): each ARB is its lib/l10n/parts area files combined.
+          python3 tool/l10n_parts.py --check
           cp test/l10n/all_messages.g.dart "$RUNNER_TEMP/all_messages.g.dart"
           python3 tool/gen_l10n_messages.py
           diff -u "$RUNNER_TEMP/all_messages.g.dart" test/l10n/all_messages.g.dart || {

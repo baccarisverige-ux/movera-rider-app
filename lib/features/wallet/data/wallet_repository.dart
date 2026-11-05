@@ -210,6 +210,9 @@ class LocalWalletRepository implements WalletBalanceRepository {
   @override
   bool get available => true;
 
+  @override
+  bool get topUpAvailable => true;
+
   /// The currency of this balance (one ledger per currency, Q8).
   @override
   final String currency;
@@ -266,6 +269,9 @@ class DisabledWalletRepository
 
   @override
   bool get available => false;
+
+  @override
+  bool get topUpAvailable => false;
 
   @override
   final String currency;

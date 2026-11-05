@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 
-/// FIX JOB 7 (contract v0.18.32, `contract.json#smallFixes`).
+/// FIX JOB 7 (contract v0.18.30, `contract.json#smallFixes`).
 Map<String, dynamic> _quote({Object? pickupAt}) => {
   'quoteId': 'qte_1',
   'categoryId': 'economy',

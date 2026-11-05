@@ -40,12 +40,9 @@ void main() {
       expect(Observability.analytics, isNot(isA<NoopAnalyticsSink>()));
       expect(Observability.crashes, isNot(isA<NoopCrashSink>()));
       // ARCH-6 / ARCH-7: no device-only rider repository either.
-      for (final repository in <Object>[
-        scope.walletBalances,
-        scope.savedCardsStore,
-      ]) {
-        expect(repository, isA<FeatureOffRepository>());
-      }
+      expect(scope.savedCardsStore, isA<FeatureOffRepository>());
+      // Fix job 6 (owner 2026-11-04 "Turn it on"): the wallet is on the server.
+      expect(scope.walletBalances, isA<ServerBackedRepository>());
       // v0.18.17 Book later (owner 2026-11-03 "Build it for real"): release builds book later on the server.
       expect(scope.reservationRepository, isA<ServerBackedRepository>());
       for (final repository in <Object>[

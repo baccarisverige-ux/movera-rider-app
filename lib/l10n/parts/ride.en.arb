@@ -1,0 +1,629 @@
+{
+  "findingDriver": "Finding your driver",
+  "findingYourAddress": "Finding your address…",
+  "destinationLabel": "Destination {address}",
+  "@destinationLabel": {
+    "placeholders": {
+      "address": {
+        "type": "String"
+      }
+    }
+  },
+  "routeCouldNotReach": "Couldn't reach Movera. Check your connection and try again.",
+  "routeDriverOnTheWay": "Your driver is already on the way to this pickup",
+  "pickup": "Pickup",
+  "stopNumber": "Stop {number}",
+  "@stopNumber": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "routeSetFavourite": "Set {place}",
+  "@routeSetFavourite": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "routeAddFavouriteAddress": "Add your {place} address",
+  "@routeAddFavouriteAddress": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "pickupAtArriveAt": "Pickup {pickup} · Arrive {arrive}",
+  "@pickupAtArriveAt": {
+    "placeholders": {
+      "pickup": {
+        "type": "String"
+      },
+      "arrive": {
+        "type": "String"
+      }
+    }
+  },
+  "etaMinArriveAt": "{minutes} min · Arrive {arrive}",
+  "@etaMinArriveAt": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      },
+      "arrive": {
+        "type": "String"
+      }
+    }
+  },
+  "stopLookupFailed": "Couldn't look up the stop {stops} right now. It isn't in this price.",
+  "@stopLookupFailed": {
+    "placeholders": {
+      "stops": {
+        "type": "String"
+      }
+    }
+  },
+  "stopNotFound": "Couldn't find the stop {stops}. It isn't in this price — go back to change it, or book without it.",
+  "@stopNotFound": {
+    "placeholders": {
+      "stops": {
+        "type": "String"
+      }
+    }
+  },
+  "rideAlreadyGoing": "You already have a ride going. Try again in a moment.",
+  "@rideAlreadyGoing": {
+    "description": "Booking refused: the server still holds a live ride for this rider and it could not be opened."
+  },
+  "rideAlreadyGoingOpened": "You already have a ride going. Here it is.",
+  "@rideAlreadyGoingOpened": {
+    "description": "Booking refused because a live ride is still going; that ride is opened."
+  },
+  "rideNoteEconomy": "Affordable and convenient rides",
+  "rideNoteComfort": "Newer cars with extra legroom",
+  "rideNotePremium": "Premium cars with top-rated drivers",
+  "rideNotePriority": "More options, less waiting",
+  "rideNoteXl": "Cars for larger groups (6 people)",
+  "rideNoteElectric": "Quiet and fossil-free cars",
+  "rideNotePet": "Pet-friendly rides",
+  "rideNoteVan": "Groups and luggage",
+  "rideNoteWheelchair": "Ramp or lift, driver helps on board",
+  "rideNoteBusiness": "Quiet ride, receipt for your company",
+  "rideNoteAirport": "Fixed price, flight tracked, extra luggage",
+  "rideNoteKids": "Child seat already fitted",
+  "rideNoteWomen": "A woman behind the wheel",
+  "rideNoteDelivery": "Send a parcel across town",
+  "notesBags": "Bags",
+  "notesPet": "Pet",
+  "notesBaby": "Baby",
+  "notesChild": "Child",
+  "notesTitle": "Anything we should know?",
+  "notesBody": "Optional. Your driver will see this.",
+  "notesSkip": "None / Skip",
+  "driverArrivesInArriveAt": "Driver arrives in {minutes} min · Arrive {arrive}",
+  "@driverArrivesInArriveAt": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      },
+      "arrive": {
+        "type": "String"
+      }
+    }
+  },
+  "pickupAddress": "Pickup address",
+  "pickupSpot": "Pickup spot",
+  "findingTheAddress": "Finding the address…",
+  "change": "Change",
+  "onMap": "On map",
+  "ridePrice": "Ride price",
+  "changeArrow": "Change ›",
+  "ridesLeft": "{count, plural, =1{1 ride left} other{{count} rides left}}",
+  "@ridesLeft": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "etaRideInProgress": "Ride in progress",
+  "etaDriverArrived": "Driver has arrived",
+  "etaUpdatingLocation": "Updating driver location…",
+  "etaAlmostThere": "Driver is almost there",
+  "etaOnTheWay": "Driver is on the way",
+  "etaPickupInMin": "Pickup in {minutes} min",
+  "@etaPickupInMin": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "etaToDropoff": "On the way to your drop-off.",
+  "etaNameToDropoff": "{name} is taking you to drop-off.",
+  "@etaNameToDropoff": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "etaWaitingFreshLocation": "Waiting for a fresh location update.",
+  "etaDriverAtPickup": "Your driver is at the pickup.",
+  "etaNameAtPickup": "{name} is at the pickup.",
+  "@etaNameAtPickup": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "etaLeaveNow": "Leave now to meet your driver.",
+  "etaLeaveNowName": "Leave now to meet {name}",
+  "@etaLeaveNowName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "editPickupTooLate": "Driver assigned before the pickup change could be applied.",
+  "editPickupFailed": "Couldn’t update pickup. Try again.",
+  "pickupUpdated": "Pickup updated",
+  "editOfferTooLate": "Driver assigned before the offer change could be applied.",
+  "editOfferFailed": "Couldn’t update offer. Try again.",
+  "driverAlreadyAccepted": "A driver already accepted your ride, so it wasn’t cancelled.",
+  "driverAccepted": "A driver accepted your ride.",
+  "rideDetails": "Ride details",
+  "changeDestinationInstead": "Change destination instead?",
+  "changeDestination": "Change destination",
+  "bumpTitle": "Want to improve your chances?",
+  "bumpBody": "Raise your offer. Nearby drivers see the new price first.",
+  "bumpCurrent": "Current {amount}",
+  "@bumpCurrent": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "bumpOrSetNew": "Or set a new price",
+  "bumpConfirm": "Confirm {amount}",
+  "@bumpConfirm": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "bumpSetNewPrice": "Set new price",
+  "bumpServerConfirms": "Movera confirms your final fare after you raise your offer.",
+  "driver": "Driver",
+  "driverTrips": "Trips",
+  "driverRating": "Rating",
+  "driverYears": "Years",
+  "driverLanguages": "Languages",
+  "driverCancelled": "Your driver cancelled",
+  "changeRoute": "Change route",
+  "driverFound": "Driver found",
+  "driverDetailsLater": "Driver details will appear when matching confirms them.",
+  "driverDetailsUnavailable": "Driver details unavailable",
+  "driverDetailsUnavailableBody": "Verified driver and vehicle information will appear here when matching confirms them.",
+  "pinUnavailable": "PIN unavailable — verify plate and driver name",
+  "waitingFeeAmount": "Waiting fee {amount}",
+  "@waitingFeeAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "driverIsHere": "Your driver is here",
+  "driverWaitingAtPickup": "Your driver is waiting at the pickup point.",
+  "driverCancelledBody": "Finding you another driver now. Your pickup, destination and price stay the same.",
+  "onTripUpper": "ON TRIP",
+  "tripSafety": "Trip safety",
+  "routeUpdatedDriverTold": "Route updated · your driver has been told",
+  "routeUpdated": "Route updated",
+  "routeChargedNow": "The additional amount for the new route is charged to your payment method now.",
+  "routeCostsLess": "Your new route costs less. Please choose how you would like to receive the difference.",
+  "routePickupLocked": "The driver is already at your pickup; only the destination and stops can change.",
+  "routeNoLongerChangeable": "This ride can no longer be changed.",
+  "routeAddressNotFound": "Could not find that address. Try a more exact one.",
+  "routeUpdateFailed": "Couldn’t update the route. Try again.",
+  "routePriceChanged": "The price for this route changed. Check the new price and confirm again.",
+  "routePickupTooFar": "Your driver is on the way, so the pickup can only move up to {meters} m. To be picked up further away, cancel this ride and book a new one.",
+  "@routePickupTooFar": {
+    "placeholders": {
+      "meters": {
+        "type": "String"
+      }
+    }
+  },
+  "tripSummary": "Trip summary",
+  "rideSummary": "Ride summary",
+  "ratingOptional": "Rating and tip are optional. Tap Done when you are finished.",
+  "ratingAfterPayment": "Rating and tip will be available after payment confirmation.",
+  "tripEndedEarly": "Trip ended early",
+  "tripComplete": "Trip complete",
+  "tripCompleted": "Trip completed",
+  "tripDetails": "Trip Details",
+  "tripDetailsUnavailable": "Trip details unavailable",
+  "tripDetailsUnavailableBody": "Your route, payment method and price will appear here when the ride record is available.",
+  "pickupLocation": "Pickup location",
+  "pickupSpotMainEntrance": "Main entrance",
+  "@pickupSpotMainEntrance": {
+    "description": "Pickup spot chip title; also part of the booked pickup label ('Street 1 – Main entrance')."
+  },
+  "pickupSpotFrontOfBuilding": "Front of the building",
+  "@pickupSpotFrontOfBuilding": {
+    "description": "Subtitle of the Main entrance pickup spot."
+  },
+  "pickupSpotSideEntrance": "Side entrance",
+  "@pickupSpotSideEntrance": {
+    "description": "Pickup spot chip title."
+  },
+  "pickupSpotAroundCorner": "Around the corner",
+  "@pickupSpotAroundCorner": {
+    "description": "Subtitle of the Side entrance pickup spot."
+  },
+  "pickupSpotParking": "Parking",
+  "@pickupSpotParking": {
+    "description": "Pickup spot chip title."
+  },
+  "pickupSpotShortWalk": "Short walk",
+  "@pickupSpotShortWalk": {
+    "description": "Subtitle of the Parking pickup spot."
+  },
+  "pickupSpotNearHome": "Near Home",
+  "@pickupSpotNearHome": {
+    "description": "Pickup spot chip title when the rider's Home is close."
+  },
+  "pickupSpotMetresFromHere": "{metres} m from here",
+  "@pickupSpotMetresFromHere": {
+    "description": "Subtitle of the Near Home pickup spot: its distance in metres.",
+    "placeholders": {
+      "metres": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "pickupSpotPreviouslyUsed": "Previously used",
+  "@pickupSpotPreviouslyUsed": {
+    "description": "Pickup spot chip title for a pickup the rider confirmed before."
+  },
+  "pickupCurrentUpper": "CURRENT",
+  "@pickupCurrentUpper": {
+    "description": "Small button on the saved place map picker that moves the pin to the current location."
+  },
+  "destination": "Destination",
+  "driverDetailsUnavailableReceipt": "Verified driver and vehicle information will appear here when it is available for this ride.",
+  "rateYourDriver": "Give rating to your driver",
+  "ratingNotRated": "Not rated",
+  "ratingStarsValue": "{count} of 5 stars",
+  "@ratingStarsValue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "on": "On",
+  "rideUpdates": "Ride updates",
+  "rideUpdatesBody": "Pickup, driver, and reservation alerts",
+  "durDaysHours": "{days}d {hours}h",
+  "@durDaysHours": {
+    "placeholders": {
+      "days": {
+        "type": "String"
+      },
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "durDays": "{days}d",
+  "@durDays": {
+    "placeholders": {
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "durHoursMinutes": "{hours}h {minutes}m",
+  "@durHoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "durHours": "{hours}h",
+  "@durHours": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "durMinutes": "{minutes}m",
+  "@durMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "pickupAtTime": "Pickup at {time}",
+  "@pickupAtTime": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "driverAssigned": "Driver assigned",
+  "driverPending": "Driver pending",
+  "durMin": "{minutes} min",
+  "@durMin": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "durH": "{hours} h",
+  "@durH": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "durHMin": "{hours} h {minutes} min",
+  "@durHMin": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "driverChangedTitle": "Your driver changed",
+  "driverChangedBody": "{previous} can no longer drive you. {current} accepted your ride.",
+  "@driverChangedBody": {
+    "placeholders": {
+      "previous": {
+        "type": "String"
+      },
+      "current": {
+        "type": "String"
+      }
+    }
+  },
+  "driverLeftTitle": "Finding a new driver",
+  "driverLeftBody": "{name} can no longer drive you. We're finding you a new driver.",
+  "@driverLeftBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "driverLeftBodyUnnamed": "Your driver can no longer drive you. We're finding you a new driver.",
+  "rides": "Rides",
+  "driverUsesPhone": "Your driver uses it to reach you at pickup.",
+  "pickupTimeUpdated": "Pickup time updated to the next available slot.",
+  "pickupTimeWithinHorizon": "{days, plural, =1{Rides can be booked up to 1 day ahead. Pickup time updated.} other{Rides can be booked up to {days} days ahead. Pickup time updated.}}",
+  "@pickupTimeWithinHorizon": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "pickupAtMode": "Pickup at",
+  "driverTripCount": "{count, plural, =1{1 trip} other{{count} trips}}",
+  "@driverTripCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "driverTripsCompleted": "{count, plural, =1{1 trip completed} other{{count} trips completed}}",
+  "@driverTripsCompleted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "driverTaglineDefault": "Movera driver",
+  "driverVehicleUnavailable": "Vehicle details unavailable",
+  "tripSharingStarted": "{count, plural, =1{Trip sharing started for 1 trusted contact.} other{Trip sharing started for {count} trusted contacts.}}",
+  "@tripSharingStarted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tripSharingNotStarted": "Trip sharing could not be started.",
+  "tripSharingFailed": "Could not start trip sharing. Please try again.",
+  "stopAudio": "Stop audio",
+  "rtConnecting": "Connecting",
+  "rtConnectingBody": "Restoring the live ride connection.",
+  "rtReconnecting": "Reconnecting",
+  "rtReconnectingBody": "Ride details stay on screen while connection returns.",
+  "rtLost": "Connection lost",
+  "rtLostBody": "Live ride updates are temporarily unavailable.",
+  "rtProblem": "Connection problem",
+  "rtProblemBody": "Live ride updates could not be restored yet.",
+  "rideCheckTitle": "Trip check",
+  "edit": "Edit",
+  "pinChangeQ": "Change PIN?",
+  "pinChangeBody": "Request a new PIN from Movera. Share it with your driver only when the ride begins.",
+  "pinChange": "Change PIN",
+  "pinIntro": "Add an extra check before your ride begins. Your driver must confirm your PIN before starting the trip.",
+  "pinToggle": "Verify rides with a PIN",
+  "pinShareHint": "Share this PIN with your driver when the trip starts.",
+  "pinSavedHint": "PIN is saved. Turn on verification to use it on rides.",
+  "chatSendUnavailable": "Sending messages to your driver isn't available yet.",
+  "chatNoMessages": "No messages yet",
+  "chatEmptyBody": "Your conversation with the driver will appear here when the ride is connected.",
+  "chatSendHint": "Send message...",
+  "chatSendUnavailableSemantics": "Send message unavailable",
+  "chatSystemMessage": "System message: {text}",
+  "@chatSystemMessage": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCallUnavailable": "Calls coming soon – use the chat",
+  "chatClosedAfterTrip": "The chat is closed after the trip",
+  "chatCall": "Call",
+  "chatSendSemantics": "Send message",
+  "chatSendFailed": "Your message wasn't sent. Try again.",
+  "chatNotSentRetry": "Not sent. Tap to retry.",
+  "chatSupportSender": "Movera",
+  "rideJustChanged": "Your ride just changed, check it again.",
+  "changeCountryCode": "Change country",
+  "changeLanguage": "Change language",
+  "ridesForYou": "Rides for you",
+  "ridesPremium": "Premium",
+  "routeChangeUnavailable": "Changing the route in the app isn’t available yet. You can tell your driver.",
+  "@routeChangeUnavailable": {
+    "description": "Audit Phase 5: shown when movera-server does not serve this feature."
+  },
+  "ratingTagCleanCar": "Clean car",
+  "ratingTagFriendly": "Friendly",
+  "ratingTagSafeDriving": "Safe driving",
+  "ratingTagGoodMusic": "Good music",
+  "ratingTagKnewTheWay": "Knew the way",
+  "ratingTagsTitle": "What went well? (optional)",
+  "ratingCommentLabel": "Comment (optional)",
+  "ratingCommentHint": "Tell Movera more about the trip",
+  "categoryComfort": "Comfort",
+  "@categoryComfort": {"description": "Ride category name (built-in Comfort)."},
+  "categoryPriority": "Priority",
+  "@categoryPriority": {"description": "Ride category name (built-in Priority)."},
+  "categoryElectric": "Electric",
+  "@categoryElectric": {"description": "Ride category name (built-in Electric)."},
+  "categoryVan": "Van",
+  "@categoryVan": {"description": "Ride category name (built-in Van)."},
+  "categoryWheelchair": "Wheelchair",
+  "@categoryWheelchair": {"description": "Ride category name (built-in Wheelchair)."},
+  "categoryBusiness": "Business",
+  "@categoryBusiness": {"description": "Ride category name (built-in Business)."},
+  "categoryAirport": "Airport",
+  "@categoryAirport": {"description": "Ride category name (built-in Airport)."},
+  "categoryKidsSeat": "Kids seat",
+  "@categoryKidsSeat": {"description": "Ride category name (built-in Kids seat)."},
+  "categoryWomenDriver": "Women driver",
+  "@categoryWomenDriver": {"description": "Ride category name (built-in Women driver)."},
+  "categoryDelivery": "Delivery",
+  "@categoryDelivery": {"description": "Ride category name (built-in Delivery)."},
+  "chatNewMessage": "New message",
+  "@chatNewMessage": {"description": "Contract v0.18.5 chat.appStorage.texts.newMessage (G9): live alert without the message text."},
+  "etaArrivesIn": "Arrives in {min} min · {distance}",
+  "@etaArrivesIn": {
+    "placeholders": {
+      "min": {
+        "type": "String"
+      },
+      "distance": {
+        "type": "String"
+      }
+    }
+  },
+  "etaThereIn": "There in {min} min · {distance}",
+  "@etaThereIn": {
+    "placeholders": {
+      "min": {
+        "type": "String"
+      },
+      "distance": {
+        "type": "String"
+      }
+    }
+  },
+  "tripTermsTitle": "Waiting and cancellation",
+  "pickupMoved": "Pickup moved",
+  "pickupMoveTooFar": "You can move the pickup at most {meters} m. Cancel and book again for another place.",
+  "@pickupMoveTooFar": {
+    "placeholders": {
+      "meters": {
+        "type": "String"
+      }
+    }
+  },
+  "pickupMoveFixedAfterArrival": "The driver is already there – the pickup cannot be moved",
+  "waitingTimeOverFree": "Waiting {time} past the free {minutes} min",
+  "@waitingTimeOverFree": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "waitingChargedAfterFree": "Waiting time is charged after the free minutes",
+  "tripPinTellDriver": "Tell your driver this code",
+  "@tripPinTellDriver": {"description": "G6 (contract v0.18.8 arrivedWaiting.pin)"},
+  "waitingAlertPaid": "The free waiting is over",
+  "@waitingAlertPaid": {"description": "G6 arrivedWaiting.alerts.texts.riderPaid"},
+  "waitingAlertNoShow": "The driver may now end the ride as a no-show",
+  "@waitingAlertNoShow": {"description": "G6 arrivedWaiting.alerts.texts.riderNoShow"},
+  "g7TooManyStops": "You can add at most {max} stops.",
+  "@g7TooManyStops": {"description": "Rider G7 (contract 0.18.9 onTrip)", "placeholders": {"max": {"type": "String"}}},
+  "g7RouteWaiting": "Waiting for the driver to accept…",
+  "@g7RouteWaiting": {"description": "Rider G7 (contract 0.18.9 onTrip)"},
+  "g7RouteNewPrice": "New price {total} ({difference})",
+  "@g7RouteNewPrice": {"description": "Rider G7 (contract 0.18.9 onTrip)", "placeholders": {"total": {"type": "String"}, "difference": {"type": "String"}}},
+  "g7RouteConfirm": "Confirm change",
+  "@g7RouteConfirm": {"description": "Rider G7 (contract 0.18.9 onTrip)"},
+  "g7RouteAccepted": "The driver accepted the new route.",
+  "@g7RouteAccepted": {"description": "Rider G7 (contract 0.18.9 onTrip)"},
+  "g7RouteRefused": "The driver could not take the change. The trip goes on to the first destination.",
+  "@g7RouteRefused": {"description": "Rider G7 (contract 0.18.9 onTrip)"},
+  "g7StopPrice": "Waiting at a stop: {perMin}/min",
+  "@g7StopPrice": {"description": "Rider G7 (contract 0.18.9 onTrip)", "placeholders": {"perMin": {"type": "String"}}},
+  "g7StopFree": "{min} min free at each stop, then {perMin}/min",
+  "@g7StopFree": {"description": "Rider G7 (contract 0.18.9 onTrip)", "placeholders": {"min": {"type": "String"}, "perMin": {"type": "String"}}},
+  "g7RouteWithdraw": "Withdraw change",
+  "@g7RouteWithdraw": {"description": "Rider G7 (contract 0.18.9 onTrip)"},
+  "g7RouteWithdrawn": "Change withdrawn. The trip goes on to the first destination.",
+  "@g7RouteWithdrawn": {"description": "Rider G7 (contract 0.18.9 onTrip)"},
+  "g7MaxStopsShown": "Up to {max} stops",
+  "@g7MaxStopsShown": {"description": "Rider G7 (contract 0.18.9 onTrip)", "placeholders": {"max": {"type": "String"}}},
+  "g7RouteChangeOff": "Changing the route during the trip is turned off in this area. You can tell your driver.",
+  "@g7RouteChangeOff": {"description": "Rider G7 (contract 0.18.9 onTrip)"},
+  "g7RouteLeavesFixedPrice": "The fixed price no longer applies: the trip is charged at the normal price.",
+  "@g7RouteLeavesFixedPrice": {"description": "Rider G7 (contract 0.18.9 onTrip)"},
+  "g7RouteFixedRoute": "This trip has a fixed price, so its route can’t change. You can tell your driver.",
+  "@g7RouteFixedRoute": {"description": "Rider G7 (contract 0.18.9 onTrip)"},
+  "g7RouteBeforePickupOff": "You can change the route once you are in the car.",
+  "@g7RouteBeforePickupOff": {"description": "Rider G7 (contract 0.18.9 onTrip)"},
+  "pickupSpotApproximate": "{name} (approximate)",
+  "@pickupSpotApproximate": {"description": "Owner full-audit Q6: invented pickup spot chips are labelled approximate (also in the driver's pickup label).", "placeholders": {"name": {"type": "String"}}},
+  "routeVisitedStopLocked": "You have already reached this stop, so it cannot be removed or changed.",
+  "@routeVisitedStopLocked": {"description": "Deep-fix 2026-11-02"},
+  "routeChangeRefused": "Movera could not make this change right now. Your trip keeps its route.",
+  "@routeChangeRefused": {"description": "Deep-fix 2026-11-02"},
+  "g7RouteExpired": "The driver did not answer in time. The trip goes on to the first destination.",
+  "@g7RouteExpired": {"description": "Deep-fix 2026-11-02"}
+}

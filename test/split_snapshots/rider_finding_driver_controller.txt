@@ -1,0 +1,21 @@
+tick 0
+# start
+{"elapsed":0,"delayed":false,"bumpVisible":false,"price":259.0,"priceUpdated":false,"headline":"Finding your driver","rideId":"split-fd-1","assigned":false,"assignmentPending":false,"editInFlight":false,"editFeedback":null,"terminated":false,"cancelInFlight":false,"cancelled":false,"cancelQueued":false,"stillLooking":false,"status":"findingDriver","offerConfirmation":null,"nearby":0,"pickupAddress":"Klockarvägen 37","pickupLat":59.3,"pickupLng":18.0}
+requests []
+tick 12
+tick 12
+{"elapsed":12,"delayed":false,"bumpVisible":true,"price":259.0,"priceUpdated":false,"headline":"Checking for nearby drivers","rideId":"split-fd-1","assigned":false,"assignmentPending":false,"editInFlight":false,"editFeedback":null,"terminated":false,"cancelInFlight":false,"cancelled":false,"cancelQueued":false,"stillLooking":false,"status":"findingDriver","offerConfirmation":null,"nearby":0,"pickupAddress":"Klockarvägen 37","pickupLat":59.3,"pickupLng":18.0}
+tick 12
+tick 12
+tick 12
+raise true
+{"elapsed":12,"delayed":false,"bumpVisible":false,"price":259.0,"priceUpdated":false,"headline":"Checking for nearby drivers","rideId":"split-fd-1","assigned":false,"assignmentPending":false,"editInFlight":false,"editFeedback":"Offer sent. Your fare will update once Movera confirms it.","terminated":false,"cancelInFlight":false,"cancelled":false,"cancelQueued":false,"stillLooking":false,"status":"findingDriver","offerConfirmation":null,"nearby":0,"pickupAddress":"Klockarvägen 37","pickupLat":59.3,"pickupLng":18.0}
+tick 42
+tick 42
+{"elapsed":42,"delayed":false,"bumpVisible":false,"price":259.0,"priceUpdated":false,"headline":"Still looking for a driver","rideId":"split-fd-1","assigned":false,"assignmentPending":false,"editInFlight":false,"editFeedback":"Offer sent. Your fare will update once Movera confirms it.","terminated":false,"cancelInFlight":false,"cancelled":false,"cancelQueued":false,"stillLooking":true,"status":"findingDriver","offerConfirmation":null,"nearby":0,"pickupAddress":"Klockarvägen 37","pickupLat":59.3,"pickupLng":18.0}
+tick 42
+cancel SearchCancelResult.confirmed
+{"elapsed":42,"delayed":false,"bumpVisible":false,"price":259.0,"priceUpdated":false,"headline":"We're checking more drivers nearby","rideId":"split-fd-1","assigned":false,"assignmentPending":false,"editInFlight":false,"editFeedback":"Offer sent. Your fare will update once Movera confirms it.","terminated":false,"cancelInFlight":false,"cancelled":true,"cancelQueued":false,"stillLooking":false,"status":"cancelledByRider","offerConfirmation":null,"nearby":0,"pickupAddress":"Klockarvägen 37","pickupLat":59.3,"pickupLng":18.0}
+# end
+{"elapsed":42,"delayed":false,"bumpVisible":false,"price":259.0,"priceUpdated":false,"headline":"We're checking more drivers nearby","rideId":"split-fd-1","assigned":false,"assignmentPending":false,"editInFlight":false,"editFeedback":"Offer sent. Your fare will update once Movera confirms it.","terminated":false,"cancelInFlight":false,"cancelled":true,"cancelQueued":false,"stillLooking":false,"status":"cancelledByRider","offerConfirmation":null,"nearby":0,"pickupAddress":"Klockarvägen 37","pickupLat":59.3,"pickupLng":18.0}
+requests [GET /api/v1/rides/split-fd-1/nearby, PATCH /api/v1/rides/split-fd-1, GET /api/v1/rides/split-fd-1, POST /api/v1/rides/split-fd-1/cancel]

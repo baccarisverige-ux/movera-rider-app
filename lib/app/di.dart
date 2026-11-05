@@ -90,10 +90,13 @@ import 'package:movera_rider/features/ride_selection/data/ride_selection_reposit
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
+import 'package:movera_rider/features/saved_places/data/server_saved_places.dart';
 import 'package:movera_rider/features/support/application/support_controller.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
+import 'package:movera_rider/features/wallet/data/api_wallet_repository.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
+import 'package:movera_rider/core/preview/preview_mode.dart';
 
 class AppScope {
   AppScope._(this.environment)
@@ -103,7 +106,10 @@ class AppScope {
       markers = MarkerStore(),
       motion = MotionEngine(),
       ride = RideSession(),
-      tokens = SecureTokenStore(),
+      // Contract v0.18.25: an admin preview runs on its read-only token.
+      tokens = PreviewMode.current.active
+          ? PreviewTokenStore(PreviewMode.current.token!)
+          : SecureTokenStore(),
       realtime = RealtimeConnection(),
       wallet = WalletLedger(),
       lifecycle = AppLifecycleObserver(),
@@ -172,8 +178,12 @@ class AppScope {
     // feature with no server side yet is switched off by its flag and gets a
     // fail-closed stand-in. RepositoryComposition below enforces it.
     final release = environment.isReleaseLike;
-    walletBalances = flags.wallet || !release
+    // Fix job 6 (owner 2026-11-04 "Turn it on", contract v0.18.28): release
+    // builds read the wallet from the server, one balance per currency.
+    walletBalances = !release
         ? LocalWalletRepository()
+        : flags.wallet
+        ? ApiWalletRepository(api: api)
         : const DisabledWalletRepository();
     // Contract v0.18.17 Book later (owner 2026-11-03): release builds book
     // later on the server. Book later switched off: the fail-closed
@@ -401,6 +411,12 @@ class AppScope {
     defaultPayment: defaultPayment,
   );
   late final SavedPlacesController savedPlaces = SavedPlacesController();
+
+  /// BASE B13 (contract v0.18.26 §47): saved places on the server; null on
+  /// the demo / mock transport, where the phone copy is all there is.
+  late final ServerSavedPlaces? savedPlacesServer = api.contractWire
+      ? ServerSavedPlaces(api: api)
+      : null;
 
   /// The app language: the rider's choice, else the zone default (Q48).
   late final AppLanguageController language = AppLanguageController();
