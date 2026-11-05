@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.25",
+  "version": "0.18.26",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -6795,7 +6795,9 @@
       "uploadsPerHour": 30,
       "codesPerPhonePerHour": 10,
       "writesPerUserPerMinute": 120,
-      "writesPerAddressPerMinute": 60
+      "writesPerAddressPerMinute": 60,
+      "savedPlacesPerPerson": 50,
+      "emergencyContactsPerPerson": 10
     },
     "ranges": {
       "wrongCodesPerDay": [
@@ -6821,6 +6823,14 @@
       "writesPerAddressPerMinute": [
         20,
         10000
+      ],
+      "savedPlacesPerPerson": [
+        1,
+        500
+      ],
+      "emergencyContactsPerPerson": [
+        1,
+        50
       ]
     },
     "fields": {
@@ -6829,7 +6839,9 @@
       "uploadsPerHour": "Document uploads per driver per hour (429 rate_limited reason upload_limit); the driver's country.",
       "codesPerPhonePerHour": "Sign-in codes per phone number and app per hour (429 otp_too_many).",
       "writesPerUserPerMinute": "v0.18.24 (owner 2026-11-04 \"Yes, admin setting\"): writes (POST/PUT/PATCH/DELETE) per signed-in user per minute (contract.json#rateLimit; 429 rate_limited reason too_many_requests); the user's country (first zone of the token).",
-      "writesPerAddressPerMinute": "v0.18.24: writes per client address per minute for callers without a valid token (sign-in, waiting list); the country of the server's default zone."
+      "writesPerAddressPerMinute": "v0.18.24: writes per client address per minute for callers without a valid token (sign-in, waiting list); the country of the server's default zone.",
+      "savedPlacesPerPerson": "v0.18.26 (owner 2026-11-04): saved places per person (each rider), Home and Work included (409 too_many_places). The rider's country is his phone's calling code.",
+      "emergencyContactsPerPerson": "v0.18.26 (owner 2026-11-04): emergency contacts per person (each rider and each driver; 112 is built in and not counted) (400 too_many_contacts)."
     }
   },
   "deepFix1": {
@@ -7136,10 +7148,9 @@
       "horizon": "LOW 15: RiderAppConfig.booking.bookingHorizonDays is served equal to maxAheadDays (older apps).",
       "zoneOff": "Owner A: with the zone's reservations.on false, POST /quotes and POST /trips with kind scheduled answer 403 forbidden, reason reservations_off. The rider app never hides Book later / Later: tapping it there shows bookLater.texts.zoneOff.",
       "includedWaiting": "Owner B: a booked ride's free waiting (waiting.rideTypes.scheduled.freeWaitMin, per zone, the admin's 'Included waiting') counts from the pickup time, never from the driver's arrival: Waiting.freeUntil = scheduledAt + freeWaitMin (also when the driver arrives late). Riders and drivers see it in TripProjection.terms / waiting.",
-      "raiseFare": "Owner C: a booked ride being searched (searching / offered) takes POST /trips/{tripId}/raise-price exactly like a live ride (same steps, raisePrice.maxFactor, same screens).",
+      "raiseFare": "Owner C (v0.18.19): raising the driver's fare of a booked ride works exactly like a live ride: the admin call is POST /admin/trips/{tripId}/driver-bonus with the same Pricing bonus limit. The zone's DriverAppConfig.reservations.raiseFare (false: refused, reason raise_off) and raiseMax (major units; the lower of it and the live limit applies; null, the default, = no cap of its own: the live limit only) are saved on the server from Dispatch › Bokningar.",
       "driverShown": "Owner D: the rider sees the driver (name, photo, car: TripProjection.driver) only from driver_to_pickup on; while a driver holds the booked ride for later the rider view has driverAssigned true and no driver details, and reservation_driver_found names nobody. The admin switch 'Rider sees the driver at once' becomes this fixed rule.",
       "noEarlyAssign": "Owner E: no early auto-assign and no backup driver: an untaken or given-back booked ride stays on the list until dispatchBeforeMin (30) before pickup, then Exclusive + Radar. The admin fields for those show 'Coming soon'.",
-      "raiseFare": "Owner C (v0.18.19): raising the driver's fare of a booked ride works exactly like a live ride: the admin call is POST /admin/trips/{tripId}/driver-bonus with the same Pricing bonus limit. The zone's DriverAppConfig.reservations.raiseFare (false: refused, reason raise_off) and raiseMax (major units; the lower of it and the live limit applies; null, the default, = no cap of its own: the live limit only) are saved on the server from Dispatch › Bokningar.",
       "includedWaitingPolicy": "Owner 2026-11-03: ONE included waiting for every zone (admin 'Included waiting' of the reservation policy), saved on the server: GET /admin/reservations/policy (trips.read) → ReservationPolicy { includedWaitingMinutes, rev, updatedAt }; PUT /admin/reservations/policy { expectedRev, includedWaitingMinutes 0–60 } (trips.intervene; 409 version_mismatch when another admin saved first). A kind scheduled trip's free waiting is this many minutes, counted from the pickup time; the no-show time is never before its end.",
       "riderZoneSwitch": "Owner A (v0.18.19): RiderAppConfig.booking.reservationsOn is the zone's DriverAppConfig.reservations.on, written by the server when it serves the rider document. The rider app never hides Book later; with reservationsOn false a tap says bookLater.texts.zoneOff and no booking starts. POST /quotes and POST /trips with kind scheduled still answer 403 forbidden, reason reservations_off.",
       "driverListReservation": "Live test 2026-11-03 HIGH 2: each DriverReservation row of GET /driver/reservations carries reservation (ReservationInfo, driver view) with changeAsk, leaveAt and driveSeconds, so the driver app asks Keep it at the new time? (new time and new earnings) from the list, the notice tap and the details screen. Before, the row had no changeAsk and the question never showed.",
@@ -7186,8 +7197,7 @@
     "ownerQuestions": [
       "LOW 13: the driver give-back reason 'Vehicle issue · does not count' contradicts 'every give-back counts in the cancel rate' (left as it is)."
     ]
-  }
-,
+  },
   "dispatchDriverFacts": {
     "note": "v0.18.21 (owner 2026-11-04, BASE 'real driver facts'): the admin Dispatch page reads each online driver's dispatch facts from the server instead of making them up. GET /admin/zones/{zoneId}/driver-facts (trips.read; the zone must be in the admin's scope, else 403 zone_out_of_scope). Builds on v0.18.19; additive; X-Api-Version stays 0.5. Numbered after v0.18.20 (server alerts) so the two jobs do not share a number.",
     "who": "Drivers of the zone (zone_ids contains zoneId) with account active and online status online (state free) or on_trip (state trip), nearest-first order is the admin's job; items are sorted by driverId.",
@@ -7285,7 +7295,10 @@
       "firstMs": 1000,
       "maxMs": 30000,
       "jitter": "full jitter: a random wait between 0 and the current step",
-      "stopOn": ["401 unauthenticated", "sign-out"]
+      "stopOn": [
+        "401 unauthenticated",
+        "sign-out"
+      ]
     },
     "client": {
       "invalidates": {
@@ -7417,5 +7430,46 @@
       }
     },
     "embedding": "The app web builds must allow being framed by the admin origin (no X-Frame-Options DENY; Content-Security-Policy frame-ancestors, when set, includes the admin origin)."
+  },
+  "phoneDataToServer": {
+    "note": "v0.18.26 (BASE B13, owner 2026-11-03 \"Phone-only data: Yes, all to server\", Rules decisions/admin-fake-by-group.md): the rider's saved places, the driver's ride preferences (switched-off categories) and the driver's emergency contacts are kept on the server, not only on the phone. Builds on v0.18.23; 0.18.24 (rate limit) and 0.18.25 (preview) land first. Additive except SavedPlace / SavedPlaceRequest (never served before: no server had /rider/places); X-Api-Version stays 0.5.",
+    "privacy": "Each list is read and changed only by its owner (the signed-in rider for places, the signed-in driver for preferences and contacts); another rider or driver never sees it and an id of someone else's place is 404 place_not_found. Admins only read (never edit): emergency contacts through an OPEN safety case of that driver, saved places and ride preferences on the rider / driver profile page; every admin view is written to the admin audit without the addresses, names or numbers. Logs never carry them.",
+    "riderPlaces": {
+      "routes": "GET /rider/places -> SavedPlacePage (every place, nextCursor null); POST /rider/places SavedPlaceRequest -> 201 SavedPlace; PUT /rider/places/{placeId} SavedPlaceRequest -> 200 SavedPlace; DELETE /rider/places/{placeId} -> 204; POST /rider/places/import SavedPlaceImport -> 200 SavedPlacePage.",
+      "kinds": "kind home and kind work: one each; saving a new home (or work) replaces the old one and keeps its placeId. kind other: as many as maxPlaces allows, each with its own placeId. type is the app's finer word for an other place (gym, mall, school, airport, family, restaurant, other); the app picks the icon and label from it.",
+      "place": "SavedPlaceAddress { address (required, 1-512), lat?, lng? }: places saved on phones before v0.18.26 have only the address text, so the position is optional.",
+      "maxPlaces": "Admin setting per country, per person: countryLimits.savedPlacesPerPerson (default 50, 1-500).",
+      "tooMany": "409 conflict, reason too_many_places, past the country's savedPlacesPerPerson (home and work count).",
+      "import": "One-time upload of the places a phone kept before v0.18.26. Applied only the first time for this rider (the server remembers it); later calls change nothing and answer the server's list. Items follow the POST rules (home / work replace, others added); items past maxPlaces are dropped. The app calls it once after sign-in, then reads GET /rider/places and from then on the server's list is the one shown.",
+      "app": "Rider app: Home and Saved places read the server's list; add, edit and delete call the routes above; the phone keeps a copy only to show something while offline. Sign-out clears the phone copy (the server keeps the places)."
+    },
+    "driverPreferences": {
+      "routes": "GET /driver/preferences -> DriverPreferences; PUT /driver/preferences DriverPreferencesUpdate -> DriverPreferences.",
+      "categoriesOff": "The ride categories the driver switched off in Ride preferences (CategoryId[]; an unknown id is 400 invalid_request, reason unknown_category). Empty = every category his account and car allow.",
+      "dispatch": "The server does not send a switched-off category: the automatic dispatch rounds (Exclusive and Radar), the admin's Add money sent through the zone's dispatch, and the Scheduled rides list skip a driver whose categoriesOff holds the trip's category. Driver.categoryIds (given by the admin from the car) is unchanged by this choice. Owner 2026-11-04 'Yes, respect it': admin hand-sent offers (assign, radar to chosen drivers) and group / radar-zone sends skip him too; the send lists him in skipped with reason category_switched_off, and a single assign to only him is 409 invalid_transition, reason category_switched_off.",
+      "updatedAt": "null until the driver saves once on the server; the app then uploads the choice it kept on the phone once (one-time upload) and afterwards follows the server.",
+      "app": "Driver app: Ride preferences reads and saves through these routes; the phone copy only shows something while offline. Offers already filtered by the server stay filtered in the app too."
+    },
+    "driverEmergencyContacts": {
+      "routes": "GET /driver/emergency-contacts -> EmergencyContactList; PUT /driver/emergency-contacts EmergencyContactListUpdate -> EmergencyContactList (the whole list each time).",
+      "item": "EmergencyContact { name 1-80, phone (digits, optional leading +, 3-15 digits), relation? 0-40 }. 112 is built into the app and never stored.",
+      "maxContacts": "Admin setting per country, per person: countryLimits.emergencyContactsPerPerson (default 10, 1-50).",
+      "tooMany": "400 invalid_request, reason too_many_contacts, past the country's emergencyContactsPerPerson.",
+      "updatedAt": "null until saved once on the server; the app then uploads its phone list once (one-time upload).",
+      "app": "Driver app: Emergency contacts reads and saves through these routes."
+    },
+    "admin": {
+      "emergencyContacts": "GET /admin/incidents/{incidentId}/emergency-contacts (incidents.read; the incident's zone must be in the admin's scope, else 403 zone_out_of_scope) ; owner 2026-11-04 'Yes, during a safety case': only while the case is open (status open or investigating), else 409 invalid_transition, reason incident_closed -> IncidentEmergencyContacts { incidentId, driverId, items, updatedAt, rider: { riderId, items, updatedAt } | null }: the emergency contacts of the incident's driver, read-only. An incident without a driver answers items []. Every read writes the admin audit line incident.emergency_contacts_viewed (who, when, which incident; never the numbers).",
+      "panel": "Admin > Safety case (open): read-only 'Driver's emergency contacts' behind a Show button. Admin > Rider profile: read-only 'Saved places' behind Show. Admin > Driver profile: read-only 'Ride preferences' (switched-off categories) behind Show. Every Show is audited by the server; admins never edit.",
+      "riderPlaces": "Owner 2026-11-04 'Read-only on profile': GET /admin/riders/{riderId}/saved-places (riders.read; a zone-limited admin only for a rider with a trip in his zones, else 403 zone_out_of_scope; unknown 404 rider_not_found) -> AdminRiderSavedPlaces { riderId, items: SavedPlace[] }. Audit line rider.saved_places_viewed (count only).",
+      "driverPreferences": "Owner 2026-11-04 'Read-only on profile': GET /admin/drivers/{driverId}/preferences (drivers.read; driver's zones in scope, else 403 zone_out_of_scope; unknown 404 driver_not_found) -> AdminDriverPreferences { driverId, categoriesOff, updatedAt }. Audit line driver.preferences_viewed.",
+      "limits": "Admin > Pricing > Tips & limits per country: 'Saved places per person' and 'Emergency contacts per person' (countryLimits in CountryRules.limits of the country standard)."
+    },
+    "riderEmergencyContacts": {
+      "note": "Owner 2026-11-04 'Yes, same as drivers': the rider's emergency contacts (rider Safety) move to the server like the driver's.",
+      "routes": "GET /rider/emergency-contacts -> EmergencyContactList; PUT /rider/emergency-contacts EmergencyContactListUpdate -> EmergencyContactList (whole list). Same item, limit (countryLimits.emergencyContactsPerPerson) and too_many_contacts as drivers.",
+      "updatedAt": "null until saved once on the server; the rider app then uploads its phone list once.",
+      "app": "Rider app: Safety > Emergency contacts reads and saves through these routes; the phone copy only shows something offline."
+    }
   }
 }
