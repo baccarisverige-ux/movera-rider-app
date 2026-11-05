@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/preview/preview_mode.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
@@ -50,7 +51,21 @@ class MoveraApp extends StatelessWidget {
               child: ContentGate(
                 controller: AppScope.instance.content,
                 legal: AppScope.instance.legal,
-                child: child!,
+                // Contract v0.18.25: an admin preview shows a "Preview" strip.
+                child: PreviewMode.current.active
+                    ? Column(
+                        children: [
+                          const PreviewBanner(),
+                          Expanded(
+                            child: MediaQuery.removePadding(
+                              context: context,
+                              removeTop: true,
+                              child: child!,
+                            ),
+                          ),
+                        ],
+                      )
+                    : child!,
               ),
             ),
           ),
