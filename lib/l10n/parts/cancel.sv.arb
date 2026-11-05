@@ -59,5 +59,6 @@
   "cancelledFeeCharged": "Avbokningsavgift {amount}",
   "cancelledNoShowFee": "Avgift för utebliven kund {amount}",
   "cancelledNoFee": "Ingen avgift",
-  "freeRuleHours": "{count, plural, =1{1 timme} other{{count} timmar}}"
+  "freeRuleHours": "{count, plural, =1{1 timme} other{{count} timmar}}",
+  "cancelFreeChained": "Avboka gratis: din förare avslutar en annan resa först"
 }

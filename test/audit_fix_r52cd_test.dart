@@ -510,6 +510,25 @@ void main() {
     await tester.pump(const Duration(minutes: 1));
   });
 
+  testWidgets('fix job 5 (owner Q6): a 50 kr wallet in Stockholm shows '
+      '"Your wallet is used first" over the split, on by default', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      WalletStore.balanceKeyFor('SEK'): 50.0,
+    });
+    final selection = await openSelectRide(tester, _Quotes((_) => 30000));
+    expect(selection.useWalletFirst, isTrue);
+    expect(selection.walletBalance, 50);
+    expect(
+      find.byKey(const ValueKey('select-ride-wallet-used-first')),
+      findsWidgets,
+    );
+    expect(find.text('Your wallet is used first'), findsWidgets);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(minutes: 1));
+  });
+
   test('rider-81: a call to 112 that never opened is not saved as '
       '"Called 112"', () async {
     final rideCheck = RideCheckController.forSafety(

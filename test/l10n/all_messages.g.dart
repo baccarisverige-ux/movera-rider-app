@@ -215,6 +215,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'cancelledNoShowFee': l.cancelledNoShowFee('<amount>'),
   'cancelledNoFee': l.cancelledNoFee,
   'freeRuleHours': l.freeRuleHours(37),
+  'cancelFreeChained': l.cancelFreeChained,
   'setLocation': l.setLocation,
   'choosePickup': l.choosePickup,
   'setHomeAddress': l.setHomeAddress,
@@ -822,6 +823,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'priceIncludesUnpaidFee': l.priceIncludesUnpaidFee('<amount>'),
   'receiptHeading': l.receiptHeading,
   'receiptDebtIncludedNote': l.receiptDebtIncludedNote,
+  'walletUsedFirst': l.walletUsedFirst,
   'scheduleForLater': l.scheduleForLater,
   'later': l.later,
   'scheduleARide': l.scheduleARide,
@@ -2336,6 +2338,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String freeRuleHours(int count) => '';
   @override
+  String get cancelFreeChained => '';
+  @override
   String get setLocation => '';
   @override
   String get choosePickup => '';
@@ -3549,6 +3553,8 @@ class _Exhaustive implements AppLocalizations {
   String get receiptHeading => '';
   @override
   String get receiptDebtIncludedNote => '';
+  @override
+  String get walletUsedFirst => '';
   @override
   String get scheduleForLater => '';
   @override

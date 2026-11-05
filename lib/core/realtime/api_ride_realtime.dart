@@ -630,6 +630,7 @@ class ApiRideRealtime implements RideRealtime {
           // far, the cancel fee and kind, and the pickup (a move).
           if (eta is Map) etaKey: Map<String, Object?>.from(eta),
           if (ride['terms'] is Map) termsKey: ride['terms'],
+          if (ride['chain'] is Map) chainKey: ride['chain'],
           if (_waitingField(ride, 'chargedSoFar') case final Map charged)
             waitingChargedSoFarKey: charged,
           if (_waitingField(ride, 'chargedSecondsNow') case final num seconds)

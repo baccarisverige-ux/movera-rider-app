@@ -122,6 +122,7 @@ class ScheduledRideBooking {
         parentReservationId: parentReservationId,
         timeZone: zone,
         stops: stops,
+        walletFirst: selection.useWalletFirst,
       ),
     );
   }
