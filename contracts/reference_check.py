@@ -699,7 +699,8 @@ if c['configDefaults']['earlyEnd'] != {'repriceOverKm': 2, 'repriceOverMin': 10}
 def _repriced(short_km, short_min, lim=c['configDefaults']['earlyEnd']): return short_km > lim['repriceOverKm'] and short_min > lim['repriceOverMin']
 if _repriced(3, 5) or not _repriced(3, 12) or _repriced(1, 30): bad += 1; print('EARLY END rule is BOTH (3 km/5 min no, 3 km/12 min yes)')
 if c['configDefaults']['dispatch']['zone'].get('bookedNext') != {'on': True, 'withinMin': 60}: bad += 1; print('BOOKED NEXT defaults on / 60 min (owner Q7)')
-if set(c['afterTestRules']) != {'note', 'earlyEnd', 'bookedCancel', 'bookedNext', 'walletFirst'}: bad += 1; print('afterTestRules sections')
+if set(c['afterTestRules']) != {'note', 'earlyEnd', 'bookedCancel', 'bookedNext', 'walletFirst', 'onTripOffers'}: bad += 1; print('afterTestRules sections')
+if c['configDefaults'].get('onTripOffers') != {'minRouteDonePct': 70}: bad += 1; print('ON-TRIP OFFERS default 70 % of the route (owner 2026-11-05)')
 for _k, (_lo, _hi) in _fi['earlyEnd']['settings']['ranges'].items():
     if not (_lo <= c['configDefaults']['earlyEnd'][_k] <= _hi): bad += 1; print('EARLY END range', _k)
 if _fi['paymentMethods']['texts']['cash'] != {'sv': 'Betala i bilen', 'fr': 'Payer dans la voiture', 'en': 'Pay in car'}: bad += 1; print('CASH label (owner G8 item 2)')

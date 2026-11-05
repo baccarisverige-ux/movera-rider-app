@@ -17684,6 +17684,10 @@ components:
           type: boolean
           description: 'v0.18.33: TripProjection.walletFirst: boolean (rider and admin views): the switch the trip was booked
             with.'
+        nextAfterTripId:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: 'v0.18.33, driver and admin views: a live trip queued behind this driver''s current trip (contract.json#afterTestRules.bookedNext.accept).'
     DriverSilentAlert:
       type: object
       description: 'v0.7.0: documents the server''s alert of 2026-10-26: no position for 30 min with the rider on board; the
@@ -20969,6 +20973,26 @@ components:
           allOf:
           - $ref: '#/components/schemas/CountryLimits'
           description: 'v0.18.14: read from the country standard only.'
+        onTripOffers:
+          type: object
+          description: 'v0.18.33: Owner Q7 + answer 2026-11-05 (''Driver on trip can receive exclusive (can be exclusive trip
+            or reservation but it''s exclusive! Any kind of exclusive) but driver receives trip when he soon arrives to drop
+            off! Maybe 70% of the route to drop''): a driver on a trip gets only Exclusive offers (never Radar, never a list),
+            for a live ride or a booked ride alike, and only once the rider is on board and he has driven at least CountryRules.onTripOffers.minRouteDonePct
+            (default 70) % of his current trip''s route: done = 1 − (dispatchKm from his position to its drop-off) / (its
+            booked km). A booked ride also needs its pickup at most bookedNext.withinMin minutes away and his current trip
+            (+ the drive from its drop-off) to end by the booked time. km and the score are counted from the current trip''s
+            drop-off. CountryRules.onTripOffers { minRouteDonePct (default 70, 0–100) } — Admin › Settings › Payment methods
+            and languages per country → ''Offers on a trip from (% of the route to the drop-off)''. A zone''s own country_rules
+            may set it; else the country''s Standard; else 70.'
+          required:
+          - minRouteDonePct
+          properties:
+            minRouteDonePct:
+              type: integer
+              minimum: 0
+              maximum: 100
+              default: 70
       x-server-only: true
     FeeRule:
       type: object
@@ -23467,14 +23491,15 @@ components:
           description: 'v0.8.0: set by the server when it serves or uses the country standard for this zone (contract.json#configDocs.standard).'
         bookedNext:
           type: object
-          description: 'v0.18.33: Owner Q7 (''While on trip driver get only exclusive and can be reservation exclusive''):
-            a driver who is on a trip gets no Radar offers; a BOOKED ride whose pickup is at most withinMin minutes away can
-            be offered to him as an Exclusive offer when his current trip ends in time: now (or the current trip''s start)
-            + its booked minutes (+ the drive to its pickup when the rider is not on board yet) + the drive from its drop-off
-            to the booked pickup (dispatchKm at pickupKmh) is not after the booked pickup time. km and the score are counted
-            from the current trip''s drop-off. DispatchDocument.bookedNext { on (default true), withinMin (default 60, 0-240)
-            } — Admin › Dispatch, per zone: ''Driver on a trip can get a booked ride starting within (min)'' + on/off. Missing
-            = the defaults.'
+          description: 'v0.18.33: Owner Q7 + answer 2026-11-05 (''Driver on trip can receive exclusive (can be exclusive trip
+            or reservation but it''s exclusive! Any kind of exclusive) but driver receives trip when he soon arrives to drop
+            off! Maybe 70% of the route to drop''): a driver on a trip gets only Exclusive offers (never Radar, never a list),
+            for a live ride or a booked ride alike, and only once the rider is on board and he has driven at least CountryRules.onTripOffers.minRouteDonePct
+            (default 70) % of his current trip''s route: done = 1 − (dispatchKm from his position to its drop-off) / (its
+            booked km). A booked ride also needs its pickup at most bookedNext.withinMin minutes away and his current trip
+            (+ the drive from its drop-off) to end by the booked time. km and the score are counted from the current trip''s
+            drop-off. DispatchDocument.bookedNext { on (default true), withinMin (default 60, 0-240) } — Admin › Dispatch,
+            per zone: ''Driver on a trip can get a booked ride starting within (min)'' + on/off. Missing = the defaults.'
           required:
           - 'on'
           - withinMin
