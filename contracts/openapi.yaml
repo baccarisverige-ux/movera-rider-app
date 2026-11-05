@@ -2387,7 +2387,16 @@ paths:
         Slow server: contract.json#auth.slowStart covers this call. v0.18.13: Once counted time ≥ maxHoursPerDay (default
         12; 0 = no limit) the driver gets no new offers (dispatch, radar, admin sends), POST /driver/availability online answers
         409 conflict reason driving_limit_reached (details ["drivenMinutes:<n>", "maxMinutes:<n>", "canDriveAt:<RFC 3339>"];
-        the projection carries Driver.drivingTime), and a running trip is always finished.'
+        the projection carries Driver.drivingTime), and a running trip is always finished. v0.18.37 §61 (go offline after
+        trips): offline while on a trip is no longer 409 on_trip: POST /driver/availability { onlineStatus: offline } while
+        the driver has a current trip (onlineStatus on_trip) answers 200 (before v0.18.37: 409 invalid_transition on_trip).
+        onlineStatus stays on_trip; Driver.offlineAfterTrip = true, Driver.offlineAfterTripSince = the tap time; Driver.version
+        goes up. Tapping again answers the same (idempotent). POST /driver/availability { onlineStatus: online } while on_trip
+        with offlineAfterTrip true clears it (offlineAfterTrip false, version up). Without the flag it answers the Driver
+        unchanged, as before. From the tap: no new offers of any kind, the on-trip Exclusives after minRouteDonePct (contract.json#afterTestRules,
+        live and booked) included. His open offers are withdrawn at once (the withdraw_driver_offers job, as when going offline).
+        An accept that still reaches the server is refused 409 conflict reason going_offline. Admin sends skip him (he is
+        on a trip).'
       tags:
       - Driver · Session
       x-actor:
@@ -16643,6 +16652,182 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /driver/airport-queue:
+    get:
+      operationId: driverAirportQueue
+      summary: The driver's own place in the airport queue
+      description: 'v0.18.36 §60: GET /driver/airport-queue -> AirportQueueStatus { status in_queue | not_in_area | off, areaId?,
+        airportZoneId?, position (1 = first), ahead, joinedAt, waitingMin }. The driver app reads it every 20 s while the
+        queue screen or Home is open; there is no sample data. A driver joins the queue when the server receives a position
+        of his inside an area that is on while he is online (onlineStatus online, no current trip). His place is the order
+        of joinedAt (then entryId). A driver who dropped a rider at the airport joins at once with his next position (owner
+        job 9 Q5: ''Yes, join at once''). He leaves the queue when: a position of his is outside the area for more than leaveGraceMin
+        minutes in a row; he goes offline or goes online again later (a new online session never keeps the old place); he
+        accepts any trip (queue or not); the area is turned off or removed. The others move up.'
+      tags:
+      - Driver · Session
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AirportQueueStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/zones/{zoneId}/queue-area:
+    get:
+      operationId: adminGetAirportQueueArea
+      summary: An airport zone's queue area
+      description: 'v0.18.36 §60: GET /admin/zones/{zoneId}/queue-area (zones.read) -> AirportQueueArea or 404 not_found;
+        PUT (zones.edit, audited) saves it. GET /admin/airport-queues (zones.read) -> AirportQueueFeed { items [{ areaId,
+        airportZoneId, on, waiting, longestWaitMin, pickupsLastHour }] } for the Dashboard airport card.'
+      tags:
+      - Admin · Zones
+      x-actor:
+      - admin
+      x-permission: zones.read
+      parameters:
+      - $ref: '#/components/parameters/ZoneId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AirportQueueArea'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: adminPutAirportQueueArea
+      summary: Save an airport zone's queue area
+      description: 'v0.18.36 §60: only a zone of kind airport (else 400 invalid_request, reason not_airport_zone). Audited.
+        A trip whose pickup is inside an airport zone with an area that is on: before the normal steps, the first driver in
+        the queue who may get offers (the same filter as any round: online, his zone and category, papers, no open Exclusive,
+        did not decline or miss this trip) gets an Exclusive offer (reasonCode airport-queue) for offerSeconds. A decline
+        or miss goes to the next in the queue, at most maxQueueOffers queue offers per trip; nobody left or all declined ->
+        normal nearest dispatch, unchanged. Rule 33: the queue is rows in the database (airport_queue_entries, one open row
+        per driver by a unique index); the order is joinedAt in the database, never one server copy''s memory. The queue offer
+        is sent in the round''s transaction with the trip row locked and the driver row locked NOWAIT and checked again (as
+        every round), so two server copies never send two queue offers for one trip or two Exclusives to one driver.'
+      tags:
+      - Admin · Zones
+      x-actor:
+      - admin
+      x-permission: zones.edit
+      parameters:
+      - $ref: '#/components/parameters/ZoneId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AirportQueueAreaUpdate'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AirportQueueArea'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/airport-queues:
+    get:
+      operationId: adminAirportQueues
+      summary: Airport queues for the Dashboard
+      description: 'v0.18.36 §60: GET /admin/zones/{zoneId}/queue-area (zones.read) -> AirportQueueArea or 404 not_found;
+        PUT (zones.edit, audited) saves it. GET /admin/airport-queues (zones.read) -> AirportQueueFeed { items [{ areaId,
+        airportZoneId, on, waiting, longestWaitMin, pickupsLastHour }] } for the Dashboard airport card.'
+      tags:
+      - Admin · Zones
+      x-actor:
+      - admin
+      x-permission: zones.read
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AirportQueueFeed'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -18765,6 +18950,7 @@ components:
           - account_status
           - admin
           - documents_expired
+          - after_trip
           description: 'v0.18.6 (owner ''Send the real reason''): why the server set the driver offline; only while onlineStatus
             is offline, cleared on going online. v0.18.6 (owner 2026-10-31 ''Send the real reason'', Rules decisions/driver-g3.md):
             every time the SERVER sets a driver offline it stores why: Driver.offlineReason (no_position | missed_offers |
@@ -18795,6 +18981,23 @@ components:
           allOf:
           - $ref: '#/components/schemas/PayoutHold'
           description: 'v0.18.29: admin view only; absent = payouts not held.'
+        offlineAfterTrip:
+          type: boolean
+          description: 'v0.18.37 §61: he tapped Go offline during a trip; he goes offline when his last trip ends. POST /driver/availability
+            { onlineStatus: offline } while the driver has a current trip (onlineStatus on_trip) answers 200 (before v0.18.37:
+            409 invalid_transition on_trip). onlineStatus stays on_trip; Driver.offlineAfterTrip = true, Driver.offlineAfterTripSince
+            = the tap time; Driver.version goes up. Tapping again answers the same (idempotent). When a trip of his ends (completed,
+            cancelled by anyone, no-show), in the SAME transaction as the trip release with the driver row locked (rule 33,
+            safe with several server copies): a queued live trip (accepted while on the trip, nextAfterTripId) starts and
+            he stays on_trip with the flag; else a held booked ride whose leaveAt has come starts and he stays on_trip with
+            the flag (the server treats a queued live trip like a held booked ride); else he goes offline: onlineStatus offline,
+            offlineReason after_trip, the set_offline notice (data.reason after_trip), offlineAfterTrip false.'
+          default: false
+        offlineAfterTripSince:
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+          description: 'v0.18.37 §61: when he tapped Go offline during the trip (null without offlineAfterTrip).'
     DriverScheduledRides:
       type: object
       description: 'Owner decision 2 (v0.4.2): an admin''s reservations on/off for this one driver (CONTRACT.md §6.1). Missing
@@ -25211,6 +25414,11 @@ components:
           type: string
         zoneId:
           $ref: '#/components/schemas/Id'
+        offlineAfterTrip:
+          type: boolean
+          description: 'v0.18.37 §61: on a trip and going offline when his trips end (admin label ''Going offline after trips'').
+            No setting. The admin driver view and the live drivers list carry offlineAfterTrip; the admin shows ''Going offline
+            after trips'' on an on-trip driver.'
     ZoneRidersOnline:
       type: object
       description: 'v0.18.4 (G3-R4): G3-R4 (owner ''Real numbers only''): riders online per zone = distinct riders who in
@@ -32686,3 +32894,159 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CallView'
+    AirportQueueArea:
+      type: object
+      description: 'v0.18.36 §60: AirportQueueArea { areaId, airportZoneId, polygon [[lat, lng], ...] (3-500 points, inside
+        or around the airport), on, leaveGraceMin, offerSeconds, maxQueueOffers, keepPlaceAfterDecline, updatedAt }. One area
+        per airport zone (Zone.kind airport). Off until an admin draws the area and turns it on.'
+      required:
+      - areaId
+      - airportZoneId
+      - polygon
+      - 'on'
+      - leaveGraceMin
+      - offerSeconds
+      - maxQueueOffers
+      - keepPlaceAfterDecline
+      properties:
+        areaId:
+          $ref: '#/components/schemas/Id'
+        airportZoneId:
+          $ref: '#/components/schemas/Id'
+        polygon:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+            minItems: 2
+            maxItems: 2
+          minItems: 3
+          maxItems: 500
+        'on':
+          type: boolean
+          default: false
+        leaveGraceMin:
+          type: integer
+          minimum: 0
+          maximum: 30
+          default: 3
+        offerSeconds:
+          type: integer
+          minimum: 5
+          maximum: 120
+          default: 30
+        maxQueueOffers:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 3
+        keepPlaceAfterDecline:
+          type: boolean
+          description: 'Owner job 9 Q4 (2026-11-05): ''Keeps his place''. keepPlaceAfterDecline (default true): a driver who
+            declines or misses a queue offer keeps his place. false = he goes to the back (joinedAt = now).'
+          default: true
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+    AirportQueueAreaUpdate:
+      type: object
+      description: 'v0.18.36 §60: what the admin saves (the whole area); a number left out takes its default.'
+      required:
+      - polygon
+      - 'on'
+      properties:
+        polygon:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+            minItems: 2
+            maxItems: 2
+          minItems: 3
+          maxItems: 500
+        'on':
+          type: boolean
+        leaveGraceMin:
+          type: integer
+          minimum: 0
+          maximum: 30
+        offerSeconds:
+          type: integer
+          minimum: 5
+          maximum: 120
+        maxQueueOffers:
+          type: integer
+          minimum: 1
+          maximum: 10
+        keepPlaceAfterDecline:
+          type: boolean
+      additionalProperties: false
+    AirportQueueStatus:
+      type: object
+      description: 'v0.18.36 §60: GET /driver/airport-queue -> AirportQueueStatus { status in_queue | not_in_area | off, areaId?,
+        airportZoneId?, position (1 = first), ahead, joinedAt, waitingMin }. The driver app reads it every 20 s while the
+        queue screen or Home is open; there is no sample data. The driver app shows ''You left the airport queue'' when status
+        goes from in_queue to anything else.'
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - in_queue
+          - not_in_area
+          - 'off'
+        areaId:
+          $ref: '#/components/schemas/Id'
+        airportZoneId:
+          $ref: '#/components/schemas/Id'
+        position:
+          type: integer
+          minimum: 1
+          description: 1 = first in line.
+        ahead:
+          type: integer
+          minimum: 0
+        joinedAt:
+          $ref: '#/components/schemas/Timestamp'
+        waitingMin:
+          type: integer
+          minimum: 0
+    AirportQueueFeedItem:
+      type: object
+      required:
+      - areaId
+      - airportZoneId
+      - 'on'
+      - waiting
+      - longestWaitMin
+      - pickupsLastHour
+      properties:
+        areaId:
+          $ref: '#/components/schemas/Id'
+        airportZoneId:
+          $ref: '#/components/schemas/Id'
+        'on':
+          type: boolean
+        waiting:
+          type: integer
+          minimum: 0
+        longestWaitMin:
+          type: integer
+          minimum: 0
+        pickupsLastHour:
+          type: integer
+          minimum: 0
+    AirportQueueFeed:
+      type: object
+      description: 'v0.18.36 §60: GET /admin/zones/{zoneId}/queue-area (zones.read) -> AirportQueueArea or 404 not_found;
+        PUT (zones.edit, audited) saves it. GET /admin/airport-queues (zones.read) -> AirportQueueFeed { items [{ areaId,
+        airportZoneId, on, waiting, longestWaitMin, pickupsLastHour }] } for the Dashboard airport card.'
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AirportQueueFeedItem'
