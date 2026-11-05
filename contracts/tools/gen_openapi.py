@@ -196,6 +196,7 @@ S["Quote"] = obj(OrderedDict([
     ("expiresAt", ref("Timestamp")), ("pickup", ref("Place")), ("dropoff", ref("Place")), ("stops", arr(ref("Place"))),
     ("surgeMultiplier", n("The multiplier this quote was priced with; it stays with the quote (contract.json#surge).", minimum=1)),
     ("surge", ref("QuoteSurge")), ("etaSeconds", ref("DurationSeconds")),
+    ("pickupAt", {"description": "v0.18.30 (contract.json#smallFixes.quotePickupTime, owner Q8): the pickup time of a booked ride (kind scheduled); null on a live quote.", **nullable("Timestamp")}),
 ]), ["quoteId", "categoryId", "total", "fareLines", "expiresAt", "pickup", "dropoff", "stops"])
 S["RouteQuote"] = obj({"routeQuoteId": ref("Id"), "tripId": ref("Id"),
                        "total": {"allOf": [ref("Money")], "description": "Booked fare + the rider's offer raises + distance price of "
@@ -1137,7 +1138,10 @@ S["QuoteRequest"] = obj({"pickup": ref("Place"), "dropoff": ref("Place"), "stops
                          "categoryIds": arr(ref("CategoryId"), description="Omit for every category in the zone."),
                          "kind": ref("TripKind"), "scheduledAt": ref("Timestamp"), "paymentMethod": ref("PaymentMethod"), **PRICE_EXTRAS},
                         ["pickup", "dropoff", "stops"])
-S["QuoteList"] = obj({"quotes": arr(ref("Quote")), "zoneId": ref("Id"), "serverTime": ref("Timestamp")}, ["quotes", "zoneId"])
+S["QuoteWarning"] = obj({"reason": s(enum=["same_pickup_dropoff"]), "meters": i(minimum=0), "limitMeters": i(minimum=0)}, ["reason", "meters", "limitMeters"],
+                         "v0.18.30 (contract.json#smallFixes.samePoint, owner Q9): a warning only; the quote can still be booked.")
+S["QuoteList"] = obj({"quotes": arr(ref("Quote")), "zoneId": ref("Id"), "serverTime": ref("Timestamp"),
+                      "warnings": arr(ref("QuoteWarning"), description="v0.18.30: warnings for the rider (may be absent or empty).")}, ["quotes", "zoneId"])
 S["CreateTripRequest"] = obj({"quoteId": ref("Id"), "categoryId": ref("CategoryId"), "pickup": ref("Place"),
                               "dropoff": ref("Place"), "stops": arr(ref("Place")), "kind": ref("TripKind"),
                               "scheduledAt": ref("Timestamp"), "paymentMethod": ref("PaymentMethod"),
@@ -2349,6 +2353,8 @@ PW = C["pickupWaiting"]
 S["RiderWaiting"]["properties"]["cancelAfterArrivedIsNoShow"] = b("v0.18.7 (Q2): " + PW["servedConfig"]["cancelAfterArrivedIsNoShow"]["note"] + " Default " + str(PW["servedConfig"]["cancelAfterArrivedIsNoShow"]["default"]).lower() + ".")
 S["RiderAppConfig"]["properties"]["booking"]["properties"]["maxPickupMoveMeters"]["description"] += " v0.18.7: default 200, range 0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}."
 S["DriverAppConfig"]["properties"]["booking"]["properties"]["maxPickupMoveMeters"]["description"] += " v0.18.7: default 200, range 0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}."
+for _cfg in ("RiderAppConfig", "DriverAppConfig"):
+    S[_cfg]["properties"]["booking"]["properties"]["samePointWarnMeters"] = i("v0.18.30 (owner Q9, contract.json#smallFixes.samePoint): pickup ≈ drop-off warning under this many metres (straight line, no stops); a warning only, the rider can still book. Default 100, 0 = never warn. Admin Dispatch › Rides 'Shortest ride (m)'.", minimum=0, maximum=1000)
 S["RiderSummary"] = obj({"firstName": s(minLength=1), "rating": n("The rider's average (2 decimals); only while DriverAppConfig.offers.offerCard.riderRating is on and the rider has one.", minimum=0, maximum=5)},
                         ["firstName"], "v0.18.7 (Q1): " + PW["riderSummary"]["note"])
 S["TripTerms"] = obj(OrderedDict([

@@ -1,11 +1,11 @@
-# Movera API v0.18.29 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.30 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.29
+  version: 0.18.30
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.29 in this folder; this file must agree with them.
+    v0.18.30 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.29
+  version: 0.18.30
   source: contract.json
 paths:
   /auth/otp/request:
@@ -18138,6 +18138,12 @@ components:
           $ref: '#/components/schemas/QuoteSurge'
         etaSeconds:
           $ref: '#/components/schemas/DurationSeconds'
+        pickupAt:
+          description: 'v0.18.30 (contract.json#smallFixes.quotePickupTime, owner Q8): the pickup time of a booked ride (kind
+            scheduled); null on a live quote.'
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
     RouteQuote:
       type: object
       description: 'Price for a route change after request; apply with PATCH /trips/{tripId}. Priced from the booking (owner
@@ -22696,6 +22702,13 @@ components:
               minimum: 0
               description: 'How far the rider may move the pickup after accept; further = cancel and rebook. v0.18.7: default
                 200, range 0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}.'
+            samePointWarnMeters:
+              type: integer
+              minimum: 0
+              maximum: 1000
+              description: 'v0.18.30 (owner Q9, contract.json#smallFixes.samePoint): pickup ≈ drop-off warning under this
+                many metres (straight line, no stops); a warning only, the rider can still book. Default 100, 0 = never warn.
+                Admin Dispatch › Rides ''Shortest ride (m)''.'
             minAheadMin:
               type: integer
               minimum: 5
@@ -22847,6 +22860,13 @@ components:
               minimum: 0
               description: 'Pickup move limit after accept; the driver is notified of a move. v0.18.7: default 200, range
                 0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}.'
+            samePointWarnMeters:
+              type: integer
+              minimum: 0
+              maximum: 1000
+              description: 'v0.18.30 (owner Q9, contract.json#smallFixes.samePoint): pickup ≈ drop-off warning under this
+                many metres (straight line, no stops); a warning only, the rider can still book. Default 100, 0 = never warn.
+                Admin Dispatch › Rides ''Shortest ride (m)''.'
         offers:
           type: object
           properties:
@@ -25119,7 +25139,8 @@ components:
             auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far,
             driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival,
             route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now,
-            pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit).'
+            pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit).
+            v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons).'
         details:
           type: array
           items:
@@ -25579,6 +25600,24 @@ components:
           - $ref: '#/components/schemas/Id'
           description: 'v0.6.0: one of the zone''s fixed routes; for a route of the quoted category the fixed_route line replaces
             the ride part, otherwise the category is priced normally.'
+    QuoteWarning:
+      type: object
+      description: 'v0.18.30 (contract.json#smallFixes.samePoint, owner Q9): a warning only; the quote can still be booked.'
+      required:
+      - reason
+      - meters
+      - limitMeters
+      properties:
+        reason:
+          type: string
+          enum:
+          - same_pickup_dropoff
+        meters:
+          type: integer
+          minimum: 0
+        limitMeters:
+          type: integer
+          minimum: 0
     QuoteList:
       type: object
       required:
@@ -25593,6 +25632,11 @@ components:
           $ref: '#/components/schemas/Id'
         serverTime:
           $ref: '#/components/schemas/Timestamp'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuoteWarning'
+          description: 'v0.18.30: warnings for the rider (may be absent or empty).'
     CreateTripRequest:
       type: object
       description: 'Request a quoted trip. No expectedVersion: the trip does not exist yet; Idempotency-Key dedupes. v0.6.0:

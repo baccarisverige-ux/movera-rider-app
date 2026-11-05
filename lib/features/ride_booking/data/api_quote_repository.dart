@@ -275,13 +275,14 @@ class ApiQuoteRepository implements QuoteRepository {
     final raw = json['quotes'];
     if (raw is! List) throw const FormatException('malformed quote list');
     final quotes = <String, RideQuote>{};
+    final warning = SamePointWarning.fromQuoteList(json['warnings']);
     // Routes of quotes that ran out are of no use to a booking any more.
     final now = DateTime.now();
     _routes.removeWhere((_, route) => route.expiresAt.isBefore(now));
     for (final item in raw) {
       if (item is! Map) continue;
       final map = Map<String, dynamic>.from(item);
-      final quote = contractQuoteOf(map);
+      final quote = contractQuoteOf(map, samePointWarning: warning);
       if (quote == null) continue;
       quotes[quote.rideType] = quote;
       _routes[quote.id] = QuotedRoute(
@@ -303,7 +304,10 @@ class ApiQuoteRepository implements QuoteRepository {
 
   /// A contract `Quote` as a [RideQuote] keyed by its canonical category,
   /// or null when a required field is missing or malformed.
-  static RideQuote? contractQuoteOf(Map<String, dynamic> map) {
+  static RideQuote? contractQuoteOf(
+    Map<String, dynamic> map, {
+    SamePointWarning? samePointWarning,
+  }) {
     final id = map['quoteId'];
     final category = CategoryIds.tryCanonical(map['categoryId']);
     final total = Money.fromWire(map['total']);
@@ -344,6 +348,8 @@ class ApiQuoteRepository implements QuoteRepository {
       discountMinor: -line(const {'discount'}),
       outstandingFeeMinor: line(const {'outstanding_fee'}),
       serverHeld: true,
+      pickupAt: WireTime.tryParse(map['pickupAt']),
+      samePointWarning: samePointWarning,
     );
   }
 

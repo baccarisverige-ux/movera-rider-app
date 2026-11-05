@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.29",
+  "version": "0.18.30",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -2909,6 +2909,7 @@
     "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge. v0.5.1 adds pricing (SE, the admin's Stockholm prices) and dispatch (the admin's zone defaults). v0.5.6: missedExclusiveBeforeOffline (DriverAppConfig.offers.autoOffline.missedExclusive) goes from 3 to 10 (owner decision 35, 2026-10-26). v0.18.6: raiseMaxFactor (DispatchDocument.raisePrice.maxFactor, RiderAppConfig.raisePrice.maxFactor) 2 and offerCardRiderRating (DriverAppConfig.offers.offerCard.riderRating) true. v0.18.7: maxPickupMoveMeters 500 → 200 (owner 2026-10-29 '200 m default, admin can change'; server migration moves published documents still on 500) and cancelAfterArrivedIsNoShow true (Q2). v0.18.8: pickupPin (off, 5 tries, 5 min lock), waitingRules (the admin's far pickup / airport / event / scheduled defaults) and stopFreeWaitMin 0 (contract.json#arrivedWaiting). v0.18.9: rideCheck (on, stopMinutes 2, offRouteKm 3 → 2, endFarMeters 500, noAnswerSeconds 120, repeatMinutes 10, noAnswerAlarm false) and routeChange (on, driverCanRefuse, answerSeconds 60) per zone in the driver document (contract.json#onTrip); maxStops 3 now enforced by the server. v0.18.9 (owner rule 16, 2026-11-01): routeChange.beforePickup true and routeChange.fixedPriceTrips \"block\". v0.18.10 (contract.json#finish): earlyEnd (DriverAppConfig.cancelFees.earlyEnd: repriceOverKm 2, repriceOverMin 8, owner G8 Q2), tips per country (countries.SE.tips 10 / 20 / 30 kr, countries.FR.tips 1 / 2 / 5 €; the sample documents no longer convert Swedish tips to euro), paymentMethods cash, card, apple_pay (no google_pay). v0.18.10 (builder questions resolved 2026-11-01): tipRules (RiderAppConfig.tipRules: cashAfterTrip false, cashInCarMinutes 5, customAmount false, customMax SE 200 kr / FR 20 €). v0.18.10 checker: driverPayChangeMax (CountryRules.driverPayChangeMax, SE 1000 kr / FR 100 €).",
     "maxStops": 3,
     "maxPickupMoveMeters": 200,
+    "samePointWarnMeters": 100,
     "freeWaitMin": {
       "default": 5,
       "xl": 3
@@ -3724,7 +3725,7 @@
       "unavailable",
       "internal"
     ],
-    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit)."
+    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit). v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons)."
   },
   "headers": {
     "Idempotency-Key": "required on every mutation, 16–128 chars",
@@ -7633,5 +7634,39 @@
       "manual"
     ],
     "default": "automatic"
+  },
+  "smallFixes": {
+    "note": "v0.18.30 (FIX JOB 7 'Small fixes', L20-L24, owner Q8/Q9 of 2026-11-04 in Rules decisions/driver-g15.md, B-k/B-l of plan/LIVE-50x50-FIX-PLAN-2026-11-04.md). Additive; X-Api-Version stays 0.5; no migration.",
+    "addressLanguage": "L20: POST /locations/autocomplete answers in the language of the zone the bias point (latitude, longitude) is in (SE sv, FR fr, TN fr). Without a bias point, or outside every zone, the language is as for /geocode: Accept-Language (sv | fr | en), else the rider's saved language, else sv.",
+    "quotePickupTime": {
+      "rule": "L22, owner Q8 'Only for booked rides': Quote.pickupAt is the pickup time of a BOOKED ride (QuoteRequest kind scheduled: the scheduledAt the quote was priced for). A live quote has pickupAt null and the apps show no pickup time on it. Quote.etaSeconds is not filled (kept for older apps).",
+      "field": "Quote.pickupAt: Timestamp | null",
+      "rider": "Select Ride / Book later price card: a booked ride shows 'Pickup {time}' (zone time) from Quote.pickupAt; nothing when null."
+    },
+    "samePoint": {
+      "rule": "L23, owner Q9 'Warn him but can accept booking': when the straight-line distance from pickup to drop-off is samePointWarnMeters or less AND the ride has no stops, POST /quotes still answers 200 with the prices and adds QuoteList.warnings [{ reason: same_pickup_dropoff, meters, limitMeters }]. It is a warning, never an error: the rider may book the quote (POST /trips does not check it).",
+      "setting": "booking.samePointWarnMeters per zone in the driver document (RiderAppConfig.booking.samePointWarnMeters shows the same number); admin Dispatch › Rides 'Shortest ride (m)'; default configDefaults.samePointWarnMeters 100; range 0-1000; 0 = never warn.",
+      "shape": "QuoteWarning { reason: same_pickup_dropoff, meters int, limitMeters int }",
+      "rider": "Shows the warning above the price cards ('Pickup and drop-off are almost the same place ({meters} m). You can still book.') and keeps Book enabled."
+    },
+    "ticketReasons": {
+      "invalid_ticket_category": "400 invalid_request: POST /support/tickets with a category that is not a ticket category (support.ticketCategories). Before v0.18.30: invalid_body.",
+      "invalid_ticket_body": "400 invalid_request: POST /support/tickets with an empty or too long subject (1-200) or text (1-5000). Before v0.18.30: invalid_body.",
+      "apps": "Rider and driver show their own text for each reason (the category one: 'Pick a topic'; the body one: 'Write a short subject and a message')."
+    },
+    "retested": {
+      "otpFormat": "L24 re-test: a code that is not 4 digits is 400 invalid_otp_code (auth.signInErrors); unchanged.",
+      "acceptRefusal": "L24 re-test: POST /driver/offers/{offerId}/accept on a closed offer is 409 offer_<status> (offer_expired, offer_claimed_elsewhere, offer_declined ...) and on a driver with a trip 409 driver_on_trip, both with the offer projection; unchanged."
+    },
+    "adminReadOnly": {
+      "rule": "L21: an admin field the server never reads is shown read-only with the note 'Not used yet' and is never deleted (owner rule 21).",
+      "fields": [
+        "Confirm › Product values › Reservation horizon (RiderAppConfig.booking.bookingHorizonDays is served equal to bookLater maxAheadDays; the window is set in Dispatch › Reservations)"
+      ]
+    },
+    "adminLabels": {
+      "liveCount": "B-k: the admin live counter reads 'Searching N · Live M': N = open trips still looking for a driver (requested, searching, offered), M = trips with a driver (accepted to on_trip).",
+      "dates": "B-l: admin date filters show and take dates in the admin's language format (sv YYYY-MM-DD, fr DD/MM/YYYY, en DD/MM/YYYY); the wire stays ISO YYYY-MM-DD."
+    }
   }
 }
