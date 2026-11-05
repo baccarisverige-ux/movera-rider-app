@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Writes the contract status words (contracts/contract.json#statusWords)
-into lib/l10n/app_{en,fr,sv}.arb and lib/core/contracts/status_words.g.dart.
+into lib/l10n/parts/status_words.{en,fr,sv}.arb (then lib/l10n/app_*.arb
+through tool/l10n_parts.py) and lib/core/contracts/status_words.g.dart.
 
 Run after syncing the contract:  python3 tool/gen_status_words.py
 Then: flutter gen-l10n. test/l10n/status_words_contract_test.dart fails
@@ -9,6 +10,11 @@ when an ARB word differs from the contract.
 import json
 import pathlib
 import re
+import sys
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import l10n_parts  # noqa: E402
 
 root = pathlib.Path(__file__).resolve().parent.parent
 PACKAGE = 'movera_rider'
@@ -29,7 +35,7 @@ def key(family, code):
 SW = re.compile(r'^  "@?sw[A-Z][A-Za-z0-9]*": ')
 
 for lang in ('en', 'fr', 'sv'):
-    path = root / f'lib/l10n/app_{lang}.arb'
+    path = root / f'lib/l10n/parts/status_words.{lang}.arb'
     lines = [l for l in path.read_text(encoding='utf-8').rstrip().split('\n') if not SW.match(l)]
     assert lines[-1] == '}', path
     body = lines[:-1]
@@ -41,7 +47,8 @@ for lang in ('en', 'fr', 'sv'):
             if lang == 'en':
                 desc = {'description': f'Contract status word statusWords.families.{f}.{code} (tool/gen_status_words.py).'}
                 add.append(f'  {json.dumps("@" + key(f, code))}: {json.dumps(desc)}')
-    body[-1] += ','
+    if body[-1] != '{':  # the status_words area file holds only sw keys
+        body[-1] += ','
     text = '\n'.join(body + [',\n'.join(add), '}']) + '\n'
     json.loads(text)
     path.write_text(text, encoding='utf-8')
@@ -73,6 +80,7 @@ for f in FAMILIES:
     out.append('      }')
     out.append('      return null;')
 out += ['  }', '  return null;', '}', '']
+l10n_parts.main()
 dart = root / 'lib/core/contracts/status_words.g.dart'
 dart.write_text('\n'.join(out), encoding='utf-8')
 print(f'wrote {sum(len(families[f]) for f in FAMILIES)} status words for {len(FAMILIES)} families')

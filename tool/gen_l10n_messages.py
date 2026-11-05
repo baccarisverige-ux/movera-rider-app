@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Writes test/l10n/all_messages.g.dart from lib/l10n/app_en.arb.
+"""Writes lib/l10n/app_{en,fr,sv}.arb from the area files in lib/l10n/parts
+(tool/l10n_parts.py), then test/l10n/all_messages.g.dart from app_en.arb.
 
-Run after adding or removing a message:  python3 tool/gen_l10n_messages.py
+Run after adding, changing or removing a message:
+python3 tool/gen_l10n_messages.py
 
 The generated file lists every message of gen-l10n's AppLocalizations, so
 the parity test reads each language through gen-l10n's own output. Its
@@ -12,7 +14,13 @@ list does not compile, and one that no longer exists is an analyzer error
 import json
 import pathlib
 import re
+import sys
 
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import l10n_parts  # noqa: E402
+
+l10n_parts.main()
 root = pathlib.Path(__file__).resolve().parent.parent
 arb = json.loads((root / 'lib/l10n/app_en.arb').read_text(encoding='utf-8'))
 keys = [k for k in arb if not k.startswith('@')]
