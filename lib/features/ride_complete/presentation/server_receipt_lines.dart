@@ -109,6 +109,17 @@ class _ServerReceiptLinesState extends State<ServerReceiptLines> {
             formatMoney(debt),
             key: const ValueKey('receipt-debt'),
           ),
+        // Fix job 0 (owner A2-2, contract 0.18.39 outstandingFee.receiptText):
+        // the owed fee was added by itself to this trip; say so in words.
+        if (receipt.debtIncluded != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              l10n.receiptDebtIncludedNote,
+              key: const ValueKey('receipt-debt-note'),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF6F7B82)),
+            ),
+          ),
         if (receipt.tip case final tip?)
           _line(
             l10n.receiptTip,

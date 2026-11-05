@@ -1607,6 +1607,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'receiptRiderEnded': l.receiptRiderEnded,
   'endedEarlyReason': l.endedEarlyReason,
   'receiptDebtIncluded': l.receiptDebtIncluded,
+  'receiptDebtIncludedNote': l.receiptDebtIncludedNote,
   'receiptTip': l.receiptTip,
   'receiptRefunded': l.receiptRefunded,
   'pickupSpotApproximate': l.pickupSpotApproximate('<name>'),
@@ -5115,6 +5116,8 @@ class _Exhaustive implements AppLocalizations {
   String get endedEarlyReason => '';
   @override
   String get receiptDebtIncluded => '';
+  @override
+  String get receiptDebtIncludedNote => '';
   @override
   String get receiptTip => '';
   @override

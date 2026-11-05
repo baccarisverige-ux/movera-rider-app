@@ -1934,6 +1934,21 @@ op("put", "/admin/zones/{zoneId}/dispatch-control", "adminPutDispatchControl", "
 op("get", "/admin/live/drivers", "adminLiveDrivers", "Driver positions for the admin live map", ["admin"], "Admin · Dispatch",
    params=ZF, ok=(200, "LiveDriverList"), permission="trips.read",
    desc="Limited to the zones in the admin's scope. stale = no fix for staleAfterSeconds." + ZF_DESC)
+DDF = C["dispatchDriverFacts"]
+def _nn(desc, **kw): return {"oneOf": [n(**kw), {"type": "null"}], "description": desc}
+def _ni(desc, **kw): return {"oneOf": [i(**kw), {"type": "null"}], "description": desc}
+S["DispatchDriverFacts"] = obj(OrderedDict([("driverId", ref("Id")), ("zoneId", ref("Id")), ("state", s(enum=["free", "trip"])),
+    ("rating", _nn(DDF["real"]["rating"], minimum=0, maximum=5)), ("acceptancePct", _nn(DDF["real"]["acceptancePct"], minimum=0, maximum=100)),
+    ("cancelPct", _nn(DDF["real"]["cancelPct"], minimum=0, maximum=100)), ("idleMin", _ni(DDF["real"]["idleMin"], minimum=0)),
+    ("categoryIds", arr(s(), description=DDF["real"]["categoryIds"])), ("missedInRow", i(DDF["real"]["missedInRow"], minimum=0)),
+    ("ridesThisHour", i(DDF["real"]["ridesThisHour"], minimum=0)), ("restNeeded", b(DDF["real"]["restNeeded"]))]
+    + [(k, {"type": "null", "description": DDF["notYetRule"]}) for k in DDF["notYet"]]),
+    required=["driverId", "zoneId", "state", "rating", "acceptancePct", "cancelPct", "idleMin", "categoryIds", "missedInRow", "ridesThisHour", "restNeeded"] + DDF["notYet"],
+    desc="v0.18.21 (contract.json#dispatchDriverFacts): what dispatch knows about one online driver.")
+S["DispatchDriverFactsList"] = obj({"zoneId": ref("Id"), "serverTime": ref("Timestamp"), "items": arr(ref("DispatchDriverFacts"))}, required=["zoneId", "serverTime", "items"])
+op("get", "/admin/zones/{zoneId}/driver-facts", "adminDispatchDriverFacts", "Real dispatch facts of the zone's online drivers", ["admin"], "Admin · Dispatch",
+   params=[pref("ZoneId")], ok=(200, "DispatchDriverFactsList"), permission="trips.read",
+   desc="v0.18.21 (contract.json#dispatchDriverFacts): " + DDF["who"] + " " + DDF["notYetRule"] + " A zone outside the admin's scope: 403 forbidden (zone_out_of_scope); unknown zone: 404.")
 op("get", "/admin/trips/{tripId}/trace", "adminTripTrace", "The trip's GPS trace", ["admin"], "Admin · Trips",
    params=TID, ok=(200, "TripTrace"), permission="trips.read", desc="Traces are deleted 30 days after the trip (owner decision 11): 404 after that.")
 
@@ -2766,6 +2781,48 @@ PATHS["/trips/{tripId}/cancel"]["post"]["description"] += " v0.18.17: " + BL["ri
 S["Offer"]["properties"]["reservation"] = b("v0.18.19: a booked ride (Trip.kind scheduled): the app shows the reservation badge with scheduledAt. " + BL["liveFixes"]["badge"])
 PATHS["/quotes"]["post"]["description"] = PATHS["/quotes"]["post"].get("description", "") + " v0.18.17: " + BL["window"]
 PATHS["/trips"]["post"]["description"] += " v0.18.17: " + BL["window"] + " " + BL["card"]
+# ---- v0.18.39 A2: hold one driver's payouts (owner build-spec Q4; contract.json#payoutHold)
+PH = C["payoutHold"]
+S["PayoutHold"] = obj({"reason": s(maxLength=PH["reasonMax"]), "at": ref("Timestamp"), "by": ref("Id")}, ["reason", "at"], PH["note"])
+S["PayoutHoldCommand"] = obj({"held": b(), "reason": s(minLength=1, maxLength=PH["reasonMax"])}, ["held", "reason"])
+S["Driver"]["properties"]["payoutHold"] = {"allOf": [ref("PayoutHold")], "description": "v0.18.39: admin view only; absent = payouts not held."}
+op("post", "/admin/drivers/{driverId}/payout-hold", "adminHoldDriverPayouts", "Pause or release one driver's payouts", ["admin"], "Admin · People",
+   params=[pref("DriverId")], body="PayoutHoldCommand", ok=(200, "Driver"), mutation=True, permission="finance.edit", permission_v050="finance.edit", desc=PH["note"])
+
+# ---- v0.18.39 A2: rider moderation (Warn → Pause → Ban, owner G16 Q16-1/Q16-2; contract.json#riderModeration)
+RM = C["riderModeration"]
+S["RiderModerationLevel"] = s(enum=list(RM["levels"].keys()), description="; ".join(f"{k} = {v}" for k, v in RM["levels"].items()))
+S["RiderModeration"] = obj({"level": ref("RiderModerationLevel"), "reason": s(maxLength=300), "until": {"oneOf": [ref("Timestamp"), {"type": "null"}], "description": "paused: when the pause ends by itself; otherwise null."},
+                            "setAt": ref("Timestamp")}, ["level"], RM["note"])
+S["RiderModerationCommand"] = obj(dict(EV, level=ref("RiderModerationLevel"), reason=s(minLength=1, maxLength=300),
+                                       pauseDays=i(minimum=RM["pauseDays"]["min"], maximum=RM["pauseDays"]["max"], description="required when level is paused")),
+                                  ["expectedVersion", "level", "reason"], RM["reasons"]["note"])
+S["Rider"]["properties"]["moderation"] = {"allOf": [ref("RiderModeration")], "description": "v0.18.39: the rider's moderation level (rider and admin views)."}
+op("post", "/admin/riders/{riderId}/moderation", "adminModerateRider", "Warn, pause, ban or clear a rider", ["admin"], "Admin · People",
+   params=[pref("RiderId")], body="RiderModerationCommand", ok=(200, "Rider"), mutation=True, permission="riders.block", permission_v050="riders.edit",
+   desc=RM["note"] + " " + RM["levels"]["paused"] + ". " + RM["statusCommand"])
+
+
+# ---- v0.18.39 A2: Add money to wallet (owner G12 Q5 + Q-D, build-spec Q1/Q2; contract.json#walletCredit)
+WC = C["walletCredit"]
+S["WalletCreditCommand"] = obj({"amount": ref("Money"), "reason": s(minLength=1, maxLength=WC["reasonMax"])}, ["amount", "reason"], WC["note"])
+S["CountryRules"]["properties"]["walletCreditMax"] = {"allOf": [ref("Money")], "description": "v0.18.39 (owner A2-1): the largest single Add money to wallet for riders of this country, in its currency; read from the country Standard only (a zone's own value is ignored). Default " + ", ".join(f"{k} {v['amountMinor']} {v['currency']}" for k, v in WC["defaultMax"].items()) + " (minor units)."}
+op("post", "/admin/riders/{riderId}/wallet-credit", "adminCreditRiderWallet", "Add money to a rider's wallet", ["admin"], "Admin · People",
+   params=[pref("RiderId")], body="WalletCreditCommand", ok=(200, "Rider"), mutation=True, permission="finance.edit", permission_v050="finance.edit", desc=WC["note"])
+
+# ---- v0.18.39 A2: payouts Automatic / Manual per country + approve a run (owner build-spec Q4; contract.json#payoutMode)
+PM = C["payoutMode"]
+S["CountryRules"]["properties"]["payoutMode"] = s(PM["note"], enum=PM["values"])
+S["PayoutRunApproveCommand"] = obj({"country": s(pattern="^[A-Z]{2}$"), "periodEnd": ref("Timestamp"), "reason": s("v0.18.39 (owner A2-3): why the run is approved; kept in the audit.", minLength=1, maxLength=300)}, ["country", "periodEnd", "reason"])
+S["PayoutRunApproved"] = obj({"country": s(), "periodEnd": ref("Timestamp"), "approved": i(minimum=0), "total": arr(ref("Money"))}, ["country", "periodEnd", "approved", "total"])
+op("post", "/admin/payouts/runs/approve", "adminApprovePayoutRun", "Approve a manual payout run", ["admin"], "Admin · Finance",
+   body="PayoutRunApproveCommand", ok=(200, "PayoutRunApproved"), mutation=True, permission="finance.edit", permission_v050="finance.edit", desc=PM["note"])
+
+# ---- v0.18.39 fix job 0 (owner A2-2): Mark as paid on an owed fee (contract.json#outstandingFee.adminMarkPaid)
+OMP = C["outstandingFee"]["adminMarkPaid"]
+S["RiderFeeMarkPaidCommand"] = obj({"reason": s(minLength=1, maxLength=OMP["reasonMax"])}, ["reason"], OMP["note"])
+op("post", "/admin/riders/{riderId}/fees/{tripId}/mark-paid", "adminMarkRiderFeePaid", "Mark a rider's owed fee as paid", ["admin"], "Admin · People",
+   params=[pref("RiderId"), pref("TripId")], body="RiderFeeMarkPaidCommand", ok=(200, "Rider"), mutation=True, permission="finance.edit", permission_v050="finance.edit", desc=OMP["note"])
 
 doc = OrderedDict()
 doc["openapi"] = "3.1.0"
@@ -2797,6 +2854,20 @@ doc["components"] = OrderedDict([
     ("securitySchemes", {"bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT",
                                         "description": "Claims: sub, actor (rider|driver|admin), zoneIds, role, permissions."}}),
     ("parameters", PARAMS), ("responses", RESP), ("schemas", S)])
+
+# v0.18.22 admin live updates (CONTRACT.md §46, contract.json#adminLiveEvents): one admin event stream.
+ALE = C["adminLiveEvents"]
+S["AdminLiveEventType"] = s("v0.18.22: what changed; the panel reads the record again with the normal routes.", enum=list(ALE["types"].keys()))
+S["AdminLiveEvent"] = obj({"sequence": i(minimum=1), "type": ref("AdminLiveEventType"), "entityId": ref("Id"),
+                           "zoneId": {"oneOf": [ref("Id"), {"type": "null"}]}, "occurredAt": ref("Timestamp"), "serverTime": ref("Timestamp")},
+                          ALE["envelope"], ALE["note"])
+S["AdminLiveEventPage"] = obj({"items": arr(ref("AdminLiveEvent")), "nextCursor": {"type": ["string", "null"]}}, ["items", "nextCursor"])
+op("get", ALE["path"], "adminStreamEvents", "Admin live updates (what changed, in the admin's zones)", ["admin"], "Realtime",
+   params=[pref("ZoneIdQuery"), q("zoneIds", {"type": "string"}, "Several zones, comma separated (inside the admin's zones)."),
+           q("country", {"type": "string", "pattern": "^[A-Z]{2}$"}, "Every zone of that country the admin covers."),
+           pref("After"), pref("Limit"), pref("LastEventId")],
+   content=sse("Server-sent events. " + ALE["transport"] + " " + " ".join(ALE["scope"]) + " " + ALE["replay"], "AdminLiveEvent", "AdminLiveEventPage"),
+   permission=ALE["permission"])
 
 def to_plain(x):
     if isinstance(x, dict): return {k: to_plain(v) for k, v in x.items()}

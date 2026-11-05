@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.19",
+  "version": "0.18.39",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -985,7 +985,8 @@
       "otp_resend_too_soon": "429 rate_limited: a new code within otp.retryAfterSeconds of the last one",
       "otp_too_many": "429 rate_limited: auth.limits reached (decision 4, wait in minutes)",
       "sign_in_restricted": "403 forbidden: the number is not on the test list while no SMS provider is chosen (decision 5): the app offers \"Join the waiting list\" (POST /auth/waitlist)",
-      "otp_locked_today": "429 rate_limited (v0.18.14): too many wrong codes for this number today (countryLimits.wrongCodesPerDay, admin setting per country, default 15); the app says \"Too many wrong codes today. Try again later.\" with the wait from retryAfterSeconds and disables Send code"
+      "otp_locked_today": "429 rate_limited (v0.18.14): too many wrong codes for this number today (countryLimits.wrongCodesPerDay, admin setting per country, default 15); the app says \"Too many wrong codes today. Try again later.\" with the wait from retryAfterSeconds and disables Send code",
+      "account_suspended": "403 forbidden (v0.18.39 A2, owner Q16-1): the rider is paused (until a time) or banned; projection = { level, reason, until, setAt } (riderModeration). The rider app shows 'Your account is paused' with the admin's reason, Contact support and Sign out."
     },
     "slowStart": {
       "note": "v0.15.0 (owner 2026-10-29, decision 1): the server can sleep (Render free plan) and answer its first request after about 50 s. The rider and driver apps wait up to waitSeconds for the sign-in calls (POST /auth/otp/request, /auth/otp/verify, /auth/provider, /auth/waitlist) and, while waiting, show the line \"Starting the server…\" after showAfterSeconds. v0.18.4 (owner, driver group 3 'Already decided' + G3-R5): the same wait and line also cover POST /driver/availability (going online): the driver app waits up to waitSeconds and shows the line after showAfterSeconds.",
@@ -2879,7 +2880,24 @@
       "the driver of the original trip gets their share at once (an earnings entry, waiting.driverSharePct for a no-show); Movera carries the risk",
       "on the next trip the line is cash the new driver collects (in cashCollected) but not in their driverEarnings: it is owed to Movera",
       "v0.18.7 (pickupWaiting.debtByCurrency): owed fees are counted per currency; a quote carries only the owed fees in its own currency and a paid cash trip settles only fees of its currency"
-    ]
+    ],
+    "adminMarkPaid": {
+      "note": "v0.18.39 fix job 0 (owner A2-2 2026-11-05 'Only mark and detect from next trip so add to next trip'): an owed fee has ONE admin action, Mark as paid, for money the rider paid Movera another way. POST /admin/riders/{riderId}/fees/{tripId}/mark-paid { reason } (finance.edit, Idempotency-Key, zone scope of the fee's trip, audit rider.fee_mark_paid with the reason, amount and currency). The fee becomes paid (settled now, carried by no trip), the original trip's cancellation.feeStatus paid, Rider.outstanding / outstandingByCurrency drop it, and no later quote or trip carries it. There is NO 'Ask rider to pay' button: every fee left owed is added by itself to the rider's next trip in the same currency (rules above). Refusals: reason missing = 400 invalid_request reason_required; no owed fee on that trip for that rider = 409 invalid_transition fee_not_owed; the rider's current ride already carries it = 409 conflict fee_on_running_trip (mark it after that ride). The driver of the original trip keeps his share (already paid). Answer: the admin Rider view.",
+      "reasonMax": 300
+    },
+    "receiptText": {
+      "note": "v0.18.39 fix job 0 (RULE 0): the next trip's receipt shows the outstanding_fee line with this text under it, in both apps.",
+      "rider": {
+        "sv": "En obetald avgift från en tidigare resa har lagts till på den här resan.",
+        "fr": "Des frais impayés d’un trajet précédent ont été ajoutés à ce trajet.",
+        "en": "An unpaid fee from an earlier trip was added to this trip."
+      },
+      "driver": {
+        "sv": "Resenären hade en obetald avgift från en tidigare resa. Den ingår i priset och går till Movera.",
+        "fr": "Le passager avait des frais impayés d’un trajet précédent. Ils sont inclus dans le prix et vont à Movera.",
+        "en": "The rider had an unpaid fee from an earlier trip. It is in the price and goes to Movera."
+      }
+    }
   },
   "accountDeletion": {
     "note": "v0.5.1: POST /account/deletion (rider) answers 202 { status: requested }; the server erases the account on its own schedule (legal retention, open payments).",
@@ -4117,7 +4135,7 @@
   },
   "alertDesk": {
     "note": "v0.18.15 (build-all A1, owner 2026-11-02 Q5 'Alerts = FULL FLOW': take — the others see who has it, pass on, snooze, mute types, quiet hours, done). The admin panel finds the alerts from the live data (its alert engine, admin settings + rules); the SERVER keeps who works on each alert, the history, the mutes, every admin's quiet hours and the shared alert settings and rules, so every admin sees the same state on live.",
-    "book": "GET /admin/alerts/book?country=SE (overview.read) -> AlertBookState { country, rev, settings, rules, records [AlertRecord], mutes { kind: { until, by } }, quiet (the caller's own quiet hours), people [{ adminId, name }] }. records: only alerts of the admin's zones in that country whose kind group the admin may see (kindGroups); an alert without zone only for a Super admin. people: active admins with a zone in the same country (Super admins included). records holds the open ones and those done in the last 30 days. country: SE | FR | TN; an admin outside the country -> 403 zone_out_of_scope.",
+    "book": "GET /admin/alerts/book?country=SE (overview.read) -> AlertBookState { country, rev, settings, rules, records [AlertRecord], mutes { kind: { until, by } }, quiet (the caller's own quiet hours), people [{ adminId, name }] }. records: only alerts of the admin's zones in that country whose kind group the admin may see (kindGroups); an alert without zone only for a Super admin. people: active admins with a zone in the same country (Super admins included). records holds the open ones and those done in the last 30 days. country: SE | FR | TN; an admin outside the country -> 403 zone_out_of_scope. v0.18.23: AlertBookState also carries alerts [LiveAlert] (serverDetection): the alerts the server found, open or solved by itself, of the admin's zones in that country and the groups the admin may see (same filter as records).",
     "commands": {
       "take": "POST /admin/alerts/{alertId}/take { kind, level, title, zoneId?, since } -> AlertBookState of the alert's country: owner = the caller. The first command on an alert stores its zone; later commands use the stored zone, never the one sent. The zone must be the caller's (else 403 zone_out_of_scope); the kind must be in kindGroups (else 400 invalid_request, reason unknown_alert_kind) and the caller needs its act permission (else 403). Two admins taking at once: one wins, the other gets 409 conflict, reason alert_taken. Another admin's live owner -> 409 alert_taken. sos, car_lost, ride_check -> 409 invalid_transition, reason alert_in_incidents.",
       "done": "POST /admin/alerts/{alertId}/done { kind, level, title, zoneId?, since, note? } -> status done. Only the owner (or nobody owns it: the caller takes it and solves it) -> else 409 conflict, reason alert_taken.",
@@ -4129,14 +4147,182 @@
       "rules": "PUT /admin/alerts/rules { country, expectedRev, rules } (alerts.manage; same country check) -> rev + 1.",
       "export": "GET /admin/alerts/history?country=&from=&to= (overview.read) -> { items: AlertRecord[] } with the same filter as the book."
     },
-    "shapes": "settings and rules are the admin panel's own alert-engine documents (JSON objects, at most 256 KB); the server stores and serves them unchanged so every admin uses the same ones. AlertRecord { alertId, kind, level, title, zoneId?, since, status taken | done | snoozed, owner?, ownerName?, snoozeUntil?, events [{ at, by, byName?, kind take | done | snooze | pass | reopen, text, to? }] }.",
+    "shapes": "settings and rules are the admin panel's own alert-engine documents (JSON objects, at most 256 KB); the server stores and serves them unchanged so every admin uses the same ones. AlertRecord { alertId, kind, level, title, zoneId?, since, status taken | done | snoozed, owner?, ownerName?, snoozeUntil?, events [{ at, by, byName?, kind take | done | snooze | pass | reopen, text, to? }] }. v0.18.23: settings may hold zones { zoneId: { bookedAtRiskMin, liveAtRiskMin, fewDriversLimit, noDriverLimit } } (serverDetection.settings); the server reads settings and rules to find the alerts.",
     "audit": "Every command is audited: alert.take | done | snooze | pass | mute | unmute | quiet | settings | rules.",
     "incidentKinds": [
       "sos",
       "car_lost",
       "ride_check"
     ],
-    "next": "Server-side detection (alerts found while no admin panel is open, push to admins) is a later job.",
+    "next": "v0.18.23: the server finds every alert itself (serverDetection). Push to admins' phones is a later job; live updates to the panel come with the admin live-updates job (alert.changed).",
+    "serverDetection": {
+      "note": "v0.18.23 (BASE job 4, owner 2026-11-04 A1-A3, Rules decisions/admin-fake-by-group.md). Alerts are SERVER-CREATED only: the server finds every alert kind from its own data, 24/7, with or without an admin panel open. The admin panel only reads them (AlertBookState.alerts) and acts on them (take, pass, snooze, done, mute). The panel never makes up an alert or a start time.",
+      "when": "A sweep every sweepSeconds (30) on the timer worker (one server instance at a time) and at once after events: an incident opened (SOS, car lost, ride check), a support ticket opened, a booked ride's no-driver / pickup-time timers. The sweep is idempotent: running it twice changes nothing.",
+      "sweepSeconds": 30,
+      "causeKey": "Each alert has one cause key (kind + what it is about, e.g. long_wait:<tripId>, few_drivers:<zoneId>, doc_expiring:<driverId>:<type>, rule:<ruleId>:<zoneId>). At most one open or solved alert per cause key: no duplicates. alertId = <causeKey>.<start in base 36> (characters outside A-Z a-z 0-9 _ : . - become _).",
+      "states": {
+        "open": "The cause is there now. level, title and detail follow the latest numbers; since is when the server first found it (never moved).",
+        "solved": "Owner A2 'Alert become green color with new info': the cause ended by itself (e.g. a driver took the ride). The alert STAYS visible, shown GREEN with solvedText (e.g. 'Driver Ali took it 17:48'); an admin can still take it and mark it done. If the same cause comes back before anyone marks it done, the same alert is open again (solved info cleared).",
+        "done": "An admin marked it done (AlertRecord status done): it leaves the open list. While the cause is still there no new alert is made for it; once the cause ended and comes back later, a new alert (new alertId) starts."
+      },
+      "liveAlert": "LiveAlert { alertId, causeKey, kind, level critical | important | info, title, titleT { t, a[] }, detail, detailT? { t, a[] }, zoneId?, country, since, state open | solved, solvedAt?, solvedText?, solvedT? { t, a[] }, ref { tripId?, driverId?, riderId?, incidentId?, rideCheckId?, ticketId?, payoutId?, refundId?, ruleId? } }. title / detail / solvedText are English; titleT / detailT / solvedT are the same text as an English template with {0}, {1} places and its values, which the panel shows in sv / fr / en. Times in texts are HH:MM in the zone's time zone.",
+      "settings": {
+        "note": "The server reads the country's alert settings document (PUT /admin/alerts/settings): kinds[kind] { on, level, limits { info, important, critical } } and zones[zoneId] (below); missing values use the defaults here and in kindDefaults. A kind switched off makes no alerts; its open alerts are solved.",
+        "zones": "zones[zoneId] { bookedAtRiskMin, liveAtRiskMin, fewDriversLimit, noDriverLimit } — owner A1: the at-risk minutes are an admin setting per zone, separate for booked and live rides.",
+        "bookedAtRiskMin": {
+          "default": 15,
+          "range": [
+            1,
+            240
+          ],
+          "rule": "booked_at_risk: a booked ride (kind scheduled) still without a driver bookedAtRiskMin minutes or less before its pickup time."
+        },
+        "liveAtRiskMin": {
+          "default": 15,
+          "range": [
+            1,
+            240
+          ],
+          "rule": "long_wait: a live ride waiting liveAtRiskMin minutes or more with no driver (Important; Critical from kinds.long_wait.limits.critical)."
+        },
+        "fewDriversLimit": {
+          "default": 2,
+          "range": [
+            0,
+            100
+          ],
+          "rule": "few_drivers: free online drivers in the zone (counted by their LIVE position: the zone of their latest position, owner 2026-11-04; never their home zone) at most this many while more riders wait than there are free drivers."
+        },
+        "noDriverLimit": {
+          "default": 5,
+          "range": [
+            1,
+            500
+          ],
+          "rule": "no_driver: this many or more live rides searching for a driver in the zone at once."
+        }
+      },
+      "kindDefaults": {
+        "sos": {
+          "level": "critical",
+          "rule": "An open SOS incident (Incidents). Solved when the incident is closed."
+        },
+        "car_lost": {
+          "level": "critical",
+          "rule": "An open driver_silent incident (no car position for 30 min with the rider on board; trips.driverSilentAlert). Solved when the position comes back or the case is closed."
+        },
+        "ride_check": {
+          "level": "critical",
+          "rule": "An open ride_check incident. Solved when the incident is closed."
+        },
+        "sos_slow": {
+          "limits": {
+            "info": null,
+            "important": 15,
+            "critical": 30
+          },
+          "rule": "Minutes since an SOS was taken in Incidents while it is still open."
+        },
+        "long_wait": {
+          "limits": {
+            "info": null,
+            "important": null,
+            "critical": 30
+          },
+          "rule": "Per live ride waiting for a driver; Important from zones.liveAtRiskMin (15), Critical from limits.critical (30; was 15 when Important came from Dispatch's 5 min). Solved when a driver takes it ('Driver {0} took it {1}') or the ride is cancelled."
+        },
+        "few_drivers": {
+          "level": "important",
+          "rule": "Per zone, zones.fewDriversLimit."
+        },
+        "no_driver": {
+          "level": "critical",
+          "rule": "Per zone, zones.noDriverLimit."
+        },
+        "late_reservation": {
+          "limits": {
+            "info": null,
+            "important": 60,
+            "critical": 20
+          },
+          "on": false,
+          "rule": "Minutes left before a booked ride's pickup with no driver; not raised for a ride that already has booked_at_risk. Owner 2026-11-04: OFF by default (booked_at_risk covers it); an admin can switch it on."
+        },
+        "booked_at_risk": {
+          "level": "important",
+          "rule": "zones.bookedAtRiskMin (owner A1). Solved when a driver takes it."
+        },
+        "booked_late": {
+          "level": "critical",
+          "rule": "The pickup time passed and the booked ride still has no driver (TripProjection.reservation.overdue)."
+        },
+        "booked_not_started": {
+          "level": "critical",
+          "rule": "A driver holds the booked ride, its leave time (reservation.leaveAt, else the pickup time) passed and he has not started it. Solved when he starts it ('Driver {0} started {1}')."
+        },
+        "doc_expiring": {
+          "limits": {
+            "info": 30,
+            "important": 7,
+            "critical": 0
+          },
+          "rule": "Days until an approved driver or car document expires (0 or less = expired). Solved when a new one is approved."
+        },
+        "low_rating": {
+          "limits": {
+            "info": 4.5,
+            "important": 4.2,
+            "critical": null
+          },
+          "rule": "An active driver's average rating."
+        },
+        "auto_offline": {
+          "level": "info",
+          "rule": "A driver the server set offline for offers not accepted (offline_reason missed_offers), still offline. Solved only when he is online again (no time window)."
+        },
+        "payment_failed": {
+          "level": "important",
+          "rule": "A trip whose payment failed. Solved only when it is paid (no time window)."
+        },
+        "refund_approval": {
+          "level": "important",
+          "rule": "A refund waiting for approval."
+        },
+        "payout_big": {
+          "limits": {
+            "info": null,
+            "important": 8000,
+            "critical": 20000
+          },
+          "rule": "A pending payout, in the currency's major unit."
+        },
+        "rider_fraud": {
+          "level": "important",
+          "rule": "No server fraud signal exists yet: the server makes no rider_fraud alert until one is built (no fake ones)."
+        },
+        "rider_cancels": {
+          "limits": {
+            "info": 30,
+            "important": 50,
+            "critical": null
+          },
+          "rule": "Cancel % of a rider with 5 or more rides in the last 30 days."
+        },
+        "ticket_open": {
+          "level": "info",
+          "rule": "A support ticket still open with nobody assigned. Solved when an admin takes or answers it."
+        },
+        "system_health": {
+          "level": "important",
+          "rule": "Server background jobs that failed and were parked (timers at the attempt limit). Critical from 10."
+        },
+        "rule": {
+          "rule": "Owner A3: every custom rule (PUT /admin/alerts/rules: { id, name, on, metric free_drivers | riders_waiting | longest_wait | failed_payments | open_sos | open_tickets, op above | below, value, forMin, zoneId | all, level }) is checked by the server on each sweep, per zone; it alerts once the condition held forMin minutes. Solved when it no longer holds."
+        }
+      },
+      "commands": "take / pass / snooze / done on a server alert: the kind, zone and title stored by the server win over what the call sends. done closes it (state done).",
+      "apps": "Rider and driver apps: no change. The alerts are for admins only; the riders' and drivers' own notices (reservation_no_driver, reservation_late_risk, ...) stay as they are."
+    },
     "kindGroups": {
       "sos": "safety",
       "car_lost": "safety",
@@ -4156,7 +4342,10 @@
       "rider_cancels": "riders",
       "ticket_open": "riders",
       "system_health": "system",
-      "rule": "rules"
+      "rule": "rules",
+      "booked_at_risk": "dispatch",
+      "booked_late": "dispatch",
+      "booked_not_started": "dispatch"
     },
     "permissions": {
       "note": "Seeing an alert needs its group's read permission; acting on it (take, done, snooze, pass) needs its group's act permission or alerts.manage. Mutes, settings and rules need alerts.manage. Quiet hours: the admin's own (overview.read).",
@@ -4241,6 +4430,7 @@
     ],
     "statuses": [
       "pending",
+      "pending_approval",
       "paid"
     ],
     "schedule": {
@@ -4666,6 +4856,11 @@
           "sv": "Väntande",
           "fr": "En attente",
           "en": "Pending"
+        },
+        "pending_approval": {
+          "sv": "Väntar på godkännande",
+          "fr": "En attente d’approbation",
+          "en": "Waiting for approval"
         },
         "paid": {
           "sv": "Utbetald",
@@ -7003,5 +7198,278 @@
     "ownerQuestions": [
       "LOW 13: the driver give-back reason 'Vehicle issue · does not count' contradicts 'every give-back counts in the cancel rate' (left as it is)."
     ]
+  }
+,
+  "dispatchDriverFacts": {
+    "note": "v0.18.21 (owner 2026-11-04, BASE 'real driver facts'): the admin Dispatch page reads each online driver's dispatch facts from the server instead of making them up. GET /admin/zones/{zoneId}/driver-facts (trips.read; the zone must be in the admin's scope, else 403 zone_out_of_scope). Builds on v0.18.19; additive; X-Api-Version stays 0.5. Numbered after v0.18.20 (server alerts) so the two jobs do not share a number.",
+    "who": "Drivers of the zone (zone_ids contains zoneId) with account active and online status online (state free) or on_trip (state trip), nearest-first order is the admin's job; items are sorted by driverId.",
+    "real": {
+      "rating": "Driver.performance.rating (contract.json#driverHome.performance; null below minRatings).",
+      "acceptancePct": "Driver.performance.acceptancePct (null below minOffers).",
+      "cancelPct": "Driver.performance.cancellationPct (null below minTrips).",
+      "idleMin": "Whole minutes since the driver was last free (drivers.last_free_at, the §3.6 idle factor); null on a trip or when unknown.",
+      "categoryIds": "The categories the driver may take (Driver.categoryIds).",
+      "missedInRow": "Exclusive or assigned offers of live trips missed in a row since going online, counted exactly as contract.json#autoOffline (an accept resets it).",
+      "ridesThisHour": "Trips of this driver that ended completed in the last 60 minutes.",
+      "restNeeded": "true when the driving-time limit is reached (contract.json#drivingLimits)."
+    },
+    "notYet": [
+      "finishingInMin",
+      "extras",
+      "female",
+      "skipsInRow",
+      "favourite",
+      "goingHome",
+      "homeDirectionOk",
+      "priorityUntilMin",
+      "queuePos"
+    ],
+    "notYetRule": "The server does not track these yet: they are always null. The admin shows a dash (—) and never invents a value; alerts never fire on a null fact.",
+    "apps": "Driver and rider apps: no change (admin-only read)."
+  },
+  "adminLiveEvents": {
+    "version": "0.18.22",
+    "note": "BASE job 'admin live updates' (Rules plan/BASE-JOBS-SPEC-2026-11-04.md §3; owner L1 2026-11-04: a small 'Reconnecting…' badge, data still refreshes every minute). One admin stream instead of 15 s polling. An event only says WHAT changed (type + id + zone); the admin panel then reads the record again with the normal list/detail routes and their permissions. No names, money or text on the stream.",
+    "path": "/admin/events",
+    "permission": "overview.read",
+    "transport": "Accept: text/event-stream → SSE: `id:` is the sequence, `data:` one AdminLiveEvent, a heartbeat comment every 15 s. Without it: a JSON page AdminLiveEventPage of the events after `after` (polling fallback, same scope).",
+    "envelope": [
+      "sequence",
+      "type",
+      "entityId",
+      "zoneId",
+      "occurredAt",
+      "serverTime"
+    ],
+    "types": {
+      "trip.changed": {
+        "permission": "trips.read",
+        "when": "a trip is created, or its status, driver, zone or payment status changes"
+      },
+      "driver.status": {
+        "permission": "drivers.read",
+        "when": "a driver's online status or account status changes (one event per zone of the driver)"
+      },
+      "zone.supply": {
+        "permission": "overview.read",
+        "when": "the free / busy driver count of a zone may have changed (a driver went online, offline, on or off a trip in it); entityId = zoneId"
+      },
+      "alert.changed": {
+        "permission": "overview.read",
+        "when": "an alert is created or taken, passed, done, snoozed (admin_alert_records)"
+      },
+      "ticket.changed": {
+        "permission": "support.reply",
+        "when": "a support ticket is created or its status, owner or last message changes"
+      },
+      "incident.changed": {
+        "permission": "incidents.read",
+        "when": "an incident is created or its status changes"
+      },
+      "approval.changed": {
+        "permission": "approval.decide",
+        "when": "an approval is asked for or decided"
+      },
+      "payment.failed": {
+        "permission": "finance.read",
+        "when": "a trip's payment status becomes failed; entityId = tripId (a trip.changed is sent as well)"
+      },
+      "resync": {
+        "permission": "overview.read",
+        "when": "the cursor is older than the kept events (retentionHours): the panel reloads every live list once; entityId = the admin's id, zoneId null"
+      }
+    },
+    "scope": [
+      "An admin hears an event only for a zone he covers (token zones; '*' = all zones). An event with zoneId null (no zone) only reaches '*' admins — the same rule as the dispatch feed and the alert desk.",
+      "Optional query zoneId / zoneIds / country narrows the stream inside the admin's own zones (contract.json#adminListFilters rules: a named zone outside them is 403 zone_out_of_scope).",
+      "An admin without a type's permission never gets that type.",
+      "Country managers (roles/zones job) are scoped by the same zone list; nothing on this stream changes when that job lands."
+    ],
+    "replay": "`after` query or the Last-Event-ID header: the stream starts with every event after that sequence (in scope), then goes live. Events are kept retentionHours; an older cursor gets one `resync` event first, then live events.",
+    "retentionHours": 24,
+    "limits": {
+      "maxStreamsPerAdmin": 5,
+      "maxStreamsTotal": 2000,
+      "overLimit": "429 rate_limited, reason too_many_streams, Retry-After; the panel keeps polling every fallbackPollSeconds and tries again later",
+      "serverReads": "one shared read per change for all open streams (not one per stream)"
+    },
+    "reconnectBackoff": {
+      "firstMs": 1000,
+      "maxMs": 30000,
+      "jitter": "full jitter: a random wait between 0 and the current step",
+      "stopOn": ["401 unauthenticated", "sign-out"]
+    },
+    "client": {
+      "invalidates": {
+        "trip.changed": [
+          "trips",
+          "reservations",
+          "overview",
+          "dispatch",
+          "payments"
+        ],
+        "driver.status": [
+          "drivers",
+          "dispatch",
+          "overview"
+        ],
+        "zone.supply": [
+          "zoneSupply",
+          "overview",
+          "dispatch"
+        ],
+        "alert.changed": [
+          "alerts",
+          "overview"
+        ],
+        "ticket.changed": [
+          "tickets"
+        ],
+        "incident.changed": [
+          "incidents",
+          "alerts"
+        ],
+        "approval.changed": [
+          "approvals"
+        ],
+        "payment.failed": [
+          "payments",
+          "alerts"
+        ],
+        "resync": [
+          "*"
+        ]
+      },
+      "pages": [
+        "Overview/Dashboard",
+        "Alerts",
+        "Live map/Dispatch",
+        "Trips",
+        "Reservations",
+        "Support tickets",
+        "Incidents",
+        "Approvals",
+        "Payments"
+      ],
+      "fallbackPollSeconds": 60,
+      "whileConnectedPollSeconds": 0,
+      "reconnect": "EventSource reconnects by itself with Last-Event-ID. While it is not open the panel shows a small 'Reconnecting…' badge (owner L1 a) and refreshes the live lists every fallbackPollSeconds; never a big warning banner.",
+      "badgeText": "Reconnecting…"
+    },
+    "apps": "Rider and driver apps: no change (they use their own trip / offer / config streams). RULE 0 check only."
+  },
+  "riderModeration": {
+    "note": "v0.18.39 (A2, owner G16 Q16-1 + Q16-2 'Warn → Pause → Ban'): the admin sets a rider's level with POST /admin/riders/{riderId}/moderation (permission riders.block, Idempotency-Key, expectedVersion, written in the audit). Every level carries a reason; the admin can undo (level none).",
+    "levels": {
+      "none": "no moderation; Rider.status active",
+      "warning": "the rider can ride and sees the notice (Rider.moderation on GET /rider/profile); Rider.status active",
+      "paused": "for pauseDays (1..365) set by the admin; Rider.status suspended until moderation.until, then active again by itself; sign-in and booking answer 403 account_suspended (projection = Rider.moderation)",
+      "banned": "until the admin undoes it; Rider.status suspended; 403 account_suspended"
+    },
+    "pauseDays": {
+      "min": 1,
+      "max": 365
+    },
+    "reasons": {
+      "note": "the admin picks one of these suggested reasons or writes their own (1..300 characters); the rider sees the reason text as written.",
+      "suggested": {
+        "sv": [
+          "Upprepade avbokningar",
+          "Obetalda avgifter",
+          "Olämpligt beteende mot förare",
+          "Falsk information",
+          "Bedrägerimisstanke"
+        ],
+        "fr": [
+          "Annulations répétées",
+          "Frais impayés",
+          "Comportement inapproprié envers le chauffeur",
+          "Fausses informations",
+          "Suspicion de fraude"
+        ],
+        "en": [
+          "Repeated cancellations",
+          "Unpaid fees",
+          "Inappropriate behaviour towards the driver",
+          "False information",
+          "Suspected fraud"
+        ]
+      }
+    },
+    "riderText": {
+      "pausedTitle": {
+        "sv": "Ditt konto är pausat",
+        "fr": "Votre compte est suspendu",
+        "en": "Your account is paused"
+      },
+      "bannedTitle": {
+        "sv": "Ditt konto är spärrat",
+        "fr": "Votre compte est bloqué",
+        "en": "Your account is blocked"
+      },
+      "warningTitle": {
+        "sv": "Varning från Movera",
+        "fr": "Avertissement de Movera",
+        "en": "Warning from Movera"
+      },
+      "contactSupport": {
+        "sv": "Kontakta support",
+        "fr": "Contacter le support",
+        "en": "Contact support"
+      },
+      "signOut": {
+        "sv": "Logga ut",
+        "fr": "Se déconnecter",
+        "en": "Sign out"
+      }
+    },
+    "statusCommand": "POST /admin/riders/{riderId}/status stays: active = level none, suspended = level banned with the note as reason."
+  },
+  "payoutHold": {
+    "note": "v0.18.39 A2 (owner build-spec Q4 2026-11-02: 'can pause any one payment from his profile'): POST /admin/drivers/{driverId}/payout-hold { held, reason } (finance.edit, Idempotency-Key, audit payout.hold / payout.release) pauses or releases that driver's payouts from the driver's profile. While held no scheduled payout is made for him; his earnings stay unpaid. On release the next run pays every ended period he missed. Driver.payoutHold { reason, at, by } on the admin view (absent = not held). The driver app is not told the reason.",
+    "reasonMax": 300
+  },
+  "walletCredit": {
+    "note": "v0.18.39 A2 (owner G12 Q5 'Real credit + limit', Q-D 'Max 250 euro and equivalent', build-spec Q2 'One button on rider page', Q1 'One admin always'): the one way an admin gives a rider money is Add money to wallet on the rider's page. POST /admin/riders/{riderId}/wallet-credit { amount, reason } (finance.edit, Idempotency-Key, audit rider.wallet_credit). The amount is in the rider's currency: the country of the rider's latest trip (else of his last seen zone); a rider with no known country is refused 409 rider_country_unknown, an amount in another currency 400 wallet_currency_mismatch. One credit is at most CountryRules.walletCreditMax of the rider's COUNTRY (fix job 0, owner A2-1 2026-11-05 'Per country, in Pricing'): the value on the country's Standard in Pricing › Tips & limits; a zone's own value is ignored; missing or in another currency = the default below. The limit is in that country's currency and is checked only against a credit in that currency (wallet per currency, contract.json#walletPerCurrency of fix job 6): the credit goes into the rider's balance of that currency and is never converted. Above it 400 wallet_credit_too_large, details 'max <amountMinor> <currency>' (no second admin). The wallet gets a WalletEntry kind adjustment; the rider gets a bell + push kind wallet_credit (texts below) and sees it in the wallet history as 'Credit from Movera'. The balance never goes below 0 (credits are positive).",
+    "defaultMax": {
+      "SE": {
+        "amountMinor": 290000,
+        "currency": "SEK"
+      },
+      "FR": {
+        "amountMinor": 25000,
+        "currency": "EUR"
+      },
+      "TN": {
+        "amountMinor": 800000,
+        "currency": "TND"
+      }
+    },
+    "reasonMax": 300,
+    "riderText": {
+      "historyLabel": {
+        "sv": "Kredit från Movera",
+        "fr": "Crédit de Movera",
+        "en": "Credit from Movera"
+      },
+      "pushTitle": {
+        "sv": "Pengar i din plånbok",
+        "fr": "Argent dans votre portefeuille",
+        "en": "Money in your wallet"
+      },
+      "pushBody": {
+        "sv": "Movera har lagt till {amount} i din plånbok.",
+        "fr": "Movera a ajouté {amount} à votre portefeuille.",
+        "en": "Movera added {amount} to your wallet."
+      }
+    }
+  },
+  "payoutMode": {
+    "note": "v0.18.39 A2 (owner build-spec Q4 'Admin can set automatic or manual'): CountryRules.payoutMode of the country standard (Pricing › Tips & limits on the Standard; a zone's own value is ignored), automatic (default) or manual. automatic: the scheduled run makes payouts pending (to pay) at the country's payoutSchedule, as before. manual: the run makes them pending_approval; nothing is paid until an admin approves the run with POST /admin/payouts/runs/approve { country, periodEnd, reason } (finance.edit, Idempotency-Key, audit payout.run_approve with the reason; fix job 0, owner A2-3 2026-11-05 'Yes, reason required': reason 1..300 characters, missing or empty = 400 invalid_request, reason reason_required): every pending_approval payout of that country and period inside the admin's zones becomes pending; the answer is { country, periodEnd, approved, total: Money[] (one per currency) }. A pending_approval payout cannot be marked paid (409 run_not_approved). The driver app shows pending_approval as pending (GET /driver/payouts never returns pending_approval). Changing the mode changes only later runs. One admin is enough (Q1); a single driver can still be held (payoutHold).",
+    "values": [
+      "automatic",
+      "manual"
+    ],
+    "default": "automatic"
   }
 }
