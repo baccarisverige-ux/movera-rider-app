@@ -17,3 +17,4 @@ S["SearchStep"]["description"] += " v0.18.39 §63: no_driver_nearby (" + ND["rid
 _KW = PATHS["/trips/{tripId}/keep-waiting"]["post"]
 _KW["description"] += " v0.18.39 §63: " + ND["riderAnswer"] + " " + ND["liveNoEnd"]
 # ReservationInfo is defined in 0600; its v0.18.39 field noDriverFound is added there (one line, after the definition).
+S["DispatchDocument"]["properties"]["reaskLimit"] = {**i("v0.18.39 §63: " + ND["reaskLimit"], minimum=NDR["reaskLimit"][0], maximum=NDR["reaskLimit"][1]), "default": NDD["reaskLimit"]}

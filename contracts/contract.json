@@ -3665,6 +3665,15 @@
       "maxHoursPerDay": 12,
       "restMinutes": 30,
       "resetAfterOfflineHours": 6
+    },
+    "calls": {
+      "on": true,
+      "mode": "in_app",
+      "callWindowAfterTripMin": 60,
+      "ringSeconds": 30,
+      "maxCallMin": 15,
+      "adminCallRoles": [],
+      "phoneProvider": "none"
     }
   },
   "realtime": {
@@ -3695,12 +3704,22 @@
       "payment_updated",
       "rating_updated",
       "message",
-      "pickup_moved"
+      "pickup_moved",
+      "call_ringing",
+      "call_answered",
+      "call_signal",
+      "call_ended",
+      "call_missed"
     ],
     "afterTerminal": [
       "payment_updated",
       "rating_updated",
-      "message"
+      "message",
+      "call_ringing",
+      "call_answered",
+      "call_signal",
+      "call_ended",
+      "call_missed"
     ],
     "rules": [
       "reject sequence < 1 or blank tripId",
@@ -3710,7 +3729,8 @@
       "a location event never replaces the cached projection",
       "resync: GET /trips/{tripId} then GET /trips/{tripId}/events?after={sequence}",
       "v0.18.7: pickup_moved carries the projection like trip_projection (the pickup changed, version + 1); a location event may carry eta (TripEta) as well as etaSeconds",
-      "v0.18.9: a server ride check and its answers (TripProjection.rideCheck) go out as trip_projection events WITHOUT a version change, like the waiting alerts; a route change request and its answer (TripProjection.routeChange) are trip_projection events with version + 1. No new event kinds."
+      "v0.18.9: a server ride check and its answers (TripProjection.rideCheck) go out as trip_projection events WITHOUT a version change, like the waiting alerts; a route change request and its answer (TripProjection.routeChange) are trip_projection events with version + 1. No new event kinds.",
+      "v0.18.38 §62: call_ringing, call_answered, call_signal, call_ended and call_missed carry no projection and no version change; they pass the gate also after a terminal status (the call window runs callWindowAfterTripMin after drop-off)."
     ]
   },
   "fastDispatch": {
@@ -5111,7 +5131,8 @@
       "answer": "200 TripCall { tripId, proxyNumber, expiresAt }: dial proxyNumber; the telephony provider bridges to the other side without showing either real number.",
       "unavailable": "503 unavailable, reason call_unavailable, while no telephony provider is set up (the server default). The app then hides the call button or offers the chat.",
       "closed": "409 invalid_transition, reason chat_closed, outside the open statuses.",
-      "provider": "Number masking needs a telephony provider. The owner must pick one; the server reads its keys from the environment, never from git. Until then the provider is 'disabled'."
+      "provider": "Number masking needs a telephony provider. The owner must pick one; the server reads its keys from the environment, never from git. Until then the provider is 'disabled'.",
+      "v0.18.38": "Replaced by inAppCalls (§62): POST /trips/{tripId}/call answers TripCall with mode in_app (WebRTC through the server's signalling) by default; mode phone (proxyNumber) only when CountryRules.calls.mode is phone AND a telephony provider is configured. 503 call_unavailable is no longer the default answer."
     },
     "appStorage": {
       "note": "v0.18.5 (owner 2026-10-30: \"Never store messages between rider or driver in driver app or rider app !!!!!!' Only admin panel inside the ride details\"): the chat between rider and driver lives only during the trip.",
@@ -7902,16 +7923,115 @@
     "driverApp": "Go offline during a trip: one POST, keep sending location (the trip goes on), show the banner 'Going offline after this trip' with Undo (POST online). After the last trip the offline card shows reasons.after_trip.",
     "riderApp": "No change: the rider's trip goes on as normal; the driver's plan is not shown to riders."
   },
+  "inAppCalls": {
+    "note": "v0.18.38 §62 (fix job 8, Rules plan/FIX-JOBS-8-9-10-PLAN-2026-11-05.md; owner G15 2026-11-05: 'In-app calls only', 'Both rider and driver', \"Just 'Call failed'\"). Builds on v0.18.34 main. X-Api-Version stays 0.5; additive; server migration 0085 (trip_calls).",
+    "who": [
+      "rider",
+      "driver"
+    ],
+    "start": "POST /trips/{tripId}/call (no body, Idempotency-Key) by the trip's rider or driver → 200 TripCall { tripId, mode:'in_app', callId, ice { servers, ttlSeconds }, ringSeconds, maxCallMin, expiresAt }. The server keeps a trip_calls row (state ringing) and sends call_ringing on the trip stream; the callee's app shows the incoming-call sheet.",
+    "window": "Open from driver assignment (tripStatus.driverAssigned) until callWindowAfterTripMin (default 60) minutes after the trip ended as completed (trips.ended_at). Outside it: 409 invalid_transition, reason call_window_closed. A cancelled trip has no window after it. The apps show the call button only inside the window.",
+    "signalling": "POST /calls/{callId}/signal { type: offer|answer|ice, sdp?, candidate? } by the call's caller or callee → 202; the server relays it as call_signal on the trip stream (from = the sender's side). Media goes peer to peer (or through the TURN server); the server never sees audio and stores none.",
+    "answer": "POST /calls/{callId}/answer by the callee while ringing → 200 CallView (state answered) with ice { servers, ttlSeconds } (the callee's STUN/TURN servers), event call_answered.",
+    "end": "POST /calls/{callId}/end { reason: hangup|declined|failed } by either side → 200 CallView (state ended), event call_ended. A second end is answered with the same CallView (idempotent).",
+    "missed": "A ringing call not answered after ringSeconds is ended by the server (timer in the database, any server copy runs it): state missed, event call_missed. An answered call is ended at maxCallMin with reason max_length.",
+    "busy": "One live call (ringing or answered) per trip: a second POST /trips/{tripId}/call is 409 invalid_transition, reason call_busy, details [the live callId].",
+    "endedReasons": [
+      "hangup",
+      "declined",
+      "failed",
+      "missed",
+      "max_length",
+      "trip_cancelled"
+    ],
+    "noPhoneNumbers": "No call payload (TripCall in_app, CallView, call_* events, admin call log) ever carries a phone number. In mode in_app no number is used at all.",
+    "phoneMode": "CountryRules.calls.mode phone + a configured provider (phoneProvider, keys only in the server environment) → TripCall { tripId, mode:'phone', proxyNumber, expiresAt } as before (v0.13.0). Mode phone without a provider falls back to in_app. Owner G15: in-app calls only until a phone company is chosen.",
+    "ice": "ice.servers come from the server environment (STUN/TURN URLs; TURN gets time-limited credentials from a shared secret, valid ttlSeconds). No server state: any copy answers (rule 33).",
+    "settings": {
+      "where": "Admin › Pricing › Tips & limits per country › Calls (CountryRules.calls of the country standard; a zone's own country_rules may set them), saved with Save tips & limits: Calls on, Mode (In the app / Phone — phone needs a phone company), Call window after the trip (min), Ring time (s), Longest call (min). adminCallRoles stays empty: Admin Call is 'coming soon' until a phone provider is set (G9 Q6).",
+      "ranges": {
+        "callWindowAfterTripMin": [
+          0,
+          240
+        ],
+        "ringSeconds": [
+          10,
+          120
+        ],
+        "maxCallMin": [
+          1,
+          60
+        ]
+      },
+      "off": "calls.on false → POST /trips/{tripId}/call is 403 forbidden, reason calls_off; the apps hide the call button."
+    },
+    "adminLog": "GET /admin/trips/{tripId}/calls (trips.read, trip in the admin's zones) → { items: [CallLogItem { callId, from, to, state, startedAt, answeredAt, endedAt, endedReason, seconds }] }, newest first. Shown in Admin › Trip details › Calls. No audio, no numbers.",
+    "apps": "Driver and rider: the call button opens the in-app call screen (Calling…, mute, speaker, end); an incoming call_ringing opens the incoming-call sheet (Answer / Decline). When the call cannot start or the connection fails the screen shows only 'Call failed' (owner G15) and closes. Button hidden outside the window.",
+    "errors": [
+      "call_window_closed",
+      "calls_off",
+      "call_busy",
+      "call_not_live"
+    ],
+    "texts": {
+      "call": {
+        "sv": "Ring",
+        "fr": "Appeler",
+        "en": "Call"
+      },
+      "calling": {
+        "sv": "Ringer…",
+        "fr": "Appel en cours…",
+        "en": "Calling…"
+      },
+      "incoming": {
+        "sv": "Inkommande samtal",
+        "fr": "Appel entrant",
+        "en": "Incoming call"
+      },
+      "answer": {
+        "sv": "Svara",
+        "fr": "Répondre",
+        "en": "Answer"
+      },
+      "decline": {
+        "sv": "Avvisa",
+        "fr": "Refuser",
+        "en": "Decline"
+      },
+      "end": {
+        "sv": "Avsluta",
+        "fr": "Raccrocher",
+        "en": "End"
+      },
+      "mute": {
+        "sv": "Ljud av",
+        "fr": "Muet",
+        "en": "Mute"
+      },
+      "speaker": {
+        "sv": "Högtalare",
+        "fr": "Haut-parleur",
+        "en": "Speaker"
+      },
+      "callFailed": {
+        "sv": "Samtalet misslyckades",
+        "fr": "L'appel a échoué",
+        "en": "Call failed"
+      }
+    },
+    "serverSafety": "Rule 33: every call state lives in trip_calls (Postgres); start/answer/end lock the row (FOR UPDATE); the ring timeout and the length limit are database timers; signals go out as trip events (database sequence). No call state in one server copy's memory."
+  },
   "noDriverNearby": {
     "note": "v0.18.39 §63 (fix job N2 + P17 + far rider, fix plan A2 / A11-FR 'Proof: far rider', owner N2 answer 2026-11-05 \"'No driver nearby' after 5 min\" (admin setting per zone, search continues until the rider cancels) and P17 answers \"15 min after pickup past\" + admin alert \"Yes\", boss supervisor night answers (afterSec 300, farReachKm 12), Rules decisions/driver-g15.md). Builds on v0.18.36 main. Additive; X-Api-Version stays 0.5; no server migration. Driver app: no change.",
     "message": "DispatchDocument.noDriverNearby { on (default true), afterSec (default 300, 60-1800), message (default 'No driver nearby right now. We keep searching for you.') }, per zone (Admin › Dispatch). A live ride still without a driver afterSec seconds after its search started shows the rider TripProjection.searchStep { kind no_driver_nearby, message } ONCE (one search step, id nd, fired once per search). The search keeps going. Booked rides never get it (they have P17).",
     "riderAnswer": "The rider app shows the message with two buttons: Keep waiting (POST /trips/{tripId}/keep-waiting { answer: wait }: nothing else changes, the search goes on) and Cancel free (answer stop: the normal rider cancel, free because no driver has accepted). keep-waiting accepts searchStep.kind keep_waiting or no_driver_nearby, once per step. No answer: the search goes on.",
     "liveNoEnd": "Owner N2 'search keeps going until the rider cancels': a LIVE ride's search has no end time any more. radius.maxWaitMin and the busy step no longer end it (busy is shown as a message only, never after no_driver_nearby; keep_waiting is not shown after no_driver_nearby, which already asks). The trip leaves the search only when a driver accepts, the rider cancels, or an admin acts. A zone with no published dispatch rules still ends after 10 min (nobody can be dispatched). Supersedes, for live rides, the 'search end' and 'busy: the search ends' rules of contract.json#dispatch.rules.",
     "farReach": "DispatchDocument.limits.farReachKm (default 12, > 0 and <= 50, road km like every step, roadFactor 1.25), per zone (Admin › Dispatch). Used only once the steps are used up (repeat rounds) and NOBODY NEW is inside the widest step: no free driver in reach, or every one in reach already declined or let an offer of this trip run out. Then the search adds ONE extra step at farReachKm (radius.steps, radar.steps and exclusive.steps each get farReachKm as their widest value; limits.maxPickupKm does not cap it; maxPickupEtaMin still does) and its repeat rounds go on at that reach until the end of the search. farReachKm at or below the widest step (or limits.maxPickupKm) = off. Neighbour zones are unchanged (neighbours.on).",
-    "reaskLimit": "Stop re-asking one busy driver forever: a driver who declined or let run out reaskLimit (2) offers of this trip in this search (Radar or Exclusive) is not asked again in this search; withdrawn offers do not count; a new search (driver cancel, rider raise) starts the count again. Owner decisions 23 / Q1 (a decliner may see the trip again) still hold: once more, not forever.",
+    "reaskLimit": "Stop re-asking one busy driver forever: DispatchDocument.reaskLimit (default 2, 1-5, per zone, Admin › Dispatch; boss 1 for the owner 2026-11-05): a driver who declined or let run out that many offers of this trip in this search (Radar or Exclusive) is not asked again in this search; withdrawn offers do not count; a new search (driver cancel, rider raise) starts the count again. Owner decisions 23 / Q1 (a decliner may see the trip again) still hold: once more, not forever.",
     "bookedStop": "P17 (owner 'Q-P17 15 min after pickup past'): a booked ride with no driver (requested, searching or offered) noDriverStopAfterMin minutes after its pickup time (DriverAppConfig.reservations.noDriverStopAfterMin, default 15, 1-240, per zone, Admin › Dispatch › Book later) is ended by the server: open offers withdrawn, system expire (status expired, ended_by_command expire), TripProjection.reservation.noDriverFound true, searchStep { kind no_driver_found, message 'No driver was found for your booked ride. You pay nothing.' }. No fee (nothing is charged; a captured booking payment is refunded in full). The rider gets push reservation_no_driver_found. Replaces 'the ride never expires by itself' of contract.json#bookLater.noDriver (BL-Q7) after noDriverStopAfterMin.",
     "alerts": "Admin alerts (group dispatch, level important): no_driver_nearby at the same moment the rider is shown no_driver_nearby (solved when a driver takes it or the ride ends); booked_no_driver_ended when P17 ends a booked ride (shown 24 h, or until done). Admin › Trips: a searching live trip whose searchStep.kind is no_driver_nearby carries the mark 'No driver in reach'.",
-    "admin": "Admin › Dispatch (per zone): 'No driver nearby' on/off, 'after (min)' (afterSec / 60, 1-30) and the message; 'Far reach (km)' (limits.farReachKm). Admin › Dispatch › Book later: 'Stop a booked ride with no driver after pickup + (min)' (noDriverStopAfterMin). The 'Max wait' and 'busy' rows say they end booked rides' search rounds only (live rides keep searching).",
+    "admin": "Admin › Dispatch (per zone): 'Ask one driver at most (offers)' (reaskLimit, 1-5, default 2); 'No driver nearby' on/off, 'after (min)' (afterSec / 60, 1-30) and the message; 'Far reach (km)' (limits.farReachKm). Admin › Dispatch › Book later: 'Stop a booked ride with no driver after pickup + (min)' (noDriverStopAfterMin). The 'Max wait' and 'busy' rows say they end booked rides' search rounds only (live rides keep searching).",
     "driver": "Driver app: no change. A far offer already shows its long pickup distance (pickupMeters) and pickup pay.",
     "serverSafety": "Rule 33 (several server copies): the no_driver_nearby step and the P17 stop are durable timers in the database (search_step nd, resv_no_driver_stop), handled with the trip row locked (NOWAIT for dispatch timers); fired steps and the far state (SearchState.far) live in the searches row under that lock; the decline / run-out count is read from the offers table. No server copy keeps any of it in memory.",
     "texts": {
@@ -7956,9 +8076,14 @@
         "message": "No driver nearby right now. We keep searching for you."
       },
       "farReachKm": 12,
-      "noDriverStopAfterMin": 15
+      "noDriverStopAfterMin": 15,
+      "reaskLimit": 2
     },
     "ranges": {
+      "reaskLimit": [
+        1,
+        5
+      ],
       "afterSec": [
         60,
         1800

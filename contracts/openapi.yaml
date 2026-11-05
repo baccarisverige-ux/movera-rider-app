@@ -2228,9 +2228,17 @@ paths:
     post:
       operationId: callTripPeer
       summary: Call the other side through a masked number
-      description: 'v0.13.0 (contract.json#chat.call): the trip''s rider or driver while the trip is open for chat. 503 unavailable,
-        reason call_unavailable, while no telephony provider is set up; 409 invalid_transition, reason chat_closed, after
-        drop-off.'
+      description: 'v0.18.38 §62: POST /trips/{tripId}/call (no body, Idempotency-Key) by the trip''s rider or driver → 200
+        TripCall { tripId, mode:''in_app'', callId, ice { servers, ttlSeconds }, ringSeconds, maxCallMin, expiresAt }. The
+        server keeps a trip_calls row (state ringing) and sends call_ringing on the trip stream; the callee''s app shows the
+        incoming-call sheet. Open from driver assignment (tripStatus.driverAssigned) until callWindowAfterTripMin (default
+        60) minutes after the trip ended as completed (trips.ended_at). Outside it: 409 invalid_transition, reason call_window_closed.
+        A cancelled trip has no window after it. The apps show the call button only inside the window. One live call (ringing
+        or answered) per trip: a second POST /trips/{tripId}/call is 409 invalid_transition, reason call_busy, details [the
+        live callId]. calls.on false → POST /trips/{tripId}/call is 403 forbidden, reason calls_off; the apps hide the call
+        button. CountryRules.calls.mode phone + a configured provider (phoneProvider, keys only in the server environment)
+        → TripCall { tripId, mode:''phone'', proxyNumber, expiresAt } as before (v0.13.0). Mode phone without a provider falls
+        back to in_app. Owner G15: in-app calls only until a phone company is chosen.'
       tags:
       - Notifications & messages
       x-actor:
@@ -16458,6 +16466,200 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /calls/{callId}/signal:
+    post:
+      operationId: callSignal
+      summary: Relay a WebRTC offer / answer / ICE candidate (emits call_signal)
+      description: 'v0.18.38: POST /calls/{callId}/signal { type: offer|answer|ice, sdp?, candidate? } by the call''s caller
+        or callee → 202; the server relays it as call_signal on the trip stream (from = the sender''s side). Media goes peer
+        to peer (or through the TURN server); the server never sees audio and stores none. Not live: 409 invalid_transition,
+        reason call_not_live.'
+      tags:
+      - Notifications & messages
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - name: callId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CallSignal'
+      responses:
+        '202':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /calls/{callId}/answer:
+    post:
+      operationId: callAnswer
+      summary: Answer a ringing call (emits call_answered)
+      description: 'v0.18.38: POST /calls/{callId}/answer by the callee while ringing → 200 CallView (state answered) with
+        ice { servers, ttlSeconds } (the callee''s STUN/TURN servers), event call_answered.'
+      tags:
+      - Notifications & messages
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - name: callId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /calls/{callId}/end:
+    post:
+      operationId: callEnd
+      summary: End, decline or report a failed call (emits call_ended)
+      description: 'v0.18.38: POST /calls/{callId}/end { reason: hangup|declined|failed } by either side → 200 CallView (state
+        ended), event call_ended. A second end is answered with the same CallView (idempotent).'
+      tags:
+      - Notifications & messages
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - name: callId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CallEndRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/trips/{tripId}/calls:
+    get:
+      operationId: adminTripCalls
+      summary: The trip's call log (no audio, no numbers)
+      description: 'v0.18.38: GET /admin/trips/{tripId}/calls (trips.read, trip in the admin''s zones) → { items: [CallLogItem
+        { callId, from, to, state, startedAt, answeredAt, endedAt, endedReason, seconds }] }, newest first. Shown in Admin
+        › Trip details › Calls. No audio, no numbers.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallLog'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /driver/airport-queue:
     get:
       operationId: driverAirportQueue
@@ -17601,10 +17803,20 @@ components:
       - rating_updated
       - message
       - pickup_moved
+      - call_ringing
+      - call_answered
+      - call_signal
+      - call_ended
+      - call_missed
       x-after-terminal:
       - payment_updated
       - rating_updated
       - message
+      - call_ringing
+      - call_answered
+      - call_signal
+      - call_ended
+      - call_missed
       description: Trip event kinds. After a terminal status only x-after-terminal kinds pass the client gate.
     FareLineCode:
       type: string
@@ -19582,10 +19794,15 @@ components:
           $ref: '#/components/schemas/Timestamp'
     TripCall:
       type: object
-      description: 'v0.13.0: a masked call between the trip''s rider and driver (contract.json#chat.call).'
+      description: 'v0.13.0: a masked call between the trip''s rider and driver (contract.json#chat.call). v0.18.38 §62: POST
+        /trips/{tripId}/call (no body, Idempotency-Key) by the trip''s rider or driver → 200 TripCall { tripId, mode:''in_app'',
+        callId, ice { servers, ttlSeconds }, ringSeconds, maxCallMin, expiresAt }. The server keeps a trip_calls row (state
+        ringing) and sends call_ringing on the trip stream; the callee''s app shows the incoming-call sheet. CountryRules.calls.mode
+        phone + a configured provider (phoneProvider, keys only in the server environment) → TripCall { tripId, mode:''phone'',
+        proxyNumber, expiresAt } as before (v0.13.0). Mode phone without a provider falls back to in_app. Owner G15: in-app
+        calls only until a phone company is chosen.'
       required:
       - tripId
-      - proxyNumber
       - expiresAt
       properties:
         tripId:
@@ -19593,9 +19810,45 @@ components:
         proxyNumber:
           type: string
           pattern: ^\+[1-9][0-9]{6,14}$
-          description: 'v0.13.0: the masked number to dial (E.164); the provider bridges to the other side.'
+          description: 'v0.13.0: the masked number to dial (E.164); the provider bridges to the other side. v0.18.38: mode
+            phone only.'
         expiresAt:
           $ref: '#/components/schemas/Timestamp'
+        mode:
+          type: string
+          enum:
+          - in_app
+          - phone
+          description: 'v0.18.38: in_app (WebRTC, default) or phone (proxyNumber).'
+        callId:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: v0.18.38, mode in_app.
+        ice:
+          type: object
+          description: 'v0.18.38, mode in_app: ice.servers come from the server environment (STUN/TURN URLs; TURN gets time-limited
+            credentials from a shared secret, valid ttlSeconds). No server state: any copy answers (rule 33).'
+          required:
+          - servers
+          - ttlSeconds
+          properties:
+            servers:
+              type: array
+              items:
+                $ref: '#/components/schemas/IceServer'
+            ttlSeconds:
+              type: integer
+              minimum: 0
+        ringSeconds:
+          type: integer
+          minimum: 10
+          maximum: 120
+          description: v0.18.38, mode in_app.
+        maxCallMin:
+          type: integer
+          minimum: 1
+          maximum: 60
+          description: v0.18.38, mode in_app.
     SavedPlace:
       type: object
       description: 'v0.18.26: one of the rider''s saved places. Each list is read and changed only by its owner (the signed-in
@@ -21566,6 +21819,60 @@ components:
               description: 'Owner Q5: a late current trip keeps the queued trip with this driver. From lateFreeCancelMin minutes
                 (default 10) after accept, the rider of a chained trip may cancel free also after it started (trips.chained).'
               default: 10
+        calls:
+          type: object
+          description: 'v0.18.38 §62: Admin › Pricing › Tips & limits per country › Calls (CountryRules.calls of the country
+            standard; a zone''s own country_rules may set them), saved with Save tips & limits: Calls on, Mode (In the app
+            / Phone — phone needs a phone company), Call window after the trip (min), Ring time (s), Longest call (min). adminCallRoles
+            stays empty: Admin Call is ''coming soon'' until a phone provider is set (G9 Q6).'
+          properties:
+            'on':
+              type: boolean
+              description: calls.on false → POST /trips/{tripId}/call is 403 forbidden, reason calls_off; the apps hide the
+                call button.
+              default: true
+            mode:
+              type: string
+              enum:
+              - in_app
+              - phone
+              description: 'CountryRules.calls.mode phone + a configured provider (phoneProvider, keys only in the server
+                environment) → TripCall { tripId, mode:''phone'', proxyNumber, expiresAt } as before (v0.13.0). Mode phone
+                without a provider falls back to in_app. Owner G15: in-app calls only until a phone company is chosen.'
+              default: in_app
+            callWindowAfterTripMin:
+              type: integer
+              minimum: 0
+              maximum: 240
+              description: 'Open from driver assignment (tripStatus.driverAssigned) until callWindowAfterTripMin (default
+                60) minutes after the trip ended as completed (trips.ended_at). Outside it: 409 invalid_transition, reason
+                call_window_closed. A cancelled trip has no window after it. The apps show the call button only inside the
+                window.'
+              default: 60
+            ringSeconds:
+              type: integer
+              minimum: 10
+              maximum: 120
+              description: 'A ringing call not answered after ringSeconds is ended by the server (timer in the database, any
+                server copy runs it): state missed, event call_missed. An answered call is ended at maxCallMin with reason
+                max_length.'
+              default: 30
+            maxCallMin:
+              type: integer
+              minimum: 1
+              maximum: 60
+              default: 15
+            adminCallRoles:
+              type: array
+              items:
+                type: string
+              default: []
+            phoneProvider:
+              type: string
+              enum:
+              - none
+              - twilio
+              default: none
       x-server-only: true
     FeeRule:
       type: object
@@ -24130,6 +24437,16 @@ components:
               minLength: 1
               maxLength: 300
               default: No driver nearby right now. We keep searching for you.
+        reaskLimit:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: 'v0.18.39 §63: Stop re-asking one busy driver forever: DispatchDocument.reaskLimit (default 2, 1-5,
+            per zone, Admin › Dispatch; boss 1 for the owner 2026-11-05): a driver who declined or let run out that many offers
+            of this trip in this search (Radar or Exclusive) is not asked again in this search; withdrawn offers do not count;
+            a new search (driver cancel, rider raise) starts the count again. Owner decisions 23 / Q1 (a decliner may see
+            the trip again) still hold: once more, not forever.'
+          default: 2
         bookedNext:
           type: object
           description: 'v0.18.33: Owner Q7 + answer 2026-11-05 (''Driver on trip can receive exclusive (can be exclusive trip
@@ -25390,7 +25707,9 @@ components:
         like trip_projection (the pickup changed, version + 1); a location event may carry eta (TripEta) as well as etaSeconds;
         v0.18.9: a server ride check and its answers (TripProjection.rideCheck) go out as trip_projection events WITHOUT a
         version change, like the waiting alerts; a route change request and its answer (TripProjection.routeChange) are trip_projection
-        events with version + 1. No new event kinds..'
+        events with version + 1. No new event kinds.; v0.18.38 §62: call_ringing, call_answered, call_signal, call_ended and
+        call_missed carry no projection and no version change; they pass the gate also after a terminal status (the call window
+        runs callWindowAfterTripMin after drop-off)..'
       required:
       - eventId
       - tripId
@@ -25439,6 +25758,14 @@ components:
           allOf:
           - $ref: '#/components/schemas/TripEta'
           description: 'v0.18.7: on a kind=location event sent by the ETA tick (every 30 s).'
+        call:
+          allOf:
+          - $ref: '#/components/schemas/CallView'
+          description: 'v0.18.38: on call_ringing, call_answered, call_ended, call_missed.'
+        signal:
+          allOf:
+          - $ref: '#/components/schemas/CallSignalEvent'
+          description: 'v0.18.38: on call_signal.'
       x-optional:
       - projection
       - location
@@ -32459,6 +32786,202 @@ components:
           oneOf:
           - $ref: '#/components/schemas/Timestamp'
           - type: 'null'
+    IceServer:
+      type: object
+      description: 'v0.18.38: ice.servers come from the server environment (STUN/TURN URLs; TURN gets time-limited credentials
+        from a shared secret, valid ttlSeconds). No server state: any copy answers (rule 33).'
+      required:
+      - urls
+      properties:
+        urls:
+          type: array
+          items:
+            type: string
+          minItems: 1
+        username:
+          type: string
+        credential:
+          type: string
+    CallState:
+      type: string
+      enum:
+      - ringing
+      - answered
+      - ended
+      - missed
+      description: v0.18.38.
+    CallView:
+      type: object
+      description: 'v0.18.38: No call payload (TripCall in_app, CallView, call_* events, admin call log) ever carries a phone
+        number. In mode in_app no number is used at all.'
+      required:
+      - callId
+      - tripId
+      - from
+      - to
+      - state
+      - startedAt
+      - answeredAt
+      - endedAt
+      - endedReason
+      - seconds
+      properties:
+        callId:
+          $ref: '#/components/schemas/Id'
+        tripId:
+          $ref: '#/components/schemas/Id'
+        from:
+          type: string
+          enum:
+          - rider
+          - driver
+        to:
+          type: string
+          enum:
+          - rider
+          - driver
+        state:
+          $ref: '#/components/schemas/CallState'
+        startedAt:
+          $ref: '#/components/schemas/Timestamp'
+        answeredAt:
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        endedAt:
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        endedReason:
+          oneOf:
+          - type: string
+            enum:
+            - hangup
+            - declined
+            - failed
+            - missed
+            - max_length
+            - trip_cancelled
+          - type: 'null'
+        seconds:
+          type: integer
+          minimum: 0
+          description: Talk time (answered → ended); 0 when never answered.
+        ice:
+          allOf:
+          - type: object
+            description: 'v0.18.38, mode in_app: ice.servers come from the server environment (STUN/TURN URLs; TURN gets time-limited
+              credentials from a shared secret, valid ttlSeconds). No server state: any copy answers (rule 33).'
+            required:
+            - servers
+            - ttlSeconds
+            properties:
+              servers:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IceServer'
+              ttlSeconds:
+                type: integer
+                minimum: 0
+          description: 'v0.18.38: on the answer of POST /calls/{callId}/answer only: the callee''s ICE servers.'
+    CallSignal:
+      type: object
+      description: 'v0.18.38: POST /calls/{callId}/signal { type: offer|answer|ice, sdp?, candidate? } by the call''s caller
+        or callee → 202; the server relays it as call_signal on the trip stream (from = the sender''s side). Media goes peer
+        to peer (or through the TURN server); the server never sees audio and stores none.'
+      required:
+      - type
+      properties:
+        type:
+          type: string
+          enum:
+          - offer
+          - answer
+          - ice
+        sdp:
+          type: string
+          maxLength: 20000
+        candidate:
+          type: object
+          required:
+          - candidate
+          properties:
+            candidate:
+              type: string
+              maxLength: 2000
+            sdpMid:
+              oneOf:
+              - type: string
+              - type: 'null'
+            sdpMLineIndex:
+              oneOf:
+              - type: integer
+                minimum: 0
+              - type: 'null'
+    CallSignalEvent:
+      type: object
+      required:
+      - callId
+      - from
+      - type
+      properties:
+        callId:
+          $ref: '#/components/schemas/Id'
+        from:
+          type: string
+          enum:
+          - rider
+          - driver
+        type:
+          type: string
+          enum:
+          - offer
+          - answer
+          - ice
+        sdp:
+          type: string
+        candidate:
+          type: object
+          required:
+          - candidate
+          properties:
+            candidate:
+              type: string
+              maxLength: 2000
+            sdpMid:
+              oneOf:
+              - type: string
+              - type: 'null'
+            sdpMLineIndex:
+              oneOf:
+              - type: integer
+                minimum: 0
+              - type: 'null'
+    CallEndRequest:
+      type: object
+      description: 'v0.18.38: POST /calls/{callId}/end { reason: hangup|declined|failed } by either side → 200 CallView (state
+        ended), event call_ended. A second end is answered with the same CallView (idempotent).'
+      required:
+      - reason
+      properties:
+        reason:
+          type: string
+          enum:
+          - hangup
+          - declined
+          - failed
+    CallLog:
+      type: object
+      description: 'v0.18.38: GET /admin/trips/{tripId}/calls (trips.read, trip in the admin''s zones) → { items: [CallLogItem
+        { callId, from, to, state, startedAt, answeredAt, endedAt, endedReason, seconds }] }, newest first. Shown in Admin
+        › Trip details › Calls. No audio, no numbers.'
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CallView'
     AirportQueueArea:
       type: object
       description: 'v0.18.36 §60: AirportQueueArea { areaId, airportZoneId, polygon [[lat, lng], ...] (3-500 points, inside
