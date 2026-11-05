@@ -8,6 +8,7 @@ import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
+import 'package:movera_rider/features/wallet/data/api_wallet_repository.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
 
@@ -151,6 +152,22 @@ class WalletController {
 
   Future<double> loadBalance() => _balances.loadBalance();
 
+  /// Fix job 6 (owner Q4, contract v0.18.28): every non-zero balance the
+  /// rider holds, one per currency, never added together. Release builds
+  /// read the server; demo/dev builds the device store.
+  Future<List<Money>> loadBalances() async {
+    final balances = _balances;
+    if (balances is ApiWalletRepository) return balances.loadBalances();
+    if (!balances.available) return const [];
+    final local = await WalletStore.balancesByCurrency();
+    return [
+      for (final entry in local.entries)
+        if (Money.fromLegacyMajor(entry.value, entry.key) case final Money m
+            when m.amountMinor != 0)
+          m,
+    ];
+  }
+
   Future<TopUpOutcome> topUp({
     required double previous,
     required double amount,
@@ -158,7 +175,7 @@ class WalletController {
   }) async {
     final key = idempotencyKey ?? newIdempotencyKey('wallet');
     // ARCH-6: never take card money that nothing authoritative can credit.
-    if (!_balances.available) {
+    if (!_balances.available || !_balances.topUpAvailable) {
       return const TopUpNotCharged(error: WalletUnavailableException());
     }
     if (_topUpKeys.contains(key)) return TopUpCredited(previous);
