@@ -20,7 +20,8 @@ permissions:
 
 jobs:
   live-flow:
-    runs-on: ubuntu-24.04  # ubuntu-latest is 26.04: Playwright 1.55 cannot install its browsers there
+    # Playwright 1.55 cannot install its deps on ubuntu-latest (26.04).
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -213,9 +214,12 @@ jobs:
           fs.writeFileSync('qa-ride-categories.json',JSON.stringify({picked},null,2));
 
           // Payment: the row under the categories opens 'Pay with'; picking a method
-          // closes it and the row names the new method.
-          const paymentRow=/^(Cash|Card|Apple Pay|Google Pay)\b/;
-          for(const method of ['Apple Pay','Cash']){
+          // closes it and the row names the new method. Owner decision
+          // (Rules/decisions/driver-g8.md item 2): "we keep only Apple Pay and card
+          // and cash and change the text of cash to pay in car" => methods are
+          // Pay in car, Card, Apple Pay (Google Pay removed).
+          const paymentRow=/^(Pay in car|Card|Apple Pay)\b/;
+          for(const method of ['Apple Pay','Pay in car']){
             await tapNamed(page,paymentRow,'Payment row');await page.waitForTimeout(800);await shot(`payment-open-${method.toLowerCase().replace(' ','-')}`);
             await tapNamed(page,new RegExp(`^${method}\\b`),`Pay with ${method}`);await page.waitForTimeout(800);
             if(!(await hasButton(page,/^Select Movera$/)))throw new Error(`Payment: 'Pay with' sheet did not close after ${method}`);
@@ -267,7 +271,7 @@ jobs:
             throw error;
           }
 
-          console.log('PASS: exact live Rider completed route entry, ride types, Cash payment, Book now, pickup and the final booking transition to Finding with no fatal runtime errors');
+          console.log('PASS: exact live Rider completed route entry, ride types, Pay in car payment, Book now, pickup and the final booking transition to Finding with no fatal runtime errors');
 
           async function seedRestore(page, snapshot, shotName, expectedSurface){
             await page.goto(base+`?restore=${Date.now()}`,{waitUntil:'load',timeout:120000});

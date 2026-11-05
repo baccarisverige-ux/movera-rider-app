@@ -816,7 +816,10 @@ jobs:
             [1024, 768],
           ];
           const fatalPattern =
-            /RenderFlex overflowed|A RenderFlex|Null check operator|RangeError|Another exception|Uncaught TypeError|Assertion failed/i;
+            /RenderFlex overflowed|A RenderFlex|Null check operator|RangeError|Another exception|EXCEPTION CAUGHT BY|Uncaught TypeError|Assertion failed/i;
+          // 'EXCEPTION CAUGHT BY' keeps Flutter's FIRST full error report (library,
+          // widget, message) in the evidence; later ones only say 'Another
+          // exception was thrown: Instance of minified:..' (webkit 844x390 flake).
           const evidence = { sha: process.env.GITHUB_SHA, chromium: [], webkit: [] };
 
           async function inspect(browser, family, width, height) {
