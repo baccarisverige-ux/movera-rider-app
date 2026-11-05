@@ -31295,7 +31295,8 @@ components:
         It runs with the server ETA, every pickupWaiting.eta.everySeconds (30 s), from accept until arrived, for the whole
         wait, not only once. DriverAppConfig.headingCheck { on, headingPct, notHeadingMinutes, reassign } per zone (or the
         country standard); defaults configDefaults.headingCheck (on, 80 %, 2 min, reassign on). The admin''s ''Smart cancel
-        check'' / ''Came closer by'' controls map to on / headingPct.'
+        check'' / ''Came closer by'' controls map to on / headingPct. v0.18.35: + notice (default true) and noticeEveryMin
+        (default 1, range 1-10); reassign default false and read-only (live rides are never taken back).'
       properties:
         'on':
           type: boolean
@@ -31315,11 +31316,12 @@ components:
           default: 2
         reassign:
           type: boolean
-          description: 'With reassign on, a driver not heading for notHeadingMinutes in a row loses the trip: it goes back
-            to dispatch without him (TripProjection.status searching, like an admin reassign; Exclusive offers first as dispatch
-            does), the cancel counts against him (driver_cancels reason not_heading_to_pickup, in his cancel rate) and the
-            rider gets the driver_changed push.'
-          default: true
+          description: 'v0.18.35 (owner Q-A 2026-11-04, contract.json#bookedTakeBack.live): LIVE rides are NEVER taken back
+            by the server. reassign stays in DriverAppConfig.headingCheck (read-only, default false, never deleted) and the
+            server ignores it for live trips. Not heading for notHeadingMinutes in a row only makes the rider''s cancel free
+            and sends the driver the notHeadingNotice. (Before v0.18.35: with reassign on the trip went back to dispatch,
+            reason not_heading_to_pickup.)'
+          default: false
     TripHeadingCheck:
       type: object
       description: 'v0.18.13: TripProjection.headingCheck { heading, checkedAt, notHeadingSince?, freeCancel } from accept

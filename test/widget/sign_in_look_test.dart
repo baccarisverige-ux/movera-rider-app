@@ -14,27 +14,14 @@ import 'package:movera_rider/features/auth/presentation/widgets/auth_scene.dart'
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// Owner 2026-11-02 (same as the driver app, PR #443): the sign-in picture
-/// and "Need help?" are fully visible; the test numbers sit behind one
-/// "Test numbers" button, closed until tapped.
+/// and "Need help?" are fully visible. Job A12 (owner 2026-11-05): the
+/// test-numbers button and list are removed in every build.
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   AuthController controller() {
     final tokens = MemoryTokenStore();
     final client = MockClient((request) async {
-      if (request.url.path == '/api/v1/auth/test-accounts') {
-        return http.Response(
-          '{"accounts":['
-          '{"phone":"+46700000001","app":"rider","status":"test"},'
-          '{"phone":"+46700000002","app":"rider","status":"active",'
-          '"name":"Test"},'
-          '{"phone":"+46700000003","app":"rider","status":"test"},'
-          '{"phone":"+46700000004","app":"rider","status":"test"},'
-          '{"phone":"+46700000005","app":"rider","status":"active"}]}',
-          200,
-          headers: {'content-type': 'application/json'},
-        );
-      }
       return http.Response('{"code":"not_found","message":"x"}', 404);
     });
     final api = ApiClient(
@@ -50,7 +37,7 @@ void main() {
     );
   }
 
-  Future<void> pumpTestBuild(WidgetTester tester, Size phone) async {
+  Future<void> pumpSignIn(WidgetTester tester, Size phone) async {
     tester.view.physicalSize = phone;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -61,7 +48,7 @@ void main() {
         builder: (_, __) => MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: SignIn(controller: controller(), showTestAccounts: true),
+          home: SignIn(controller: controller()),
         ),
       ),
     );
@@ -70,33 +57,9 @@ void main() {
 
   for (final phone in const [Size(390, 844), Size(375, 812)]) {
     testWidgets(
-      '$phone: test build: the list is closed; "Test numbers" opens it all',
-      (tester) async {
-        await pumpTestBuild(tester, phone);
-        expect(find.byKey(const ValueKey('auth-test-accounts')), findsNothing);
-        final button = find.byKey(const ValueKey('auth-test-numbers-button'));
-        expect(button, findsOneWidget);
-        expect(find.text(L10n.current.testNumbersButton), findsOneWidget);
-        await tester.ensureVisible(button);
-        await tester.tap(button);
-        await tester.pump();
-        expect(
-          find.byKey(const ValueKey('auth-test-accounts')),
-          findsOneWidget,
-        );
-        for (var i = 1; i <= 5; i++) {
-          expect(
-            find.byKey(ValueKey('auth-test-+4670000000$i')),
-            findsOneWidget,
-          );
-        }
-      },
-    );
-
-    testWidgets(
       '$phone: the picture is tall enough to show the whole skyline',
       (tester) async {
-        await pumpTestBuild(tester, phone);
+        await pumpSignIn(tester, phone);
         final size = tester.getSize(find.byType(AuthScene));
         expect(AuthScene.showsSkyline(size), isTrue, reason: 'scene $size');
       },
@@ -105,7 +68,7 @@ void main() {
     testWidgets(
       '$phone: "Need help?" is fully on screen under Apple and Google',
       (tester) async {
-        await pumpTestBuild(tester, phone);
+        await pumpSignIn(tester, phone);
         final link = find.byKey(const ValueKey('auth-need-help'));
         expect(link, findsOneWidget);
         final screen = tester.view.physicalSize.height;

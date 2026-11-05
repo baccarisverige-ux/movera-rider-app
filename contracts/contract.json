@@ -3068,7 +3068,7 @@
       "cap": 3.0
     },
     "reservations": {
-      "note": "DriverAppConfig.reservations (CONTRACT.md §6). Every field is optional on read: a missing or invalid field keeps this default. Admin ride type ids map normal->normal, airport->airport, long->longTrip, premium->comfortPremium, event->event; Admin lateBackupAfterMin is offlineBackupAfterMin. v0.4.2: there is no leaveNow switch any more (Leave now always opens the trip); a leaveNow field in an older document is ignored. on is the zone switch for every driver (= features.scheduledRides); with Driver.scheduledRides (per driver) it decides who gets new reservations, CONTRACT.md §6.1. v0.18.17 (Book later, owner 2026-11-03 Q1–Q7, contract.json#bookLater): minAheadMin 15 / maxAheadDays 90 (booking window), soonBeforeMin 30 (closer = sent like a live ride at once), listTo and its numbers (who sees it in Scheduled rides), listOpenAll, noticeOn / noticeMaxDrivers / homePopup (the reservation notice), noDriverAlertMin 10, riderReminderMin 60, freeChangeBeforeMin 60; rideTypes.normal.onlineBeforeMin 30 → 60 and every reminderMin [60, 15] → [120, 15] (owner Q5). v0.18.17: maxTripKm 60 (the demo admin's 'Max Trip Distance (Reservations) 60 km', owner 'add if miss anything'). BL-Q1..Q7 (owner 2026-11-03): dispatchBeforeMin 30 (search start), maxTripKm null = no limit, listHomeKm 5, listAtTimeKm 5 / listAtTimeMin 30 (nearAtTime), changeAnswerMin 15. M6 (owner 2026-11-03): reminderMin [120] only (the 15-min reminder is dropped).",
+      "note": "DriverAppConfig.reservations (CONTRACT.md §6). Every field is optional on read: a missing or invalid field keeps this default. Admin ride type ids map normal->normal, airport->airport, long->longTrip, premium->comfortPremium, event->event; Admin lateBackupAfterMin is offlineBackupAfterMin. v0.4.2: there is no leaveNow switch any more (Leave now always opens the trip); a leaveNow field in an older document is ignored. on is the zone switch for every driver (= features.scheduledRides); with Driver.scheduledRides (per driver) it decides who gets new reservations, CONTRACT.md §6.1. v0.18.17 (Book later, owner 2026-11-03 Q1–Q7, contract.json#bookLater): minAheadMin 15 / maxAheadDays 90 (booking window), soonBeforeMin 30 (closer = sent like a live ride at once), listTo and its numbers (who sees it in Scheduled rides), listOpenAll, noticeOn / noticeMaxDrivers / homePopup (the reservation notice), noDriverAlertMin 10, riderReminderMin 60, freeChangeBeforeMin 60; rideTypes.normal.onlineBeforeMin 30 → 60 and every reminderMin [60, 15] → [120, 15] (owner Q5). v0.18.17: maxTripKm 60 (the demo admin's 'Max Trip Distance (Reservations) 60 km', owner 'add if miss anything'). BL-Q1..Q7 (owner 2026-11-03): dispatchBeforeMin 30 (search start), maxTripKm null = no limit, listHomeKm 5, listAtTimeKm 5 / listAtTimeMin 30 (nearAtTime), changeAnswerMin 15. M6 (owner 2026-11-03): reminderMin [120] only (the 15-min reminder is dropped). v0.18.35 (job 4 take-back, owner Q2/Q-B/fix-plan Q2 2026-11-04, contract.json#bookedTakeBack): takeBackLateMin 5 (take a held booked ride back only when the driver would reach the pickup MORE than this many minutes after the pickup time), takeBackKeepIfDriveMin 10 (a driver this many minutes' drive or less from the pickup always keeps it), takeBackUntilMinBeforePickup 15 (only while the pickup is at least this many minutes away; inside it he keeps it).",
       "on": true,
       "lateWarn": true,
       "offlineBackupAfterMin": 5,
@@ -3153,7 +3153,10 @@
       "changeAnswerMin": 15,
       "arriveEarlyMin": 10,
       "raiseFare": true,
-      "raiseMax": null
+      "raiseMax": null,
+      "takeBackLateMin": 5,
+      "takeBackKeepIfDriveMin": 10,
+      "takeBackUntilMinBeforePickup": 15
     },
     "countries": {
       "SE": {
@@ -3648,7 +3651,9 @@
       "on": true,
       "headingPct": 80,
       "notHeadingMinutes": 2,
-      "reassign": true
+      "reassign": false,
+      "notice": true,
+      "noticeEveryMin": 1
     },
     "drivingLimits": {
       "maxHoursPerDay": 12,
@@ -4375,6 +4380,10 @@
         },
         "rule": {
           "rule": "Owner A3: every custom rule (PUT /admin/alerts/rules: { id, name, on, metric free_drivers | riders_waiting | longest_wait | failed_payments | open_sos | open_tickets, op above | below, value, forMin, zoneId | all, level }) is checked by the server on each sweep, per zone; it alerts once the condition held forMin minutes. Solved when it no longer holds."
+        },
+        "booked_taken_back": {
+          "level": "important",
+          "rule": "v0.18.35 (job 4): the server took a booked ride back from a late driver (contract.json#bookedTakeBack) and no new driver has it yet. Title '{0}'s booked ride at {1} was taken from {2} (late)'. Solved when a new driver takes it ('Driver {0} took it {1}')."
         }
       },
       "commands": "take / pass / snooze / done on a server alert: the kind, zone and title stored by the server win over what the call sends. done closes it (state done).",
@@ -4402,7 +4411,8 @@
       "rule": "rules",
       "booked_at_risk": "dispatch",
       "booked_late": "dispatch",
-      "booked_not_started": "dispatch"
+      "booked_not_started": "dispatch",
+      "booked_taken_back": "dispatch"
     },
     "permissions": {
       "note": "Seeing an alert needs its group's read permission; acting on it (take, done, snooze, pass) needs its group's act permission or alerts.manage. Mutes, settings and rules need alerts.manage. Quiet hours: the admin's own (overview.read).",
@@ -5819,9 +5829,9 @@
     ],
     "headingCheck": {
       "note": "v0.18.13 (owner G5-8, decisions/driver-g5.md item 8 + notes): the smart late rule for live trips. 'Heading to pickup' = in each check the driver got at least headingPct % (default 80, admin per zone, range 50-100) as much closer to the pickup as he could have at normal road speed in the time since the last check (normal road speed = the server's route distance / route duration of the driver's leg to the pickup, else dispatch's pickup speed). It runs with the server ETA, every pickupWaiting.eta.everySeconds (30 s), from accept until arrived, for the whole wait, not only once.",
-      "setting": "DriverAppConfig.headingCheck { on, headingPct, notHeadingMinutes, reassign } per zone (or the country standard); defaults configDefaults.headingCheck (on, 80 %, 2 min, reassign on). The admin's 'Smart cancel check' / 'Came closer by' controls map to on / headingPct.",
+      "setting": "DriverAppConfig.headingCheck { on, headingPct, notHeadingMinutes, reassign } per zone (or the country standard); defaults configDefaults.headingCheck (on, 80 %, 2 min, reassign on). The admin's 'Smart cancel check' / 'Came closer by' controls map to on / headingPct. v0.18.35: + notice (default true) and noticeEveryMin (default 1, range 1-10); reassign default false and read-only (live rides are never taken back).",
       "riderCancel": "Inside the cancel rule's free minutes (default 2) the rider always cancels free. After them (live trip, driver not yet arrived): the fee is charged unless the latest check says the driver has NOT been heading for notHeadingMinutes in a row (then the cancel is free, cancellation.fee null). No check yet (a trip accepted before v0.18.13, no position so far) = the normal fee rules. A check without a position changes nothing (the previous state and its clock stay). A driver within the arrive radius counts as heading.",
-      "reassign": "With reassign on, a driver not heading for notHeadingMinutes in a row loses the trip: it goes back to dispatch without him (TripProjection.status searching, like an admin reassign; Exclusive offers first as dispatch does), the cancel counts against him (driver_cancels reason not_heading_to_pickup, in his cancel rate) and the rider gets the driver_changed push.",
+      "reassign": "v0.18.35 (owner Q-A 2026-11-04, contract.json#bookedTakeBack.live): LIVE rides are NEVER taken back by the server. reassign stays in DriverAppConfig.headingCheck (read-only, default false, never deleted) and the server ignores it for live trips. Not heading for notHeadingMinutes in a row only makes the rider's cancel free and sends the driver the notHeadingNotice. (Before v0.18.35: with reassign on the trip went back to dispatch, reason not_heading_to_pickup.)",
       "projection": "TripProjection.headingCheck { heading, checkedAt, notHeadingSince?, freeCancel } from accept until arrived (all views): heading = the latest check; freeCancel = a rider cancel now costs nothing because of this rule. The admin dispatch map flags trips with heading false.",
       "replaces": "The v0.4 came-closer check (400 m/min x 50 %, measured once at the rider's cancel) is gone.",
       "driverNotice": {
@@ -5839,7 +5849,22 @@
           "en": "You were not heading to the pickup, so the trip went to another driver. It counts as a cancel."
         }
       },
-      "reasonCode": "not_heading_to_pickup (driver_cancels only; never a CancelReasonCode on the wire)"
+      "reasonCode": "not_heading_to_pickup (driver_cancels only; never a CancelReasonCode on the wire)",
+      "notHeadingNotice": {
+        "kind": "heading_not_to_rider",
+        "deepLink": "movera-driver://trip/{tripId}",
+        "note": "v0.18.35 (owner Q-A + job 4 Q4 'On every minutes'): while the driver has not been heading to the pickup for notHeadingMinutes in a row (live and booked trips, accepted / driver_to_pickup), he gets this bell notice + push in his language every noticeEveryMin minutes (DriverAppConfig.headingCheck.noticeEveryMin, default 1) until he heads to the pickup again or arrives. headingCheck.notice false = no notice (admin switch, default on). The last send time is kept on the trip (trips.heading_check.noticeAt), so several server copies never send it twice for the same minute. data { tripId, reason not_heading_to_rider }.",
+        "title": {
+          "sv": "Du kör inte mot kunden",
+          "fr": "Vous ne roulez pas vers le passager",
+          "en": "You are not driving towards the rider"
+        },
+        "body": {
+          "sv": "Kör mot upphämtningen nu. Resenären kan avboka gratis så länge du inte är på väg.",
+          "fr": "Dirigez-vous vers le point de prise en charge. Le passager peut annuler gratuitement tant que vous n’êtes pas en route.",
+          "en": "Drive to the pickup now. The rider can cancel for free while you are not on the way."
+        }
+      }
     },
     "cancelReasons": "v0.18.13 (owner G5-9 'Load from admin'): DriverAppConfig.cancelReasons (the zone's admin list per sheet) decides which reasons the driver app SHOWS; titles (sv/fr/en) come from DriverAppConfig.texts and the app keeps the built-in list as the offline backup. The server accepts every contract code of the sheet (contract.json#cancelReasons), so an old app that shows the built-in list keeps working; a code of another sheet → 400 invalid_request, reason invalid_reason_code."
   },
@@ -7010,7 +7035,8 @@
         "reservation_assigned",
         "reservation_offered",
         "reservation_leave_now",
-        "reservation_late_risk"
+        "reservation_late_risk",
+        "reservation_taken_back"
       ],
       "note": "Push and Notifications list (bell), in the person's language (else the zone country's, else English); {time} is the pickup time HH:MM in the zone's time zone, {driver} the driver's first name. Deep links: rider movera://trips/{tripId}, driver movera-driver://reservations/{tripId}.",
       "texts": {
@@ -7192,6 +7218,18 @@
             "sv": "Hämtningen är kl. {time}. Starta nu eller lämna tillbaka resan.",
             "fr": "La prise en charge est à {time}. Partez maintenant ou rendez la course.",
             "en": "The pickup is at {time}. Start now or give the ride back."
+          }
+        },
+        "reservation_taken_back": {
+          "title": {
+            "sv": "Bokad resa gick till en annan förare",
+            "fr": "Course réservée confiée à un autre chauffeur",
+            "en": "Booked ride given to another driver"
+          },
+          "body": {
+            "sv": "Du hade inte hunnit till upphämtningen kl. {time}, så resan gick till en annan förare. Det räknas som en avbokning.",
+            "fr": "Vous n’auriez pas été à l’heure pour la prise en charge de {time} : la course a été confiée à un autre chauffeur. Elle compte comme une annulation.",
+            "en": "You would not have reached the pickup at {time} in time, so the ride went to another driver. It counts as a cancel."
           }
         }
       }
@@ -7786,6 +7824,20 @@
     "total": "LiveDriverList.total: how many drivers not offline match the filters (zones, country, map box) over ALL pages, so the panel can show the number before every page has arrived.",
     "counts": "zoneSupply and ridersOnline (when no map box is given) always count every matching driver, not only the page.",
     "adminLiveCard": "The admin Dashboard's live card, live map and 'Drivers online now' tile are built from GET /admin/live/drivers pages ALONE (limit 500, every page). GET /admin/drivers only adds details (full name, car) when it has loaded; it never decides who is shown. While the first answer is loading the tile shows '…' (Loading); when the live read fails it shows 'Could not load, retrying' (sv 'Kunde inte laddas, försöker igen', fr 'Chargement impossible, nouvel essai'), never 0. Calls for the country the admin left are cancelled when the country changes."
+  },
+  "bookedTakeBack": {
+    "note": "v0.18.35 (FIX JOB 4 'take-back', owner Q2 / Q-A / Q-B / fix-plan Q2 / job-4 Q2-Q4 of 2026-11-04, Rules decisions/driver-g15.md). Builds on v0.18.34 main. Additive; X-Api-Version stays 0.5; no migration (the state lives in trips.reservation and trips.heading_check). §59.",
+    "onlyCase": "Owner Q2 verbatim: 'System take ride from driver only one case, when have reservation and may can be late more than 5 min but if he soon at pickup like 10 m away so keep it'. Drivers never pay a fee. A LIVE ride is never taken back.",
+    "rule": "A booked ride a driver holds is taken back when ALL three are true at a check: (a) late = now + drive − scheduledAt > takeBackLateMin minutes (drive = the server's road route from his latest position to the pickup, the same as leaveOnTime); (b) drive > takeBackKeepIfDriveMin minutes (closer = he keeps it); (c) now ≤ scheduledAt − takeBackUntilMinBeforePickup minutes (inside that time he keeps it: still time to find another driver, owner fix-plan Q2). Settings per zone in DriverAppConfig.reservations (defaults 5 / 10 / 15; ranges lateMin 1-60, keepIfDriveMin 0-60, untilMinBeforePickup 0-180).",
+    "whenChecked": "Before he starts (held, status accepted): with every leave check (every 2 min from 3 h before pickup). After he started (driver_to_pickup): with every ETA tick, but only while the heading check says he has NOT been heading to the pickup for notHeadingMinutes in a row (owner job-4 Q4: 'On every minutes and if he is late so take it from him').",
+    "takeBack": "In the check's own transaction with the trip row locked (FOR UPDATE): a driver_cancels row reason booked_late_taken_back (counts on his cancel record, NEVER a fee; not a CancelReasonCode on the wire), the driver leaves the ride (cancelled_driver_ids += him), the reservation's per-driver state is cleared (leaveAt, driveSeconds, leaveNotified, atRisk, notStarted), reservation.takenBack { driverId, at } is set (admin TripProjection.reservation.takenBack only, until a new driver takes it), and the ride goes back to the list or to dispatch exactly like a give-back (after dispatchAt: searched at once). The driver gets push + bell reservation_taken_back. A second copy of the same check finds the driver gone and does nothing (idempotent; rule 33).",
+    "rider": "Owner job-4 Q2: before the driver started driving the rider sees NOTHING (silent swap; the next driver's 'driver found' message is sent as usual). After he started driving the rider sees 'searching for a new driver' (TripProjection.status searching + the existing trip_update driver_changed push) and then the new driver heading to the pickup like a normal trip. Owner Q3: a late driver who KEEPS the ride sends the rider no message.",
+    "live": "Owner Q-A: live trips are never taken back automatically; pickupWaiting.headingCheck.reassign is read-only and ignored for live trips. Not heading = free rider cancel + the driver's notHeadingNotice every noticeEveryMin minutes.",
+    "newDriverState": "L6 fix: whenever a booked ride loses its driver (give-back, offline, admin unassign, rider change refused, take-back, driver cancel) the per-driver fields leaveAt, driveSeconds, leaveNotified, atRisk, notStarted are cleared, so the next driver gets his own 'start now' and late-risk notices.",
+    "reasonCode": "booked_late_taken_back (driver_cancels only).",
+    "alert": "Alert kind booked_taken_back (group dispatch, level important): a taken-back booked ride with no new driver yet; solved when a driver takes it.",
+    "admin": "Dispatch › Book later › 'Late driver': 'Take back when late more than (min)' 5, 'Keep if the driver is within (min drive)' 10, 'Only until (min before pickup)' 15; 'Not driving to the rider notice' on/off (headingCheck.notice) and 'every (min)' 1; the heading check's 'Take back a live ride' row shown OFF and read-only.",
+    "apps": "Driver app: shows the push / bell kinds reservation_taken_back and heading_not_to_rider (texts from the server, sv/fr/en built-in fallbacks). Rider app: no new screen (the existing searching / driver-changed flow); contract copy only."
   },
   "inAppCalls": {
     "note": "v0.18.38 §62 (fix job 8, Rules plan/FIX-JOBS-8-9-10-PLAN-2026-11-05.md; owner G15 2026-11-05: 'In-app calls only', 'Both rider and driver', \"Just 'Call failed'\"). Builds on v0.18.34 main. X-Api-Version stays 0.5; additive; server migration 0085 (trip_calls).",

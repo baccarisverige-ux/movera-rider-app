@@ -371,7 +371,10 @@
     "changeAnswerMin": 15,
     "arriveEarlyMin": 10,
     "raiseFare": true,
-    "raiseMax": null
+    "raiseMax": null,
+    "takeBackLateMin": 5,
+    "takeBackKeepIfDriveMin": 10,
+    "takeBackUntilMinBeforePickup": 15
   },
   "cancelReasons": {
     "driverBeforeTrip": [
@@ -449,6 +452,8 @@
     "on": true,
     "headingPct": 80,
     "notHeadingMinutes": 2,
-    "reassign": true
+    "reassign": false,
+    "notice": true,
+    "noticeEveryMin": 1
   }
 }
