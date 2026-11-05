@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/core/realtime/realtime_gate.dart';
 import 'package:movera_rider/features/calls/domain/call_engine.dart';
 import 'package:movera_rider/features/calls/domain/trip_call_session.dart';
-import 'package:movera_rider/features/calls/data/rider_trip_calls.dart';
+import 'package:movera_rider/features/calls/application/rider_trip_calls.dart';
 import 'package:movera_rider/features/calls/presentation/call_screen.dart';
 import 'package:movera_rider/features/messages/domain/trip_call_transport.dart';
 import 'package:movera_rider/features/messages/presentation/trip_call.dart';
@@ -111,19 +111,6 @@ Map<String, dynamic> callOf(String from, String state) => {
   'seconds': 0,
 };
 
-Map<String, dynamic> callOf(String from, String state) => {
-  'callId': 'cll_1',
-  'tripId': 't1',
-  'from': from,
-  'to': from == 'driver' ? 'rider' : 'driver',
-  'state': state,
-  'startedAt': '2026-11-05T12:00:00Z',
-  'answeredAt': null,
-  'endedAt': null,
-  'endedReason': null,
-  'seconds': 0,
-};
-
 class InApp implements TripCallTransport {
   InApp(this.answer);
   final Object answer;
@@ -180,30 +167,33 @@ void main() {
     },
   );
 
-  test('incoming from the driver: a ringing event for the rider opens a session; answer then the offer', () async {
-    final api = FakeApi();
-    final engine = FakeEngine();
-    final hub = RiderTripCalls(api: api, engine: () => engine);
-    TripCallSession? shown;
-    hub.onIncoming = (s) => shown = s;
-    hub.receive('t1', 'call_ringing', callOf('driver', 'ringing'));
-    expect(shown, isNotNull);
-    expect(shown!.state, TripCallState.ringing);
-    await shown!.answer();
-    hub.receive('t1', 'call_signal', {
-      'callId': 'cll_1',
-      'from': 'driver',
-      'type': 'offer',
-      'sdp': 'v=0 driver-offer',
-    });
-    await Future<void>.delayed(Duration.zero);
-    await Future<void>.delayed(Duration.zero);
-    expect(engine.did, contains('acceptOffer:v=0 driver-offer'));
-    // The rider's own ringing (to the driver) is not an incoming call.
-    final other = RiderTripCalls(api: FakeApi(), engine: FakeEngine.new);
-    other.receive('t1', 'call_ringing', callOf('rider', 'ringing'));
-    expect(other.incoming.value, isNull);
-  });
+  test(
+    'incoming from the driver: a ringing event for the rider opens a session; answer then the offer',
+    () async {
+      final api = FakeApi();
+      final engine = FakeEngine();
+      final hub = RiderTripCalls(api: api, engine: () => engine);
+      TripCallSession? shown;
+      hub.onIncoming = (s) => shown = s;
+      hub.receive('t1', 'call_ringing', callOf('driver', 'ringing'));
+      expect(shown, isNotNull);
+      expect(shown!.state, TripCallState.ringing);
+      await shown!.answer();
+      hub.receive('t1', 'call_signal', {
+        'callId': 'cll_1',
+        'from': 'driver',
+        'type': 'offer',
+        'sdp': 'v=0 driver-offer',
+      });
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(engine.did, contains('acceptOffer:v=0 driver-offer'));
+      // The rider's own ringing (to the driver) is not an incoming call.
+      final other = RiderTripCalls(api: FakeApi(), engine: FakeEngine.new);
+      other.receive('t1', 'call_ringing', callOf('rider', 'ringing'));
+      expect(other.incoming.value, isNull);
+    },
+  );
 
   test('a failure says only "Call failed" (sv, fr, en)', () async {
     final failing = TripCallSession.outgoing(

@@ -368,9 +368,9 @@ S["Message"] = obj({"messageId": ref("Id"), "tripId": ref("Id"), "from": s(enum=
                     "text": s(minLength=1, maxLength=2000), "at": ref("Timestamp")},
                    ["messageId", "tripId", "from", "text", "at"],
                    "A trip chat message. v0.13.0 (CONTRACT.md §23): kept 90 days (longer when the trip has a safety case); never carries a phone number.")
-S["TripCall"] = obj({"tripId": ref("Id"), "proxyNumber": s("v0.13.0: the masked number to dial (E.164); the provider bridges to the other side.", pattern=r"^\+[1-9][0-9]{6,14}$"),
-                     "expiresAt": ref("Timestamp")}, ["tripId", "proxyNumber", "expiresAt"],
-                    "v0.13.0: a masked call between the trip's rider and driver (contract.json#chat.call).")
+S["TripCall"] = obj({"tripId": ref("Id"), "proxyNumber": s("v0.13.0: the masked number to dial (E.164); the provider bridges to the other side. v0.18.38: mode phone only.", pattern=r"^\+[1-9][0-9]{6,14}$"),
+                     "expiresAt": ref("Timestamp")}, ["tripId", "expiresAt"],
+                    "v0.13.0: a masked call between the trip's rider and driver (contract.json#chat.call). v0.18.38 §62: " + C["inAppCalls"]["start"] + " " + C["inAppCalls"]["phoneMode"])
 S["SavedPlace"] = obj({"placeId": ref("Id"), "label": s(minLength=1, maxLength=80), "kind": s(enum=["home", "work", "other"]),
                        "place": ref("Place")}, ["placeId", "label", "kind", "place"])
 S["SupportTicket"] = obj({"ticketId": ref("Id"), "tripId": ref("Id"), "openedBy": ref("Actor"), "riderId": ref("Id"),
@@ -1043,7 +1043,9 @@ S["ZoneSupply"] = obj(OrderedDict([("zoneId", ref("Id")), ("online", i(minimum=0
                       ["zoneId", "online", "free", "busy", "waiting", "level", "shortage"], "v0.18.4 (G3-D5): " + DS["note"])
 S["LiveDriverList"] = obj({"zoneSupply": arr(ref("ZoneSupply"), description="v0.18.4 (G3-D5): supply and demand per zone; the Dashboard's rows and shortage alert."),"items": arr(ref("LiveDriver")), "staleAfterSeconds": {**i(minimum=1), "default": LD["staleAfterSeconds"]}, "serverTime": ref("Timestamp"),
                            "ridersOnline": arr(ref("ZoneRidersOnline"), description="v0.18.4 (G3-R4): real riders online per zone of the admin, the Dashboard's 'Riders online'."),
-                           "ridersOnlineWindowSeconds": {**i(minimum=1), "default": C["driverHome"]["ridersOnline"]["windowSeconds"]}},
+                           "ridersOnlineWindowSeconds": {**i(minimum=1), "default": C["driverHome"]["ridersOnline"]["windowSeconds"]},
+                           "total": {**i(minimum=0), "description": "v0.18.34 §65: " + C["liveDriversPaging"]["total"]},
+                           "nextCursor": {"oneOf": [s(), {"type": "null"}], "description": "v0.18.34 §65: " + C["liveDriversPaging"]["paging"]}},
                           ["items", "staleAfterSeconds", "serverTime"], f"Drivers on the admin live map; the panel polls about every {LD['pollSeconds']} s.")
 S["TripTrace"] = obj({"tripId": ref("Id"), "fixes": arr(ref("GeoFix"), description="In time order."), "keptUntil": ref("Timestamp")}, ["tripId", "fixes"],
                      f"The trip's GPS trace; deleted {LD['traceKeepDays']} days after the trip (owner decision 11).")
@@ -1947,8 +1949,9 @@ op("put", "/admin/zones/{zoneId}/dispatch-control", "adminPutDispatchControl", "
    desc="CONTRACT.md §3.6. v0.7.2 (one admin is enough): pause, force a mode, resume and back to rules run at once (200) for every admin with dispatch.edit. "
         "Forcing a mode that is off → 400 invalid_request (mode_off). Running searches stop new offers while paused; a forced mode applies to new searches.")
 op("get", "/admin/live/drivers", "adminLiveDrivers", "Driver positions for the admin live map", ["admin"], "Admin · Dispatch",
-   params=ZF, ok=(200, "LiveDriverList"), permission="trips.read",
-   desc="Limited to the zones in the admin's scope. stale = no fix for staleAfterSeconds." + ZF_DESC)
+   params=ZF + [q("limit", i(minimum=1, maximum=1000), "v0.18.34 §65: page size; without it every driver in one answer."), q("cursor", s(minLength=1, maxLength=128), "v0.18.34 §65: the nextCursor of the page before.")],
+   ok=(200, "LiveDriverList"), permission="trips.read",
+   desc="Limited to the zones in the admin's scope. stale = no fix for staleAfterSeconds. v0.18.34 §65: " + C["liveDriversPaging"]["adminLiveCard"] + ZF_DESC)
 DDF = C["dispatchDriverFacts"]
 def _nn(desc, **kw): return {"oneOf": [n(**kw), {"type": "null"}], "description": desc}
 def _ni(desc, **kw): return {"oneOf": [i(**kw), {"type": "null"}], "description": desc}
@@ -2972,6 +2975,48 @@ S["CountryRules"]["properties"]["onTripOffers"] = obj({"minRouteDonePct": {**i(m
 S["TripProjection"]["properties"]["chain"] = obj({"queued": b("Still queued behind the driver's current trip (cancel free)."), "freeCancelAt": ref("Timestamp")}, ["queued"], "v0.18.33 (owner Q3 + Q5), all views: a trip a driver on a trip took next. " + ATR["onTripOffers"]["lateFreeCancel"])
 S["TripProjection"]["properties"]["nextAfterTripId"] = {"allOf": [ref("Id")], "description": "v0.18.33, driver and admin views: a live trip queued behind this driver's current trip (contract.json#afterTestRules.bookedNext.accept)."}
 S["RiderAppConfig"]["properties"]["wallet"] = obj({"usedFirst": {**b("The balance (one per currency, no conversion) pays first. v0.18.33: " + ATR["walletFirst"]["zone"]), "default": True}})
+
+# v0.18.38 §62 (fix job 8, contract.json#inAppCalls): in-app (WebRTC) calls between the trip's rider and driver.
+IC = C["inAppCalls"]
+ICD = C["configDefaults"]["calls"]
+ICR = IC["settings"]["ranges"]
+S["IceServer"] = obj({"urls": arr(s(), minItems=1), "username": s(), "credential": s()}, ["urls"], "v0.18.38: " + IC["ice"])
+S["TripCall"]["properties"]["mode"] = s("v0.18.38: in_app (WebRTC, default) or phone (proxyNumber).", enum=["in_app", "phone"])
+S["TripCall"]["properties"]["callId"] = {"allOf": [ref("Id")], "description": "v0.18.38, mode in_app."}
+S["TripCall"]["properties"]["ice"] = obj({"servers": arr(ref("IceServer")), "ttlSeconds": i(minimum=0)}, ["servers", "ttlSeconds"], "v0.18.38, mode in_app: " + IC["ice"])
+S["TripCall"]["properties"]["ringSeconds"] = i("v0.18.38, mode in_app.", minimum=ICR["ringSeconds"][0], maximum=ICR["ringSeconds"][1])
+S["TripCall"]["properties"]["maxCallMin"] = i("v0.18.38, mode in_app.", minimum=ICR["maxCallMin"][0], maximum=ICR["maxCallMin"][1])
+S["CallState"] = s("v0.18.38.", enum=["ringing", "answered", "ended", "missed"])
+S["CallView"] = obj({"callId": ref("Id"), "tripId": ref("Id"), "from": s(enum=IC["who"]), "to": s(enum=IC["who"]), "state": ref("CallState"),
+                     "startedAt": ref("Timestamp"), "answeredAt": nullable("Timestamp"), "endedAt": nullable("Timestamp"),
+                     "endedReason": {"oneOf": [s(enum=IC["endedReasons"]), {"type": "null"}]}, "seconds": i("Talk time (answered → ended); 0 when never answered.", minimum=0)},
+                    ["callId", "tripId", "from", "to", "state", "startedAt", "answeredAt", "endedAt", "endedReason", "seconds"], "v0.18.38: " + IC["noPhoneNumbers"])
+S["CallView"]["properties"]["ice"] = {"allOf": [S["TripCall"]["properties"]["ice"]], "description": "v0.18.38: on the answer of POST /calls/{callId}/answer only: the callee's ICE servers."}
+S["CallSignal"] = obj({"type": s(enum=["offer", "answer", "ice"]), "sdp": s(maxLength=20000), "candidate": obj({"candidate": s(maxLength=2000), "sdpMid": {"oneOf": [s(), {"type": "null"}]}, "sdpMLineIndex": {"oneOf": [i(minimum=0), {"type": "null"}]}}, ["candidate"])},
+                      ["type"], "v0.18.38: " + IC["signalling"])
+S["CallSignalEvent"] = obj({"callId": ref("Id"), "from": s(enum=IC["who"]), "type": s(enum=["offer", "answer", "ice"]), "sdp": s(), "candidate": S["CallSignal"]["properties"]["candidate"]}, ["callId", "from", "type"])
+S["CallEndRequest"] = obj({"reason": s(enum=["hangup", "declined", "failed"])}, ["reason"], "v0.18.38: " + IC["end"])
+S["CallLog"] = obj({"items": arr(ref("CallView"))}, ["items"], "v0.18.38: " + IC["adminLog"])
+S["RealtimeEvent"]["properties"]["call"] = {"allOf": [ref("CallView")], "description": "v0.18.38: on call_ringing, call_answered, call_ended, call_missed."}
+S["RealtimeEvent"]["properties"]["signal"] = {"allOf": [ref("CallSignalEvent")], "description": "v0.18.38: on call_signal."}
+S["CountryRules"]["properties"]["calls"] = obj({"on": {**b(IC["settings"]["off"]), "default": ICD["on"]},
+                                                "mode": {**s(IC["phoneMode"], enum=["in_app", "phone"]), "default": ICD["mode"]},
+                                                "callWindowAfterTripMin": {**i(IC["window"], minimum=ICR["callWindowAfterTripMin"][0], maximum=ICR["callWindowAfterTripMin"][1]), "default": ICD["callWindowAfterTripMin"]},
+                                                "ringSeconds": {**i(IC["missed"], minimum=ICR["ringSeconds"][0], maximum=ICR["ringSeconds"][1]), "default": ICD["ringSeconds"]},
+                                                "maxCallMin": {**i(minimum=ICR["maxCallMin"][0], maximum=ICR["maxCallMin"][1]), "default": ICD["maxCallMin"]},
+                                                "adminCallRoles": {**arr(s()), "default": ICD["adminCallRoles"]},
+                                                "phoneProvider": {**s(enum=["none", "twilio"]), "default": ICD["phoneProvider"]}}, [],
+                                               "v0.18.38 §62: " + IC["settings"]["where"])
+CID = [{"name": "callId", "in": "path", "required": True, "schema": ref("Id")}]
+op("post", "/calls/{callId}/signal", "callSignal", "Relay a WebRTC offer / answer / ICE candidate (emits call_signal)", ["rider", "driver"], "Notifications & messages",
+   params=CID, body="CallSignal", ok=(202, None), mutation=True, desc="v0.18.38: " + IC["signalling"] + " Not live: 409 invalid_transition, reason call_not_live.")
+op("post", "/calls/{callId}/answer", "callAnswer", "Answer a ringing call (emits call_answered)", ["rider", "driver"], "Notifications & messages",
+   params=CID, body="EmptyCommand", ok=(200, "CallView"), mutation=True, desc="v0.18.38: " + IC["answer"])
+op("post", "/calls/{callId}/end", "callEnd", "End, decline or report a failed call (emits call_ended)", ["rider", "driver"], "Notifications & messages",
+   params=CID, body="CallEndRequest", ok=(200, "CallView"), mutation=True, desc="v0.18.38: " + IC["end"])
+op("get", "/admin/trips/{tripId}/calls", "adminTripCalls", "The trip's call log (no audio, no numbers)", ["admin"], "Admin · Trips",
+   params=TID, ok=(200, "CallLog"), permission="trips.read", desc="v0.18.38: " + IC["adminLog"])
+PATHS["/trips/{tripId}/call"]["post"]["description"] = "v0.18.38 §62: " + IC["start"] + " " + IC["window"] + " " + IC["busy"] + " " + IC["settings"]["off"] + " " + IC["phoneMode"]
 
 def to_plain(x):
     if isinstance(x, dict): return {k: to_plain(v) for k, v in x.items()}

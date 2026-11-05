@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.33",
+  "version": "0.18.38",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -3654,6 +3654,15 @@
       "maxHoursPerDay": 12,
       "restMinutes": 30,
       "resetAfterOfflineHours": 6
+    },
+    "calls": {
+      "on": true,
+      "mode": "in_app",
+      "callWindowAfterTripMin": 60,
+      "ringSeconds": 30,
+      "maxCallMin": 15,
+      "adminCallRoles": [],
+      "phoneProvider": "none"
     }
   },
   "realtime": {
@@ -3684,12 +3693,22 @@
       "payment_updated",
       "rating_updated",
       "message",
-      "pickup_moved"
+      "pickup_moved",
+      "call_ringing",
+      "call_answered",
+      "call_signal",
+      "call_ended",
+      "call_missed"
     ],
     "afterTerminal": [
       "payment_updated",
       "rating_updated",
-      "message"
+      "message",
+      "call_ringing",
+      "call_answered",
+      "call_signal",
+      "call_ended",
+      "call_missed"
     ],
     "rules": [
       "reject sequence < 1 or blank tripId",
@@ -3699,7 +3718,8 @@
       "a location event never replaces the cached projection",
       "resync: GET /trips/{tripId} then GET /trips/{tripId}/events?after={sequence}",
       "v0.18.7: pickup_moved carries the projection like trip_projection (the pickup changed, version + 1); a location event may carry eta (TripEta) as well as etaSeconds",
-      "v0.18.9: a server ride check and its answers (TripProjection.rideCheck) go out as trip_projection events WITHOUT a version change, like the waiting alerts; a route change request and its answer (TripProjection.routeChange) are trip_projection events with version + 1. No new event kinds."
+      "v0.18.9: a server ride check and its answers (TripProjection.rideCheck) go out as trip_projection events WITHOUT a version change, like the waiting alerts; a route change request and its answer (TripProjection.routeChange) are trip_projection events with version + 1. No new event kinds.",
+      "v0.18.38 §62: call_ringing, call_answered, call_signal, call_ended and call_missed carry no projection and no version change; they pass the gate also after a terminal status (the call window runs callWindowAfterTripMin after drop-off)."
     ]
   },
   "fastDispatch": {
@@ -5085,7 +5105,8 @@
       "answer": "200 TripCall { tripId, proxyNumber, expiresAt }: dial proxyNumber; the telephony provider bridges to the other side without showing either real number.",
       "unavailable": "503 unavailable, reason call_unavailable, while no telephony provider is set up (the server default). The app then hides the call button or offers the chat.",
       "closed": "409 invalid_transition, reason chat_closed, outside the open statuses.",
-      "provider": "Number masking needs a telephony provider. The owner must pick one; the server reads its keys from the environment, never from git. Until then the provider is 'disabled'."
+      "provider": "Number masking needs a telephony provider. The owner must pick one; the server reads its keys from the environment, never from git. Until then the provider is 'disabled'.",
+      "v0.18.38": "Replaced by inAppCalls (§62): POST /trips/{tripId}/call answers TripCall with mode in_app (WebRTC through the server's signalling) by default; mode phone (proxyNumber) only when CountryRules.calls.mode is phone AND a telephony provider is configured. 503 call_unavailable is no longer the default answer."
     },
     "appStorage": {
       "note": "v0.18.5 (owner 2026-10-30: \"Never store messages between rider or driver in driver app or rider app !!!!!!' Only admin panel inside the ride details\"): the chat between rider and driver lives only during the trip.",
@@ -7758,5 +7779,111 @@
       "lateFreeCancel": "Owner Q5: a late current trip keeps the queued trip with this driver. From lateFreeCancelMin minutes (default 10) after accept, the rider of a chained trip may cancel free also after it started (trips.chained).",
       "serverSafety": "Rule 33: the queued trip starts in the same transaction as the driver's release, with its row locked (FOR UPDATE); a driver who still has a current trip is never released."
     }
+  },
+  "liveDriversPaging": {
+    "note": "v0.18.34 §65 (Rules plan/FIX-PLAN-RERUN-2026-11-05.md A8/A10, proven cause; owner 2026-11-05 'proven parts now'). Builds on v0.18.33 main. Additive; X-Api-Version stays 0.5; no migration. Rider and driver apps: no change.",
+    "paging": "GET /admin/live/drivers takes optional limit (1..1000) and cursor (the nextCursor of the page before). Items are then in driverId order, at most limit, and the answer carries nextCursor (null on the last page). Without limit every matching driver comes back in one answer (older panels), also with nextCursor null. Keyset paging, no server state: any server copy answers any page (rule 33).",
+    "total": "LiveDriverList.total: how many drivers not offline match the filters (zones, country, map box) over ALL pages, so the panel can show the number before every page has arrived.",
+    "counts": "zoneSupply and ridersOnline (when no map box is given) always count every matching driver, not only the page.",
+    "adminLiveCard": "The admin Dashboard's live card, live map and 'Drivers online now' tile are built from GET /admin/live/drivers pages ALONE (limit 500, every page). GET /admin/drivers only adds details (full name, car) when it has loaded; it never decides who is shown. While the first answer is loading the tile shows '…' (Loading); when the live read fails it shows 'Could not load, retrying' (sv 'Kunde inte laddas, försöker igen', fr 'Chargement impossible, nouvel essai'), never 0. Calls for the country the admin left are cancelled when the country changes."
+  },
+  "inAppCalls": {
+    "note": "v0.18.38 §62 (fix job 8, Rules plan/FIX-JOBS-8-9-10-PLAN-2026-11-05.md; owner G15 2026-11-05: 'In-app calls only', 'Both rider and driver', \"Just 'Call failed'\"). Builds on v0.18.34 main. X-Api-Version stays 0.5; additive; server migration 0085 (trip_calls).",
+    "who": [
+      "rider",
+      "driver"
+    ],
+    "start": "POST /trips/{tripId}/call (no body, Idempotency-Key) by the trip's rider or driver → 200 TripCall { tripId, mode:'in_app', callId, ice { servers, ttlSeconds }, ringSeconds, maxCallMin, expiresAt }. The server keeps a trip_calls row (state ringing) and sends call_ringing on the trip stream; the callee's app shows the incoming-call sheet.",
+    "window": "Open from driver assignment (tripStatus.driverAssigned) until callWindowAfterTripMin (default 60) minutes after the trip ended as completed (trips.ended_at). Outside it: 409 invalid_transition, reason call_window_closed. A cancelled trip has no window after it. The apps show the call button only inside the window.",
+    "signalling": "POST /calls/{callId}/signal { type: offer|answer|ice, sdp?, candidate? } by the call's caller or callee → 202; the server relays it as call_signal on the trip stream (from = the sender's side). Media goes peer to peer (or through the TURN server); the server never sees audio and stores none.",
+    "answer": "POST /calls/{callId}/answer by the callee while ringing → 200 CallView (state answered) with ice { servers, ttlSeconds } (the callee's STUN/TURN servers), event call_answered.",
+    "end": "POST /calls/{callId}/end { reason: hangup|declined|failed } by either side → 200 CallView (state ended), event call_ended. A second end is answered with the same CallView (idempotent).",
+    "missed": "A ringing call not answered after ringSeconds is ended by the server (timer in the database, any server copy runs it): state missed, event call_missed. An answered call is ended at maxCallMin with reason max_length.",
+    "busy": "One live call (ringing or answered) per trip: a second POST /trips/{tripId}/call is 409 invalid_transition, reason call_busy, details [the live callId].",
+    "endedReasons": [
+      "hangup",
+      "declined",
+      "failed",
+      "missed",
+      "max_length",
+      "trip_cancelled"
+    ],
+    "noPhoneNumbers": "No call payload (TripCall in_app, CallView, call_* events, admin call log) ever carries a phone number. In mode in_app no number is used at all.",
+    "phoneMode": "CountryRules.calls.mode phone + a configured provider (phoneProvider, keys only in the server environment) → TripCall { tripId, mode:'phone', proxyNumber, expiresAt } as before (v0.13.0). Mode phone without a provider falls back to in_app. Owner G15: in-app calls only until a phone company is chosen.",
+    "ice": "ice.servers come from the server environment (STUN/TURN URLs; TURN gets time-limited credentials from a shared secret, valid ttlSeconds). No server state: any copy answers (rule 33).",
+    "settings": {
+      "where": "Admin › Pricing › Tips & limits per country › Calls (CountryRules.calls of the country standard; a zone's own country_rules may set them), saved with Save tips & limits: Calls on, Mode (In the app / Phone — phone needs a phone company), Call window after the trip (min), Ring time (s), Longest call (min). adminCallRoles stays empty: Admin Call is 'coming soon' until a phone provider is set (G9 Q6).",
+      "ranges": {
+        "callWindowAfterTripMin": [
+          0,
+          240
+        ],
+        "ringSeconds": [
+          10,
+          120
+        ],
+        "maxCallMin": [
+          1,
+          60
+        ]
+      },
+      "off": "calls.on false → POST /trips/{tripId}/call is 403 forbidden, reason calls_off; the apps hide the call button."
+    },
+    "adminLog": "GET /admin/trips/{tripId}/calls (trips.read, trip in the admin's zones) → { items: [CallLogItem { callId, from, to, state, startedAt, answeredAt, endedAt, endedReason, seconds }] }, newest first. Shown in Admin › Trip details › Calls. No audio, no numbers.",
+    "apps": "Driver and rider: the call button opens the in-app call screen (Calling…, mute, speaker, end); an incoming call_ringing opens the incoming-call sheet (Answer / Decline). When the call cannot start or the connection fails the screen shows only 'Call failed' (owner G15) and closes. Button hidden outside the window.",
+    "errors": [
+      "call_window_closed",
+      "calls_off",
+      "call_busy",
+      "call_not_live"
+    ],
+    "texts": {
+      "call": {
+        "sv": "Ring",
+        "fr": "Appeler",
+        "en": "Call"
+      },
+      "calling": {
+        "sv": "Ringer…",
+        "fr": "Appel en cours…",
+        "en": "Calling…"
+      },
+      "incoming": {
+        "sv": "Inkommande samtal",
+        "fr": "Appel entrant",
+        "en": "Incoming call"
+      },
+      "answer": {
+        "sv": "Svara",
+        "fr": "Répondre",
+        "en": "Answer"
+      },
+      "decline": {
+        "sv": "Avvisa",
+        "fr": "Refuser",
+        "en": "Decline"
+      },
+      "end": {
+        "sv": "Avsluta",
+        "fr": "Raccrocher",
+        "en": "End"
+      },
+      "mute": {
+        "sv": "Ljud av",
+        "fr": "Muet",
+        "en": "Mute"
+      },
+      "speaker": {
+        "sv": "Högtalare",
+        "fr": "Haut-parleur",
+        "en": "Speaker"
+      },
+      "callFailed": {
+        "sv": "Samtalet misslyckades",
+        "fr": "L'appel a échoué",
+        "en": "Call failed"
+      }
+    },
+    "serverSafety": "Rule 33: every call state lives in trip_calls (Postgres); start/answer/end lock the row (FOR UPDATE); the ring timeout and the length limit are database timers; signals go out as trip events (database sequence). No call state in one server copy's memory."
   }
 }

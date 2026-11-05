@@ -1,0 +1,13 @@
+{
+  "callFailed": "L'appel a échoué",
+  "callCalling": "Appel en cours…",
+  "callConnecting": "Connexion…",
+  "callConnected": "En communication",
+  "callIncomingFromDriver": "Votre chauffeur appelle",
+  "callAnswer": "Répondre",
+  "callDecline": "Refuser",
+  "callEnd": "Raccrocher",
+  "callMute": "Muet",
+  "callSpeaker": "Haut-parleur",
+  "callEnded": "Appel terminé"
+}

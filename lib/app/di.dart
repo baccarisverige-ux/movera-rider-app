@@ -1,3 +1,5 @@
+import 'package:movera_rider/core/realtime/call_events.dart';
+import 'package:movera_rider/features/calls/application/rider_trip_calls.dart';
 import 'package:movera_rider/core/config/api_rider_config_repository.dart';
 import 'package:movera_rider/core/config/rider_zones_controller.dart';
 import 'package:movera_rider/app/legal_country.dart';
@@ -501,8 +503,17 @@ class AppScope {
   /// Contract v0.13.0 §22: masked calls (`POST /trips/{tripId}/call`) on
   /// the live wire; the demo has none and says calls are not available.
   late final TripCallTransport? tripCall = api.contractWire
-      ? ApiTripCall(api: api)
+      ? _withCalls(ApiTripCall(api: api))
       : null;
+
+  /// v0.18.38 §62 (fix job 8): the in-app calls hub on the live wire.
+  static ApiTripCall _withCalls(ApiTripCall transport) {
+    // The trip stream's call events go to the hub; app.dart opens the call
+    // screen for a driver's call (owner G15: both sides call).
+    final hub = RiderTripCalls.instance ??= RiderTripCalls(api: transport);
+    RideCallEvents.sink = hub.receive;
+    return transport;
+  }
 
   /// The in-app explanation in front of the OS notification prompt.
   late final PushPermissionGate pushPermission = PushPermissionGate(
