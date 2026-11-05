@@ -1,0 +1,23 @@
+name: Maps key check
+on:
+  push:
+    branches: [check/maps-key]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the Android Maps key (the key itself is never printed)
+        env:
+          KEY: ${{ secrets.ANDROID_MAPS_API_KEY }}
+        run: |
+          set -u
+          if [ -z "${KEY:-}" ]; then echo "RESULT: secret ANDROID_MAPS_API_KEY is EMPTY"; exit 1; fi
+          echo "length: ${#KEY}"
+          echo "starts like a Google key (AIza): $([ "${KEY:0:4}" = "AIza" ] && echo yes || echo NO)"
+          echo "spaces or newlines inside: $(printf '%s' "$KEY" | grep -q '[[:space:]]' && echo YES-BAD || echo no)"
+          echo "fingerprint (sha256, first 10): $(printf '%s' "$KEY" | sha256sum | cut -c1-10)"
+          resp=$(curl -s "https://maps.googleapis.com/maps/api/geocode/json?address=Stockholm&key=$KEY")
+          echo "google status: $(printf '%s' "$resp" | jq -r .status)"
+          echo "google message: $(printf '%s' "$resp" | jq -r '.error_message // "none"')"
