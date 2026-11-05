@@ -256,7 +256,8 @@ class RideSelectionController {
   double walletBalance = 0;
 
   /// "Use wallet balance first": the balance is taken off the fare before
-  /// the chosen method pays the rest. On by default.
+  /// the chosen method pays the rest. Owner Q6 (fix job 5, v0.18.33): a
+  /// switch per ride that starts ON every time; sent as `walletFirst`.
   bool useWalletFirst = true;
 
   /// The part of [priceKr] the wallet covers for the current payment
@@ -286,13 +287,11 @@ class RideSelectionController {
   /// worked out in minor units so the parts always add up to the total.
   /// None until the balance of this trip's currency is known (Q8).
   ///
-  /// rider-r4-31: none for Book for later either: a reservation carries
-  /// only its price and method, so a split shown there is never applied.
+  /// Fix job 5 (contract v0.18.33, owner Q6): Book for later shows it too:
+  /// the booked ride now carries `walletFirst` and the server reserves the
+  /// wallet part at booking (before, rider-r4-31, it was never applied).
   WalletSplit walletSplitFor(int totalMinor) {
-    if (!useWalletFirst ||
-        !_flags.enableWallet ||
-        !walletMatchesTrip ||
-        createsReservation) {
+    if (!useWalletFirst || !_flags.enableWallet || !walletMatchesTrip) {
       return WalletSplit.none(totalMinor, currency);
     }
     if (selectedPaymentItem()?.brand == 'wallet') {

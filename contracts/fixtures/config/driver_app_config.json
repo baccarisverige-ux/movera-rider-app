@@ -201,7 +201,7 @@
     "driverSharePct": 100,
     "earlyEnd": {
       "repriceOverKm": 2,
-      "repriceOverMin": 8
+      "repriceOverMin": 10
     }
   },
   "waiting": {

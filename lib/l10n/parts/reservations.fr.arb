@@ -115,5 +115,6 @@
   "resErrChangeTooLate": "À moins de {minutes} minutes de la prise en charge, la course ne peut plus être modifiée. Votre course n'a pas changé.",
   "resErrZoneOff": "Pas encore disponible dans cette zone",
   "bookingFreeRule": "Modification et annulation gratuites plus de {time} avant la prise en charge",
-  "scheduleForLaterChip": "Réserver une course pour plus tard"
+  "scheduleForLaterChip": "Réserver une course pour plus tard",
+  "bookedDriverOnTheWay": "Votre chauffeur réservé est en route"
 }

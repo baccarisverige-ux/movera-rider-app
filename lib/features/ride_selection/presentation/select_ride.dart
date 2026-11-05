@@ -925,7 +925,6 @@ class _SelectRideState extends State<SelectRide>
       onWalletFirstChanged: (value) {
         if (!mounted) return;
         setState(() => _selection.useWalletFirst = value);
-        unawaited(_saveWalletFirst(value));
       },
     );
     if (brand == null || !mounted) return;
@@ -970,10 +969,10 @@ class _SelectRideState extends State<SelectRide>
         _selection.currency,
       );
       final balance = await wallet.loadBalance();
-      final walletFirst = await wallet.loadUseWalletFirst();
       if (!mounted) return;
+      // Fix job 5 (owner Q6 "Switch per ride, starts ON"): every ride starts
+      // with the wallet on; the rider's switch is for this ride only.
       setState(() {
-        _selection.useWalletFirst = walletFirst;
         _selection.walletCurrency = wallet.currency;
         _selection.setWalletBalance(balance);
       });
@@ -982,16 +981,6 @@ class _SelectRideState extends State<SelectRide>
         'select_ride.wallet_load_failed',
         extra: {'error': '$error'},
       );
-    }
-  }
-
-  Future<void> _saveWalletFirst(bool value) async {
-    final saved = await AppScope.instance.walletController.saveUseWalletFirst(
-      value,
-    );
-    // CODE-16: a toggle that was not saved must not keep showing the change.
-    if (!saved && mounted && _selection.useWalletFirst == value) {
-      setState(() => _selection.useWalletFirst = !value);
     }
   }
 

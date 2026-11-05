@@ -694,7 +694,13 @@ if c['zonePaymentMethods']['values'] != ['cash', 'card', 'apple_pay'] or _fi['pa
 for _d in (rcfg, dcfg):
     if not set(_d['paymentMethods']) <= set(c['zonePaymentMethods']['values']): bad += 1; print('FIXTURE payment methods')
 if [t['amountMinor'] for t in c['configDefaults']['countries']['SE']['tips']] != [1000, 2000, 3000] or [t['amountMinor'] for t in c['configDefaults']['countries']['FR']['tips']] != [100, 200, 500]: bad += 1; print('TIP defaults SE 10/20/30 kr, FR 1/2/5 EUR')
-if c['configDefaults']['earlyEnd'] != {'repriceOverKm': 2, 'repriceOverMin': 8} or dcfg['cancelFees']['earlyEnd'] != c['configDefaults']['earlyEnd']: bad += 1; print('EARLY END defaults (owner G8 Q2: 2 km / 8 min)')
+if c['configDefaults']['earlyEnd'] != {'repriceOverKm': 2, 'repriceOverMin': 10} or dcfg['cancelFees']['earlyEnd'] != c['configDefaults']['earlyEnd']: bad += 1; print('EARLY END defaults (owner G8 Q2 2 km; v0.18.33 owner fix-plan Q1: 10 min)')
+# v0.18.33 (fix job 5): re-price only when BOTH limits are passed; booked next defaults; wallet first per ride.
+def _repriced(short_km, short_min, lim=c['configDefaults']['earlyEnd']): return short_km > lim['repriceOverKm'] and short_min > lim['repriceOverMin']
+if _repriced(3, 5) or not _repriced(3, 12) or _repriced(1, 30): bad += 1; print('EARLY END rule is BOTH (3 km/5 min no, 3 km/12 min yes)')
+if c['configDefaults']['dispatch']['zone'].get('bookedNext') != {'on': True, 'withinMin': 60}: bad += 1; print('BOOKED NEXT defaults on / 60 min (owner Q7)')
+if set(c['afterTestRules']) != {'note', 'earlyEnd', 'bookedCancel', 'bookedNext', 'walletFirst', 'onTripOffers'}: bad += 1; print('afterTestRules sections')
+if c['configDefaults'].get('onTripOffers') != {'minRouteDonePct': 70, 'lateFreeCancelMin': 10}: bad += 1; print('ON-TRIP OFFERS default 70 % of the route (owner 2026-11-05)')
 for _k, (_lo, _hi) in _fi['earlyEnd']['settings']['ranges'].items():
     if not (_lo <= c['configDefaults']['earlyEnd'][_k] <= _hi): bad += 1; print('EARLY END range', _k)
 if _fi['paymentMethods']['texts']['cash'] != {'sv': 'Betala i bilen', 'fr': 'Payer dans la voiture', 'en': 'Pay in car'}: bad += 1; print('CASH label (owner G8 item 2)')

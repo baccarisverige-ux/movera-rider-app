@@ -1043,7 +1043,9 @@ S["ZoneSupply"] = obj(OrderedDict([("zoneId", ref("Id")), ("online", i(minimum=0
                       ["zoneId", "online", "free", "busy", "waiting", "level", "shortage"], "v0.18.4 (G3-D5): " + DS["note"])
 S["LiveDriverList"] = obj({"zoneSupply": arr(ref("ZoneSupply"), description="v0.18.4 (G3-D5): supply and demand per zone; the Dashboard's rows and shortage alert."),"items": arr(ref("LiveDriver")), "staleAfterSeconds": {**i(minimum=1), "default": LD["staleAfterSeconds"]}, "serverTime": ref("Timestamp"),
                            "ridersOnline": arr(ref("ZoneRidersOnline"), description="v0.18.4 (G3-R4): real riders online per zone of the admin, the Dashboard's 'Riders online'."),
-                           "ridersOnlineWindowSeconds": {**i(minimum=1), "default": C["driverHome"]["ridersOnline"]["windowSeconds"]}},
+                           "ridersOnlineWindowSeconds": {**i(minimum=1), "default": C["driverHome"]["ridersOnline"]["windowSeconds"]},
+                           "total": {**i(minimum=0), "description": "v0.18.34 §65: " + C["liveDriversPaging"]["total"]},
+                           "nextCursor": {"oneOf": [s(), {"type": "null"}], "description": "v0.18.34 §65: " + C["liveDriversPaging"]["paging"]}},
                           ["items", "staleAfterSeconds", "serverTime"], f"Drivers on the admin live map; the panel polls about every {LD['pollSeconds']} s.")
 S["TripTrace"] = obj({"tripId": ref("Id"), "fixes": arr(ref("GeoFix"), description="In time order."), "keptUntil": ref("Timestamp")}, ["tripId", "fixes"],
                      f"The trip's GPS trace; deleted {LD['traceKeepDays']} days after the trip (owner decision 11).")
@@ -1091,6 +1093,11 @@ S["ConfigEvent"] = obj({"eventId": ref("Id"), "kind": s(const="config_published"
                         "occurredAt": ref("Timestamp"), "serverTime": ref("Timestamp")},
                        ["eventId", "kind", "doc", "zoneId", "version", "publishedAt", "occurredAt", "serverTime"],
                        "Apps re-fetch the config document on this event.")
+S["RiderTripEvent"] = obj({"eventId": ref("Id"), "kind": s(const="rider_trip_changed"), "tripId": ref("Id"),
+                           "occurredAt": ref("Timestamp"), "serverTime": ref("Timestamp")},
+                          ["eventId", "kind", "tripId", "occurredAt", "serverTime"],
+                          "v0.18.32 (contract.json#bookedRideSeen.riderTripEvent, P21): a trip of this rider changed (made, accepted, any status), "
+                          "also when made elsewhere. The rider app reads GET /rider/trips/active again.")
 
 # --- error
 S["Error"] = obj({"code": ref("ErrorCode"), "message": s(), "requestId": s(), "retryable": b(),
@@ -1446,8 +1453,9 @@ op("post", "/trips/{tripId}/rating", "rateTrip", "Rate the other party (and opti
 op("get", "/rider/trips", "listRiderTrips", "Rider trip history and reservations", ["rider"], "Rider · Booking",
    params=[pref("Cursor"), pref("Limit"), q("status", ref("TripStatus"), multi=True), q("kind", ref("TripKind")), pref("From"), pref("To")],
    ok=(200, "TripProjectionPage"))
-op("get", "/rider/trips/active", "getRiderActiveTrip", "The rider's current non-terminal live trip", ["rider"], "Rider · Booking",
-   ok=(200, TP), desc="204 when there is none.")
+op("get", "/rider/trips/active", "getRiderActiveTrip", "The rider's current non-terminal live trip, else a booked trip whose driver started driving", ["rider"], "Rider · Booking",
+   ok=(200, TP), desc="204 when there is none. v0.18.32 (contract.json#bookedRideSeen): a booked trip (kind scheduled) is returned once it reached driver_to_pickup, "
+                      "until it ends; a live trip wins when both are active (owner Q1, the app shows a banner for the booked one).")
 PATHS["/rider/trips/active"]["get"]["responses"]["204"] = {"description": "No active trip", "headers": HDR_REQ}
 op("get", "/rider/nearby-vehicles", "getRiderNearbyVehicles", "Free cars near a point, for the rider's map", ["rider"], "Rider · Booking",
    params=[{**q("lat", n(minimum=-90, maximum=90)), "required": True}, {**q("lng", n(minimum=-180, maximum=180)), "required": True}],
@@ -1458,7 +1466,7 @@ op("get", "/rider/nearby-vehicles", "getRiderNearbyVehicles", "Free cars near a 
 op("get", "/rider/config", "getRiderConfig", "Published RiderAppConfig for a zone", ["rider"], "Config",
    params=[pref("ZoneIdQuery")], ok=(200, "RiderAppConfig"))
 op("get", "/rider/config/stream", "streamRiderConfig", "config_published events for the rider document", ["rider"], "Realtime",
-   params=[pref("ZoneIdQuery")], content=sse("Server-sent events.", "ConfigEvent"))
+   params=[pref("ZoneIdQuery")], content=sse("Server-sent events. v0.18.32: also RiderTripEvent (kind rider_trip_changed) for the signed-in rider's trips, id = the document version already sent.", "ConfigEvent"))
 op("get", "/rider/profile", "getRiderProfile", "Get own rider profile", ["rider"], "Rider · Account", ok=(200, "Rider"))
 op("patch", "/rider/profile", "updateRiderProfile", "Update own rider profile", ["rider"], "Rider · Account",
    body="RiderProfileUpdate", ok=(200, "Rider"), mutation=True)
@@ -1941,8 +1949,9 @@ op("put", "/admin/zones/{zoneId}/dispatch-control", "adminPutDispatchControl", "
    desc="CONTRACT.md §3.6. v0.7.2 (one admin is enough): pause, force a mode, resume and back to rules run at once (200) for every admin with dispatch.edit. "
         "Forcing a mode that is off → 400 invalid_request (mode_off). Running searches stop new offers while paused; a forced mode applies to new searches.")
 op("get", "/admin/live/drivers", "adminLiveDrivers", "Driver positions for the admin live map", ["admin"], "Admin · Dispatch",
-   params=ZF, ok=(200, "LiveDriverList"), permission="trips.read",
-   desc="Limited to the zones in the admin's scope. stale = no fix for staleAfterSeconds." + ZF_DESC)
+   params=ZF + [q("limit", i(minimum=1, maximum=1000), "v0.18.34 §65: page size; without it every driver in one answer."), q("cursor", s(minLength=1, maxLength=128), "v0.18.34 §65: the nextCursor of the page before.")],
+   ok=(200, "LiveDriverList"), permission="trips.read",
+   desc="Limited to the zones in the admin's scope. stale = no fix for staleAfterSeconds. v0.18.34 §65: " + C["liveDriversPaging"]["adminLiveCard"] + ZF_DESC)
 DDF = C["dispatchDriverFacts"]
 def _nn(desc, **kw): return {"oneOf": [n(**kw), {"type": "null"}], "description": desc}
 def _ni(desc, **kw): return {"oneOf": [i(**kw), {"type": "null"}], "description": desc}
@@ -2756,6 +2765,7 @@ S["DriverReservation"] = obj(OrderedDict([("tripId", ref("Id")), ("version", i(m
                               ("pickup", ref("Place")), ("dropoff", ref("Place")), ("stops", i(minimum=0)), ("distanceMeters", i(minimum=0)), ("durationSeconds", i(minimum=0)),
                               ("earnings", ref("Money")), ("status", ref("TripStatus")), ("mustBeOnlineAt", ref("Timestamp")), ("canStartAt", ref("Timestamp")),
                               ("popup", b("The Home popup step was reached (reservation_popup sent).")),
+                              ("riderFirstName", s(description="v0.18.32 (contract.json#bookedRideSeen.leaveNowName): scope=accepted only, the rider's first name for the leave-now popup.")),
                               ("reservation", {"allOf": [ref("ReservationInfo")], "description": "v0.18.19 (live test HIGH 2): the same reservation as the trip read, so the list knows changeAsk (Keep it at the new time?) and leaveAt."})]),
                              ["tripId", "version", "scheduledAt", "categoryId", "rideType", "pickup", "dropoff", "earnings", "status", "mustBeOnlineAt", "canStartAt"], "v0.18.17: one booked ride in the driver's lists.")
 S["DriverReservationPage"] = obj({"items": arr(ref("DriverReservation")), "nextCursor": {"oneOf": [s(), {"type": "null"}]}}, ["items", "nextCursor"], "v0.18.17.")
@@ -2951,6 +2961,20 @@ op("get", "/rider/emergency-contacts", "getRiderEmergencyContacts", "Own emergen
    ok=(200, "EmergencyContactList"), desc="v0.18.26: " + REC["note"] + " " + REC["routes"] + " " + PDS["privacy"])
 op("put", "/rider/emergency-contacts", "putRiderEmergencyContacts", "Save own emergency contacts", ["rider"], "Rider · Account",
    body="EmergencyContactListUpdate", ok=(200, "EmergencyContactList"), mutation=True, desc="v0.18.26: " + REC["routes"])
+
+# v0.18.33 (fix job 5, contract.json#afterTestRules): booked ride next for an on-trip driver; wallet first per ride.
+ATR = C["afterTestRules"]
+S["DispatchDocument"]["properties"]["bookedNext"] = obj({"on": {**b(), "default": C["configDefaults"]["dispatch"]["zone"]["bookedNext"]["on"]},
+                                                         "withinMin": {**i(minimum=0, maximum=240), "default": C["configDefaults"]["dispatch"]["zone"]["bookedNext"]["withinMin"]}},
+                                                        ["on", "withinMin"], "v0.18.33: " + ATR["bookedNext"]["rule"] + " " + ATR["bookedNext"]["settings"])
+S["CreateTripRequest"]["properties"]["walletFirst"] = {**b("v0.18.33: " + ATR["walletFirst"]["rule"]), "default": True}
+S["TripProjection"]["properties"]["walletFirst"] = b("v0.18.33: " + ATR["walletFirst"]["projection"])
+S["CountryRules"]["properties"]["onTripOffers"] = obj({"minRouteDonePct": {**i(minimum=0, maximum=100), "default": C["configDefaults"]["onTripOffers"]["minRouteDonePct"]},
+                                                       "lateFreeCancelMin": {**i(ATR["onTripOffers"]["lateFreeCancel"], minimum=0, maximum=120), "default": C["configDefaults"]["onTripOffers"]["lateFreeCancelMin"]}}, ["minRouteDonePct"],
+                                                       "v0.18.33: " + ATR["bookedNext"]["rule"] + " " + ATR["onTripOffers"]["settings"])
+S["TripProjection"]["properties"]["chain"] = obj({"queued": b("Still queued behind the driver's current trip (cancel free)."), "freeCancelAt": ref("Timestamp")}, ["queued"], "v0.18.33 (owner Q3 + Q5), all views: a trip a driver on a trip took next. " + ATR["onTripOffers"]["lateFreeCancel"])
+S["TripProjection"]["properties"]["nextAfterTripId"] = {"allOf": [ref("Id")], "description": "v0.18.33, driver and admin views: a live trip queued behind this driver's current trip (contract.json#afterTestRules.bookedNext.accept)."}
+S["RiderAppConfig"]["properties"]["wallet"] = obj({"usedFirst": {**b("The balance (one per currency, no conversion) pays first. v0.18.33: " + ATR["walletFirst"]["zone"]), "default": True}})
 
 def to_plain(x):
     if isinstance(x, dict): return {k: to_plain(v) for k, v in x.items()}

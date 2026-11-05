@@ -90,6 +90,10 @@
     "on": true,
     "count": 1
   },
+  "bookedNext": {
+    "on": true,
+    "withinMin": 60
+  },
   "waiting": [
     {
       "id": "w1",
