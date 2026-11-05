@@ -95,6 +95,7 @@ import 'package:movera_rider/features/support/application/support_controller.dar
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
+import 'package:movera_rider/core/preview/preview_mode.dart';
 
 class AppScope {
   AppScope._(this.environment)
@@ -104,7 +105,10 @@ class AppScope {
       markers = MarkerStore(),
       motion = MotionEngine(),
       ride = RideSession(),
-      tokens = SecureTokenStore(),
+      // Contract v0.18.25: an admin preview runs on its read-only token.
+      tokens = PreviewMode.current.active
+          ? PreviewTokenStore(PreviewMode.current.token!)
+          : SecureTokenStore(),
       realtime = RealtimeConnection(),
       wallet = WalletLedger(),
       lifecycle = AppLifecycleObserver(),

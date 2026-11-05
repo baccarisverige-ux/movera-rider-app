@@ -1658,5 +1658,7 @@
   "resErrZoneOff": "Inte tillgängligt i det här området än",
   "bookingFreeRule": "Gratis ändring och avbokning mer än {time} före upphämtning",
   "freeRuleHours": "{count, plural, =1{1 timme} other{{count} timmar}}",
-  "scheduleForLaterChip": "Boka en resa till senare"
+  "scheduleForLaterChip": "Boka en resa till senare",
+  "previewBanner": "Förhandsvisning",
+  "previewNotSent": "Förhandsvisning – inte skickat"
 }
