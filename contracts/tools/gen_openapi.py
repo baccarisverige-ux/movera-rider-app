@@ -196,6 +196,7 @@ S["Quote"] = obj(OrderedDict([
     ("expiresAt", ref("Timestamp")), ("pickup", ref("Place")), ("dropoff", ref("Place")), ("stops", arr(ref("Place"))),
     ("surgeMultiplier", n("The multiplier this quote was priced with; it stays with the quote (contract.json#surge).", minimum=1)),
     ("surge", ref("QuoteSurge")), ("etaSeconds", ref("DurationSeconds")),
+    ("pickupAt", {"description": "v0.18.32 (contract.json#smallFixes.quotePickupTime, owner Q8): the pickup time of a booked ride (kind scheduled); null on a live quote.", **nullable("Timestamp")}),
 ]), ["quoteId", "categoryId", "total", "fareLines", "expiresAt", "pickup", "dropoff", "stops"])
 S["RouteQuote"] = obj({"routeQuoteId": ref("Id"), "tripId": ref("Id"),
                        "total": {"allOf": [ref("Money")], "description": "Booked fare + the rider's offer raises + distance price of "
@@ -1133,7 +1134,10 @@ S["QuoteRequest"] = obj({"pickup": ref("Place"), "dropoff": ref("Place"), "stops
                          "categoryIds": arr(ref("CategoryId"), description="Omit for every category in the zone."),
                          "kind": ref("TripKind"), "scheduledAt": ref("Timestamp"), "paymentMethod": ref("PaymentMethod"), **PRICE_EXTRAS},
                         ["pickup", "dropoff", "stops"])
-S["QuoteList"] = obj({"quotes": arr(ref("Quote")), "zoneId": ref("Id"), "serverTime": ref("Timestamp")}, ["quotes", "zoneId"])
+S["QuoteWarning"] = obj({"reason": s(enum=["same_pickup_dropoff"]), "meters": i(minimum=0), "limitMeters": i(minimum=0)}, ["reason", "meters", "limitMeters"],
+                         "v0.18.32 (contract.json#smallFixes.samePoint, owner Q9): a warning only; the quote can still be booked.")
+S["QuoteList"] = obj({"quotes": arr(ref("Quote")), "zoneId": ref("Id"), "serverTime": ref("Timestamp"),
+                      "warnings": arr(ref("QuoteWarning"), description="v0.18.32: warnings for the rider (may be absent or empty).")}, ["quotes", "zoneId"])
 S["CreateTripRequest"] = obj({"quoteId": ref("Id"), "categoryId": ref("CategoryId"), "pickup": ref("Place"),
                               "dropoff": ref("Place"), "stops": arr(ref("Place")), "kind": ref("TripKind"),
                               "scheduledAt": ref("Timestamp"), "paymentMethod": ref("PaymentMethod"),
@@ -1934,6 +1938,21 @@ op("put", "/admin/zones/{zoneId}/dispatch-control", "adminPutDispatchControl", "
 op("get", "/admin/live/drivers", "adminLiveDrivers", "Driver positions for the admin live map", ["admin"], "Admin · Dispatch",
    params=ZF, ok=(200, "LiveDriverList"), permission="trips.read",
    desc="Limited to the zones in the admin's scope. stale = no fix for staleAfterSeconds." + ZF_DESC)
+DDF = C["dispatchDriverFacts"]
+def _nn(desc, **kw): return {"oneOf": [n(**kw), {"type": "null"}], "description": desc}
+def _ni(desc, **kw): return {"oneOf": [i(**kw), {"type": "null"}], "description": desc}
+S["DispatchDriverFacts"] = obj(OrderedDict([("driverId", ref("Id")), ("zoneId", ref("Id")), ("state", s(enum=["free", "trip"])),
+    ("rating", _nn(DDF["real"]["rating"], minimum=0, maximum=5)), ("acceptancePct", _nn(DDF["real"]["acceptancePct"], minimum=0, maximum=100)),
+    ("cancelPct", _nn(DDF["real"]["cancelPct"], minimum=0, maximum=100)), ("idleMin", _ni(DDF["real"]["idleMin"], minimum=0)),
+    ("categoryIds", arr(s(), description=DDF["real"]["categoryIds"])), ("missedInRow", i(DDF["real"]["missedInRow"], minimum=0)),
+    ("ridesThisHour", i(DDF["real"]["ridesThisHour"], minimum=0)), ("restNeeded", b(DDF["real"]["restNeeded"]))]
+    + [(k, {"type": "null", "description": DDF["notYetRule"]}) for k in DDF["notYet"]]),
+    required=["driverId", "zoneId", "state", "rating", "acceptancePct", "cancelPct", "idleMin", "categoryIds", "missedInRow", "ridesThisHour", "restNeeded"] + DDF["notYet"],
+    desc="v0.18.21 (contract.json#dispatchDriverFacts): what dispatch knows about one online driver.")
+S["DispatchDriverFactsList"] = obj({"zoneId": ref("Id"), "serverTime": ref("Timestamp"), "items": arr(ref("DispatchDriverFacts"))}, required=["zoneId", "serverTime", "items"])
+op("get", "/admin/zones/{zoneId}/driver-facts", "adminDispatchDriverFacts", "Real dispatch facts of the zone's online drivers", ["admin"], "Admin · Dispatch",
+   params=[pref("ZoneId")], ok=(200, "DispatchDriverFactsList"), permission="trips.read",
+   desc="v0.18.21 (contract.json#dispatchDriverFacts): " + DDF["who"] + " " + DDF["notYetRule"] + " A zone outside the admin's scope: 403 forbidden (zone_out_of_scope); unknown zone: 404.")
 op("get", "/admin/trips/{tripId}/trace", "adminTripTrace", "The trip's GPS trace", ["admin"], "Admin · Trips",
    params=TID, ok=(200, "TripTrace"), permission="trips.read", desc="Traces are deleted 30 days after the trip (owner decision 11): 404 after that.")
 
@@ -2329,6 +2348,8 @@ PW = C["pickupWaiting"]
 S["RiderWaiting"]["properties"]["cancelAfterArrivedIsNoShow"] = b("v0.18.7 (Q2): " + PW["servedConfig"]["cancelAfterArrivedIsNoShow"]["note"] + " Default " + str(PW["servedConfig"]["cancelAfterArrivedIsNoShow"]["default"]).lower() + ".")
 S["RiderAppConfig"]["properties"]["booking"]["properties"]["maxPickupMoveMeters"]["description"] += " v0.18.7: default 200, range 0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}."
 S["DriverAppConfig"]["properties"]["booking"]["properties"]["maxPickupMoveMeters"]["description"] += " v0.18.7: default 200, range 0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}."
+for _cfg in ("RiderAppConfig", "DriverAppConfig"):
+    S[_cfg]["properties"]["booking"]["properties"]["samePointWarnMeters"] = i("v0.18.32 (owner Q9, contract.json#smallFixes.samePoint): pickup ≈ drop-off warning under this many metres (straight line, no stops); a warning only, the rider can still book. Default 100, 0 = never warn. Admin Dispatch › Rides 'Shortest ride (m)'.", minimum=0, maximum=1000)
 S["RiderSummary"] = obj({"firstName": s(minLength=1), "rating": n("The rider's average (2 decimals); only while DriverAppConfig.offers.offerCard.riderRating is on and the rider has one.", minimum=0, maximum=5)},
                         ["firstName"], "v0.18.7 (Q1): " + PW["riderSummary"]["note"])
 S["TripTerms"] = obj(OrderedDict([
@@ -2797,6 +2818,20 @@ doc["components"] = OrderedDict([
     ("securitySchemes", {"bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT",
                                         "description": "Claims: sub, actor (rider|driver|admin), zoneIds, role, permissions."}}),
     ("parameters", PARAMS), ("responses", RESP), ("schemas", S)])
+
+# v0.18.22 admin live updates (CONTRACT.md §46, contract.json#adminLiveEvents): one admin event stream.
+ALE = C["adminLiveEvents"]
+S["AdminLiveEventType"] = s("v0.18.22: what changed; the panel reads the record again with the normal routes.", enum=list(ALE["types"].keys()))
+S["AdminLiveEvent"] = obj({"sequence": i(minimum=1), "type": ref("AdminLiveEventType"), "entityId": ref("Id"),
+                           "zoneId": {"oneOf": [ref("Id"), {"type": "null"}]}, "occurredAt": ref("Timestamp"), "serverTime": ref("Timestamp")},
+                          ALE["envelope"], ALE["note"])
+S["AdminLiveEventPage"] = obj({"items": arr(ref("AdminLiveEvent")), "nextCursor": {"type": ["string", "null"]}}, ["items", "nextCursor"])
+op("get", ALE["path"], "adminStreamEvents", "Admin live updates (what changed, in the admin's zones)", ["admin"], "Realtime",
+   params=[pref("ZoneIdQuery"), q("zoneIds", {"type": "string"}, "Several zones, comma separated (inside the admin's zones)."),
+           q("country", {"type": "string", "pattern": "^[A-Z]{2}$"}, "Every zone of that country the admin covers."),
+           pref("After"), pref("Limit"), pref("LastEventId")],
+   content=sse("Server-sent events. " + ALE["transport"] + " " + " ".join(ALE["scope"]) + " " + ALE["replay"], "AdminLiveEvent", "AdminLiveEventPage"),
+   permission=ALE["permission"])
 
 def to_plain(x):
     if isinstance(x, dict): return {k: to_plain(v) for k, v in x.items()}

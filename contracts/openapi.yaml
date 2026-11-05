@@ -1,11 +1,11 @@
-# Movera API v0.18.19 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.32 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.19
+  version: 0.18.32
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.19 in this folder; this file must agree with them.
+    v0.18.32 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -83,7 +83,7 @@ tags:
 - name: Driver · Home
 x-contract:
   name: movera
-  version: 0.18.19
+  version: 0.18.32
   source: contract.json
 paths:
   /auth/otp/request:
@@ -6315,7 +6315,9 @@ paths:
         name }] }. records: only alerts of the admin''s zones in that country whose kind group the admin may see (kindGroups);
         an alert without zone only for a Super admin. people: active admins with a zone in the same country (Super admins
         included). records holds the open ones and those done in the last 30 days. country: SE | FR | TN; an admin outside
-        the country -> 403 zone_out_of_scope.'
+        the country -> 403 zone_out_of_scope. v0.18.23: AlertBookState also carries alerts [LiveAlert] (serverDetection):
+        the alerts the server found, open or solved by itself, of the admin''s zones in that country and the groups the admin
+        may see (same filter as records).'
       tags:
       - Admin · Alerts
       x-actor:
@@ -10305,6 +10307,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LiveDriverList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/zones/{zoneId}/driver-facts:
+    get:
+      operationId: adminDispatchDriverFacts
+      summary: Real dispatch facts of the zone's online drivers
+      description: 'v0.18.21 (contract.json#dispatchDriverFacts): Drivers of the zone (zone_ids contains zoneId) with account
+        active and online status online (state free) or on_trip (state trip), nearest-first order is the admin''s job; items
+        are sorted by driverId. The server does not track these yet: they are always null. The admin shows a dash (—) and
+        never invents a value; alerts never fire on a null fact. A zone outside the admin''s scope: 403 forbidden (zone_out_of_scope);
+        unknown zone: 404.'
+      tags:
+      - Admin · Dispatch
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/ZoneId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DispatchDriverFactsList'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -15451,6 +15495,74 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/events:
+    get:
+      operationId: adminStreamEvents
+      summary: Admin live updates (what changed, in the admin's zones)
+      tags:
+      - Realtime
+      x-actor:
+      - admin
+      x-permission: overview.read
+      parameters:
+      - $ref: '#/components/parameters/ZoneIdQuery'
+      - name: zoneIds
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Several zones, comma separated (inside the admin's zones).
+      - name: country
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: ^[A-Z]{2}$
+        description: Every zone of that country the admin covers.
+      - $ref: '#/components/parameters/After'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/LastEventId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: 'Server-sent events. Accept: text/event-stream → SSE: `id:` is the sequence, `data:` one AdminLiveEvent,
+                  a heartbeat comment every 15 s. Without it: a JSON page AdminLiveEventPage of the events after `after` (polling
+                  fallback, same scope). An admin hears an event only for a zone he covers (token zones; ''*'' = all zones).
+                  An event with zoneId null (no zone) only reaches ''*'' admins — the same rule as the dispatch feed and the
+                  alert desk. Optional query zoneId / zoneIds / country narrows the stream inside the admin''s own zones (contract.json#adminListFilters
+                  rules: a named zone outside them is 403 zone_out_of_scope). An admin without a type''s permission never
+                  gets that type. Country managers (roles/zones job) are scoped by the same zone list; nothing on this stream
+                  changes when that job lands. `after` query or the Last-Event-ID header: the stream starts with every event
+                  after that sequence (in scope), then goes live. Events are kept retentionHours; an older cursor gets one
+                  `resync` event first, then live events. Each SSE `data:` line is one JSON AdminLiveEvent; `id:` is the sequence;
+                  heartbeat comments every 15 s.'
+              x-sse-data: '#/components/schemas/AdminLiveEvent'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLiveEventPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -17166,6 +17278,12 @@ components:
           $ref: '#/components/schemas/QuoteSurge'
         etaSeconds:
           $ref: '#/components/schemas/DurationSeconds'
+        pickupAt:
+          description: 'v0.18.32 (contract.json#smallFixes.quotePickupTime, owner Q8): the pickup time of a booked ride (kind
+            scheduled); null on a live quote.'
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
     RouteQuote:
       type: object
       description: 'Price for a route change after request; apply with PATCH /trips/{tripId}. Priced from the booking (owner
@@ -18812,7 +18930,9 @@ components:
         name }] }. records: only alerts of the admin''s zones in that country whose kind group the admin may see (kindGroups);
         an alert without zone only for a Super admin. people: active admins with a zone in the same country (Super admins
         included). records holds the open ones and those done in the last 30 days. country: SE | FR | TN; an admin outside
-        the country -> 403 zone_out_of_scope.'
+        the country -> 403 zone_out_of_scope. v0.18.23: AlertBookState also carries alerts [LiveAlert] (serverDetection):
+        the alerts the server found, open or solved by itself, of the admin''s zones in that country and the groups the admin
+        may see (same filter as records).'
       required:
       - country
       - rev
@@ -21659,6 +21779,13 @@ components:
               minimum: 0
               description: 'How far the rider may move the pickup after accept; further = cancel and rebook. v0.18.7: default
                 200, range 0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}.'
+            samePointWarnMeters:
+              type: integer
+              minimum: 0
+              maximum: 1000
+              description: 'v0.18.32 (owner Q9, contract.json#smallFixes.samePoint): pickup ≈ drop-off warning under this
+                many metres (straight line, no stops); a warning only, the rider can still book. Default 100, 0 = never warn.
+                Admin Dispatch › Rides ''Shortest ride (m)''.'
             minAheadMin:
               type: integer
               minimum: 5
@@ -21810,6 +21937,13 @@ components:
               minimum: 0
               description: 'Pickup move limit after accept; the driver is notified of a move. v0.18.7: default 200, range
                 0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}.'
+            samePointWarnMeters:
+              type: integer
+              minimum: 0
+              maximum: 1000
+              description: 'v0.18.32 (owner Q9, contract.json#smallFixes.samePoint): pickup ≈ drop-off warning under this
+                many metres (straight line, no stops); a warning only, the rider can still book. Default 100, 0 = never warn.
+                Admin Dispatch › Rides ''Shortest ride (m)''.'
         offers:
           type: object
           properties:
@@ -24076,7 +24210,7 @@ components:
             auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far,
             driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival,
             route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now,
-            pin_blocked, pin_trip_over, not_a_no_show.'
+            pin_blocked, pin_trip_over, not_a_no_show. v0.18.32 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons).'
         details:
           type: array
           items:
@@ -24536,6 +24670,24 @@ components:
           - $ref: '#/components/schemas/Id'
           description: 'v0.6.0: one of the zone''s fixed routes; for a route of the quoted category the fixed_route line replaces
             the ride part, otherwise the category is priced normally.'
+    QuoteWarning:
+      type: object
+      description: 'v0.18.32 (contract.json#smallFixes.samePoint, owner Q9): a warning only; the quote can still be booked.'
+      required:
+      - reason
+      - meters
+      - limitMeters
+      properties:
+        reason:
+          type: string
+          enum:
+          - same_pickup_dropoff
+        meters:
+          type: integer
+          minimum: 0
+        limitMeters:
+          type: integer
+          minimum: 0
     QuoteList:
       type: object
       required:
@@ -24550,6 +24702,11 @@ components:
           $ref: '#/components/schemas/Id'
         serverTime:
           $ref: '#/components/schemas/Timestamp'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuoteWarning'
+          description: 'v0.18.32: warnings for the rider (may be absent or empty).'
     CreateTripRequest:
       type: object
       description: 'Request a quoted trip. No expectedVersion: the trip does not exist yet; Idempotency-Key dedupes. v0.6.0:
@@ -25793,6 +25950,136 @@ components:
             minLength: 1
             maxLength: 40
           - type: 'null'
+    DispatchDriverFacts:
+      type: object
+      description: 'v0.18.21 (contract.json#dispatchDriverFacts): what dispatch knows about one online driver.'
+      required:
+      - driverId
+      - zoneId
+      - state
+      - rating
+      - acceptancePct
+      - cancelPct
+      - idleMin
+      - categoryIds
+      - missedInRow
+      - ridesThisHour
+      - restNeeded
+      - finishingInMin
+      - extras
+      - female
+      - skipsInRow
+      - favourite
+      - goingHome
+      - homeDirectionOk
+      - priorityUntilMin
+      - queuePos
+      properties:
+        driverId:
+          $ref: '#/components/schemas/Id'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        state:
+          type: string
+          enum:
+          - free
+          - trip
+        rating:
+          oneOf:
+          - type: number
+            minimum: 0
+            maximum: 5
+          - type: 'null'
+          description: Driver.performance.rating (contract.json#driverHome.performance; null below minRatings).
+        acceptancePct:
+          oneOf:
+          - type: number
+            minimum: 0
+            maximum: 100
+          - type: 'null'
+          description: Driver.performance.acceptancePct (null below minOffers).
+        cancelPct:
+          oneOf:
+          - type: number
+            minimum: 0
+            maximum: 100
+          - type: 'null'
+          description: Driver.performance.cancellationPct (null below minTrips).
+        idleMin:
+          oneOf:
+          - type: integer
+            minimum: 0
+          - type: 'null'
+          description: Whole minutes since the driver was last free (drivers.last_free_at, the §3.6 idle factor); null on
+            a trip or when unknown.
+        categoryIds:
+          type: array
+          items:
+            type: string
+          description: The categories the driver may take (Driver.categoryIds).
+        missedInRow:
+          type: integer
+          minimum: 0
+          description: Exclusive or assigned offers of live trips missed in a row since going online, counted exactly as contract.json#autoOffline
+            (an accept resets it).
+        ridesThisHour:
+          type: integer
+          minimum: 0
+          description: Trips of this driver that ended completed in the last 60 minutes.
+        restNeeded:
+          type: boolean
+          description: true when the driving-time limit is reached (contract.json#drivingLimits).
+        finishingInMin:
+          type: 'null'
+          description: 'The server does not track these yet: they are always null. The admin shows a dash (—) and never invents
+            a value; alerts never fire on a null fact.'
+        extras:
+          type: 'null'
+          description: 'The server does not track these yet: they are always null. The admin shows a dash (—) and never invents
+            a value; alerts never fire on a null fact.'
+        female:
+          type: 'null'
+          description: 'The server does not track these yet: they are always null. The admin shows a dash (—) and never invents
+            a value; alerts never fire on a null fact.'
+        skipsInRow:
+          type: 'null'
+          description: 'The server does not track these yet: they are always null. The admin shows a dash (—) and never invents
+            a value; alerts never fire on a null fact.'
+        favourite:
+          type: 'null'
+          description: 'The server does not track these yet: they are always null. The admin shows a dash (—) and never invents
+            a value; alerts never fire on a null fact.'
+        goingHome:
+          type: 'null'
+          description: 'The server does not track these yet: they are always null. The admin shows a dash (—) and never invents
+            a value; alerts never fire on a null fact.'
+        homeDirectionOk:
+          type: 'null'
+          description: 'The server does not track these yet: they are always null. The admin shows a dash (—) and never invents
+            a value; alerts never fire on a null fact.'
+        priorityUntilMin:
+          type: 'null'
+          description: 'The server does not track these yet: they are always null. The admin shows a dash (—) and never invents
+            a value; alerts never fire on a null fact.'
+        queuePos:
+          type: 'null'
+          description: 'The server does not track these yet: they are always null. The admin shows a dash (—) and never invents
+            a value; alerts never fire on a null fact.'
+    DispatchDriverFactsList:
+      type: object
+      required:
+      - zoneId
+      - serverTime
+      - items
+      properties:
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        serverTime:
+          $ref: '#/components/schemas/Timestamp'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DispatchDriverFacts'
     OnboardingDocumentLists:
       type: object
       description: 'v0.18.0 (owner item 10): the documents a person (driver), a company (fleet) and a car (vehicle) need in
@@ -30287,3 +30574,59 @@ components:
           type: integer
           minimum: 0
           maximum: 60
+    AdminLiveEventType:
+      type: string
+      enum:
+      - trip.changed
+      - driver.status
+      - zone.supply
+      - alert.changed
+      - ticket.changed
+      - incident.changed
+      - approval.changed
+      - payment.failed
+      - resync
+      description: 'v0.18.22: what changed; the panel reads the record again with the normal routes.'
+    AdminLiveEvent:
+      type: object
+      description: 'BASE job ''admin live updates'' (Rules plan/BASE-JOBS-SPEC-2026-11-04.md §3; owner L1 2026-11-04: a small
+        ''Reconnecting…'' badge, data still refreshes every minute). One admin stream instead of 15 s polling. An event only
+        says WHAT changed (type + id + zone); the admin panel then reads the record again with the normal list/detail routes
+        and their permissions. No names, money or text on the stream.'
+      required:
+      - sequence
+      - type
+      - entityId
+      - zoneId
+      - occurredAt
+      - serverTime
+      properties:
+        sequence:
+          type: integer
+          minimum: 1
+        type:
+          $ref: '#/components/schemas/AdminLiveEventType'
+        entityId:
+          $ref: '#/components/schemas/Id'
+        zoneId:
+          oneOf:
+          - $ref: '#/components/schemas/Id'
+          - type: 'null'
+        occurredAt:
+          $ref: '#/components/schemas/Timestamp'
+        serverTime:
+          $ref: '#/components/schemas/Timestamp'
+    AdminLiveEventPage:
+      type: object
+      required:
+      - items
+      - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminLiveEvent'
+        nextCursor:
+          type:
+          - string
+          - 'null'
