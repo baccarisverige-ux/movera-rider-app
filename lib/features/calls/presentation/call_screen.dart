@@ -13,6 +13,9 @@ class TripCallScreen extends StatefulWidget {
 
   final TripCallSession session;
 
+  /// A button that can no longer be used (the call is over or failed).
+  static const Color disabledColor = Color(0xFF3A3A3A);
+
   /// The driver's first name, when known.
   final String? name;
 
@@ -99,19 +102,32 @@ class _TripCallScreenState extends State<TripCallScreen> {
     mainAxisSize: MainAxisSize.min,
     children: [
       Material(
-        color: on ? Colors.white : color,
+        color: onTap == null
+            ? TripCallScreen.disabledColor
+            : (on ? Colors.white : color),
         shape: const CircleBorder(),
         child: IconButton(
           key: key,
           iconSize: 30,
           padding: const EdgeInsets.all(18),
           tooltip: label,
-          icon: Icon(icon, color: on ? Colors.black : Colors.white),
+          icon: Icon(
+            icon,
+            color: onTap == null
+                ? Colors.white38
+                : (on ? Colors.black : Colors.white),
+          ),
           onPressed: onTap,
         ),
       ),
       const SizedBox(height: 8),
-      Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+      Text(
+        label,
+        style: TextStyle(
+          color: onTap == null ? Colors.white38 : Colors.white70,
+          fontSize: 13,
+        ),
+      ),
     ],
   );
 
