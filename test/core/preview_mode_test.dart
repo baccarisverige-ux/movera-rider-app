@@ -24,8 +24,9 @@ void main() {
       isFalse,
     );
     expect(
-      PreviewMode.parse(Uri.parse('https://x.test/#movera-preview=<bad>'))
-          .active,
+      PreviewMode.parse(
+        Uri.parse('https://x.test/#movera-preview=<bad>'),
+      ).active,
       isFalse,
     );
   });
