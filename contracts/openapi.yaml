@@ -81,6 +81,7 @@ tags:
   description: 'Zones from the server: list, create, outline, open and close (v0.11.0)'
 - name: Rider · Trip
 - name: Driver · Home
+- name: Admin · Finance
 x-contract:
   name: movera
   version: 0.18.32
@@ -15584,6 +15585,286 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/drivers/{driverId}/payout-hold:
+    post:
+      operationId: adminHoldDriverPayouts
+      summary: Pause or release one driver's payouts
+      description: 'v0.18.29 A2 (owner build-spec Q4 2026-11-02: ''can pause any one payment from his profile''): POST /admin/drivers/{driverId}/payout-hold
+        { held, reason } (finance.edit, Idempotency-Key, audit payout.hold / payout.release) pauses or releases that driver''s
+        payouts from the driver''s profile. While held no scheduled payout is made for him; his earnings stay unpaid. On release
+        the next run pays every ended period he missed. Driver.payoutHold { reason, at, by } on the admin view (absent = not
+        held). The driver app is not told the reason.'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: finance.edit
+      x-permission-v050: finance.edit
+      parameters:
+      - $ref: '#/components/parameters/DriverId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayoutHoldCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Driver'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/riders/{riderId}/moderation:
+    post:
+      operationId: adminModerateRider
+      summary: Warn, pause, ban or clear a rider
+      description: 'v0.18.29 (A2, owner G16 Q16-1 + Q16-2 ''Warn → Pause → Ban''): the admin sets a rider''s level with POST
+        /admin/riders/{riderId}/moderation (permission riders.block, Idempotency-Key, expectedVersion, written in the audit).
+        Every level carries a reason; the admin can undo (level none). for pauseDays (1..365) set by the admin; Rider.status
+        suspended until moderation.until, then active again by itself; sign-in and booking answer 403 account_suspended (projection
+        = Rider.moderation). POST /admin/riders/{riderId}/status stays: active = level none, suspended = level banned with
+        the note as reason.'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: riders.block
+      x-permission-v050: riders.edit
+      parameters:
+      - $ref: '#/components/parameters/RiderId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RiderModerationCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rider'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/riders/{riderId}/wallet-credit:
+    post:
+      operationId: adminCreditRiderWallet
+      summary: Add money to a rider's wallet
+      description: 'v0.18.29 A2 (owner G12 Q5 ''Real credit + limit'', Q-D ''Max 250 euro and equivalent'', build-spec Q2
+        ''One button on rider page'', Q1 ''One admin always''): the one way an admin gives a rider money is Add money to wallet
+        on the rider''s page. POST /admin/riders/{riderId}/wallet-credit { amount, reason } (finance.edit, Idempotency-Key,
+        audit rider.wallet_credit). The amount is in the rider''s currency: the country of the rider''s latest trip (else
+        of his last seen zone); a rider with no known country is refused 409 rider_country_unknown, an amount in another currency
+        400 wallet_currency_mismatch. One credit is at most CountryRules.walletCreditMax of the rider''s COUNTRY (fix job
+        0, owner A2-1 2026-11-05 ''Per country, in Pricing''): the value on the country''s Standard in Pricing › Tips & limits;
+        a zone''s own value is ignored; missing or in another currency = the default below. The limit is in that country''s
+        currency and is checked only against a credit in that currency (wallet per currency, contract.json#walletPerCurrency
+        of fix job 6): the credit goes into the rider''s balance of that currency and is never converted. Above it 400 wallet_credit_too_large,
+        details ''max <amountMinor> <currency>'' (no second admin). The wallet gets a WalletEntry kind adjustment; the rider
+        gets a bell + push kind wallet_credit (texts below) and sees it in the wallet history as ''Credit from Movera''. The
+        balance never goes below 0 (credits are positive).'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: finance.edit
+      x-permission-v050: finance.edit
+      parameters:
+      - $ref: '#/components/parameters/RiderId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalletCreditCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rider'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/payouts/runs/approve:
+    post:
+      operationId: adminApprovePayoutRun
+      summary: Approve a manual payout run
+      description: 'v0.18.29 A2 (owner build-spec Q4 ''Admin can set automatic or manual''): CountryRules.payoutMode of the
+        country standard (Pricing › Tips & limits on the Standard; a zone''s own value is ignored), automatic (default) or
+        manual. automatic: the scheduled run makes payouts pending (to pay) at the country''s payoutSchedule, as before. manual:
+        the run makes them pending_approval; nothing is paid until an admin approves the run with POST /admin/payouts/runs/approve
+        { country, periodEnd, reason } (finance.edit, Idempotency-Key, audit payout.run_approve with the reason; fix job 0,
+        owner A2-3 2026-11-05 ''Yes, reason required'': reason 1..300 characters, missing or empty = 400 invalid_request,
+        reason reason_required): every pending_approval payout of that country and period inside the admin''s zones becomes
+        pending; the answer is { country, periodEnd, approved, total: Money[] (one per currency) }. A pending_approval payout
+        cannot be marked paid (409 run_not_approved). The driver app shows pending_approval as pending (GET /driver/payouts
+        never returns pending_approval). Changing the mode changes only later runs. One admin is enough (Q1); a single driver
+        can still be held (payoutHold).'
+      tags:
+      - Admin · Finance
+      x-actor:
+      - admin
+      x-permission: finance.edit
+      x-permission-v050: finance.edit
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayoutRunApproveCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayoutRunApproved'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/riders/{riderId}/fees/{tripId}/mark-paid:
+    post:
+      operationId: adminMarkRiderFeePaid
+      summary: Mark a rider's owed fee as paid
+      description: 'v0.18.29 fix job 0 (owner A2-2 2026-11-05 ''Only mark and detect from next trip so add to next trip''):
+        an owed fee has ONE admin action, Mark as paid, for money the rider paid Movera another way. POST /admin/riders/{riderId}/fees/{tripId}/mark-paid
+        { reason } (finance.edit, Idempotency-Key, zone scope of the fee''s trip, audit rider.fee_mark_paid with the reason,
+        amount and currency). The fee becomes paid (settled now, carried by no trip), the original trip''s cancellation.feeStatus
+        paid, Rider.outstanding / outstandingByCurrency drop it, and no later quote or trip carries it. There is NO ''Ask
+        rider to pay'' button: every fee left owed is added by itself to the rider''s next trip in the same currency (rules
+        above). Refusals: reason missing = 400 invalid_request reason_required; no owed fee on that trip for that rider =
+        409 invalid_transition fee_not_owed; the rider''s current ride already carries it = 409 conflict fee_on_running_trip
+        (mark it after that ride). The driver of the original trip keeps his share (already paid). Answer: the admin Rider
+        view.'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: finance.edit
+      x-permission-v050: finance.edit
+      parameters:
+      - $ref: '#/components/parameters/RiderId'
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RiderFeeMarkPaidCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rider'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /admin/events:
     get:
       operationId: adminStreamEvents
@@ -17860,6 +18141,12 @@ components:
           $ref: '#/components/schemas/QuoteSurge'
         etaSeconds:
           $ref: '#/components/schemas/DurationSeconds'
+        pickupAt:
+          description: 'v0.18.30 (contract.json#smallFixes.quotePickupTime, owner Q8): the pickup time of a booked ride (kind
+            scheduled); null on a live quote.'
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
     RouteQuote:
       type: object
       description: 'Price for a route change after request; apply with PATCH /trips/{tripId}. Priced from the booking (owner
@@ -17961,6 +18248,10 @@ components:
           description: 'v0.18.7 (Q3): Rider.outstanding = the owed fees in the rider''s oldest owed currency (Money, null
             when nothing is owed); Rider.outstandingByCurrency = every currency with an owed amount (Money[], one per currency,
             ascending by first debt). The admin rider view shows all of them.'
+        moderation:
+          allOf:
+          - $ref: '#/components/schemas/RiderModeration'
+          description: 'v0.18.29: the rider''s moderation level (rider and admin views).'
     DocumentStatus:
       type: string
       enum:
@@ -18244,6 +18535,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/HomeArea'
           description: v0.18.17 (owner BL-Q4).
+        payoutHold:
+          allOf:
+          - $ref: '#/components/schemas/PayoutHold'
+          description: 'v0.18.29: admin view only; absent = payouts not held.'
     DriverScheduledRides:
       type: object
       description: 'Owner decision 2 (v0.4.2): an admin''s reservations on/off for this one driver (CONTRACT.md §6.1). Missing
@@ -20966,6 +21261,28 @@ components:
           allOf:
           - $ref: '#/components/schemas/CountryLimits'
           description: 'v0.18.14: read from the country standard only.'
+        walletCreditMax:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.29 (owner A2-1): the largest single Add money to wallet for riders of this country, in its currency;
+            read from the country Standard only (a zone''s own value is ignored). Default SE 290000 SEK, FR 25000 EUR, TN
+            800000 TND (minor units).'
+        payoutMode:
+          type: string
+          enum:
+          - automatic
+          - manual
+          description: 'v0.18.29 A2 (owner build-spec Q4 ''Admin can set automatic or manual''): CountryRules.payoutMode of
+            the country standard (Pricing › Tips & limits on the Standard; a zone''s own value is ignored), automatic (default)
+            or manual. automatic: the scheduled run makes payouts pending (to pay) at the country''s payoutSchedule, as before.
+            manual: the run makes them pending_approval; nothing is paid until an admin approves the run with POST /admin/payouts/runs/approve
+            { country, periodEnd, reason } (finance.edit, Idempotency-Key, audit payout.run_approve with the reason; fix job
+            0, owner A2-3 2026-11-05 ''Yes, reason required'': reason 1..300 characters, missing or empty = 400 invalid_request,
+            reason reason_required): every pending_approval payout of that country and period inside the admin''s zones becomes
+            pending; the answer is { country, periodEnd, approved, total: Money[] (one per currency) }. A pending_approval
+            payout cannot be marked paid (409 run_not_approved). The driver app shows pending_approval as pending (GET /driver/payouts
+            never returns pending_approval). Changing the mode changes only later runs. One admin is enough (Q1); a single
+            driver can still be held (payoutHold).'
       x-server-only: true
     FeeRule:
       type: object
@@ -22388,6 +22705,13 @@ components:
               minimum: 0
               description: 'How far the rider may move the pickup after accept; further = cancel and rebook. v0.18.7: default
                 200, range 0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}.'
+            samePointWarnMeters:
+              type: integer
+              minimum: 0
+              maximum: 1000
+              description: 'v0.18.30 (owner Q9, contract.json#smallFixes.samePoint): pickup ≈ drop-off warning under this
+                many metres (straight line, no stops); a warning only, the rider can still book. Default 100, 0 = never warn.
+                Admin Dispatch › Rides ''Shortest ride (m)''.'
             minAheadMin:
               type: integer
               minimum: 5
@@ -22539,6 +22863,13 @@ components:
               minimum: 0
               description: 'Pickup move limit after accept; the driver is notified of a move. v0.18.7: default 200, range
                 0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}.'
+            samePointWarnMeters:
+              type: integer
+              minimum: 0
+              maximum: 1000
+              description: 'v0.18.30 (owner Q9, contract.json#smallFixes.samePoint): pickup ≈ drop-off warning under this
+                many metres (straight line, no stops); a warning only, the rider can still book. Default 100, 0 = never warn.
+                Admin Dispatch › Rides ''Shortest ride (m)''.'
         offers:
           type: object
           properties:
@@ -24833,7 +25164,8 @@ components:
             auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far,
             driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival,
             route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now,
-            pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit).'
+            pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit).
+            v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons).'
         details:
           type: array
           items:
@@ -25293,6 +25625,24 @@ components:
           - $ref: '#/components/schemas/Id'
           description: 'v0.6.0: one of the zone''s fixed routes; for a route of the quoted category the fixed_route line replaces
             the ride part, otherwise the category is priced normally.'
+    QuoteWarning:
+      type: object
+      description: 'v0.18.30 (contract.json#smallFixes.samePoint, owner Q9): a warning only; the quote can still be booked.'
+      required:
+      - reason
+      - meters
+      - limitMeters
+      properties:
+        reason:
+          type: string
+          enum:
+          - same_pickup_dropoff
+        meters:
+          type: integer
+          minimum: 0
+        limitMeters:
+          type: integer
+          minimum: 0
     QuoteList:
       type: object
       required:
@@ -25307,6 +25657,11 @@ components:
           $ref: '#/components/schemas/Id'
         serverTime:
           $ref: '#/components/schemas/Timestamp'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuoteWarning'
+          description: 'v0.18.30: warnings for the rider (may be absent or empty).'
     CreateTripRequest:
       type: object
       description: 'Request a quoted trip. No expectedVersion: the trip does not exist yet; Idempotency-Key dedupes. v0.6.0:
@@ -31218,6 +31573,171 @@ components:
           type: integer
           minimum: 0
           maximum: 60
+    PayoutHold:
+      type: object
+      description: 'v0.18.29 A2 (owner build-spec Q4 2026-11-02: ''can pause any one payment from his profile''): POST /admin/drivers/{driverId}/payout-hold
+        { held, reason } (finance.edit, Idempotency-Key, audit payout.hold / payout.release) pauses or releases that driver''s
+        payouts from the driver''s profile. While held no scheduled payout is made for him; his earnings stay unpaid. On release
+        the next run pays every ended period he missed. Driver.payoutHold { reason, at, by } on the admin view (absent = not
+        held). The driver app is not told the reason.'
+      required:
+      - reason
+      - at
+      properties:
+        reason:
+          type: string
+          maxLength: 300
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        by:
+          $ref: '#/components/schemas/Id'
+    PayoutHoldCommand:
+      type: object
+      required:
+      - held
+      - reason
+      properties:
+        held:
+          type: boolean
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
+    RiderModerationLevel:
+      type: string
+      enum:
+      - none
+      - warning
+      - paused
+      - banned
+      description: none = no moderation; Rider.status active; warning = the rider can ride and sees the notice (Rider.moderation
+        on GET /rider/profile); Rider.status active; paused = for pauseDays (1..365) set by the admin; Rider.status suspended
+        until moderation.until, then active again by itself; sign-in and booking answer 403 account_suspended (projection
+        = Rider.moderation); banned = until the admin undoes it; Rider.status suspended; 403 account_suspended
+    RiderModeration:
+      type: object
+      description: 'v0.18.29 (A2, owner G16 Q16-1 + Q16-2 ''Warn → Pause → Ban''): the admin sets a rider''s level with POST
+        /admin/riders/{riderId}/moderation (permission riders.block, Idempotency-Key, expectedVersion, written in the audit).
+        Every level carries a reason; the admin can undo (level none).'
+      required:
+      - level
+      properties:
+        level:
+          $ref: '#/components/schemas/RiderModerationLevel'
+        reason:
+          type: string
+          maxLength: 300
+        until:
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+          description: 'paused: when the pause ends by itself; otherwise null.'
+        setAt:
+          $ref: '#/components/schemas/Timestamp'
+    RiderModerationCommand:
+      type: object
+      description: the admin picks one of these suggested reasons or writes their own (1..300 characters); the rider sees
+        the reason text as written.
+      required:
+      - expectedVersion
+      - level
+      - reason
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: Version the caller last saw; stale → 409 version_mismatch.
+        level:
+          $ref: '#/components/schemas/RiderModerationLevel'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
+        pauseDays:
+          type: integer
+          minimum: 1
+          maximum: 365
+          description: required when level is paused
+    WalletCreditCommand:
+      type: object
+      description: 'v0.18.29 A2 (owner G12 Q5 ''Real credit + limit'', Q-D ''Max 250 euro and equivalent'', build-spec Q2
+        ''One button on rider page'', Q1 ''One admin always''): the one way an admin gives a rider money is Add money to wallet
+        on the rider''s page. POST /admin/riders/{riderId}/wallet-credit { amount, reason } (finance.edit, Idempotency-Key,
+        audit rider.wallet_credit). The amount is in the rider''s currency: the country of the rider''s latest trip (else
+        of his last seen zone); a rider with no known country is refused 409 rider_country_unknown, an amount in another currency
+        400 wallet_currency_mismatch. One credit is at most CountryRules.walletCreditMax of the rider''s COUNTRY (fix job
+        0, owner A2-1 2026-11-05 ''Per country, in Pricing''): the value on the country''s Standard in Pricing › Tips & limits;
+        a zone''s own value is ignored; missing or in another currency = the default below. The limit is in that country''s
+        currency and is checked only against a credit in that currency (wallet per currency, contract.json#walletPerCurrency
+        of fix job 6): the credit goes into the rider''s balance of that currency and is never converted. Above it 400 wallet_credit_too_large,
+        details ''max <amountMinor> <currency>'' (no second admin). The wallet gets a WalletEntry kind adjustment; the rider
+        gets a bell + push kind wallet_credit (texts below) and sees it in the wallet history as ''Credit from Movera''. The
+        balance never goes below 0 (credits are positive).'
+      required:
+      - amount
+      - reason
+      properties:
+        amount:
+          $ref: '#/components/schemas/Money'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
+    PayoutRunApproveCommand:
+      type: object
+      required:
+      - country
+      - periodEnd
+      - reason
+      properties:
+        country:
+          type: string
+          pattern: ^[A-Z]{2}$
+        periodEnd:
+          $ref: '#/components/schemas/Timestamp'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
+          description: 'v0.18.29 (owner A2-3): why the run is approved; kept in the audit.'
+    PayoutRunApproved:
+      type: object
+      required:
+      - country
+      - periodEnd
+      - approved
+      - total
+      properties:
+        country:
+          type: string
+        periodEnd:
+          $ref: '#/components/schemas/Timestamp'
+        approved:
+          type: integer
+          minimum: 0
+        total:
+          type: array
+          items:
+            $ref: '#/components/schemas/Money'
+    RiderFeeMarkPaidCommand:
+      type: object
+      description: 'v0.18.29 fix job 0 (owner A2-2 2026-11-05 ''Only mark and detect from next trip so add to next trip''):
+        an owed fee has ONE admin action, Mark as paid, for money the rider paid Movera another way. POST /admin/riders/{riderId}/fees/{tripId}/mark-paid
+        { reason } (finance.edit, Idempotency-Key, zone scope of the fee''s trip, audit rider.fee_mark_paid with the reason,
+        amount and currency). The fee becomes paid (settled now, carried by no trip), the original trip''s cancellation.feeStatus
+        paid, Rider.outstanding / outstandingByCurrency drop it, and no later quote or trip carries it. There is NO ''Ask
+        rider to pay'' button: every fee left owed is added by itself to the rider''s next trip in the same currency (rules
+        above). Refusals: reason missing = 400 invalid_request reason_required; no owed fee on that trip for that rider =
+        409 invalid_transition fee_not_owed; the rider''s current ride already carries it = 409 conflict fee_on_running_trip
+        (mark it after that ride). The driver of the original trip keeps his share (already paid). Answer: the admin Rider
+        view.'
+      required:
+      - reason
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
     AdminLiveEventType:
       type: string
       enum:

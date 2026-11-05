@@ -815,6 +815,7 @@
   "receiptRefunded": "Remboursé",
   "priceIncludesUnpaidFee": "Dont {amount} de frais impayés d’une course précédente",
   "receiptHeading": "Reçu",
+  "receiptDebtIncludedNote": "Des frais impayés d’un trajet précédent ont été ajoutés à ce trajet.",
   "scheduleForLater": "Planifier pour plus tard",
   "later": "Plus tard",
   "scheduleARide": "Planifier une course",

@@ -985,7 +985,8 @@
       "otp_resend_too_soon": "429 rate_limited: a new code within otp.retryAfterSeconds of the last one",
       "otp_too_many": "429 rate_limited: auth.limits reached (decision 4, wait in minutes)",
       "sign_in_restricted": "403 forbidden: the number is not on the test list while no SMS provider is chosen (decision 5): the app offers \"Join the waiting list\" (POST /auth/waitlist)",
-      "otp_locked_today": "429 rate_limited (v0.18.14): too many wrong codes for this number today (countryLimits.wrongCodesPerDay, admin setting per country, default 15); the app says \"Too many wrong codes today. Try again later.\" with the wait from retryAfterSeconds and disables Send code"
+      "otp_locked_today": "429 rate_limited (v0.18.14): too many wrong codes for this number today (countryLimits.wrongCodesPerDay, admin setting per country, default 15); the app says \"Too many wrong codes today. Try again later.\" with the wait from retryAfterSeconds and disables Send code",
+      "account_suspended": "403 forbidden (v0.18.29 A2, owner Q16-1): the rider is paused (until a time) or banned; projection = { level, reason, until, setAt } (riderModeration). The rider app shows 'Your account is paused' with the admin's reason, Contact support and Sign out."
     },
     "slowStart": {
       "note": "v0.15.0 (owner 2026-10-29, decision 1): the server can sleep (Render free plan) and answer its first request after about 50 s. The rider and driver apps wait up to waitSeconds for the sign-in calls (POST /auth/otp/request, /auth/otp/verify, /auth/provider, /auth/waitlist) and, while waiting, show the line \"Starting the server…\" after showAfterSeconds. v0.18.4 (owner, driver group 3 'Already decided' + G3-R5): the same wait and line also cover POST /driver/availability (going online): the driver app waits up to waitSeconds and shows the line after showAfterSeconds.",
@@ -2879,7 +2880,24 @@
       "the driver of the original trip gets their share at once (an earnings entry, waiting.driverSharePct for a no-show); Movera carries the risk",
       "on the next trip the line is cash the new driver collects (in cashCollected) but not in their driverEarnings: it is owed to Movera",
       "v0.18.7 (pickupWaiting.debtByCurrency): owed fees are counted per currency; a quote carries only the owed fees in its own currency and a paid cash trip settles only fees of its currency"
-    ]
+    ],
+    "adminMarkPaid": {
+      "note": "v0.18.29 fix job 0 (owner A2-2 2026-11-05 'Only mark and detect from next trip so add to next trip'): an owed fee has ONE admin action, Mark as paid, for money the rider paid Movera another way. POST /admin/riders/{riderId}/fees/{tripId}/mark-paid { reason } (finance.edit, Idempotency-Key, zone scope of the fee's trip, audit rider.fee_mark_paid with the reason, amount and currency). The fee becomes paid (settled now, carried by no trip), the original trip's cancellation.feeStatus paid, Rider.outstanding / outstandingByCurrency drop it, and no later quote or trip carries it. There is NO 'Ask rider to pay' button: every fee left owed is added by itself to the rider's next trip in the same currency (rules above). Refusals: reason missing = 400 invalid_request reason_required; no owed fee on that trip for that rider = 409 invalid_transition fee_not_owed; the rider's current ride already carries it = 409 conflict fee_on_running_trip (mark it after that ride). The driver of the original trip keeps his share (already paid). Answer: the admin Rider view.",
+      "reasonMax": 300
+    },
+    "receiptText": {
+      "note": "v0.18.29 fix job 0 (RULE 0): the next trip's receipt shows the outstanding_fee line with this text under it, in both apps.",
+      "rider": {
+        "sv": "En obetald avgift från en tidigare resa har lagts till på den här resan.",
+        "fr": "Des frais impayés d’un trajet précédent ont été ajoutés à ce trajet.",
+        "en": "An unpaid fee from an earlier trip was added to this trip."
+      },
+      "driver": {
+        "sv": "Resenären hade en obetald avgift från en tidigare resa. Den ingår i priset och går till Movera.",
+        "fr": "Le passager avait des frais impayés d’un trajet précédent. Ils sont inclus dans le prix et vont à Movera.",
+        "en": "The rider had an unpaid fee from an earlier trip. It is in the price and goes to Movera."
+      }
+    }
   },
   "accountDeletion": {
     "note": "v0.5.1: POST /account/deletion (rider) answers 202 { status: requested }; the server erases the account on its own schedule (legal retention, open payments).",
@@ -2891,6 +2909,7 @@
     "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge. v0.5.1 adds pricing (SE, the admin's Stockholm prices) and dispatch (the admin's zone defaults). v0.5.6: missedExclusiveBeforeOffline (DriverAppConfig.offers.autoOffline.missedExclusive) goes from 3 to 10 (owner decision 35, 2026-10-26). v0.18.6: raiseMaxFactor (DispatchDocument.raisePrice.maxFactor, RiderAppConfig.raisePrice.maxFactor) 2 and offerCardRiderRating (DriverAppConfig.offers.offerCard.riderRating) true. v0.18.7: maxPickupMoveMeters 500 → 200 (owner 2026-10-29 '200 m default, admin can change'; server migration moves published documents still on 500) and cancelAfterArrivedIsNoShow true (Q2). v0.18.8: pickupPin (off, 5 tries, 5 min lock), waitingRules (the admin's far pickup / airport / event / scheduled defaults) and stopFreeWaitMin 0 (contract.json#arrivedWaiting). v0.18.9: rideCheck (on, stopMinutes 2, offRouteKm 3 → 2, endFarMeters 500, noAnswerSeconds 120, repeatMinutes 10, noAnswerAlarm false) and routeChange (on, driverCanRefuse, answerSeconds 60) per zone in the driver document (contract.json#onTrip); maxStops 3 now enforced by the server. v0.18.9 (owner rule 16, 2026-11-01): routeChange.beforePickup true and routeChange.fixedPriceTrips \"block\". v0.18.10 (contract.json#finish): earlyEnd (DriverAppConfig.cancelFees.earlyEnd: repriceOverKm 2, repriceOverMin 8, owner G8 Q2), tips per country (countries.SE.tips 10 / 20 / 30 kr, countries.FR.tips 1 / 2 / 5 €; the sample documents no longer convert Swedish tips to euro), paymentMethods cash, card, apple_pay (no google_pay). v0.18.10 (builder questions resolved 2026-11-01): tipRules (RiderAppConfig.tipRules: cashAfterTrip false, cashInCarMinutes 5, customAmount false, customMax SE 200 kr / FR 20 €). v0.18.10 checker: driverPayChangeMax (CountryRules.driverPayChangeMax, SE 1000 kr / FR 100 €).",
     "maxStops": 3,
     "maxPickupMoveMeters": 200,
+    "samePointWarnMeters": 100,
     "freeWaitMin": {
       "default": 5,
       "xl": 3
@@ -3720,7 +3739,7 @@
       "unavailable",
       "internal"
     ],
-    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit)."
+    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit). v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons)."
   },
   "headers": {
     "Idempotency-Key": "required on every mutation, 16–128 chars",
@@ -4175,7 +4194,7 @@
         "solved": "Owner A2 'Alert become green color with new info': the cause ended by itself (e.g. a driver took the ride). The alert STAYS visible, shown GREEN with solvedText (e.g. 'Driver Ali took it 17:48'); an admin can still take it and mark it done. If the same cause comes back before anyone marks it done, the same alert is open again (solved info cleared).",
         "done": "An admin marked it done (AlertRecord status done): it leaves the open list. While the cause is still there no new alert is made for it; once the cause ended and comes back later, a new alert (new alertId) starts."
       },
-      "liveAlert": "LiveAlert { alertId, causeKey, kind, level critical | important | info, title, titleT { t, a[] }, detail, detailT? { t, a[] }, zoneId?, country, since, state open | solved, solvedAt?, solvedText?, solvedT? { t, a[] }, ref { tripId?, driverId?, riderId?, incidentId?, rideCheckId?, ticketId?, payoutId?, refundId?, ruleId? } }. title / detail / solvedText are English; titleT / detailT / solvedT are the same text as an English template with {0}, {1} places and its values, which the panel shows in sv / fr / en. Times in texts are HH:MM in the zone's time zone.",
+      "liveAlert": "LiveAlert { alertId, causeKey, kind, level critical | important | info, title, titleT { t, a[] }, detail, detailT? { t, a[] }, zoneId?, country, since, state open | solved, solvedAt?, solvedText?, solvedT? { t, a[] }, old? (v0.18.31, true only on an old SOS / safety case, see alertsOldList), oldSince? (v0.18.31), ref { tripId?, driverId?, riderId?, incidentId?, rideCheckId?, ticketId?, payoutId?, refundId?, ruleId? } }. title / detail / solvedText are English; titleT / detailT / solvedT are the same text as an English template with {0}, {1} places and its values, which the panel shows in sv / fr / en. Times in texts are HH:MM in the zone's time zone.",
       "settings": {
         "note": "The server reads the country's alert settings document (PUT /admin/alerts/settings): kinds[kind] { on, level, limits { info, important, critical } } and zones[zoneId] (below); missing values use the defaults here and in kindDefaults. A kind switched off makes no alerts; its open alerts are solved.",
         "zones": "zones[zoneId] { bookedAtRiskMin, liveAtRiskMin, fewDriversLimit, noDriverLimit } — owner A1: the at-risk minutes are an admin setting per zone, separate for booked and live rides.",
@@ -4440,6 +4459,7 @@
     ],
     "statuses": [
       "pending",
+      "pending_approval",
       "paid"
     ],
     "schedule": {
@@ -4865,6 +4885,11 @@
           "sv": "Väntande",
           "fr": "En attente",
           "en": "Pending"
+        },
+        "pending_approval": {
+          "sv": "Väntar på godkännande",
+          "fr": "En attente d’approbation",
+          "en": "Waiting for approval"
         },
         "paid": {
           "sv": "Utbetald",
@@ -7509,5 +7534,162 @@
     "admin": "The admin rider view (GET /admin/riders, rider status changes) keeps wallet: Money (the balance in the currency of the rider's zone, else the first he holds) and adds wallets: [Money] (every non-zero balance, one per currency). The admin panel shows each balance in its own currency, never a sum.",
     "oldRows": "Old rows are untouched (owner Q4, rule 21): earlier wallet entries keep their values; the single old balance (always shown to the rider as SEK) is copied once as the SEK balance and is no longer written.",
     "apps": "Rider app: shows each balance in its own currency (never a sum) and pays a trip only from the balance in its currency. Driver app: no change (the driver never sees the rider's wallet; cashToCollect already comes from the server)."
+  },
+  "riderModeration": {
+    "note": "v0.18.29 (A2, owner G16 Q16-1 + Q16-2 'Warn → Pause → Ban'): the admin sets a rider's level with POST /admin/riders/{riderId}/moderation (permission riders.block, Idempotency-Key, expectedVersion, written in the audit). Every level carries a reason; the admin can undo (level none).",
+    "levels": {
+      "none": "no moderation; Rider.status active",
+      "warning": "the rider can ride and sees the notice (Rider.moderation on GET /rider/profile); Rider.status active",
+      "paused": "for pauseDays (1..365) set by the admin; Rider.status suspended until moderation.until, then active again by itself; sign-in and booking answer 403 account_suspended (projection = Rider.moderation)",
+      "banned": "until the admin undoes it; Rider.status suspended; 403 account_suspended"
+    },
+    "pauseDays": {
+      "min": 1,
+      "max": 365
+    },
+    "reasons": {
+      "note": "the admin picks one of these suggested reasons or writes their own (1..300 characters); the rider sees the reason text as written.",
+      "suggested": {
+        "sv": [
+          "Upprepade avbokningar",
+          "Obetalda avgifter",
+          "Olämpligt beteende mot förare",
+          "Falsk information",
+          "Bedrägerimisstanke"
+        ],
+        "fr": [
+          "Annulations répétées",
+          "Frais impayés",
+          "Comportement inapproprié envers le chauffeur",
+          "Fausses informations",
+          "Suspicion de fraude"
+        ],
+        "en": [
+          "Repeated cancellations",
+          "Unpaid fees",
+          "Inappropriate behaviour towards the driver",
+          "False information",
+          "Suspected fraud"
+        ]
+      }
+    },
+    "riderText": {
+      "pausedTitle": {
+        "sv": "Ditt konto är pausat",
+        "fr": "Votre compte est suspendu",
+        "en": "Your account is paused"
+      },
+      "bannedTitle": {
+        "sv": "Ditt konto är spärrat",
+        "fr": "Votre compte est bloqué",
+        "en": "Your account is blocked"
+      },
+      "warningTitle": {
+        "sv": "Varning från Movera",
+        "fr": "Avertissement de Movera",
+        "en": "Warning from Movera"
+      },
+      "contactSupport": {
+        "sv": "Kontakta support",
+        "fr": "Contacter le support",
+        "en": "Contact support"
+      },
+      "signOut": {
+        "sv": "Logga ut",
+        "fr": "Se déconnecter",
+        "en": "Sign out"
+      }
+    },
+    "statusCommand": "POST /admin/riders/{riderId}/status stays: active = level none, suspended = level banned with the note as reason."
+  },
+  "payoutHold": {
+    "note": "v0.18.29 A2 (owner build-spec Q4 2026-11-02: 'can pause any one payment from his profile'): POST /admin/drivers/{driverId}/payout-hold { held, reason } (finance.edit, Idempotency-Key, audit payout.hold / payout.release) pauses or releases that driver's payouts from the driver's profile. While held no scheduled payout is made for him; his earnings stay unpaid. On release the next run pays every ended period he missed. Driver.payoutHold { reason, at, by } on the admin view (absent = not held). The driver app is not told the reason.",
+    "reasonMax": 300
+  },
+  "walletCredit": {
+    "note": "v0.18.29 A2 (owner G12 Q5 'Real credit + limit', Q-D 'Max 250 euro and equivalent', build-spec Q2 'One button on rider page', Q1 'One admin always'): the one way an admin gives a rider money is Add money to wallet on the rider's page. POST /admin/riders/{riderId}/wallet-credit { amount, reason } (finance.edit, Idempotency-Key, audit rider.wallet_credit). The amount is in the rider's currency: the country of the rider's latest trip (else of his last seen zone); a rider with no known country is refused 409 rider_country_unknown, an amount in another currency 400 wallet_currency_mismatch. One credit is at most CountryRules.walletCreditMax of the rider's COUNTRY (fix job 0, owner A2-1 2026-11-05 'Per country, in Pricing'): the value on the country's Standard in Pricing › Tips & limits; a zone's own value is ignored; missing or in another currency = the default below. The limit is in that country's currency and is checked only against a credit in that currency (wallet per currency, contract.json#walletPerCurrency of fix job 6): the credit goes into the rider's balance of that currency and is never converted. Above it 400 wallet_credit_too_large, details 'max <amountMinor> <currency>' (no second admin). The wallet gets a WalletEntry kind adjustment; the rider gets a bell + push kind wallet_credit (texts below) and sees it in the wallet history as 'Credit from Movera'. The balance never goes below 0 (credits are positive).",
+    "defaultMax": {
+      "SE": {
+        "amountMinor": 290000,
+        "currency": "SEK"
+      },
+      "FR": {
+        "amountMinor": 25000,
+        "currency": "EUR"
+      },
+      "TN": {
+        "amountMinor": 800000,
+        "currency": "TND"
+      }
+    },
+    "reasonMax": 300,
+    "riderText": {
+      "historyLabel": {
+        "sv": "Kredit från Movera",
+        "fr": "Crédit de Movera",
+        "en": "Credit from Movera"
+      },
+      "pushTitle": {
+        "sv": "Pengar i din plånbok",
+        "fr": "Argent dans votre portefeuille",
+        "en": "Money in your wallet"
+      },
+      "pushBody": {
+        "sv": "Movera har lagt till {amount} i din plånbok.",
+        "fr": "Movera a ajouté {amount} à votre portefeuille.",
+        "en": "Movera added {amount} to your wallet."
+      }
+    }
+  },
+  "payoutMode": {
+    "note": "v0.18.29 A2 (owner build-spec Q4 'Admin can set automatic or manual'): CountryRules.payoutMode of the country standard (Pricing › Tips & limits on the Standard; a zone's own value is ignored), automatic (default) or manual. automatic: the scheduled run makes payouts pending (to pay) at the country's payoutSchedule, as before. manual: the run makes them pending_approval; nothing is paid until an admin approves the run with POST /admin/payouts/runs/approve { country, periodEnd, reason } (finance.edit, Idempotency-Key, audit payout.run_approve with the reason; fix job 0, owner A2-3 2026-11-05 'Yes, reason required': reason 1..300 characters, missing or empty = 400 invalid_request, reason reason_required): every pending_approval payout of that country and period inside the admin's zones becomes pending; the answer is { country, periodEnd, approved, total: Money[] (one per currency) }. A pending_approval payout cannot be marked paid (409 run_not_approved). The driver app shows pending_approval as pending (GET /driver/payouts never returns pending_approval). Changing the mode changes only later runs. One admin is enough (Q1); a single driver can still be held (payoutHold).",
+    "values": [
+      "automatic",
+      "manual"
+    ],
+    "default": "automatic"
+  },
+  "smallFixes": {
+    "note": "v0.18.30 (FIX JOB 7 'Small fixes', L20-L24, owner Q8/Q9 of 2026-11-04 in Rules decisions/driver-g15.md, B-k/B-l of plan/LIVE-50x50-FIX-PLAN-2026-11-04.md). Additive; X-Api-Version stays 0.5; no migration.",
+    "addressLanguage": "L20: POST /locations/autocomplete answers in the language of the zone the bias point (latitude, longitude) is in (SE sv, FR fr, TN fr). Without a bias point, or outside every zone, the language is as for /geocode: Accept-Language (sv | fr | en), else the rider's saved language, else sv.",
+    "quotePickupTime": {
+      "rule": "L22, owner Q8 'Only for booked rides': Quote.pickupAt is the pickup time of a BOOKED ride (QuoteRequest kind scheduled: the scheduledAt the quote was priced for). A live quote has pickupAt null and the apps show no pickup time on it. Quote.etaSeconds is not filled (kept for older apps).",
+      "field": "Quote.pickupAt: Timestamp | null",
+      "rider": "Select Ride / Book later price card: a booked ride shows 'Pickup {time}' (zone time) from Quote.pickupAt; nothing when null."
+    },
+    "samePoint": {
+      "rule": "L23, owner Q9 'Warn him but can accept booking': when the straight-line distance from pickup to drop-off is samePointWarnMeters or less AND the ride has no stops, POST /quotes still answers 200 with the prices and adds QuoteList.warnings [{ reason: same_pickup_dropoff, meters, limitMeters }]. It is a warning, never an error: the rider may book the quote (POST /trips does not check it).",
+      "setting": "booking.samePointWarnMeters per zone in the driver document (RiderAppConfig.booking.samePointWarnMeters shows the same number); admin Dispatch › Rides 'Shortest ride (m)'; default configDefaults.samePointWarnMeters 100; range 0-1000; 0 = never warn.",
+      "shape": "QuoteWarning { reason: same_pickup_dropoff, meters int, limitMeters int }",
+      "rider": "Shows the warning above the price cards ('Pickup and drop-off are almost the same place ({meters} m). You can still book.') and keeps Book enabled."
+    },
+    "ticketReasons": {
+      "invalid_ticket_category": "400 invalid_request: POST /support/tickets with a category that is not a ticket category (support.ticketCategories). Before v0.18.30: invalid_body.",
+      "invalid_ticket_body": "400 invalid_request: POST /support/tickets with an empty or too long subject (1-200) or text (1-5000). Before v0.18.30: invalid_body.",
+      "apps": "Rider and driver show their own text for each reason (the category one: 'Pick a topic'; the body one: 'Write a short subject and a message')."
+    },
+    "retested": {
+      "otpFormat": "L24 re-test: a code that is not 4 digits is 400 invalid_otp_code (auth.signInErrors); unchanged.",
+      "acceptRefusal": "L24 re-test: POST /driver/offers/{offerId}/accept on a closed offer is 409 offer_<status> (offer_expired, offer_claimed_elsewhere, offer_declined ...) and on a driver with a trip 409 driver_on_trip, both with the offer projection; unchanged."
+    },
+    "adminReadOnly": {
+      "rule": "L21: an admin field the server never reads is shown read-only with the note 'Not used yet' and is never deleted (owner rule 21).",
+      "fields": [
+        "Confirm › Product values › Reservation horizon (RiderAppConfig.booking.bookingHorizonDays is served equal to bookLater maxAheadDays; the window is set in Dispatch › Reservations)"
+      ]
+    },
+    "adminLabels": {
+      "liveCount": "B-k: the admin live counter reads 'Searching N · Live M': N = open trips still looking for a driver (requested, searching, offered), M = trips with a driver (accepted to on_trip).",
+      "dates": "B-l: admin date filters show and take dates in the admin's language format (sv YYYY-MM-DD, fr DD/MM/YYYY, en DD/MM/YYYY); the wire stays ISO YYYY-MM-DD."
+    }
+  },
+  "alertsOldList": {
+    "note": "v0.18.31 (owner Q-Bj 2026-11-05 'Never auto-close', Rules decisions/driver-g15.md; pre-merge B-j/P20). Builds on v0.18.30 main. Additive; X-Api-Version stays 0.5.",
+    "rideCheck": "A ride_check alert turns solved (green, kept, owner A2) once its trip has ended (trip status completed, cancelled_*, no_show or expired, or the trip's end time set). solvedT: 'Trip ended {0}'.",
+    "neverAutoClose": "SOS and safety alerts (kinds sos, sos_slow, car_lost) are NEVER closed or solved by the server while their incident is open or investigating: only an admin closes them (Incidents) or marks them done.",
+    "old": "When the alert's trip ended more than oldAfterHours ago, the alert stays open and LiveAlert carries old: true and oldSince (= trip end + oldAfterHours). An alert without a trip never becomes old. old is missing on every other alert.",
+    "oldAfterHours": 24,
+    "admin": "The Alerts page shows old alerts only in a separate 'Old' tab (sv 'Gamla', fr 'Anciennes', en 'Old'), never in the open list; an admin can still take and close them there.",
+    "apps": "Rider and driver apps: no change (RULE 0 check only)."
   }
 }
