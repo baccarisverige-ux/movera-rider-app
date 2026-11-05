@@ -115,5 +115,6 @@
   "resErrChangeTooLate": "Mindre än {minutes} minuter före hämtning kan resan inte ändras. Din resa är oförändrad.",
   "resErrZoneOff": "Inte tillgängligt i det här området än",
   "bookingFreeRule": "Gratis ändring och avbokning mer än {time} före upphämtning",
-  "scheduleForLaterChip": "Boka en resa till senare"
+  "scheduleForLaterChip": "Boka en resa till senare",
+  "bookedDriverOnTheWay": "Din bokade förare är på väg"
 }

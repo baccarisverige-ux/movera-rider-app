@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.30",
+  "version": "0.18.32",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -3708,6 +3708,20 @@
     "clients": "All three apps treat 503 unavailable (server_busy) like 429: retryable, wait Retry-After (else a short backoff), then try again; nothing is shown as a failure while retries remain.",
     "reads": "Live settings documents are kept in memory (at most 15 s; emptied at once by every config_published). GET /driver/offers reads the offers' trips in one query. GET /admin/live/drivers reads only drivers of the admin's zones and their current trips in one query."
   },
+  "bookedRideSeen": {
+    "note": "v0.18.32 (fix job 2 'Rider sees booked ride', Rules plan/FIX-JOBS-2-4-5-7-PLAN-2026-11-04.md L2, L3, L33, Q5 popup; plan/LIVE-50x50-FIX-PLAN-2026-11-04.md P21 / B-n; owner fix-plan Q5 2026-11-04 'from leave time a booked ride = a regular ride' and job-2 answers Q1-Q3, Rules decisions/driver-g15.md). Additive; X-Api-Version stays 0.5; no migration.",
+    "activeTrip": "GET /rider/trips/active returns the rider's non-terminal live trip; when there is none, the rider's non-terminal booked trip (kind scheduled) whose driver has started driving to the pickup at least once (the trip reached driver_to_pickup). It stays returned while a new driver is searched for, offered or accepted after the first one gave it back. Before the driver starts driving the booked ride is not returned: it lives under Upcoming (GET /rider/trips?kind=scheduled). From then on the rider app shows the normal ride screens (driver on the way, arrived, on trip, receipt).",
+    "liveWins": "Owner Q1 2026-11-05 'Live ride + banner': when a live trip and a started booked trip are both active, the live trip is returned and stays on screen; the rider app shows a banner 'Your booked driver is on the way' while GET /rider/trips?kind=scheduled&status=driver_to_pickup&status=arrived lists a trip. When the live trip ends, the next read returns the booked trip.",
+    "driverChanged": "Owner Q2 2026-11-05: a booked driver who gives the ride back before he started driving changes nothing the rider sees (silent swap). After he started driving the rider sees the normal 'Searching for a new driver' (status searching / offered), then the new driver heading to the pickup like a normal trip.",
+    "noLateMessage": "Owner Q3 2026-11-05 'Nothing he already track the trip on his screen': no late message to the rider when a booked driver is late but keeps the ride.",
+    "riderTripEvent": "P21 / B-n: GET /rider/config/stream also carries rider_trip_changed { eventId, kind: 'rider_trip_changed', tripId, occurredAt, serverTime } for every event of any trip of the signed-in rider (created, accepted, every status change; also a trip made by an admin, the API or another phone). Its SSE id is the app document version already sent (as for zones and content), so Last-Event-ID stays that version. The rider app reads GET /rider/trips/active (and its Upcoming list) again on it.",
+    "pollFallback": "While the rider's Home shows no trip and the app is in front, the app also reads GET /rider/trips/active every pollSeconds, in case the stream is down.",
+    "pollSeconds": 8,
+    "leaveNowName": "Push reservation_leave_now (driver) carries data.riderFirstName (the trip's rider first name; may be empty, then the title ends without ' · ') and the title 'Time to drive to pickup · {riderFirstName}'. GET /driver/reservations?scope=accepted rows carry the same riderFirstName. The driver app's popup shows that title with a Start button that opens the normal trip screen; no new screen.",
+    "rulesSource": "The rider app reads its booked-ride rules from GET /rider/config: booking.freeChangeBeforeMin (free change and cancel before pickup) and cancelFees.reservation (the fee per category); the driver is shown from driver_to_pickup on (bookLater.liveFixes.driverShown). GET /rider/scheduled-rides/rules was PROPOSED, is not served and is not used.",
+    "versionRetry": "A 409 version_mismatch on a trip command (reschedule, cancel, raise-price) carries projection (the caller's own view, contract errors). Clients take projection.version and retry the same command once; a second 409 is shown to the person. The rider app also keeps the version from every list read, trip stream event and answer.",
+    "admin": "Admin Trips: a booked trip from driver_to_pickup on shows the label 'Booked ride · now live' next to its status (the trip view itself is unchanged). No setting."
+  },
   "errors": {
     "shape": "{ code, message, requestId, retryable, reason?, projection?, details? }",
     "details": "v0.14.0: optional string[] detail list; documents_not_approved lists the missing or unapproved required document types",
@@ -4180,7 +4194,7 @@
         "solved": "Owner A2 'Alert become green color with new info': the cause ended by itself (e.g. a driver took the ride). The alert STAYS visible, shown GREEN with solvedText (e.g. 'Driver Ali took it 17:48'); an admin can still take it and mark it done. If the same cause comes back before anyone marks it done, the same alert is open again (solved info cleared).",
         "done": "An admin marked it done (AlertRecord status done): it leaves the open list. While the cause is still there no new alert is made for it; once the cause ended and comes back later, a new alert (new alertId) starts."
       },
-      "liveAlert": "LiveAlert { alertId, causeKey, kind, level critical | important | info, title, titleT { t, a[] }, detail, detailT? { t, a[] }, zoneId?, country, since, state open | solved, solvedAt?, solvedText?, solvedT? { t, a[] }, ref { tripId?, driverId?, riderId?, incidentId?, rideCheckId?, ticketId?, payoutId?, refundId?, ruleId? } }. title / detail / solvedText are English; titleT / detailT / solvedT are the same text as an English template with {0}, {1} places and its values, which the panel shows in sv / fr / en. Times in texts are HH:MM in the zone's time zone.",
+      "liveAlert": "LiveAlert { alertId, causeKey, kind, level critical | important | info, title, titleT { t, a[] }, detail, detailT? { t, a[] }, zoneId?, country, since, state open | solved, solvedAt?, solvedText?, solvedT? { t, a[] }, old? (v0.18.31, true only on an old SOS / safety case, see alertsOldList), oldSince? (v0.18.31), ref { tripId?, driverId?, riderId?, incidentId?, rideCheckId?, ticketId?, payoutId?, refundId?, ruleId? } }. title / detail / solvedText are English; titleT / detailT / solvedT are the same text as an English template with {0}, {1} places and its values, which the panel shows in sv / fr / en. Times in texts are HH:MM in the zone's time zone.",
       "settings": {
         "note": "The server reads the country's alert settings document (PUT /admin/alerts/settings): kinds[kind] { on, level, limits { info, important, critical } } and zones[zoneId] (below); missing values use the defaults here and in kindDefaults. A kind switched off makes no alerts; its open alerts are solved.",
         "zones": "zones[zoneId] { bookedAtRiskMin, liveAtRiskMin, fewDriversLimit, noDriverLimit } — owner A1: the at-risk minutes are an admin setting per zone, separate for booked and live rides.",
@@ -7129,9 +7143,9 @@
         },
         "reservation_leave_now": {
           "title": {
-            "sv": "Starta nu mot upphämtningen",
-            "fr": "Partez maintenant vers la prise en charge",
-            "en": "Start now towards the pickup"
+            "sv": "Dags att köra till upphämtningen · {riderFirstName}",
+            "fr": "C'est l'heure d'aller à la prise en charge · {riderFirstName}",
+            "en": "Time to drive to pickup · {riderFirstName}"
           },
           "body": {
             "sv": "Kör nu för att vara framme {early} min före kl. {time}.",
@@ -7422,7 +7436,7 @@
       "rider": "riderErrorKind maps 429 / rate_limited / too_many_requests to rateLimited and shows the wait from Retry-After",
       "admin": "ApiError.retryable from the body, Retry-After read into retryAfterSeconds; reads retry at most twice and wait Retry-After (at most 60 s) before retrying; message 'Too many attempts. Wait N s.'"
     }
-    },
+  },
   "previewSession": {
     "version": "0.18.25",
     "note": "BASE job 'admin real app preview' (Rules plan/BASE-JOBS-SPEC-2026-11-04.md §1; owner P1 a, P2 b, P3 a, 2026-11-04). The admin panel shows the REAL rider and driver web apps inside a phone frame on every page that showed a drawn sample phone (Content, Design, Messages, Bonuses, Promos, Riders). The apps talk to the live server with a preview token; every real action is blocked.",
@@ -7668,5 +7682,14 @@
       "liveCount": "B-k: the admin live counter reads 'Searching N · Live M': N = open trips still looking for a driver (requested, searching, offered), M = trips with a driver (accepted to on_trip).",
       "dates": "B-l: admin date filters show and take dates in the admin's language format (sv YYYY-MM-DD, fr DD/MM/YYYY, en DD/MM/YYYY); the wire stays ISO YYYY-MM-DD."
     }
+  },
+  "alertsOldList": {
+    "note": "v0.18.31 (owner Q-Bj 2026-11-05 'Never auto-close', Rules decisions/driver-g15.md; pre-merge B-j/P20). Builds on v0.18.30 main. Additive; X-Api-Version stays 0.5.",
+    "rideCheck": "A ride_check alert turns solved (green, kept, owner A2) once its trip has ended (trip status completed, cancelled_*, no_show or expired, or the trip's end time set). solvedT: 'Trip ended {0}'.",
+    "neverAutoClose": "SOS and safety alerts (kinds sos, sos_slow, car_lost) are NEVER closed or solved by the server while their incident is open or investigating: only an admin closes them (Incidents) or marks them done.",
+    "old": "When the alert's trip ended more than oldAfterHours ago, the alert stays open and LiveAlert carries old: true and oldSince (= trip end + oldAfterHours). An alert without a trip never becomes old. old is missing on every other alert.",
+    "oldAfterHours": 24,
+    "admin": "The Alerts page shows old alerts only in a separate 'Old' tab (sv 'Gamla', fr 'Anciennes', en 'Old'), never in the open list; an admin can still take and close them there.",
+    "apps": "Rider and driver apps: no change (RULE 0 check only)."
   }
 }

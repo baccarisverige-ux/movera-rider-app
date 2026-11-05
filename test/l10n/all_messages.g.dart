@@ -939,6 +939,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'resErrZoneOff': l.resErrZoneOff,
   'bookingFreeRule': l.bookingFreeRule('<time>'),
   'scheduleForLaterChip': l.scheduleForLaterChip,
+  'bookedDriverOnTheWay': l.bookedDriverOnTheWay,
   'findingDriver': l.findingDriver,
   'findingYourAddress': l.findingYourAddress,
   'destinationLabel': l.destinationLabel('<address>'),
@@ -3782,6 +3783,8 @@ class _Exhaustive implements AppLocalizations {
   String bookingFreeRule(String time) => '';
   @override
   String get scheduleForLaterChip => '';
+  @override
+  String get bookedDriverOnTheWay => '';
   @override
   String get findingDriver => '';
   @override
