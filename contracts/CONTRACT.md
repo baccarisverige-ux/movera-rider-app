@@ -1,6 +1,10 @@
 # Movera shared contract v0.18.25
 
-v0.18.25 (BASE job admin real app preview, owner P1 a / P2 b / P3 a 2026-11-04; builds on v0.18.22 main; numbered after 0.18.23 (alerts #60) and 0.18.24 (rate limits), which are reserved; additive, X-Api-Version stays `0.5`): `POST /admin/preview-sessions` (`settings.read`) gives a 15-minute read-only preview token for the real rider or driver web app shown in a phone frame in the admin panel; every write with that token is refused (`403 forbidden`, reason `preview_blocked`); `GET /rider|driver/config?draft=1` serves the zone's saved draft to a preview token only; the apps show a "Preview" banner and "Preview – not sent" on Book / Accept / Pay. §47, `contract.json#previewSession`.
+v0.18.25 (BASE job admin real app preview, owner P1 a / P2 b / P3 a 2026-11-04; builds on v0.18.22 main; numbered after 0.18.23 (alerts #60) and 0.18.24 (rate limits), which are reserved; additive, X-Api-Version stays `0.5`): `POST /admin/preview-sessions` (`settings.read`) gives a 15-minute read-only preview token for the real rider or driver web app shown in a phone frame in the admin panel; every write with that token is refused (`403 forbidden`, reason `preview_blocked`); `GET /rider|driver/config?draft=1` serves the zone's saved draft to a preview token only; the apps show a "Preview" banner and "Preview – not sent" on Book / Accept / Pay. §48, `contract.json#previewSession`.
+
+v0.18.24 (BASE jobs B11/B12 2026-11-04; builds on v0.18.23 main; additive): a general write limit — every POST/PUT/PATCH/DELETE counts against a per-minute budget per signed-in user (else per address); over it `429 rate_limited`, reason `too_many_requests`, with `Retry-After`. Per-country admin setting (`countryLimits.writesPerUserPerMinute` / `writesPerAddressPerMinute`), env as floor. The OTP and sign-in limits stay. §47, `contract.json#rateLimit`.
+
+v0.18.23 (BASE job 4 "Server-side alerts", owner 2026-11-04 A1–A3, Rules `decisions/admin-fake-by-group.md`; builds on v0.18.22; X-Api-Version stays `0.5`, additive; rider and driver apps: no change): **alerts are server-created only** — the server finds every alert kind itself every 30 s and right after key events (SOS / car lost / ride check opened, ticket opened, booked-ride timers), one alert per cause, no duplicates; `GET /admin/alerts/book` also returns `alerts [LiveAlert]`. New booked-ride kinds `booked_at_risk`, `booked_late`, `booked_not_started`. **At risk** is an admin setting per zone (owner A1): `settings.zones[zoneId].bookedAtRiskMin` and `liveAtRiskMin`, default 15 each. **Solved by itself** (owner A2): the alert stays, turns green with the new info ("Driver Ali took it 17:48"), an admin can still mark it done. **Custom rules** are checked by the server 24/7 (owner A3). §44, `contract.json#alertDesk.serverDetection`.
 
 v0.18.22 (BASE job admin live updates 2026-11-04; builds on v0.18.21 main; additive; 0.18.20 is taken by the open contracts PR #60): one admin event stream `GET /admin/events` (SSE, `AdminLiveEvent`: trip.changed, driver.status, zone.supply, alert.changed, ticket.changed, incident.changed, approval.changed, payment.failed, resync), zone-scoped, replay with Last-Event-ID; the admin panel drops its 15 s polling and shows a small "Reconnecting…" badge when the stream drops (owner L1). §46, `contract.json#adminLiveEvents`.
 
@@ -1033,7 +1037,7 @@ Owner 2026-11-02 Q5 "Alerts = FULL FLOW" (take — the others see who has it, pa
 - **Commands** (overview.read): `POST /admin/alerts/{alertId}/take | done | snooze | pass` (owner rules: another admin's alert → `409 alert_taken`; SOS, car lost and ride check are taken in Incidents → `409 alert_in_incidents`; pass → an active admin in `people`, else `400 assignee_not_allowed`), `PUT | DELETE /admin/alerts/mutes/{kind}`, `PUT /admin/alerts/quiet` (own quiet hours).
 - **Settings and rules** (alerts.manage): `PUT /admin/alerts/settings | rules { expectedRev, … }` (stale rev → `409 version_mismatch`); stored as the panel's documents, at most 256 KB.
 - **Export**: `GET /admin/alerts/history?from=&to=` → `{ items }`; the panel makes the CSV. Every command is audited (`alert.*`).
-- **Next**: server-side detection and push to admins.
+- **Next**: server-side detection — done in v0.18.23 (§44); push to admins later.
 
 ## 39. Incidents settings, report, calls — build-all A1 (v0.18.15)
 
@@ -1068,6 +1072,15 @@ Owner 2026-11-03 Q1–Q7 (Rules `decisions/driver-g15.md`, "Book later answers")
 
 `GET /admin/zones/{zoneId}/driver-facts` → `DispatchDriverFactsList { zoneId, serverTime, items: DispatchDriverFacts[] }` (`trips.read`; a zone outside the admin's scope is `403 zone_out_of_scope`). One row per active driver of the zone who is online (`state: free`) or on a trip (`state: trip`). Real: `rating`, `acceptancePct`, `cancelPct` (the same numbers and minimums as `Driver.performance`, null below them), `idleMin` (null on a trip), `categoryIds`, `missedInRow` (counted as `contract.json#autoOffline`), `ridesThisHour`, `restNeeded` (driving-time limit). Not tracked yet, always `null`: `finishingInMin`, `extras`, `female`, `skipsInRow`, `favourite`, `goingHome`, `homeDirectionOk`, `priorityUntilMin`, `queuePos`. The admin shows "—" for null and no alert fires on a null fact. Driver and rider apps: no change.
 
+## 44. Server-side alerts — BASE job 4 (v0.18.23)
+Owner 2026-11-04 A1 "First answer and add 15 min by default also admin can set time risk for reservation and for live booking", A2 "Alert become green color with new info", A3 "Yes, server checks them". `contract.json#alertDesk.serverDetection`.
+- **Server-created only.** The server's sweep (every 30 s on the timer worker, and at once after an incident, a ticket or a booked-ride timer) finds every kind of `alertDesk.kindGroups` from its own data. The admin panel reads `AlertBookState.alerts` and never makes up an alert or its start time.
+- **One alert per cause** (`causeKey`); `since` = when the server first found it. States: `open`, `solved` (green, `solvedText`, still to be marked done), done (an `AlertRecord` with status done).
+- **Per-zone settings** in the country's alert settings: `zones[zoneId] { bookedAtRiskMin 15, liveAtRiskMin 15, fewDriversLimit 2, noDriverLimit 5 }`; the kinds' on / level / limits as before.
+- **Booked rides:** `booked_at_risk` (no driver ≤ bookedAtRiskMin before pickup), `booked_late` (pickup time passed, no driver), `booked_not_started` (driver holds it, leave time passed, not started).
+- **Custom rules** (metric, above / below, value, for N min, zone or all, level) are checked by the server on every sweep.
+- Rider and driver apps: no change.
+
 ## 46. Admin live updates — BASE job (v0.18.22)
 
 Owner L1 (2026-11-04, Rules `decisions/admin-fake-by-group.md`): a small "Reconnecting…" badge, data still refreshes every minute. `contract.json#adminLiveEvents`.
@@ -1080,7 +1093,17 @@ Owner L1 (2026-11-04, Rules `decisions/admin-fake-by-group.md`): a small "Reconn
 - **Admin panel**: one EventSource; each type invalidates its lists (`adminLiveEvents.client.invalidates`) on Overview, Alerts, Live map/Dispatch, Trips, Reservations, Support tickets, Incidents, Approvals, Payments. While the stream is open no timed polling; while it is not, a small "Reconnecting…" badge and a refresh every 60 s.
 - **Rider and driver apps**: no change (own streams).
 
-## 47. Admin real app preview — BASE job (v0.18.25)
+## 47. General write limit — BASE job B11 (v0.18.24)
+
+Architecture audit 2026-11-03 item 9. `contract.json#rateLimit`.
+
+- **What counts**: every `POST`, `PUT`, `PATCH`, `DELETE` under `/api/v1`. Reads and CORS preflights never count. The sign-in limits (§8 `auth.limits`, `countryLimits`, waiting list, admin sign-in) are unchanged and still answer their own reasons.
+- **Whose budget**: a valid access token → that user (actor + `sub`); otherwise the client address seen by the trusted proxy. Many accounts on one address (a load test, a phone operator's NAT) each have their own budget.
+- **Budget**: fixed 60 s window. Defaults: production 120 per user / 60 per address; staging and development 1200 / 600. **Admin setting per country** (owner 2026-11-04 "Yes, admin setting"): `CountryRules.limits.writesPerUserPerMinute` (default 120, 30–10000) and `writesPerAddressPerMinute` (default 60, 20–10000) of the country standard, Admin › Settings › Request limits; the server picks them up within about 60 s, no release. A signed-in user uses his token's first zone's country; a caller without a token the default zone's country. Server environment `RATE_LIMIT_WRITES_PER_USER_PER_MINUTE`, `RATE_LIMIT_WRITES_PER_ADDRESS_PER_MINUTE` is the fallback and the floor (the higher one wins, so staging keeps its high values; 0 = off).
+- **Sign-in on staging**: a test number has no resend wait (`retryAfterSeconds: 0`) and no hourly code limits, capped at 30 codes per number per minute (owner 2026-11-04); outside production `POST /auth/otp/request` and `/auth/otp/verify` are not counted per address (the load test signs 1000 accounts in from a few machines); their own OTP limits still apply. Production counts them.
+- **Answer**: `429 rate_limited`, reason `too_many_requests`, `retryable: true`, `Retry-After` in whole seconds.
+- **Apps and admin**: already treat 429 as "wait and retry" with the `Retry-After` wait (driver `ApiError.isRetryable`, rider `RiderErrorKind.rateLimited`, admin `ApiError.retryable` / `retryAfterSeconds`). The admin now waits `Retry-After` (at most 60 s) before it retries a read. Driver and rider: no change.
+## 48. Admin real app preview — BASE job (v0.18.25)
 
 Owner (2026-11-04, Rules `decisions/admin-fake-by-group.md`): P1 a — tap through the real screens, Book / Accept / Pay show "Preview – not sent"; P2 b — the preview talks to the live server with every real action blocked; P3 a — every admin page that showed a drawn sample phone (Content, Design, Messages, Bonuses, Promos, Riders). `contract.json#previewSession`.
 
