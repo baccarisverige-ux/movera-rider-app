@@ -3597,7 +3597,8 @@
       "repriceOverMin": 10
     },
     "onTripOffers": {
-      "minRouteDonePct": 70
+      "minRouteDonePct": 70,
+      "lateFreeCancelMin": 10
     },
     "tipRules": {
       "cashAfterTrip": false,
@@ -7529,14 +7530,37 @@
       "riderApp": "Rider app: the confirm / payment screen shows a switch 'Use wallet first' (sv 'Använd plånboken först', fr 'Utiliser le portefeuille d'abord'), on by default, only when the wallet has a balance in the trip's currency, with the line 'Your wallet is used first' (sv 'Din plånbok används först', fr 'Votre portefeuille est utilisé en premier')."
     },
     "onTripOffers": {
-      "settings": "CountryRules.onTripOffers { minRouteDonePct (default 70, 0–100) } — Admin › Settings › Payment methods and languages per country → 'Offers on a trip from (% of the route to the drop-off)'. A zone's own country_rules may set it; else the country's Standard; else 70.",
+      "settings": "CountryRules.onTripOffers { minRouteDonePct (default 70, 0–100), lateFreeCancelMin (default 10, 0–120) } — Admin › Pricing › Tips & limits per country: 'Offers on a trip from (% of the route to the drop-off)' and 'Rider of a next trip may cancel free after (min)'. A zone's own country_rules may set them; else the country's Standard; else the defaults.",
       "ranges": {
         "minRouteDonePct": [
           0,
           100
+        ],
+        "lateFreeCancelMin": [
+          0,
+          120
         ]
       },
-      "riderApp": "A queued live trip shows as accepted with its driver; the driver's ETA counts from the end of his current trip (the server ETA starts when it starts). No rider change needed beyond that."
+      "riderApp": "A queued live trip shows as accepted with its driver; the driver's ETA counts from the end of his current trip (the server ETA starts when it starts). No rider change needed beyond that.",
+      "chainedEta": "Owner Q1 (2026-11-05): the rider of a queued (chained) trip sees the normal 'driver on the way' screen; TripProjection.eta / etaSeconds is the TOTAL: the drive to the driver's current drop-off plus the drive from there to this pickup (straight-line estimates until the trip starts). No extra line.",
+      "offerRecord": "Owner Q2: an offer sent while the driver is on a trip (Offer.driverOnTrip) that he declines or lets expire never counts against him: not in his acceptance rate, not in the missed-offers run (autoOffline).",
+      "queuedCancel": "Owner Q3: the rider of a queued trip may cancel it free before it starts; the driver gets the notice queuedCancelNotice and his next-trip card goes away.",
+      "queuedCancelNotice": {
+        "kind": "next_trip_cancelled",
+        "title": {
+          "en": "Next trip cancelled",
+          "sv": "Nästa resa avbokad",
+          "fr": "Course suivante annulée"
+        },
+        "body": {
+          "en": "The rider of your next trip cancelled. Finish your trip as usual.",
+          "sv": "Resenären för din nästa resa avbokade. Avsluta din resa som vanligt.",
+          "fr": "Le passager de votre prochaine course a annulé. Terminez votre course normalement."
+        }
+      },
+      "currentCancelled": "Owner Q4 ('Not possible to accept new ride and start current, except he have reservation booked and if its time to start reservation so it start if rider cancel! But if rider cancel during on trip so start next trip'): before the current rider is on board no new live offer comes (the 70 % rule). When the current trip ends in any way (complete, end early, any cancel), a queued live trip starts at once; else a held booked ride starts only when its time to drive has come (reservation.leaveAt reached); else the driver is simply free. The driver app opens the started trip with an information popup (OK only).",
+      "lateFreeCancel": "Owner Q5: a late current trip keeps the queued trip with this driver. From lateFreeCancelMin minutes (default 10) after accept, the rider of a chained trip may cancel free also after it started (trips.chained).",
+      "serverSafety": "Rule 33: the queued trip starts in the same transaction as the driver's release, with its row locked (FOR UPDATE); a driver who still has a current trip is never released."
     }
   }
 }

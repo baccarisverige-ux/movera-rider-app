@@ -289,6 +289,9 @@ extension _WaitingStages on _WaitingForDriverState {
   String? _termsCancelNote(TripTerms terms) {
     final rule = terms.cancelRule;
     final now = WaitingForDriver.cancelFeeClock();
+    // Fix job 5 (owner Q3 + Q5): a trip waiting behind the driver's current
+    // one, or a late chained trip, cancels free.
+    if (_tracking.chainCancelFree(now)) return L10n.current.cancelFreeChained;
     final elapsed = now.difference(_acceptedAt);
     final minutes = elapsed.isNegative ? 0 : elapsed.inMinutes;
     final fare = Money.fromLegacyMajor(_price, widget.currency);

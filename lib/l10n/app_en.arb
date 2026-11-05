@@ -461,6 +461,10 @@
       }
     }
   },
+  "cancelFreeChained": "Cancel for free: your driver is finishing another trip first",
+  "@cancelFreeChained": {
+    "description": "Fix job 5 (v0.18.33, owner Q3 + Q5): waiting screen cancel line for a trip queued behind the driver's current trip, or a late chained trip."
+  },
   "setLocation": "Set location",
   "choosePickup": "Choose pickup",
   "setHomeAddress": "Set Home address",

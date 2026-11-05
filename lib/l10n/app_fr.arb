@@ -209,6 +209,7 @@
   "cancelledNoShowFee": "Frais de client absent {amount}",
   "cancelledNoFee": "Pas de frais",
   "freeRuleHours": "{count, plural, =1{1 heure} other{{count} heures}}",
+  "cancelFreeChained": "Annulation gratuite : votre chauffeur termine d'abord une autre course",
   "setLocation": "Définir le lieu",
   "choosePickup": "Choisir le départ",
   "setHomeAddress": "Définir l’adresse du domicile",

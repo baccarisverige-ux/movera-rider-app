@@ -1,4 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/core/contracts/ride_status.dart';
+import 'package:movera_rider/core/realtime/ride_realtime.dart';
+import 'package:movera_rider/features/driver_arriving/application/driver_tracking_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 
@@ -35,5 +38,26 @@ void main() {
       paymentMethod: 'Cash',
     );
     expect(draft.walletFirst, isTrue);
+  });
+
+  test('owner Q3 + Q5: TripProjection.chain reaches the event; a queued trip '
+      'and a late chained one cancel free (fail-before: not read)', () {
+    final event = RideRealtimeEvent(
+      tripId: 'trp_1',
+      status: RideStatus.driverAssigned,
+      sequence: 1,
+      payload: const {
+        chainKey: {'queued': true, 'freeCancelAt': '2026-11-05T12:10:00Z'},
+      },
+    );
+    expect(event.chainQueued, isTrue);
+    expect(event.chainFreeCancelAt, DateTime.utc(2026, 11, 5, 12, 10));
+    final now = DateTime.utc(2026, 11, 5, 12);
+    bool free(bool queued, DateTime? at, DateTime when) =>
+        DriverTrackingController.chainCancelFreeAt(queued, at, when);
+    expect(free(true, null, now), isTrue);
+    final at = DateTime.utc(2026, 11, 5, 12, 10);
+    expect(free(false, at, now), isFalse);
+    expect(free(false, at, now.add(const Duration(minutes: 11))), isTrue);
   });
 }

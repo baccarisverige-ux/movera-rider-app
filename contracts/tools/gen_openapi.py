@@ -2911,8 +2911,10 @@ S["DispatchDocument"]["properties"]["bookedNext"] = obj({"on": {**b(), "default"
                                                         ["on", "withinMin"], "v0.18.33: " + ATR["bookedNext"]["rule"] + " " + ATR["bookedNext"]["settings"])
 S["CreateTripRequest"]["properties"]["walletFirst"] = {**b("v0.18.33: " + ATR["walletFirst"]["rule"]), "default": True}
 S["TripProjection"]["properties"]["walletFirst"] = b("v0.18.33: " + ATR["walletFirst"]["projection"])
-S["CountryRules"]["properties"]["onTripOffers"] = obj({"minRouteDonePct": {**i(minimum=0, maximum=100), "default": C["configDefaults"]["onTripOffers"]["minRouteDonePct"]}}, ["minRouteDonePct"],
+S["CountryRules"]["properties"]["onTripOffers"] = obj({"minRouteDonePct": {**i(minimum=0, maximum=100), "default": C["configDefaults"]["onTripOffers"]["minRouteDonePct"]},
+                                                       "lateFreeCancelMin": {**i(ATR["onTripOffers"]["lateFreeCancel"], minimum=0, maximum=120), "default": C["configDefaults"]["onTripOffers"]["lateFreeCancelMin"]}}, ["minRouteDonePct"],
                                                        "v0.18.33: " + ATR["bookedNext"]["rule"] + " " + ATR["onTripOffers"]["settings"])
+S["TripProjection"]["properties"]["chain"] = obj({"queued": b("Still queued behind the driver's current trip (cancel free)."), "freeCancelAt": ref("Timestamp")}, ["queued"], "v0.18.33 (owner Q3 + Q5), all views: a trip a driver on a trip took next. " + ATR["onTripOffers"]["lateFreeCancel"])
 S["TripProjection"]["properties"]["nextAfterTripId"] = {"allOf": [ref("Id")], "description": "v0.18.33, driver and admin views: a live trip queued behind this driver's current trip (contract.json#afterTestRules.bookedNext.accept)."}
 S["RiderAppConfig"]["properties"]["wallet"] = obj({"usedFirst": {**b("The balance (one per currency, no conversion) pays first. v0.18.33: " + ATR["walletFirst"]["zone"]), "default": True}})
 

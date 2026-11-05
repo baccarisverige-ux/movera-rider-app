@@ -215,6 +215,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'cancelledNoShowFee': l.cancelledNoShowFee('<amount>'),
   'cancelledNoFee': l.cancelledNoFee,
   'freeRuleHours': l.freeRuleHours(37),
+  'cancelFreeChained': l.cancelFreeChained,
   'setLocation': l.setLocation,
   'choosePickup': l.choosePickup,
   'setHomeAddress': l.setHomeAddress,
@@ -374,12 +375,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'completeRateBody': l.completeRateBody,
   'readyForFeedback': l.readyForFeedback,
   'completeDefaultBody': l.completeDefaultBody,
-  'droppedPinLabel': l.droppedPinLabel(
-    '<lat>',
-    '<latSide>',
-    '<lng>',
-    '<lngSide>',
-  ),
+  'droppedPinLabel': l.droppedPinLabel('<lat>', '<latSide>', '<lng>', '<lngSide>'),
   'compassNorth': l.compassNorth,
   'compassSouth': l.compassSouth,
   'compassEast': l.compassEast,
@@ -1645,10 +1641,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'supportExit': l.supportExit,
   'supportFailed': l.supportFailed,
   'supportPriceCancelled': l.supportPriceCancelled('<price>'),
-  'supportPriceCancelledExtra': l.supportPriceCancelledExtra(
-    '<price>',
-    '<extra>',
-  ),
+  'supportPriceCancelledExtra': l.supportPriceCancelledExtra('<price>', '<extra>'),
   'supportIssueAck': l.supportIssueAck,
   'supportFollowUp': l.supportFollowUp,
   'supportWelcomeRide': l.supportWelcomeRide,
@@ -2343,6 +2336,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String freeRuleHours(int count) => '';
   @override
+  String get cancelFreeChained => '';
+  @override
   String get setLocation => '';
   @override
   String get choosePickup => '';
@@ -2661,12 +2656,7 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get completeDefaultBody => '';
   @override
-  String droppedPinLabel(
-    String lat,
-    String latSide,
-    String lng,
-    String lngSide,
-  ) => '';
+  String droppedPinLabel(String lat, String latSide, String lng, String lngSide) => '';
   @override
   String get compassNorth => '';
   @override

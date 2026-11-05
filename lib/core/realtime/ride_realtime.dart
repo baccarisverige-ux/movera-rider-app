@@ -26,6 +26,10 @@ const String waitingArrivedAtKey = 'waitingArrivedAt';
 /// rider-r4-13: the projection's `waiting.freeUntil` (when the waiting fee
 /// starts) and `waiting.noShowAt` (when the driver may report a no-show).
 const String waitingFreeUntilKey = 'waitingFreeUntil';
+
+/// Fix job 5 (v0.18.33, owner Q3 + Q5): `TripProjection.chain` of a trip a
+/// driver on a trip took next.
+const String chainKey = 'chain';
 const String waitingNoShowAtKey = 'waitingNoShowAt';
 
 /// v0.18.7 (`pickupWaiting`): the server ETA (`TripProjection.eta` or a
@@ -135,6 +139,12 @@ class RideRealtimeEvent {
   /// When the driver's waiting clock started at the pickup (Q42).
   DateTime? get waitingArrivedAt =>
       WireTime.tryParse(payload[waitingArrivedAtKey]);
+
+  /// Owner Q3 + Q5: the trip waits behind the driver's current trip (cancel
+  /// free), or, once started, may be cancelled free from [chainFreeCancelAt].
+  bool get chainQueued => (payload[chainKey] as Map?)?['queued'] == true;
+  DateTime? get chainFreeCancelAt =>
+      WireTime.tryParse((payload[chainKey] as Map?)?['freeCancelAt']);
 
   /// When the free wait ends and the waiting fee starts (Q41/Q42).
   DateTime? get waitingFreeUntil =>

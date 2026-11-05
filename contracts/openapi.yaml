@@ -17684,6 +17684,19 @@ components:
           type: boolean
           description: 'v0.18.33: TripProjection.walletFirst: boolean (rider and admin views): the switch the trip was booked
             with.'
+        chain:
+          type: object
+          description: 'v0.18.33 (owner Q3 + Q5), all views: a trip a driver on a trip took next. Owner Q5: a late current
+            trip keeps the queued trip with this driver. From lateFreeCancelMin minutes (default 10) after accept, the rider
+            of a chained trip may cancel free also after it started (trips.chained).'
+          required:
+          - queued
+          properties:
+            queued:
+              type: boolean
+              description: Still queued behind the driver's current trip (cancel free).
+            freeCancelAt:
+              $ref: '#/components/schemas/Timestamp'
         nextAfterTripId:
           allOf:
           - $ref: '#/components/schemas/Id'
@@ -20982,9 +20995,10 @@ components:
             (default 70) % of his current trip''s route: done = 1 − (dispatchKm from his position to its drop-off) / (its
             booked km). A booked ride also needs its pickup at most bookedNext.withinMin minutes away and his current trip
             (+ the drive from its drop-off) to end by the booked time. km and the score are counted from the current trip''s
-            drop-off. CountryRules.onTripOffers { minRouteDonePct (default 70, 0–100) } — Admin › Settings › Payment methods
-            and languages per country → ''Offers on a trip from (% of the route to the drop-off)''. A zone''s own country_rules
-            may set it; else the country''s Standard; else 70.'
+            drop-off. CountryRules.onTripOffers { minRouteDonePct (default 70, 0–100), lateFreeCancelMin (default 10, 0–120)
+            } — Admin › Pricing › Tips & limits per country: ''Offers on a trip from (% of the route to the drop-off)'' and
+            ''Rider of a next trip may cancel free after (min)''. A zone''s own country_rules may set them; else the country''s
+            Standard; else the defaults.'
           required:
           - minRouteDonePct
           properties:
@@ -20993,6 +21007,13 @@ components:
               minimum: 0
               maximum: 100
               default: 70
+            lateFreeCancelMin:
+              type: integer
+              minimum: 0
+              maximum: 120
+              description: 'Owner Q5: a late current trip keeps the queued trip with this driver. From lateFreeCancelMin minutes
+                (default 10) after accept, the rider of a chained trip may cancel free also after it started (trips.chained).'
+              default: 10
       x-server-only: true
     FeeRule:
       type: object
