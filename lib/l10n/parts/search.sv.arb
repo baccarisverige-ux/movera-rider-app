@@ -85,6 +85,8 @@
   "noShowReversedNoFee": "Utebliven kund ångrad · ingen avgift",
   "searchStepKeepWaitingFallback": "Det tar längre tid än vanligt. Vill du fortsätta vänta?",
   "searchStepBusyFallback": "Alla förare är upptagna just nu. Försök igen om en stund.",
-  "searchStepStop": "Sluta söka",
-  "searchStepAnswerFailed": "Ditt svar nådde inte Movera. Försök igen."
+  "searchStepStop": "Avboka gratis",
+  "searchStepAnswerFailed": "Ditt svar nådde inte Movera. Försök igen.",
+  "searchStepNoDriverNearby": "Ingen förare i närheten just nu. Vi fortsätter leta.",
+  "searchStepNoDriverFound": "Ingen förare hittades till din bokade resa. Du betalar ingenting."
 }

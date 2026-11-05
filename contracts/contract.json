@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.36",
+  "version": "0.18.39",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -3156,7 +3156,8 @@
       "raiseMax": null,
       "takeBackLateMin": 5,
       "takeBackKeepIfDriveMin": 10,
-      "takeBackUntilMinBeforePickup": 15
+      "takeBackUntilMinBeforePickup": 15,
+      "noDriverStopAfterMin": 15
     },
     "countries": {
       "SE": {
@@ -3580,6 +3581,11 @@
         ],
         "raisePrice": {
           "maxFactor": 2
+        },
+        "noDriverNearby": {
+          "on": true,
+          "afterSec": 300,
+          "message": "No driver nearby right now. We keep searching for you."
         }
       },
       "control": {
@@ -4364,6 +4370,14 @@
         "booked_taken_back": {
           "level": "important",
           "rule": "v0.18.35 (job 4): the server took a booked ride back from a late driver (contract.json#bookedTakeBack) and no new driver has it yet. Title '{0}'s booked ride at {1} was taken from {2} (late)'. Solved when a new driver takes it ('Driver {0} took it {1}')."
+        },
+        "no_driver_nearby": {
+          "level": "important",
+          "rule": "v0.18.39 §63 (N2): a live ride whose rider was shown 'No driver nearby' (TripProjection.searchStep.kind no_driver_nearby) and still has no driver. Title '{0} has no driver nearby ({1} min)'. Solved when a driver takes it or the ride is cancelled."
+        },
+        "booked_no_driver_ended": {
+          "level": "important",
+          "rule": "v0.18.39 §63 (P17): a booked ride the server ended noDriverStopAfterMin after its pickup time because no driver took it (TripProjection.reservation.noDriverFound). Title '{0}'s booked ride at {1} ended: no driver found'. Shown for 24 h after the end, or until an admin marks it done."
         }
       },
       "commands": "take / pass / snooze / done on a server alert: the kind, zone and title stored by the server win over what the call sends. done closes it (state done).",
@@ -4392,7 +4406,9 @@
       "booked_at_risk": "dispatch",
       "booked_late": "dispatch",
       "booked_not_started": "dispatch",
-      "booked_taken_back": "dispatch"
+      "booked_taken_back": "dispatch",
+      "no_driver_nearby": "dispatch",
+      "booked_no_driver_ended": "dispatch"
     },
     "permissions": {
       "note": "Seeing an alert needs its group's read permission; acting on it (take, done, snooze, pass) needs its group's act permission or alerts.manage. Mutes, settings and rules need alerts.manage. Quiet hours: the admin's own (overview.read).",
@@ -7015,7 +7031,8 @@
         "reservation_offered",
         "reservation_leave_now",
         "reservation_late_risk",
-        "reservation_taken_back"
+        "reservation_taken_back",
+        "reservation_no_driver_found"
       ],
       "note": "Push and Notifications list (bell), in the person's language (else the zone country's, else English); {time} is the pickup time HH:MM in the zone's time zone, {driver} the driver's first name. Deep links: rider movera://trips/{tripId}, driver movera-driver://reservations/{tripId}.",
       "texts": {
@@ -7209,6 +7226,18 @@
             "sv": "Du hade inte hunnit till upphämtningen kl. {time}, så resan gick till en annan förare. Det räknas som en avbokning.",
             "fr": "Vous n’auriez pas été à l’heure pour la prise en charge de {time} : la course a été confiée à un autre chauffeur. Elle compte comme une annulation.",
             "en": "You would not have reached the pickup at {time} in time, so the ride went to another driver. It counts as a cancel."
+          }
+        },
+        "reservation_no_driver_found": {
+          "title": {
+            "sv": "Ingen förare hittades",
+            "fr": "Aucun chauffeur trouvé",
+            "en": "No driver found"
+          },
+          "body": {
+            "sv": "Vi hittade ingen förare till din resa kl. {time}. Du betalar ingenting.",
+            "fr": "Nous n’avons trouvé aucun chauffeur pour votre course de {time}. Vous ne payez rien.",
+            "en": "We found no driver for your {time} ride. You pay nothing."
           }
         }
       }
@@ -7849,6 +7878,77 @@
       "maxQueueOffers": [
         1,
         10
+      ]
+    }
+  },
+  "noDriverNearby": {
+    "note": "v0.18.39 §63 (fix job N2 + P17 + far rider, fix plan A2 / A11-FR 'Proof: far rider', owner N2 answer 2026-11-05 \"'No driver nearby' after 5 min\" (admin setting per zone, search continues until the rider cancels) and P17 answers \"15 min after pickup past\" + admin alert \"Yes\", boss supervisor night answers (afterSec 300, farReachKm 12), Rules decisions/driver-g15.md). Builds on v0.18.36 main. Additive; X-Api-Version stays 0.5; no server migration. Driver app: no change.",
+    "message": "DispatchDocument.noDriverNearby { on (default true), afterSec (default 300, 60-1800), message (default 'No driver nearby right now. We keep searching for you.') }, per zone (Admin › Dispatch). A live ride still without a driver afterSec seconds after its search started shows the rider TripProjection.searchStep { kind no_driver_nearby, message } ONCE (one search step, id nd, fired once per search). The search keeps going. Booked rides never get it (they have P17).",
+    "riderAnswer": "The rider app shows the message with two buttons: Keep waiting (POST /trips/{tripId}/keep-waiting { answer: wait }: nothing else changes, the search goes on) and Cancel free (answer stop: the normal rider cancel, free because no driver has accepted). keep-waiting accepts searchStep.kind keep_waiting or no_driver_nearby, once per step. No answer: the search goes on.",
+    "liveNoEnd": "Owner N2 'search keeps going until the rider cancels': a LIVE ride's search has no end time any more. radius.maxWaitMin and the busy step no longer end it (busy is shown as a message only, never after no_driver_nearby; keep_waiting is not shown after no_driver_nearby, which already asks). The trip leaves the search only when a driver accepts, the rider cancels, or an admin acts. A zone with no published dispatch rules still ends after 10 min (nobody can be dispatched). Supersedes, for live rides, the 'search end' and 'busy: the search ends' rules of contract.json#dispatch.rules.",
+    "farReach": "DispatchDocument.limits.farReachKm (default 12, > 0 and <= 50, road km like every step, roadFactor 1.25), per zone (Admin › Dispatch). Used only once the steps are used up (repeat rounds) and NOBODY NEW is inside the widest step: no free driver in reach, or every one in reach already declined or let an offer of this trip run out. Then the search adds ONE extra step at farReachKm (radius.steps, radar.steps and exclusive.steps each get farReachKm as their widest value; limits.maxPickupKm does not cap it; maxPickupEtaMin still does) and its repeat rounds go on at that reach until the end of the search. farReachKm at or below the widest step (or limits.maxPickupKm) = off. Neighbour zones are unchanged (neighbours.on).",
+    "reaskLimit": "Stop re-asking one busy driver forever: a driver who declined or let run out reaskLimit (2) offers of this trip in this search (Radar or Exclusive) is not asked again in this search; withdrawn offers do not count; a new search (driver cancel, rider raise) starts the count again. Owner decisions 23 / Q1 (a decliner may see the trip again) still hold: once more, not forever.",
+    "bookedStop": "P17 (owner 'Q-P17 15 min after pickup past'): a booked ride with no driver (requested, searching or offered) noDriverStopAfterMin minutes after its pickup time (DriverAppConfig.reservations.noDriverStopAfterMin, default 15, 1-240, per zone, Admin › Dispatch › Book later) is ended by the server: open offers withdrawn, system expire (status expired, ended_by_command expire), TripProjection.reservation.noDriverFound true, searchStep { kind no_driver_found, message 'No driver was found for your booked ride. You pay nothing.' }. No fee (nothing is charged; a captured booking payment is refunded in full). The rider gets push reservation_no_driver_found. Replaces 'the ride never expires by itself' of contract.json#bookLater.noDriver (BL-Q7) after noDriverStopAfterMin.",
+    "alerts": "Admin alerts (group dispatch, level important): no_driver_nearby at the same moment the rider is shown no_driver_nearby (solved when a driver takes it or the ride ends); booked_no_driver_ended when P17 ends a booked ride (shown 24 h, or until done). Admin › Trips: a searching live trip whose searchStep.kind is no_driver_nearby carries the mark 'No driver in reach'.",
+    "admin": "Admin › Dispatch (per zone): 'No driver nearby' on/off, 'after (min)' (afterSec / 60, 1-30) and the message; 'Far reach (km)' (limits.farReachKm). Admin › Dispatch › Book later: 'Stop a booked ride with no driver after pickup + (min)' (noDriverStopAfterMin). The 'Max wait' and 'busy' rows say they end booked rides' search rounds only (live rides keep searching).",
+    "driver": "Driver app: no change. A far offer already shows its long pickup distance (pickupMeters) and pickup pay.",
+    "serverSafety": "Rule 33 (several server copies): the no_driver_nearby step and the P17 stop are durable timers in the database (search_step nd, resv_no_driver_stop), handled with the trip row locked (NOWAIT for dispatch timers); fired steps and the far state (SearchState.far) live in the searches row under that lock; the decline / run-out count is read from the offers table. No server copy keeps any of it in memory.",
+    "texts": {
+      "no_driver_nearby": {
+        "sv": "Ingen förare i närheten just nu. Vi fortsätter leta.",
+        "fr": "Aucun chauffeur à proximité pour le moment. Nous continuons à chercher.",
+        "en": "No driver nearby right now. We keep searching for you."
+      },
+      "no_driver_found": {
+        "sv": "Ingen förare hittades till din bokade resa. Du betalar ingenting.",
+        "fr": "Aucun chauffeur n’a été trouvé pour votre course réservée. Vous ne payez rien.",
+        "en": "No driver was found for your booked ride. You pay nothing."
+      },
+      "keepWaiting": {
+        "sv": "Fortsätt vänta",
+        "fr": "Continuer d’attendre",
+        "en": "Keep waiting"
+      },
+      "cancelFree": {
+        "sv": "Avboka gratis",
+        "fr": "Annuler gratuitement",
+        "en": "Cancel free"
+      },
+      "adminMark": {
+        "sv": "Ingen förare inom räckhåll",
+        "fr": "Aucun chauffeur à portée",
+        "en": "No driver in reach"
+      }
+    },
+    "searchStepKinds": [
+      "alert_admin",
+      "keep_waiting",
+      "busy",
+      "no_driver_nearby",
+      "no_driver_found"
+    ],
+    "reaskLimit_value": 2,
+    "defaults": {
+      "noDriverNearby": {
+        "on": true,
+        "afterSec": 300,
+        "message": "No driver nearby right now. We keep searching for you."
+      },
+      "farReachKm": 12,
+      "noDriverStopAfterMin": 15
+    },
+    "ranges": {
+      "afterSec": [
+        60,
+        1800
+      ],
+      "farReachKm": [
+        0,
+        50
+      ],
+      "noDriverStopAfterMin": [
+        1,
+        240
       ]
     }
   }

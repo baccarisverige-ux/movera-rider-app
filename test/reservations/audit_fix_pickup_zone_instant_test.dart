@@ -78,7 +78,8 @@ void main() {
     // ... and a ride 30 minutes away is not "No driver found".
     expect(c.isNoDriverFound(ride, now: now), isFalse);
     expect(
-      c.isNoDriverFound(ride, now: now.add(const Duration(minutes: 36))),
+      // v0.18.39 §63 (P17): pickup + 15 min, the server's stop time.
+      c.isNoDriverFound(ride, now: now.add(const Duration(minutes: 46))),
       isTrue,
     );
   });

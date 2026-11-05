@@ -14,7 +14,7 @@ void main() {
   final openapi = File('contracts/openapi.yaml').readAsStringSync();
 
   test(
-    'contract v0.18.36 has the airport queue and says riders see nothing',
+    'contract (v0.18.36 on) has the airport queue and says riders see nothing',
     () {
       final queue = contract['airportQueue'] as Map<String, dynamic>?;
       expect(queue, isNotNull);

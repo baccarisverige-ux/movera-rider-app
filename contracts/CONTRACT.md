@@ -1,4 +1,6 @@
-# Movera shared contract v0.18.36
+# Movera shared contract v0.18.39
+
+v0.18.39 (FIX JOB N2 + P17 + far rider, fix plan A2 / A11-FR "Proof: far rider", owner N2 / P17 answers 2026-11-05 and boss supervisor night answers, Rules `decisions/driver-g15.md`; builds on v0.18.36 main; X-Api-Version stays `0.5`, additive, no migration; driver app: no change): a live ride with no driver after `noDriverNearby.afterSec` (300 s, per zone) shows the rider **"No driver nearby"** once, with **Keep waiting** / **Cancel free**, and the admin gets alert `no_driver_nearby`; a **live search never ends by itself** any more (no end at `maxWaitMin` or the busy step); when nobody new is inside the widest step the search tries **one extra step** at `limits.farReachKm` (12 km), and one driver is asked at most **2** times per search. **P17:** a booked ride with no driver ends `noDriverStopAfterMin` (15) minutes after its pickup time: expired, no fee, rider told (push `reservation_no_driver_found`, searchStep `no_driver_found`), admin alert `booked_no_driver_ended`. §63, `contract.json#noDriverNearby`.
 
 v0.18.36 (FIX JOB 9 "airport queue", R27, owner G15 Q5 2026-11-02 "Build it for real" and job 9 answers 2026-11-05, Rules `decisions/driver-g15.md`; builds on v0.18.35 main; X-Api-Version stays `0.5`, additive; server migration 0086; rider app: no change): drivers inside an admin-drawn **queue area** of an airport zone wait in a **first-in-first-out queue** kept in the database; a trip picked up at that airport goes first as an Exclusive (`airport-queue`) to the first driver in line, then the next (a decline **keeps his place**), at most `maxQueueOffers`, then normal nearest dispatch. A driver who drops a rider at the airport **joins at once**. **Riders see nothing.** `GET /driver/airport-queue`, `GET|PUT /admin/zones/{zoneId}/queue-area`, `GET /admin/airport-queues`. §60, `contract.json#airportQueue`.
 
@@ -1228,6 +1230,17 @@ Owner G15 Q5 (2026-11-02): "Build it for real" — drivers in an admin-drawn air
 - **Admin**: Zones › airport zone › Queue area (draw, on/off, numbers); Dashboard airport card from `GET /admin/airport-queues` (waiting, longest wait, pickups last hour).
 - **Rider**: no change (owner: riders see nothing).
 - **Several server copies (rule 33)**: queue rows and their order live in the database (`airport_queue_entries`, one open row per driver, unique index); the queue offer is sent in the round's transaction with the trip row locked and the driver row locked NOWAIT and re-checked.
+
+## 63. No driver nearby, far rider, booked ride stop — fix job N2 + P17 (v0.18.39)
+
+Owner N2 (2026-11-05): "'No driver nearby' after 5 min" — an admin setting per zone, the search continues until the rider cancels. Owner P17: "15 min after pickup past" + admin alert "Yes". Proof: Rules `plan/FIX-PLAN-RERUN-2026-11-05.md` "Proof: far rider" (reach capped at the widest step, one busy driver re-asked, no message). Full rules: `contract.json#noDriverNearby`.
+
+- **No driver nearby** (`DispatchDocument.noDriverNearby { on, afterSec 300, message }`): a live ride still without a driver at `afterSec` shows `searchStep.kind = no_driver_nearby` once; the rider app shows the message with **Keep waiting** (`POST /trips/{tripId}/keep-waiting` `wait`, nothing else changes) and **Cancel free** (`stop`, free rider cancel). Admin alert `no_driver_nearby` at the same moment; Admin › Trips marks the trip "No driver in reach".
+- **Live search has no end**: `radius.maxWaitMin` and the busy step end booked rides' search rounds only; for live rides busy is a message (never after no_driver_nearby) and the search goes on until a driver accepts, the rider cancels or an admin acts.
+- **Far reach** (`DispatchDocument.limits.farReachKm`, default 12): once the steps are used up and nobody new is inside the widest step, one more step at farReachKm (not capped by maxPickupKm; maxPickupEtaMin still applies). At or below the widest step = off.
+- **Re-ask limit**: a driver who declined or let run out 2 offers of the trip in this search is not asked again in it (withdrawn offers do not count).
+- **P17** (`DriverAppConfig.reservations.noDriverStopAfterMin`, default 15): a booked ride with no driver at pickup + 15 min is expired by the server, no fee, `reservation.noDriverFound` true, searchStep `no_driver_found`, rider push `reservation_no_driver_found`, admin alert `booked_no_driver_ended`.
+- **Driver app**: no change. **Several server copies (rule 33)**: durable timers in the database, handled with the trip row locked; state in the searches row; counts from the offers table.
 
 ## 65. Admin live drivers, paged — fix plan A8/A10 (v0.18.34)
 

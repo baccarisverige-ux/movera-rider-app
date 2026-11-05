@@ -339,7 +339,12 @@ class ReservationController extends ChangeNotifier {
   /// ride stays in [ReservationStatus.driverAssignmentPending] forever. The
   /// real fix is server-driven dispatch with explicit no_driver_found /
   /// expired states.
-  static const noDriverFoundAfter = Duration(minutes: 5);
+  ///
+  /// v0.18.39 §63 (P17, owner "15 min after pickup past"): the server now ends
+  /// such a booked ride itself at pickup + noDriverStopAfterMin (default 15,
+  /// contract.json#noDriverNearby.defaults), with no fee; the app says "No
+  /// driver found" at the same time, not earlier.
+  static const noDriverFoundAfter = Duration(minutes: 15);
 
   /// Reason recorded when the rider resolves a reservation that timed out
   /// without a driver.
