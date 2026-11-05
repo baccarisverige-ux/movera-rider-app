@@ -1,4 +1,6 @@
-# Movera shared contract v0.18.35
+# Movera shared contract v0.18.36
+
+v0.18.36 (FIX JOB 9 "airport queue", R27, owner G15 Q5 2026-11-02 "Build it for real" and job 9 answers 2026-11-05, Rules `decisions/driver-g15.md`; builds on v0.18.35 main; X-Api-Version stays `0.5`, additive; server migration 0086; rider app: no change): drivers inside an admin-drawn **queue area** of an airport zone wait in a **first-in-first-out queue** kept in the database; a trip picked up at that airport goes first as an Exclusive (`airport-queue`) to the first driver in line, then the next (a decline **keeps his place**), at most `maxQueueOffers`, then normal nearest dispatch. A driver who drops a rider at the airport **joins at once**. **Riders see nothing.** `GET /driver/airport-queue`, `GET|PUT /admin/zones/{zoneId}/queue-area`, `GET /admin/airport-queues`. §60, `contract.json#airportQueue`.
 
 v0.18.35 (FIX JOB 4 "take-back", owner Q2 / Q-A / Q-B / fix-plan Q2 and job-4 Q2–Q4 of 2026-11-04, Rules `decisions/driver-g15.md`; builds on v0.18.34; X-Api-Version stays `0.5`, additive, no migration): the server takes a **booked** ride back from a late driver in ONE case only — he would reach the pickup **more than 5 min late**, he is **more than 10 min' drive** away, and the pickup is **at least 15 min** away (all three per zone in Dispatch › Book later, `DriverAppConfig.reservations.takeBackLateMin / takeBackKeepIfDriveMin / takeBackUntilMinBeforePickup`). It counts on his cancel record (`driver_cancels` reason `booked_late_taken_back`), never a fee; he gets `reservation_taken_back`. **Live rides are never taken back** (`headingCheck.reassign` read-only, ignored for live); a driver not heading to the pickup gets `heading_not_to_rider` every minute (`headingCheck.notice` / `noticeEveryMin`). The next driver of a booked ride starts with a clean leave state (L6). New alert kind `booked_taken_back`. §59, `contract.json#bookedTakeBack`.
 
@@ -1214,6 +1216,18 @@ Owner Q2 (2026-11-04, verbatim): "System take ride from driver only one case, wh
 - **Rider:** before the driver started: nothing (silent swap). After: "searching for a new driver" (status `searching`, push `driver_changed`), then the new driver like a normal trip. A late driver who keeps it: no rider message (owner Q3).
 - **Not heading notice:** `heading_not_to_rider` (bell + push) every `headingCheck.noticeEveryMin` (1) minutes while not heading for `notHeadingMinutes`; `headingCheck.notice` off = none. Live and booked trips. `headingCheck.reassign` defaults to false and is read-only.
 - **Admin:** Dispatch › Book later › "Late driver" (the 3 numbers, notice on/off and minutes; "Take back a live ride" shown off, read-only). **Driver app:** the two notice kinds. **Rider app:** no change beyond the contract copy.
+## 60. Airport queue — fix job 9 (v0.18.36)
+
+Owner G15 Q5 (2026-11-02): "Build it for real" — drivers in an admin-drawn airport waiting area join a FIFO queue; airport trips go first-in-first-out; the driver sees his place; the admin turns it on per airport. Job 9 answers (2026-11-05): a decline **keeps his place**; after a drop-off at the airport he **joins at once**; riders see **nothing**. Full rules: `contract.json#airportQueue`.
+
+- **Area** (`AirportQueueArea`): one per airport zone (`Zone.kind = airport`), drawn on the Zones map; `on` (default off), `leaveGraceMin` 3, `offerSeconds` 30, `maxQueueOffers` 3, `keepPlaceAfterDecline` true. `GET|PUT /admin/zones/{zoneId}/queue-area` (`zones.read` / `zones.edit`, audited; not an airport zone → 400 `not_airport_zone`).
+- **Join**: a position inside an area that is on, while online with no trip. Place = `joinedAt` order (then entry id).
+- **Leave**: outside the area > `leaveGraceMin` minutes in a row; offline, or a new online session; accepting any trip; area off or removed.
+- **Dispatch**: pickup inside an airport zone with its area on → before the normal steps, Exclusive to the first queue driver who passes the normal round filter, `offerSeconds`; decline/miss → next in line; at most `maxQueueOffers`; then the normal search, unchanged.
+- **Driver**: `GET /driver/airport-queue` → `AirportQueueStatus { status in_queue | not_in_area | off, areaId, airportZoneId, position, ahead, joinedAt, waitingMin }`; real queue screen (no sample texts), island `airportQueue`, notice "You left the airport queue".
+- **Admin**: Zones › airport zone › Queue area (draw, on/off, numbers); Dashboard airport card from `GET /admin/airport-queues` (waiting, longest wait, pickups last hour).
+- **Rider**: no change (owner: riders see nothing).
+- **Several server copies (rule 33)**: queue rows and their order live in the database (`airport_queue_entries`, one open row per driver, unique index); the queue offer is sent in the round's transaction with the trip row locked and the driver row locked NOWAIT and re-checked.
 
 ## 65. Admin live drivers, paged — fix plan A8/A10 (v0.18.34)
 

@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.35",
+  "version": "0.18.36",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -7817,5 +7817,39 @@
     "alert": "Alert kind booked_taken_back (group dispatch, level important): a taken-back booked ride with no new driver yet; solved when a driver takes it.",
     "admin": "Dispatch › Book later › 'Late driver': 'Take back when late more than (min)' 5, 'Keep if the driver is within (min drive)' 10, 'Only until (min before pickup)' 15; 'Not driving to the rider notice' on/off (headingCheck.notice) and 'every (min)' 1; the heading check's 'Take back a live ride' row shown OFF and read-only.",
     "apps": "Driver app: shows the push / bell kinds reservation_taken_back and heading_not_to_rider (texts from the server, sv/fr/en built-in fallbacks). Rider app: no new screen (the existing searching / driver-changed flow); contract copy only."
+  },
+  "airportQueue": {
+    "note": "v0.18.36 §60 (fix job 9, R27, owner G15 Q5 2026-11-02 'Build it for real' + job 9 answers 2026-11-05, Rules decisions/driver-g15.md). Builds on v0.18.35 main. Additive; X-Api-Version stays 0.5; server migration 0086. Rider app: no change.",
+    "area": "AirportQueueArea { areaId, airportZoneId, polygon [[lat, lng], ...] (3-500 points, inside or around the airport), on, leaveGraceMin, offerSeconds, maxQueueOffers, keepPlaceAfterDecline, updatedAt }. One area per airport zone (Zone.kind airport). Off until an admin draws the area and turns it on.",
+    "join": "A driver joins the queue when the server receives a position of his inside an area that is on while he is online (onlineStatus online, no current trip). His place is the order of joinedAt (then entryId). A driver who dropped a rider at the airport joins at once with his next position (owner job 9 Q5: 'Yes, join at once').",
+    "leave": "He leaves the queue when: a position of his is outside the area for more than leaveGraceMin minutes in a row; he goes offline or goes online again later (a new online session never keeps the old place); he accepts any trip (queue or not); the area is turned off or removed. The others move up.",
+    "dispatch": "A trip whose pickup is inside an airport zone with an area that is on: before the normal steps, the first driver in the queue who may get offers (the same filter as any round: online, his zone and category, papers, no open Exclusive, did not decline or miss this trip) gets an Exclusive offer (reasonCode airport-queue) for offerSeconds. A decline or miss goes to the next in the queue, at most maxQueueOffers queue offers per trip; nobody left or all declined -> normal nearest dispatch, unchanged.",
+    "decline": "Owner job 9 Q4 (2026-11-05): 'Keeps his place'. keepPlaceAfterDecline (default true): a driver who declines or misses a queue offer keeps his place. false = he goes to the back (joinedAt = now).",
+    "riders": "Owner job 9 Q6: riders see nothing of the queue. Quote, ETA and booking are unchanged.",
+    "driverRead": "GET /driver/airport-queue -> AirportQueueStatus { status in_queue | not_in_area | off, areaId?, airportZoneId?, position (1 = first), ahead, joinedAt, waitingMin }. The driver app reads it every 20 s while the queue screen or Home is open; there is no sample data.",
+    "leftNotice": "The driver app shows 'You left the airport queue' when status goes from in_queue to anything else.",
+    "adminRead": "GET /admin/zones/{zoneId}/queue-area (zones.read) -> AirportQueueArea or 404 not_found; PUT (zones.edit, audited) saves it. GET /admin/airport-queues (zones.read) -> AirportQueueFeed { items [{ areaId, airportZoneId, on, waiting, longestWaitMin, pickupsLastHour }] } for the Dashboard airport card.",
+    "serverSafety": "Rule 33: the queue is rows in the database (airport_queue_entries, one open row per driver by a unique index); the order is joinedAt in the database, never one server copy's memory. The queue offer is sent in the round's transaction with the trip row locked and the driver row locked NOWAIT and checked again (as every round), so two server copies never send two queue offers for one trip or two Exclusives to one driver.",
+    "defaults": {
+      "on": false,
+      "leaveGraceMin": 3,
+      "offerSeconds": 30,
+      "maxQueueOffers": 3,
+      "keepPlaceAfterDecline": true
+    },
+    "ranges": {
+      "leaveGraceMin": [
+        0,
+        30
+      ],
+      "offerSeconds": [
+        5,
+        120
+      ],
+      "maxQueueOffers": [
+        1,
+        10
+      ]
+    }
   }
 }
