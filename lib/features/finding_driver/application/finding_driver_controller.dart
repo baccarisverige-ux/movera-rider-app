@@ -327,7 +327,8 @@ class FindingDriverController {
       ? noDriverFoundCopy
       : cancelQueued
       ? cancellingCopy
-      : stillLooking
+      // v0.18.39 §63 (rule-29 review): "No driver nearby" is never "busier than usual".
+      : stillLooking || searchStep?.kind == 'no_driver_nearby'
       ? stillLookingCopy
       : SearchCopy.forElapsed(elapsedSeconds);
 

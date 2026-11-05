@@ -270,7 +270,10 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  ride.status.isUpcoming
+                  // v0.18.39 §63 (rule-29 review): not "reserved" once the server ended it.
+                  noDriverFound
+                      ? context.l10n.termNoDriverFound
+                      : ride.status.isUpcoming
                       ? ReservationFormat.reservedHeadline(ride.pickupWallTime)
                       : ReservationFormat.pastHeadline(ride.pickupWallTime),
                   style: reservationText(

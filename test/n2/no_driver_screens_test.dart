@@ -73,7 +73,11 @@ void main() {
     await show(tester, c);
     expect(find.textContaining('Cancel this reservation'), findsNothing);
     expect(find.text('Edit reservation'), findsNothing);
-    expect(find.textContaining('You pay nothing'), findsOneWidget);
+    expect(
+      find.textContaining('You pay nothing'),
+      findsOneWidget,
+    ); // Rule-29 review: the page subtitle no longer says the ride is reserved.
+    expect(find.textContaining('Your ride is reserved for'), findsNothing);
   });
 
   testWidgets('pickup + 10 min, no driver yet: "Still looking for a driver", '
@@ -108,6 +112,32 @@ void main() {
       expect(c.copy.headline, isNot(L10n.current.searchBusier));
       expect(c.copy.headline, L10n.current.termNoDriverAvailable);
       expect(c.showPriceBump, isFalse);
+    },
+  );
+
+  test(
+    'finding screen with no_driver_nearby: no "busier than usual" heading',
+    () {
+      RideSnapshotStore.epoch = 0;
+      final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
+      addTearDown(rt.dispose);
+      final c = FindingDriverController(
+        realtime: rt,
+        ride: RideSession()..rideId = 'ride-nd',
+        store: FindingDriverRepository(),
+        api: ApiClient(client: InProcessMockClient()),
+        delayedAfter: Duration.zero,
+        priceBumpAfter: Duration.zero,
+      );
+      addTearDown(c.dispose);
+      c.elapsedSeconds = 300;
+      c.searchStep = TripSearchStep.fromWire({
+        'id': 'nd',
+        'kind': 'no_driver_nearby',
+        'message': 'x',
+      });
+      expect(c.copy.headline, isNot(L10n.current.searchBusier));
+      expect(c.copy.headline, L10n.current.stillLooking);
     },
   );
 }
