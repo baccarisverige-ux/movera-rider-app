@@ -133,12 +133,6 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'phoneCountryCode': l.phoneCountryCode('<country>', '<dial>'),
   'errTooManyWrongCodes': l.errTooManyWrongCodes('<button>'),
   'signInRestricted': l.signInRestricted,
-  'testNumbersTitle': l.testNumbersTitle,
-  'testNumbersButton': l.testNumbersButton,
-  'testNumbersAskAdmin': l.testNumbersAskAdmin,
-  'testStatusNew': l.testStatusNew,
-  'testStatusActive': l.testStatusActive,
-  'testStatusSuspended': l.testStatusSuspended,
   'authNeedHelp': l.authNeedHelp,
   'authHelpComingSoon': l.authHelpComingSoon,
   'authHelpCompany': l.authHelpCompany,
@@ -375,7 +369,12 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'completeRateBody': l.completeRateBody,
   'readyForFeedback': l.readyForFeedback,
   'completeDefaultBody': l.completeDefaultBody,
-  'droppedPinLabel': l.droppedPinLabel('<lat>', '<latSide>', '<lng>', '<lngSide>'),
+  'droppedPinLabel': l.droppedPinLabel(
+    '<lat>',
+    '<latSide>',
+    '<lng>',
+    '<lngSide>',
+  ),
   'compassNorth': l.compassNorth,
   'compassSouth': l.compassSouth,
   'compassEast': l.compassEast,
@@ -1643,7 +1642,10 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'supportExit': l.supportExit,
   'supportFailed': l.supportFailed,
   'supportPriceCancelled': l.supportPriceCancelled('<price>'),
-  'supportPriceCancelledExtra': l.supportPriceCancelledExtra('<price>', '<extra>'),
+  'supportPriceCancelledExtra': l.supportPriceCancelledExtra(
+    '<price>',
+    '<extra>',
+  ),
   'supportIssueAck': l.supportIssueAck,
   'supportFollowUp': l.supportFollowUp,
   'supportWelcomeRide': l.supportWelcomeRide,
@@ -2174,18 +2176,6 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get signInRestricted => '';
   @override
-  String get testNumbersTitle => '';
-  @override
-  String get testNumbersButton => '';
-  @override
-  String get testNumbersAskAdmin => '';
-  @override
-  String get testStatusNew => '';
-  @override
-  String get testStatusActive => '';
-  @override
-  String get testStatusSuspended => '';
-  @override
   String get authNeedHelp => '';
   @override
   String get authHelpComingSoon => '';
@@ -2658,7 +2648,12 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get completeDefaultBody => '';
   @override
-  String droppedPinLabel(String lat, String latSide, String lng, String lngSide) => '';
+  String droppedPinLabel(
+    String lat,
+    String latSide,
+    String lng,
+    String lngSide,
+  ) => '';
   @override
   String get compassNorth => '';
   @override
