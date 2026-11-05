@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Fix job 9 (contract v0.18.39 §63), RULE 0 check for the rider app: the
+/// Fix job 9 (contract v0.18.36 §60), RULE 0 check for the rider app: the
 /// airport queue is a driver + admin + server feature. Owner job 9 Q6
 /// (2026-11-05): riders see NOTHING of it, so the rider app has no new screen
 /// and no rider route or trip field carries a queue.
@@ -14,7 +14,7 @@ void main() {
   final openapi = File('contracts/openapi.yaml').readAsStringSync();
 
   test(
-    'contract v0.18.39 has the airport queue and says riders see nothing',
+    'contract v0.18.36 has the airport queue and says riders see nothing',
     () {
       final queue = contract['airportQueue'] as Map<String, dynamic>?;
       expect(queue, isNotNull);
