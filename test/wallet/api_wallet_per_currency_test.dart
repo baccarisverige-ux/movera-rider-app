@@ -64,10 +64,7 @@ void main() {
       '(the device never changes money)', () async {
     final eur = repo('SEK').inCurrency('EUR');
     expect(eur.currency, 'EUR');
-    expect(
-      await eur.debitRide(rideId: 't1', previous: 999, amount: 10),
-      65.0,
-    );
+    expect(await eur.debitRide(rideId: 't1', previous: 999, amount: 10), 65.0);
     expect(await eur.refund(previous: 0, amount: 5), 65.0);
     expect(eur, isA<ServerBackedRepository>());
   });

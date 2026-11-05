@@ -47,9 +47,7 @@ class FeatureFlags {
   /// (`ApiReservationRepository`).
   /// Movera fix job 6 (owner 2026-11-04 "Turn it on"): the wallet is on,
   /// on the server (`ApiWalletRepository`, one balance per currency).
-  static const release = FeatureFlags(
-    enableSavedCards: false,
-  );
+  static const release = FeatureFlags(enableSavedCards: false);
 
   static FeatureFlags forEnvironment(AppEnv environment) =>
       environment.isReleaseLike ? release : current;

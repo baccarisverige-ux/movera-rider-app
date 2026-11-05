@@ -9,15 +9,11 @@ void main() {
   Future<void> pump(WidgetTester tester, List<Money> balances) =>
       tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: WalletBalancesLine(load: () async => balances),
-          ),
+          home: Scaffold(body: WalletBalancesLine(load: () async => balances)),
         ),
       );
 
-  testWidgets('a EUR and a SEK balance are shown side by side', (
-    tester,
-  ) async {
+  testWidgets('a EUR and a SEK balance are shown side by side', (tester) async {
     await pump(tester, const [Money(6500, 'EUR'), Money(3000, 'SEK')]);
     await tester.pumpAndSettle();
     final shown = tester
@@ -34,9 +30,15 @@ void main() {
   testWidgets('one balance or none adds no extra line', (tester) async {
     await pump(tester, const [Money(6500, 'EUR')]);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('wallet-balances-by-currency')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('wallet-balances-by-currency')),
+      findsNothing,
+    );
     await pump(tester, const []);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('wallet-balances-by-currency')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('wallet-balances-by-currency')),
+      findsNothing,
+    );
   });
 }
