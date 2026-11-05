@@ -108,5 +108,5 @@ jobs:
 
       - name: History archive failures are observable
         run: |
-          grep -q "ride.history.archive_failed" lib/features/finding_driver/application/finding_driver_controller.dart
-          grep -q "attempt <= 2" lib/features/finding_driver/application/finding_driver_controller.dart
+          grep -q "ride.history.archive_failed" lib/features/finding_driver/application/finding_driver_controller_outcome.dart
+          grep -q "attempt <= 2" lib/features/finding_driver/application/finding_driver_controller_outcome.dart

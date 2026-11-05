@@ -109,7 +109,7 @@ class _ServerReceiptLinesState extends State<ServerReceiptLines> {
             formatMoney(debt),
             key: const ValueKey('receipt-debt'),
           ),
-        // Fix job 0 (owner A2-2, contract 0.18.39 outstandingFee.receiptText):
+        // Fix job 0 (owner A2-2, contract 0.18.29 outstandingFee.receiptText):
         // the owed fee was added by itself to this trip; say so in words.
         if (receipt.debtIncluded != null)
           Padding(

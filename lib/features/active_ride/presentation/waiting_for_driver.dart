@@ -89,78 +89,15 @@ import 'package:movera_rider/features/active_ride/presentation/route_change_pend
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/features/driver_arriving/presentation/driver_photo_avatar.dart';
 
+part 'waiting_for_driver_camera.dart';
 part 'waiting_for_driver_changes.dart';
+part 'waiting_for_driver_compact_row.dart';
 part 'waiting_for_driver_live.dart';
 part 'waiting_for_driver_map.dart';
 part 'waiting_for_driver_sheet.dart';
 part 'waiting_for_driver_stages.dart';
+part 'waiting_for_driver_trip.dart';
 part 'waiting_for_driver_widgets.dart';
-
-/// D-016: how long the driver marker eases towards a new fix. Following the
-/// actual interval between fixes (clamped) removes the move-then-stall rhythm
-/// a fixed short ease produced at a 2–3 s fix cadence.
-@visibleForTesting
-Duration driverEaseDuration(Duration? sinceLastFix) {
-  const fallback = Duration(milliseconds: 900);
-  const shortest = Duration(milliseconds: 400);
-  const longest = Duration(milliseconds: 4000);
-  if (sinceLastFix == null || sinceLastFix <= Duration.zero) return fallback;
-  if (sinceLastFix < shortest) return shortest;
-  if (sinceLastFix > longest) return longest;
-  return sinceLastFix;
-}
-
-/// rider-u58: whether the driver car eases between fixes. On web every
-/// marker update makes google_maps_flutter_web convert the car icon to a
-/// new blob URL that is never revoked, so a ~20 fps ease for the whole
-/// trip leaked thousands of blobs an hour; there the car moves once per
-/// fix instead. Native platforms keep the D-016 ease.
-@visibleForTesting
-bool driverMarkerEases = !kIsWeb;
-
-/// D-018: bounds and uniform padding that frame [a] and [b] above a bottom
-/// obstruction (the sheet) instead of padding every side by its height.
-///
-/// google_maps_flutter 2.13 only offers a single uniform padding for
-/// `newLatLngBounds`, so the obstruction is reserved by stretching the bounds
-/// southwards: the real points then land in the top
-/// `viewportHeight - bottomObstruction` of the map.
-@visibleForTesting
-({GeoPoint southwest, GeoPoint northeast, double padding}) waitingCameraFit({
-  required GeoPoint a,
-  required GeoPoint b,
-  required double viewportHeight,
-  required double bottomObstruction,
-  double edgePadding = 48,
-}) {
-  const minSpan = 0.002; // ~200 m, so driver-at-pickup doesn't zoom to max.
-  var south = math.min(a.latitude, b.latitude);
-  var north = math.max(a.latitude, b.latitude);
-  var west = math.min(a.longitude, b.longitude);
-  var east = math.max(a.longitude, b.longitude);
-  if (north - south < minSpan) {
-    final mid = (north + south) / 2;
-    south = mid - minSpan / 2;
-    north = mid + minSpan / 2;
-  }
-  if (east - west < minSpan) {
-    final mid = (east + west) / 2;
-    west = mid - minSpan / 2;
-    east = mid + minSpan / 2;
-  }
-  final full = math.max(viewportHeight - 2 * edgePadding, 1.0);
-  final usable = math.max(
-    viewportHeight - bottomObstruction - 2 * edgePadding,
-    full * 0.25,
-  );
-  final span = north - south;
-  final stretchedSouth = north - span * (full / usable);
-  return (
-    southwest: GeoPoint(math.max(stretchedSouth, -85.0), west),
-    northeast: GeoPoint(north, east),
-    padding: edgePadding,
-  );
-}
 
 /// What the trip screen's three dots open
 /// ([WaitingForDriver.detailsAction]).
@@ -419,22 +356,6 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   /// Q41/Q42: the waiting terms of the trip's category in its zone (free
   /// wait, then the fee per minute), once the zone's config is read.
   RiderCategoryWaiting? _waitingTerms;
-
-  /// rider-u44: the category of this ride only. The on-demand session's
-  /// booked category and the stored snapshot describe whatever Book Now
-  /// ride ran last, so they count only when they are this ride.
-  Future<String?> _tripCategoryId() async {
-    final own = widget.categoryId;
-    if (own != null && own.trim().isNotEmpty) return own;
-    final rideId = _rideId?.trim();
-    if (rideId == null || rideId.isEmpty) return null;
-    final session = AppScope.instance.ride;
-    if (session.rideId?.trim() == rideId && session.bookedCategoryId != null) {
-      return session.bookedCategoryId;
-    }
-    final stored = await RouteChangeController.storedRide();
-    return stored?.rideId?.trim() == rideId ? stored?.categoryId : null;
-  }
 
   /// v0.18.9 `routeChange.beforePickup` of the trip zone (default on).
   bool _changeBeforePickup = true;
@@ -1330,61 +1251,6 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     return first.isEmpty ? address.trim() : first;
   }
 
-  RideCheckPlan _rideCheckPlan() => RideCheckPlan(
-    pickup: GeoPoint(_pickupPosition.latitude, _pickupPosition.longitude),
-    destination: GeoPoint(
-      _destinationPosition.latitude,
-      _destinationPosition.longitude,
-    ),
-    stops: [for (final stop in _stops) GeoPoint(stop.latitude, stop.longitude)],
-    destinationLabel: _placeName(_destinationAddress),
-  );
-
-  /// Rider, driver and trip details the safety team gets with an alert.
-  RideCheckTripContext _rideCheckTrip(String rideId) {
-    final driver = _tracking.driver ?? widget.driver;
-    String? riderName;
-    String? riderPhone;
-    try {
-      final profile = AppScope.instance.profile.profile;
-      riderName = profile.name.trim().isEmpty ? null : profile.name.trim();
-      riderPhone = profile.phone.trim().isEmpty ? null : profile.phone.trim();
-    } catch (error) {
-      // The alert still goes out with the trip and driver.
-      AppLog.warning(
-        'safety.ridecheck.profile_unavailable',
-        extra: {'error': '$error'},
-      );
-    }
-    return RideCheckTripContext(
-      rideId: rideId,
-      riderName: riderName,
-      riderPhone: riderPhone,
-      driverId: driver?.id,
-      driverName: driver?.hasFirstName == true
-          ? driver!.displayFirstName
-          : null,
-      driverPlate: driver?.plate,
-      driverVehicle: driver == null || driver.vehicleLabel.isEmpty
-          ? null
-          : driver.vehicleLabel,
-      pickup: RideCheckPlace(
-        label: _pickupAddress,
-        point: GeoPoint(_pickupPosition.latitude, _pickupPosition.longitude),
-      ),
-      destination: RideCheckPlace(
-        label: _placeName(_destinationAddress),
-        point: GeoPoint(
-          _destinationPosition.latitude,
-          _destinationPosition.longitude,
-        ),
-      ),
-      stops: _rideCheckStops(),
-      rideType: widget.rideType,
-      status: _tracking.status.name,
-    );
-  }
-
   Future<GeoPoint?> _whereThePhoneIs() async {
     try {
       final here = await (widget.location ?? AppScope.instance.location)
@@ -1489,48 +1355,6 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     } finally {
       if (mounted) setState(() => _routeWithdrawing = false);
     }
-  }
-
-  void _applyRouteChange(RideSnapshot updated) {
-    _pickupAddress = updated.pickupAddress;
-    _pickupPosition = LatLng(updated.pickupLat, updated.pickupLng);
-    _destinationAddress = updated.destinationAddress;
-    _destinationPosition = LatLng(
-      updated.destinationLat,
-      updated.destinationLng,
-    );
-    _stops = List<RouteStop>.from(updated.stops);
-    _changedPrice = updated.price;
-    _tracking
-      ..pickupLat = _pickupPosition.latitude
-      ..pickupLng = _pickupPosition.longitude
-      ..destinationLat = _destinationPosition.latitude
-      ..destinationLng = _destinationPosition.longitude;
-    final realtime = _realtime;
-    if (realtime is MockRideRealtime) {
-      realtime.destinationLat = _destinationPosition.latitude;
-      realtime.destinationLng = _destinationPosition.longitude;
-      realtime.movePickup(_pickupPosition.latitude, _pickupPosition.longitude);
-    }
-    final rideId = _rideId?.trim();
-    if (rideId != null && rideId.isNotEmpty) {
-      RideCheckController.shared
-        ..replan(rideId, _rideCheckPlan())
-        ..updateTrip(
-          rideId,
-          (trip) => trip.copyWith(
-            destination: RideCheckPlace(
-              label: _placeName(_destinationAddress),
-              point: GeoPoint(
-                _destinationPosition.latitude,
-                _destinationPosition.longitude,
-              ),
-            ),
-            stops: _rideCheckStops(),
-          ),
-        );
-    }
-    _sheetSignature = '';
   }
 
   @override
@@ -1932,115 +1756,6 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             // RC3: the island grows into the Ride check card at the top.
             Positioned.fill(child: RideCheckLayer(rideId: _rideId)),
           ],
-        ),
-      ),
-    );
-  }
-
-  /// The low stop: one clean row with the ETA, the driver and the plate.
-  /// Tapping it brings the sheet back to the middle.
-  Widget _compactRow(
-    MediaQueryData media,
-    MatchedDriver? driver,
-    String headline,
-  ) {
-    final plate = driver?.plate?.trim() ?? '';
-    return Positioned(
-      top: _handleHeight,
-      left: 0,
-      right: 0,
-      child: AnimatedBuilder(
-        animation: _sheetController,
-        builder: (context, child) {
-          final open = _openness(media);
-          final t = Curves.easeOutCubic.transform(
-            (1 - open / 0.6).clamp(0.0, 1.0),
-          );
-          // Out of the tree while hidden, so it never doubles the header.
-          if (t <= 0.01) return const SizedBox.shrink();
-          return IgnorePointer(
-            ignoring: t < 0.5,
-            child: Opacity(
-              opacity: t,
-              child: Transform.translate(
-                offset: Offset(0, -8 * (1 - t)),
-                child: child,
-              ),
-            ),
-          );
-        },
-        child: InkWell(
-          key: const ValueKey<String>('waiting-compact-row'),
-          onTap: () {
-            HapticFeedback.selectionClick();
-            _sheetController.animateTo(
-              SheetOffset.absolute(_minSheet(media)),
-              duration: MoveraDurations.normal,
-              curve: Curves.easeOutCubic,
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-            child: Row(
-              children: [
-                DriverPhotoAvatar(
-                  driver: driver,
-                  radius: 22,
-                  fallback: Text(
-                    driver?.initial ?? '',
-                    style: waitingText(15, weight: FontWeight.w700),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        headline,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: waitingText(17, weight: FontWeight.w700),
-                      ),
-                      if (driver != null)
-                        Text(
-                          [
-                            driver.displayFirstName,
-                            if (driver.vehicleLabel.isNotEmpty)
-                              driver.vehicleLabel,
-                          ].join(' · '),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: waitingText(
-                            13,
-                            color: const Color(0xFF5C656C),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                if (plate.isNotEmpty) ...[
-                  const SizedBox(width: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F7),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFE2E7EB)),
-                    ),
-                    child: Text(
-                      plate,
-                      style: waitingText(14, weight: FontWeight.w700),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
         ),
       ),
     );

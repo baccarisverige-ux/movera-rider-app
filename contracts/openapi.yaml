@@ -1,11 +1,11 @@
-# Movera API v0.18.39 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.29 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.39
+  version: 0.18.29
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.39 in this folder; this file must agree with them.
+    v0.18.29 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.39
+  version: 0.18.29
   source: contract.json
 paths:
   /auth/otp/request:
@@ -1294,6 +1294,16 @@ paths:
       x-actor:
       - rider
       parameters:
+      - name: draft
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - '0'
+          - '1'
+        description: 'v0.18.25: ''1'' with a preview token (contract.json#previewSession) returns the zone''s saved draft;
+          ignored for every other token.'
       - $ref: '#/components/parameters/ZoneIdQuery'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
@@ -1485,6 +1495,14 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: 'v0.18.26: GET /rider/places -> SavedPlacePage (every place, nextCursor null); POST /rider/places SavedPlaceRequest
+        -> 201 SavedPlace; PUT /rider/places/{placeId} SavedPlaceRequest -> 200 SavedPlace; DELETE /rider/places/{placeId}
+        -> 204; POST /rider/places/import SavedPlaceImport -> 200 SavedPlacePage. 409 conflict, reason too_many_places, past
+        the country''s savedPlacesPerPerson (home and work count). Each list is read and changed only by its owner (the signed-in
+        rider for places, the signed-in driver for preferences and contacts); another rider or driver never sees it and an
+        id of someone else''s place is 404 place_not_found. Admins only read (never edit): emergency contacts through an OPEN
+        safety case of that driver, saved places and ride preferences on the rider / driver profile page; every admin view
+        is written to the admin audit without the addresses, names or numbers. Logs never carry them.'
     post:
       operationId: createSavedPlace
       summary: Save a place
@@ -1528,6 +1546,14 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: 'v0.18.26: GET /rider/places -> SavedPlacePage (every place, nextCursor null); POST /rider/places SavedPlaceRequest
+        -> 201 SavedPlace; PUT /rider/places/{placeId} SavedPlaceRequest -> 200 SavedPlace; DELETE /rider/places/{placeId}
+        -> 204; POST /rider/places/import SavedPlaceImport -> 200 SavedPlacePage. 409 conflict, reason too_many_places, past
+        the country''s savedPlacesPerPerson (home and work count). Each list is read and changed only by its owner (the signed-in
+        rider for places, the signed-in driver for preferences and contacts); another rider or driver never sees it and an
+        id of someone else''s place is 404 place_not_found. Admins only read (never edit): emergency contacts through an OPEN
+        safety case of that driver, saved places and ride preferences on the rider / driver profile page; every admin view
+        is written to the admin audit without the addresses, names or numbers. Logs never carry them.'
   /rider/places/{placeId}:
     delete:
       operationId: deleteSavedPlace
@@ -1549,6 +1575,55 @@ paths:
               description: Echo of the request id (server-generated if absent).
               schema:
                 type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      description: 'v0.18.26: only the rider''s own place (else 404 place_not_found).'
+    put:
+      operationId: updateSavedPlace
+      summary: Change a saved place
+      description: 'v0.18.26: only the rider''s own place (else 404 place_not_found). kind home and kind work: one each; saving
+        a new home (or work) replaces the old one and keeps its placeId. kind other: as many as maxPlaces allows, each with
+        its own placeId. type is the app''s finer word for an other place (gym, mall, school, airport, family, restaurant,
+        other); the app picks the icon and label from it.'
+      tags:
+      - Rider · Account
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/PlaceId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavedPlaceRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedPlace'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1851,6 +1926,7 @@ paths:
       x-actor:
       - rider
       parameters:
+      - $ref: '#/components/parameters/WalletCurrency'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
       responses:
@@ -3018,6 +3094,16 @@ paths:
       x-actor:
       - driver
       parameters:
+      - name: draft
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - '0'
+          - '1'
+        description: 'v0.18.25: ''1'' with a preview token (contract.json#previewSession) returns the zone''s saved draft;
+          ignored for every other token.'
       - $ref: '#/components/parameters/ZoneIdQuery'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
@@ -15500,7 +15586,7 @@ paths:
     post:
       operationId: adminHoldDriverPayouts
       summary: Pause or release one driver's payouts
-      description: 'v0.18.39 A2 (owner build-spec Q4 2026-11-02: ''can pause any one payment from his profile''): POST /admin/drivers/{driverId}/payout-hold
+      description: 'v0.18.29 A2 (owner build-spec Q4 2026-11-02: ''can pause any one payment from his profile''): POST /admin/drivers/{driverId}/payout-hold
         { held, reason } (finance.edit, Idempotency-Key, audit payout.hold / payout.release) pauses or releases that driver''s
         payouts from the driver''s profile. While held no scheduled payout is made for him; his earnings stay unpaid. On release
         the next run pays every ended period he missed. Driver.payoutHold { reason, at, by } on the admin view (absent = not
@@ -15552,7 +15638,7 @@ paths:
     post:
       operationId: adminModerateRider
       summary: Warn, pause, ban or clear a rider
-      description: 'v0.18.39 (A2, owner G16 Q16-1 + Q16-2 ''Warn → Pause → Ban''): the admin sets a rider''s level with POST
+      description: 'v0.18.29 (A2, owner G16 Q16-1 + Q16-2 ''Warn → Pause → Ban''): the admin sets a rider''s level with POST
         /admin/riders/{riderId}/moderation (permission riders.block, Idempotency-Key, expectedVersion, written in the audit).
         Every level carries a reason; the admin can undo (level none). for pauseDays (1..365) set by the admin; Rider.status
         suspended until moderation.until, then active again by itself; sign-in and booking answer 403 account_suspended (projection
@@ -15605,7 +15691,7 @@ paths:
     post:
       operationId: adminCreditRiderWallet
       summary: Add money to a rider's wallet
-      description: 'v0.18.39 A2 (owner G12 Q5 ''Real credit + limit'', Q-D ''Max 250 euro and equivalent'', build-spec Q2
+      description: 'v0.18.29 A2 (owner G12 Q5 ''Real credit + limit'', Q-D ''Max 250 euro and equivalent'', build-spec Q2
         ''One button on rider page'', Q1 ''One admin always''): the one way an admin gives a rider money is Add money to wallet
         on the rider''s page. POST /admin/riders/{riderId}/wallet-credit { amount, reason } (finance.edit, Idempotency-Key,
         audit rider.wallet_credit). The amount is in the rider''s currency: the country of the rider''s latest trip (else
@@ -15665,7 +15751,7 @@ paths:
     post:
       operationId: adminApprovePayoutRun
       summary: Approve a manual payout run
-      description: 'v0.18.39 A2 (owner build-spec Q4 ''Admin can set automatic or manual''): CountryRules.payoutMode of the
+      description: 'v0.18.29 A2 (owner build-spec Q4 ''Admin can set automatic or manual''): CountryRules.payoutMode of the
         country standard (Pricing › Tips & limits on the Standard; a zone''s own value is ignored), automatic (default) or
         manual. automatic: the scheduled run makes payouts pending (to pay) at the country''s payoutSchedule, as before. manual:
         the run makes them pending_approval; nothing is paid until an admin approves the run with POST /admin/payouts/runs/approve
@@ -15722,7 +15808,7 @@ paths:
     post:
       operationId: adminMarkRiderFeePaid
       summary: Mark a rider's owed fee as paid
-      description: 'v0.18.39 fix job 0 (owner A2-2 2026-11-05 ''Only mark and detect from next trip so add to next trip''):
+      description: 'v0.18.29 fix job 0 (owner A2-2 2026-11-05 ''Only mark and detect from next trip so add to next trip''):
         an owed fee has ONE admin action, Mark as paid, for money the rider paid Movera another way. POST /admin/riders/{riderId}/fees/{tripId}/mark-paid
         { reason } (finance.edit, Idempotency-Key, zone scope of the fee''s trip, audit rider.fee_mark_paid with the reason,
         amount and currency). The fee becomes paid (settled now, carried by no trip), the original trip''s cancellation.feeStatus
@@ -15840,6 +15926,491 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/preview-sessions:
+    post:
+      operationId: adminCreatePreviewSession
+      summary: Open a read-only preview of the real rider or driver app
+      description: 'A preview token can only READ: every POST, PUT, PATCH and DELETE by it is refused with 403 forbidden,
+        reason preview_blocked, before any route code runs (no booking, accept, payment, going online, payout, chat or profile
+        change is ever stored). GET /rider/config and GET /driver/config with ?draft=1 return the admin''s saved draft of
+        that zone (falls back to live when no draft) — ONLY for a preview token; any other caller gets the live document.
+        A preview token is never counted as a real rider or driver: no supply, no dispatch, no metrics. Owner 2026-11-04 (B:
+        Empty screens): a preview token''s own-account reads answer what a brand-new account gets, never an error and never
+        fake data: empty lists, a blank profile (firstName "", driver active + offline), a zero wallet; the normal ''no active
+        trip'' (204) and ''not in a fleet'' (404 no_fleet) answers stay. The apps show their usual ''nothing yet'' states.
+        An app that holds a preview token shows a ''Preview'' banner, and every Book / Accept / Pay / Go online style action
+        shows ''Preview – not sent'' instead of calling the server (owner P1 a).'
+      tags:
+      - Config
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreviewSessionRequest'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreviewSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /rider/places/import:
+    post:
+      operationId: importSavedPlaces
+      summary: Upload the phone's saved places once
+      description: 'v0.18.26: One-time upload of the places a phone kept before v0.18.26. Applied only the first time for
+        this rider (the server remembers it); later calls change nothing and answer the server''s list. Items follow the POST
+        rules (home / work replace, others added); items past maxPlaces are dropped. The app calls it once after sign-in,
+        then reads GET /rider/places and from then on the server''s list is the one shown.'
+      tags:
+      - Rider · Account
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavedPlaceImport'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedPlacePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/preferences:
+    get:
+      operationId: getDriverPreferences
+      summary: Own ride preferences
+      description: 'v0.18.26: GET /driver/preferences -> DriverPreferences; PUT /driver/preferences DriverPreferencesUpdate
+        -> DriverPreferences.'
+      tags:
+      - Driver · Account
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverPreferences'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: putDriverPreferences
+      summary: Save own ride preferences
+      description: 'v0.18.26: The server does not send a switched-off category: the automatic dispatch rounds (Exclusive and
+        Radar), the admin''s Add money sent through the zone''s dispatch, and the Scheduled rides list skip a driver whose
+        categoriesOff holds the trip''s category. Driver.categoryIds (given by the admin from the car) is unchanged by this
+        choice. Owner 2026-11-04 ''Yes, respect it'': admin hand-sent offers (assign, radar to chosen drivers) and group /
+        radar-zone sends skip him too; the send lists him in skipped with reason category_switched_off, and a single assign
+        to only him is 409 invalid_transition, reason category_switched_off.'
+      tags:
+      - Driver · Account
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverPreferencesUpdate'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverPreferences'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/emergency-contacts:
+    get:
+      operationId: getDriverEmergencyContacts
+      summary: Own emergency contacts
+      description: 'v0.18.26: GET /driver/emergency-contacts -> EmergencyContactList; PUT /driver/emergency-contacts EmergencyContactListUpdate
+        -> EmergencyContactList (the whole list each time). Each list is read and changed only by its owner (the signed-in
+        rider for places, the signed-in driver for preferences and contacts); another rider or driver never sees it and an
+        id of someone else''s place is 404 place_not_found. Admins only read (never edit): emergency contacts through an OPEN
+        safety case of that driver, saved places and ride preferences on the rider / driver profile page; every admin view
+        is written to the admin audit without the addresses, names or numbers. Logs never carry them.'
+      tags:
+      - Driver · Account
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmergencyContactList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: putDriverEmergencyContacts
+      summary: Save own emergency contacts
+      description: 'v0.18.26: GET /driver/emergency-contacts -> EmergencyContactList; PUT /driver/emergency-contacts EmergencyContactListUpdate
+        -> EmergencyContactList (the whole list each time). 400 invalid_request, reason too_many_contacts, past the country''s
+        emergencyContactsPerPerson.'
+      tags:
+      - Driver · Account
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmergencyContactListUpdate'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmergencyContactList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/incidents/{incidentId}/emergency-contacts:
+    get:
+      operationId: adminIncidentEmergencyContacts
+      summary: The incident driver's emergency contacts (read-only, audited)
+      description: 'v0.18.26: GET /admin/incidents/{incidentId}/emergency-contacts (incidents.read; the incident''s zone must
+        be in the admin''s scope, else 403 zone_out_of_scope) ; owner 2026-11-04 ''Yes, during a safety case'': only while
+        the case is open (status open or investigating), else 409 invalid_transition, reason incident_closed -> IncidentEmergencyContacts
+        { incidentId, driverId, items, updatedAt, rider: { riderId, items, updatedAt } | null }: the emergency contacts of
+        the incident''s driver, read-only. An incident without a driver answers items []. Every read writes the admin audit
+        line incident.emergency_contacts_viewed (who, when, which incident; never the numbers).'
+      tags:
+      - Admin · Safety
+      x-actor:
+      - admin
+      x-permission: incidents.read
+      parameters:
+      - $ref: '#/components/parameters/IncidentId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentEmergencyContacts'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/riders/{riderId}/saved-places:
+    get:
+      operationId: adminRiderSavedPlaces
+      summary: A rider's saved places (read-only, audited)
+      description: 'v0.18.26: Owner 2026-11-04 ''Read-only on profile'': GET /admin/riders/{riderId}/saved-places (riders.read;
+        a zone-limited admin only for a rider with a trip in his zones, else 403 zone_out_of_scope; unknown 404 rider_not_found)
+        -> AdminRiderSavedPlaces { riderId, items: SavedPlace[] }. Audit line rider.saved_places_viewed (count only).'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: riders.read
+      parameters:
+      - $ref: '#/components/parameters/RiderId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRiderSavedPlaces'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/drivers/{driverId}/preferences:
+    get:
+      operationId: adminDriverPreferences
+      summary: A driver's ride preferences (read-only, audited)
+      description: 'v0.18.26: Owner 2026-11-04 ''Read-only on profile'': GET /admin/drivers/{driverId}/preferences (drivers.read;
+        driver''s zones in scope, else 403 zone_out_of_scope; unknown 404 driver_not_found) -> AdminDriverPreferences { driverId,
+        categoriesOff, updatedAt }. Audit line driver.preferences_viewed.'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.read
+      parameters:
+      - $ref: '#/components/parameters/DriverId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDriverPreferences'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /rider/emergency-contacts:
+    get:
+      operationId: getRiderEmergencyContacts
+      summary: Own emergency contacts
+      description: 'v0.18.26: Owner 2026-11-04 ''Yes, same as drivers'': the rider''s emergency contacts (rider Safety) move
+        to the server like the driver''s. GET /rider/emergency-contacts -> EmergencyContactList; PUT /rider/emergency-contacts
+        EmergencyContactListUpdate -> EmergencyContactList (whole list). Same item, limit (countryLimits.emergencyContactsPerPerson)
+        and too_many_contacts as drivers. Each list is read and changed only by its owner (the signed-in rider for places,
+        the signed-in driver for preferences and contacts); another rider or driver never sees it and an id of someone else''s
+        place is 404 place_not_found. Admins only read (never edit): emergency contacts through an OPEN safety case of that
+        driver, saved places and ride preferences on the rider / driver profile page; every admin view is written to the admin
+        audit without the addresses, names or numbers. Logs never carry them.'
+      tags:
+      - Rider · Account
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmergencyContactList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: putRiderEmergencyContacts
+      summary: Save own emergency contacts
+      description: 'v0.18.26: GET /rider/emergency-contacts -> EmergencyContactList; PUT /rider/emergency-contacts EmergencyContactListUpdate
+        -> EmergencyContactList (whole list). Same item, limit (countryLimits.emergencyContactsPerPerson) and too_many_contacts
+        as drivers.'
+      tags:
+      - Rider · Account
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmergencyContactListUpdate'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmergencyContactList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -16121,6 +16692,14 @@ components:
       schema:
         type: string
         maxLength: 200
+    WalletCurrency:
+      name: currency
+      in: query
+      required: false
+      description: 'v0.18.28: which balance is `balance` (ISO 4217, e.g. EUR). Default: the currency of the rider''s zone.'
+      schema:
+        type: string
+        pattern: ^[A-Z]{3}$
     CategoryIdPath:
       name: categoryId
       in: path
@@ -17647,6 +18226,12 @@ components:
           allOf:
           - $ref: '#/components/schemas/RiderConsents'
           description: 'v0.5.1: the rider''s message consents.'
+        wallets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Money'
+          description: 'v0.18.28 (admin rider view only, contract.json#walletCurrency.admin): every non-zero wallet balance,
+            one per currency.'
         outstandingByCurrency:
           type: array
           items:
@@ -17657,7 +18242,7 @@ components:
         moderation:
           allOf:
           - $ref: '#/components/schemas/RiderModeration'
-          description: 'v0.18.39: the rider''s moderation level (rider and admin views).'
+          description: 'v0.18.29: the rider''s moderation level (rider and admin views).'
     DocumentStatus:
       type: string
       enum:
@@ -17944,7 +18529,7 @@ components:
         payoutHold:
           allOf:
           - $ref: '#/components/schemas/PayoutHold'
-          description: 'v0.18.39: admin view only; absent = payouts not held.'
+          description: 'v0.18.29: admin view only; absent = payouts not held.'
     DriverScheduledRides:
       type: object
       description: 'Owner decision 2 (v0.4.2): an admin''s reservations on/off for this one driver (CONTRACT.md §6.1). Missing
@@ -18516,9 +19101,17 @@ components:
         ownerId:
           $ref: '#/components/schemas/Id'
         balance:
-          $ref: '#/components/schemas/Money'
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.28: the balance in the asked currency (query currency), else in the currency of the rider''s
+            zone.'
         updatedAt:
           $ref: '#/components/schemas/Timestamp'
+        balances:
+          type: array
+          items:
+            $ref: '#/components/schemas/Money'
+          description: 'v0.18.28: every non-zero balance, one per currency, sorted by currency code. Never added across currencies.'
     SavedPaymentMethod:
       type: object
       required:
@@ -18741,11 +19334,18 @@ components:
           $ref: '#/components/schemas/Timestamp'
     SavedPlace:
       type: object
+      description: 'v0.18.26: one of the rider''s saved places. Each list is read and changed only by its owner (the signed-in
+        rider for places, the signed-in driver for preferences and contacts); another rider or driver never sees it and an
+        id of someone else''s place is 404 place_not_found. Admins only read (never edit): emergency contacts through an OPEN
+        safety case of that driver, saved places and ride preferences on the rider / driver profile page; every admin view
+        is written to the admin audit without the addresses, names or numbers. Logs never carry them.'
       required:
       - placeId
       - label
       - kind
       - place
+      - createdAt
+      - updatedAt
       properties:
         placeId:
           $ref: '#/components/schemas/Id'
@@ -18759,8 +19359,20 @@ components:
           - home
           - work
           - other
+          description: 'kind home and kind work: one each; saving a new home (or work) replaces the old one and keeps its
+            placeId. kind other: as many as maxPlaces allows, each with its own placeId. type is the app''s finer word for
+            an other place (gym, mall, school, airport, family, restaurant, other); the app picks the icon and label from
+            it.'
+        type:
+          type: string
+          pattern: ^[a-z][a-z0-9_-]{0,31}$
+          description: 'v0.18.26: the app''s word for an other place (gym, mall, ...).'
         place:
-          $ref: '#/components/schemas/Place'
+          $ref: '#/components/schemas/SavedPlaceAddress'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
     SupportTicket:
       type: object
       required:
@@ -20643,7 +21255,7 @@ components:
         walletCreditMax:
           allOf:
           - $ref: '#/components/schemas/Money'
-          description: 'v0.18.39 (owner A2-1): the largest single Add money to wallet for riders of this country, in its currency;
+          description: 'v0.18.29 (owner A2-1): the largest single Add money to wallet for riders of this country, in its currency;
             read from the country Standard only (a zone''s own value is ignored). Default SE 290000 SEK, FR 25000 EUR, TN
             800000 TND (minor units).'
         payoutMode:
@@ -20651,7 +21263,7 @@ components:
           enum:
           - automatic
           - manual
-          description: 'v0.18.39 A2 (owner build-spec Q4 ''Admin can set automatic or manual''): CountryRules.payoutMode of
+          description: 'v0.18.29 A2 (owner build-spec Q4 ''Admin can set automatic or manual''): CountryRules.payoutMode of
             the country standard (Pricing › Tips & limits on the Standard; a zone''s own value is ignored), automatic (default)
             or manual. automatic: the scheduled run makes payouts pending (to pay) at the country''s payoutSchedule, as before.
             manual: the run makes them pending_approval; nothing is paid until an admin approves the run with POST /admin/payouts/runs/approve
@@ -22840,6 +23452,12 @@ components:
           maxItems: 5
           description: 'v0.18.11 dispatch start: optional own search steps (km, strictly increasing) for this mode. Missing
             = radius.steps.'
+        reaskAfterSeconds:
+          type: integer
+          minimum: 5
+          maximum: 600
+          description: 'v0.18.27 (owner Q1 2026-11-04, exclusive only): with Radar off, the wait before drivers who all said
+            no are asked again. Missing = this mode''s seconds.'
     DispatchTimeRule:
       type: object
       description: Zone-local [from, to); wraps midnight when from > to.
@@ -24501,7 +25119,7 @@ components:
             auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far,
             driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival,
             route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now,
-            pin_blocked, pin_trip_over, not_a_no_show.'
+            pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit).'
         details:
           type: array
           items:
@@ -25322,6 +25940,9 @@ components:
             follow it).'
     SavedPlaceRequest:
       type: object
+      description: 'v0.18.26: kind home and kind work: one each; saving a new home (or work) replaces the old one and keeps
+        its placeId. kind other: as many as maxPlaces allows, each with its own placeId. type is the app''s finer word for
+        an other place (gym, mall, school, airport, family, restaurant, other); the app picks the icon and label from it.'
       required:
       - label
       - kind
@@ -25337,8 +25958,16 @@ components:
           - home
           - work
           - other
+          description: 'kind home and kind work: one each; saving a new home (or work) replaces the old one and keeps its
+            placeId. kind other: as many as maxPlaces allows, each with its own placeId. type is the app''s finer word for
+            an other place (gym, mall, school, airport, family, restaurant, other); the app picks the icon and label from
+            it.'
+        type:
+          type: string
+          pattern: ^[a-z][a-z0-9_-]{0,31}$
+          description: 'v0.18.26: the app''s word for an other place (gym, mall, ...).'
         place:
-          $ref: '#/components/schemas/Place'
+          $ref: '#/components/schemas/SavedPlaceAddress'
     VehicleRequest:
       type: object
       required:
@@ -30504,6 +31133,35 @@ components:
           maximum: 60
           description: Sign-in codes per phone number and app per hour (429 otp_too_many). Range 3–60.
           default: 10
+        writesPerUserPerMinute:
+          type: integer
+          minimum: 30
+          maximum: 10000
+          description: 'v0.18.24 (owner 2026-11-04 "Yes, admin setting"): writes (POST/PUT/PATCH/DELETE) per signed-in user
+            per minute (contract.json#rateLimit; 429 rate_limited reason too_many_requests); the user''s country (first zone
+            of the token). Range 30–10000.'
+          default: 120
+        writesPerAddressPerMinute:
+          type: integer
+          minimum: 20
+          maximum: 10000
+          description: 'v0.18.24: writes per client address per minute for callers without a valid token (sign-in, waiting
+            list); the country of the server''s default zone. Range 20–10000.'
+          default: 60
+        savedPlacesPerPerson:
+          type: integer
+          minimum: 1
+          maximum: 500
+          description: 'v0.18.26 (owner 2026-11-04): saved places per person (each rider), Home and Work included (409 too_many_places).
+            The rider''s country is his phone''s calling code. Range 1–500.'
+          default: 50
+        emergencyContactsPerPerson:
+          type: integer
+          minimum: 1
+          maximum: 50
+          description: 'v0.18.26 (owner 2026-11-04): emergency contacts per person (each rider and each driver; 112 is built
+            in and not counted) (400 too_many_contacts). Range 1–50.'
+          default: 10
     AccountPhoneChange:
       type: object
       required:
@@ -30844,7 +31502,7 @@ components:
           maximum: 60
     PayoutHold:
       type: object
-      description: 'v0.18.39 A2 (owner build-spec Q4 2026-11-02: ''can pause any one payment from his profile''): POST /admin/drivers/{driverId}/payout-hold
+      description: 'v0.18.29 A2 (owner build-spec Q4 2026-11-02: ''can pause any one payment from his profile''): POST /admin/drivers/{driverId}/payout-hold
         { held, reason } (finance.edit, Idempotency-Key, audit payout.hold / payout.release) pauses or releases that driver''s
         payouts from the driver''s profile. While held no scheduled payout is made for him; his earnings stay unpaid. On release
         the next run pays every ended period he missed. Driver.payoutHold { reason, at, by } on the admin view (absent = not
@@ -30885,7 +31543,7 @@ components:
         = Rider.moderation); banned = until the admin undoes it; Rider.status suspended; 403 account_suspended
     RiderModeration:
       type: object
-      description: 'v0.18.39 (A2, owner G16 Q16-1 + Q16-2 ''Warn → Pause → Ban''): the admin sets a rider''s level with POST
+      description: 'v0.18.29 (A2, owner G16 Q16-1 + Q16-2 ''Warn → Pause → Ban''): the admin sets a rider''s level with POST
         /admin/riders/{riderId}/moderation (permission riders.block, Idempotency-Key, expectedVersion, written in the audit).
         Every level carries a reason; the admin can undo (level none).'
       required:
@@ -30929,7 +31587,7 @@ components:
           description: required when level is paused
     WalletCreditCommand:
       type: object
-      description: 'v0.18.39 A2 (owner G12 Q5 ''Real credit + limit'', Q-D ''Max 250 euro and equivalent'', build-spec Q2
+      description: 'v0.18.29 A2 (owner G12 Q5 ''Real credit + limit'', Q-D ''Max 250 euro and equivalent'', build-spec Q2
         ''One button on rider page'', Q1 ''One admin always''): the one way an admin gives a rider money is Add money to wallet
         on the rider''s page. POST /admin/riders/{riderId}/wallet-credit { amount, reason } (finance.edit, Idempotency-Key,
         audit rider.wallet_credit). The amount is in the rider''s currency: the country of the rider''s latest trip (else
@@ -30968,7 +31626,7 @@ components:
           type: string
           minLength: 1
           maxLength: 300
-          description: 'v0.18.39 (owner A2-3): why the run is approved; kept in the audit.'
+          description: 'v0.18.29 (owner A2-3): why the run is approved; kept in the audit.'
     PayoutRunApproved:
       type: object
       required:
@@ -30990,7 +31648,7 @@ components:
             $ref: '#/components/schemas/Money'
     RiderFeeMarkPaidCommand:
       type: object
-      description: 'v0.18.39 fix job 0 (owner A2-2 2026-11-05 ''Only mark and detect from next trip so add to next trip''):
+      description: 'v0.18.29 fix job 0 (owner A2-2 2026-11-05 ''Only mark and detect from next trip so add to next trip''):
         an owed fee has ONE admin action, Mark as paid, for money the rider paid Movera another way. POST /admin/riders/{riderId}/fees/{tripId}/mark-paid
         { reason } (finance.edit, Idempotency-Key, zone scope of the fee''s trip, audit rider.fee_mark_paid with the reason,
         amount and currency). The fee becomes paid (settled now, carried by no trip), the original trip''s cancellation.feeStatus
@@ -31063,3 +31721,263 @@ components:
           type:
           - string
           - 'null'
+    PreviewRole:
+      type: string
+      enum:
+      - rider
+      - driver
+      description: 'v0.18.25: which real app the preview opens.'
+    PreviewSessionRequest:
+      type: object
+      description: BASE job 'admin real app preview' (Rules plan/BASE-JOBS-SPEC-2026-11-04.md §1; owner P1 a, P2 b, P3 a,
+        2026-11-04). The admin panel shows the REAL rider and driver web apps inside a phone frame on every page that showed
+        a drawn sample phone (Content, Design, Messages, Bonuses, Promos, Riders). The apps talk to the live server with a
+        preview token; every real action is blocked.
+      required:
+      - role
+      - zoneId
+      properties:
+        role:
+          $ref: '#/components/schemas/PreviewRole'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        useDraft:
+          type: boolean
+          description: 'true: the app shows the zone''s saved draft settings (GET .../config?draft=1).'
+    PreviewSession:
+      type: object
+      description: 'The admin opens the app web build in an iframe at <appUrl>#movera-preview=<token>&zone=<zoneId>&draft=<0|1>.
+        The token is in the fragment, so it never reaches a web server log. The panel can send a new token or draft choice
+        with window.postMessage({type:''movera-preview'', token, draft}) and the app reloads its config. A preview token can
+        only READ: every POST, PUT, PATCH and DELETE by it is refused with 403 forbidden, reason preview_blocked, before any
+        route code runs (no booking, accept, payment, going online, payout, chat or profile change is ever stored). GET /rider/config
+        and GET /driver/config with ?draft=1 return the admin''s saved draft of that zone (falls back to live when no draft)
+        — ONLY for a preview token; any other caller gets the live document. A preview token is never counted as a real rider
+        or driver: no supply, no dispatch, no metrics. Owner 2026-11-04 (B: Empty screens): a preview token''s own-account
+        reads answer what a brand-new account gets, never an error and never fake data: empty lists, a blank profile (firstName
+        "", driver active + offline), a zero wallet; the normal ''no active trip'' (204) and ''not in a fleet'' (404 no_fleet)
+        answers stay. The apps show their usual ''nothing yet'' states. An app that holds a preview token shows a ''Preview''
+        banner, and every Book / Accept / Pay / Go online style action shows ''Preview – not sent'' instead of calling the
+        server (owner P1 a).'
+      required:
+      - token
+      - role
+      - zoneId
+      - useDraft
+      - expiresAt
+      - subjectId
+      properties:
+        token:
+          type: string
+          description: An access token (§8) with actor = role, zones = [zoneId], sub = 'preview:<role>:<zoneId>' and the extra
+            claim pv = true (preview). No refresh token; no auth session row; after ttlSeconds the admin asks for a new one.
+        role:
+          $ref: '#/components/schemas/PreviewRole'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        useDraft:
+          type: boolean
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+        subjectId:
+          type: string
+          description: preview:<role>:<zoneId>
+    SavedPlaceAddress:
+      type: object
+      description: 'v0.18.26: SavedPlaceAddress { address (required, 1-512), lat?, lng? }: places saved on phones before v0.18.26
+        have only the address text, so the position is optional.'
+      required:
+      - address
+      properties:
+        address:
+          type: string
+          minLength: 1
+          maxLength: 512
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+    SavedPlaceImport:
+      type: object
+      description: 'v0.18.26: One-time upload of the places a phone kept before v0.18.26. Applied only the first time for
+        this rider (the server remembers it); later calls change nothing and answer the server''s list. Items follow the POST
+        rules (home / work replace, others added); items past maxPlaces are dropped. The app calls it once after sign-in,
+        then reads GET /rider/places and from then on the server''s list is the one shown.'
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavedPlaceRequest'
+          maxItems: 500
+    DriverPreferences:
+      type: object
+      description: 'v0.18.26: The server does not send a switched-off category: the automatic dispatch rounds (Exclusive and
+        Radar), the admin''s Add money sent through the zone''s dispatch, and the Scheduled rides list skip a driver whose
+        categoriesOff holds the trip''s category. Driver.categoryIds (given by the admin from the car) is unchanged by this
+        choice. Owner 2026-11-04 ''Yes, respect it'': admin hand-sent offers (assign, radar to chosen drivers) and group /
+        radar-zone sends skip him too; the send lists him in skipped with reason category_switched_off, and a single assign
+        to only him is 409 invalid_transition, reason category_switched_off.'
+      required:
+      - categoriesOff
+      - updatedAt
+      properties:
+        categoriesOff:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryId'
+          uniqueItems: true
+          description: The ride categories the driver switched off in Ride preferences (CategoryId[]; an unknown id is 400
+            invalid_request, reason unknown_category). Empty = every category his account and car allow.
+        updatedAt:
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+          description: null until the driver saves once on the server; the app then uploads the choice it kept on the phone
+            once (one-time upload) and afterwards follows the server.
+    DriverPreferencesUpdate:
+      type: object
+      required:
+      - categoriesOff
+      properties:
+        categoriesOff:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryId'
+          uniqueItems: true
+          maxItems: 50
+          description: The ride categories the driver switched off in Ride preferences (CategoryId[]; an unknown id is 400
+            invalid_request, reason unknown_category). Empty = every category his account and car allow.
+    EmergencyContact:
+      type: object
+      description: 'v0.18.26: EmergencyContact { name 1-80, phone (digits, optional leading +, 3-15 digits), relation? 0-40
+        }. 112 is built into the app and never stored.'
+      required:
+      - name
+      - phone
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        phone:
+          type: string
+          pattern: ^\+?[0-9]{3,15}$
+        relation:
+          type: string
+          maxLength: 40
+    EmergencyContactList:
+      type: object
+      required:
+      - items
+      - updatedAt
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmergencyContact'
+          maxItems: 50
+        updatedAt:
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+          description: null until saved once on the server; the app then uploads its phone list once (one-time upload).
+    EmergencyContactListUpdate:
+      type: object
+      description: 400 invalid_request, reason too_many_contacts, past the country's emergencyContactsPerPerson.
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmergencyContact'
+          maxItems: 50
+    IncidentEmergencyContacts:
+      type: object
+      description: 'v0.18.26: GET /admin/incidents/{incidentId}/emergency-contacts (incidents.read; the incident''s zone must
+        be in the admin''s scope, else 403 zone_out_of_scope) ; owner 2026-11-04 ''Yes, during a safety case'': only while
+        the case is open (status open or investigating), else 409 invalid_transition, reason incident_closed -> IncidentEmergencyContacts
+        { incidentId, driverId, items, updatedAt, rider: { riderId, items, updatedAt } | null }: the emergency contacts of
+        the incident''s driver, read-only. An incident without a driver answers items []. Every read writes the admin audit
+        line incident.emergency_contacts_viewed (who, when, which incident; never the numbers).'
+      required:
+      - incidentId
+      - driverId
+      - items
+      - updatedAt
+      - rider
+      properties:
+        incidentId:
+          $ref: '#/components/schemas/Id'
+        driverId:
+          oneOf:
+          - $ref: '#/components/schemas/Id'
+          - type: 'null'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmergencyContact'
+        updatedAt:
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        rider:
+          oneOf:
+          - type: object
+            required:
+            - riderId
+            - items
+            - updatedAt
+            properties:
+              riderId:
+                $ref: '#/components/schemas/Id'
+              items:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EmergencyContact'
+              updatedAt:
+                oneOf:
+                - $ref: '#/components/schemas/Timestamp'
+                - type: 'null'
+          - type: 'null'
+    AdminRiderSavedPlaces:
+      type: object
+      description: 'v0.18.26: Owner 2026-11-04 ''Read-only on profile'': GET /admin/riders/{riderId}/saved-places (riders.read;
+        a zone-limited admin only for a rider with a trip in his zones, else 403 zone_out_of_scope; unknown 404 rider_not_found)
+        -> AdminRiderSavedPlaces { riderId, items: SavedPlace[] }. Audit line rider.saved_places_viewed (count only).'
+      required:
+      - riderId
+      - items
+      properties:
+        riderId:
+          $ref: '#/components/schemas/Id'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavedPlace'
+    AdminDriverPreferences:
+      type: object
+      description: 'v0.18.26: Owner 2026-11-04 ''Read-only on profile'': GET /admin/drivers/{driverId}/preferences (drivers.read;
+        driver''s zones in scope, else 403 zone_out_of_scope; unknown 404 driver_not_found) -> AdminDriverPreferences { driverId,
+        categoriesOff, updatedAt }. Audit line driver.preferences_viewed.'
+      required:
+      - driverId
+      - categoriesOff
+      - updatedAt
+      properties:
+        driverId:
+          $ref: '#/components/schemas/Id'
+        categoriesOff:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryId'
+        updatedAt:
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'

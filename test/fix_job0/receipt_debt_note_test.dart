@@ -4,7 +4,7 @@ import 'package:movera_rider/features/ride_complete/application/server_receipt.d
 import 'package:movera_rider/features/ride_complete/presentation/server_receipt_lines.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
-/// Fix job 0 (owner A2-2, contract 0.18.39 `outstandingFee.receiptText`): an
+/// Fix job 0 (owner A2-2, contract 0.18.29 `outstandingFee.receiptText`): an
 /// unpaid fee is added by itself to the rider's next trip; that trip's receipt
 /// shows the line AND says in words what it is (sv / fr / en).
 void main() {

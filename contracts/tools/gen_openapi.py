@@ -338,6 +338,9 @@ S["WalletEntry"] = obj({"entryId": ref("Id"), "ownerId": ref("Id"), "amount": re
                         "at": ref("Timestamp")}, ["entryId", "ownerId", "amount", "kind", "at"])
 S["Wallet"] = obj({"ownerId": ref("Id"), "balance": ref("Money"), "updatedAt": ref("Timestamp")},
                   ["ownerId", "balance", "updatedAt"], "Server-owned balance; clients never compute it.")
+# v0.18.28 (fix job 6, owner Q4): one balance per currency (contract.json#walletCurrency).
+S["Wallet"]["properties"]["balance"] = {"allOf": [ref("Money")], "description": "v0.18.28: the balance in the asked currency (query currency), else in the currency of the rider's zone."}
+S["Wallet"]["properties"]["balances"] = arr(ref("Money"), description="v0.18.28: every non-zero balance, one per currency, sorted by currency code. Never added across currencies.")
 S["SavedPaymentMethod"] = obj({"paymentMethodId": ref("Id"), "method": ref("PaymentMethod"),
                                "brand": s(examples=["visa", "mastercard"]), "last4": s(pattern=r"^\d{4}$"),
                                "expMonth": i(minimum=1, maximum=12), "expYear": i(minimum=2000),
@@ -889,7 +892,8 @@ S["PricingDocument"] = obj(OrderedDict([
     **{"x-server-only": True})
 S["DispatchModeRules"] = obj({"on": b(), "drivers": i(minimum=1, maximum=30, description="radar: shown at once (1-30); exclusive: tried one after the other per radius step (1-10)."),
                               "seconds": i(minimum=5, maximum=120, description="radar 5-120, exclusive 5-60."), "then": s(enum=sorted(set(DP["then"]["radar"] + DP["then"]["exclusive"]))),
-                              "steps": arr(n(exclusiveMinimum=0, maximum=50), minItems=1, maxItems=5, description="v0.18.11 dispatch start: optional own search steps (km, strictly increasing) for this mode. Missing = radius.steps.")},
+                              "steps": arr(n(exclusiveMinimum=0, maximum=50), minItems=1, maxItems=5, description="v0.18.11 dispatch start: optional own search steps (km, strictly increasing) for this mode. Missing = radius.steps."),
+                              "reaskAfterSeconds": i(minimum=5, maximum=600, description="v0.18.27 (owner Q1 2026-11-04, exclusive only): with Radar off, the wait before drivers who all said no are asked again. Missing = this mode's seconds.")},
                              ["on", "drivers", "seconds", "then"], "Radar: then is widen | exclusive | widen_then_exclusive. Exclusive: then is radar | widen | widen_then_radar.")
 S["DispatchTimeRule"] = obj({"id": s(minLength=1), "on": b(), "from": s(pattern=r"^\d\d:\d\d$"), "to": s(pattern=r"^\d\d:\d\d$"), "mode": s(enum=DP["modes"])},
                             ["id", "on", "from", "to", "mode"], "Zone-local [from, to); wraps midnight when from > to.")
@@ -1475,7 +1479,8 @@ op("get", "/payments/{paymentId}", "getPayment", "Get a payment intent", ["rider
    params=[pref("PaymentId")], ok=(200, "PaymentIntent"))
 op("post", "/payments/{paymentId}/confirm", "confirmPayment", "Confirm a payment intent after PSP client step", ["rider"], "Rider · Payments",
    params=[pref("PaymentId")], ok=(200, "PaymentIntent"), mutation=True)
-op("get", "/wallet", "getWallet", "Wallet balance (server-owned)", ["rider"], "Rider · Payments", ok=(200, "Wallet"))
+PARAMS["WalletCurrency"] = {"name": "currency", "in": "query", "required": False, "description": "v0.18.28: which balance is `balance` (ISO 4217, e.g. EUR). Default: the currency of the rider's zone.", "schema": {"type": "string", "pattern": "^[A-Z]{3}$"}}
+op("get", "/wallet", "getWallet", "Wallet balance (server-owned)", ["rider"], "Rider · Payments", params=[pref("WalletCurrency")], ok=(200, "Wallet"))
 op("get", "/wallet/entries", "listWalletEntries", "Wallet ledger", ["rider"], "Rider · Payments",
    params=[pref("Cursor"), pref("Limit"), pref("From"), pref("To")], ok=(200, "WalletEntryPage"))
 op("post", "/wallet/topup", "topUpWallet", "Top up the wallet", ["rider"], "Rider · Payments",
@@ -2379,6 +2384,7 @@ S["Cancellation"]["properties"].update({
     "feeKind": s("v0.18.7 (Q2): " + PW["cancelAfterArrived"]["cancellationFields"]["feeKind"], enum=["cancel", "no_show"]),
     "driverShare": {"allOf": [ref("Money")], "description": "v0.18.7 (Q6): " + PW["cancelAfterArrived"]["cancellationFields"]["driverShare"]},
 })
+S["Rider"]["properties"]["wallets"] = arr(ref("Money"), description="v0.18.28 (admin rider view only, contract.json#walletCurrency.admin): every non-zero wallet balance, one per currency.")
 S["Rider"]["properties"]["outstandingByCurrency"] = arr(ref("Money"), description="v0.18.7 (Q3): " + PW["debtByCurrency"]["riderView"])
 S["Rider"]["properties"]["outstanding"]["description"] += " v0.18.7: the owed fees in the rider's oldest owed currency (contract.json#pickupWaiting.debtByCurrency)."
 S["RealtimeEvent"]["properties"]["eta"] = {"allOf": [ref("TripEta")], "description": "v0.18.7: on a kind=location event sent by the ETA tick (every " + str(PW["eta"]["everySeconds"]) + " s)."}
@@ -2781,15 +2787,15 @@ PATHS["/trips/{tripId}/cancel"]["post"]["description"] += " v0.18.17: " + BL["ri
 S["Offer"]["properties"]["reservation"] = b("v0.18.19: a booked ride (Trip.kind scheduled): the app shows the reservation badge with scheduledAt. " + BL["liveFixes"]["badge"])
 PATHS["/quotes"]["post"]["description"] = PATHS["/quotes"]["post"].get("description", "") + " v0.18.17: " + BL["window"]
 PATHS["/trips"]["post"]["description"] += " v0.18.17: " + BL["window"] + " " + BL["card"]
-# ---- v0.18.39 A2: hold one driver's payouts (owner build-spec Q4; contract.json#payoutHold)
+# ---- v0.18.29 A2: hold one driver's payouts (owner build-spec Q4; contract.json#payoutHold)
 PH = C["payoutHold"]
 S["PayoutHold"] = obj({"reason": s(maxLength=PH["reasonMax"]), "at": ref("Timestamp"), "by": ref("Id")}, ["reason", "at"], PH["note"])
 S["PayoutHoldCommand"] = obj({"held": b(), "reason": s(minLength=1, maxLength=PH["reasonMax"])}, ["held", "reason"])
-S["Driver"]["properties"]["payoutHold"] = {"allOf": [ref("PayoutHold")], "description": "v0.18.39: admin view only; absent = payouts not held."}
+S["Driver"]["properties"]["payoutHold"] = {"allOf": [ref("PayoutHold")], "description": "v0.18.29: admin view only; absent = payouts not held."}
 op("post", "/admin/drivers/{driverId}/payout-hold", "adminHoldDriverPayouts", "Pause or release one driver's payouts", ["admin"], "Admin · People",
    params=[pref("DriverId")], body="PayoutHoldCommand", ok=(200, "Driver"), mutation=True, permission="finance.edit", permission_v050="finance.edit", desc=PH["note"])
 
-# ---- v0.18.39 A2: rider moderation (Warn → Pause → Ban, owner G16 Q16-1/Q16-2; contract.json#riderModeration)
+# ---- v0.18.29 A2: rider moderation (Warn → Pause → Ban, owner G16 Q16-1/Q16-2; contract.json#riderModeration)
 RM = C["riderModeration"]
 S["RiderModerationLevel"] = s(enum=list(RM["levels"].keys()), description="; ".join(f"{k} = {v}" for k, v in RM["levels"].items()))
 S["RiderModeration"] = obj({"level": ref("RiderModerationLevel"), "reason": s(maxLength=300), "until": {"oneOf": [ref("Timestamp"), {"type": "null"}], "description": "paused: when the pause ends by itself; otherwise null."},
@@ -2797,28 +2803,28 @@ S["RiderModeration"] = obj({"level": ref("RiderModerationLevel"), "reason": s(ma
 S["RiderModerationCommand"] = obj(dict(EV, level=ref("RiderModerationLevel"), reason=s(minLength=1, maxLength=300),
                                        pauseDays=i(minimum=RM["pauseDays"]["min"], maximum=RM["pauseDays"]["max"], description="required when level is paused")),
                                   ["expectedVersion", "level", "reason"], RM["reasons"]["note"])
-S["Rider"]["properties"]["moderation"] = {"allOf": [ref("RiderModeration")], "description": "v0.18.39: the rider's moderation level (rider and admin views)."}
+S["Rider"]["properties"]["moderation"] = {"allOf": [ref("RiderModeration")], "description": "v0.18.29: the rider's moderation level (rider and admin views)."}
 op("post", "/admin/riders/{riderId}/moderation", "adminModerateRider", "Warn, pause, ban or clear a rider", ["admin"], "Admin · People",
    params=[pref("RiderId")], body="RiderModerationCommand", ok=(200, "Rider"), mutation=True, permission="riders.block", permission_v050="riders.edit",
    desc=RM["note"] + " " + RM["levels"]["paused"] + ". " + RM["statusCommand"])
 
 
-# ---- v0.18.39 A2: Add money to wallet (owner G12 Q5 + Q-D, build-spec Q1/Q2; contract.json#walletCredit)
+# ---- v0.18.29 A2: Add money to wallet (owner G12 Q5 + Q-D, build-spec Q1/Q2; contract.json#walletCredit)
 WC = C["walletCredit"]
 S["WalletCreditCommand"] = obj({"amount": ref("Money"), "reason": s(minLength=1, maxLength=WC["reasonMax"])}, ["amount", "reason"], WC["note"])
-S["CountryRules"]["properties"]["walletCreditMax"] = {"allOf": [ref("Money")], "description": "v0.18.39 (owner A2-1): the largest single Add money to wallet for riders of this country, in its currency; read from the country Standard only (a zone's own value is ignored). Default " + ", ".join(f"{k} {v['amountMinor']} {v['currency']}" for k, v in WC["defaultMax"].items()) + " (minor units)."}
+S["CountryRules"]["properties"]["walletCreditMax"] = {"allOf": [ref("Money")], "description": "v0.18.29 (owner A2-1): the largest single Add money to wallet for riders of this country, in its currency; read from the country Standard only (a zone's own value is ignored). Default " + ", ".join(f"{k} {v['amountMinor']} {v['currency']}" for k, v in WC["defaultMax"].items()) + " (minor units)."}
 op("post", "/admin/riders/{riderId}/wallet-credit", "adminCreditRiderWallet", "Add money to a rider's wallet", ["admin"], "Admin · People",
    params=[pref("RiderId")], body="WalletCreditCommand", ok=(200, "Rider"), mutation=True, permission="finance.edit", permission_v050="finance.edit", desc=WC["note"])
 
-# ---- v0.18.39 A2: payouts Automatic / Manual per country + approve a run (owner build-spec Q4; contract.json#payoutMode)
+# ---- v0.18.29 A2: payouts Automatic / Manual per country + approve a run (owner build-spec Q4; contract.json#payoutMode)
 PM = C["payoutMode"]
 S["CountryRules"]["properties"]["payoutMode"] = s(PM["note"], enum=PM["values"])
-S["PayoutRunApproveCommand"] = obj({"country": s(pattern="^[A-Z]{2}$"), "periodEnd": ref("Timestamp"), "reason": s("v0.18.39 (owner A2-3): why the run is approved; kept in the audit.", minLength=1, maxLength=300)}, ["country", "periodEnd", "reason"])
+S["PayoutRunApproveCommand"] = obj({"country": s(pattern="^[A-Z]{2}$"), "periodEnd": ref("Timestamp"), "reason": s("v0.18.29 (owner A2-3): why the run is approved; kept in the audit.", minLength=1, maxLength=300)}, ["country", "periodEnd", "reason"])
 S["PayoutRunApproved"] = obj({"country": s(), "periodEnd": ref("Timestamp"), "approved": i(minimum=0), "total": arr(ref("Money"))}, ["country", "periodEnd", "approved", "total"])
 op("post", "/admin/payouts/runs/approve", "adminApprovePayoutRun", "Approve a manual payout run", ["admin"], "Admin · Finance",
    body="PayoutRunApproveCommand", ok=(200, "PayoutRunApproved"), mutation=True, permission="finance.edit", permission_v050="finance.edit", desc=PM["note"])
 
-# ---- v0.18.39 fix job 0 (owner A2-2): Mark as paid on an owed fee (contract.json#outstandingFee.adminMarkPaid)
+# ---- v0.18.29 fix job 0 (owner A2-2): Mark as paid on an owed fee (contract.json#outstandingFee.adminMarkPaid)
 OMP = C["outstandingFee"]["adminMarkPaid"]
 S["RiderFeeMarkPaidCommand"] = obj({"reason": s(minLength=1, maxLength=OMP["reasonMax"])}, ["reason"], OMP["note"])
 op("post", "/admin/riders/{riderId}/fees/{tripId}/mark-paid", "adminMarkRiderFeePaid", "Mark a rider's owed fee as paid", ["admin"], "Admin · People",
@@ -2868,6 +2874,77 @@ op("get", ALE["path"], "adminStreamEvents", "Admin live updates (what changed, i
            pref("After"), pref("Limit"), pref("LastEventId")],
    content=sse("Server-sent events. " + ALE["transport"] + " " + " ".join(ALE["scope"]) + " " + ALE["replay"], "AdminLiveEvent", "AdminLiveEventPage"),
    permission=ALE["permission"])
+
+# v0.18.25 admin real app preview (CONTRACT.md §48, contract.json#previewSession): a read-only preview token for the real apps.
+PVS = C["previewSession"]
+S["PreviewRole"] = s("v0.18.25: which real app the preview opens.", enum=PVS["roles"])
+S["PreviewSessionRequest"] = obj({"role": ref("PreviewRole"), "zoneId": ref("Id"), "useDraft": b("true: the app shows the zone's saved draft settings (GET .../config?draft=1).")},
+                                 ["role", "zoneId"], PVS["note"])
+S["PreviewSession"] = obj({"token": s(PVS["token"]), "role": ref("PreviewRole"), "zoneId": ref("Id"), "useDraft": b(),
+                           "expiresAt": ref("Timestamp"), "subjectId": s("preview:<role>:<zoneId>")},
+                          PVS["response"], PVS["handoff"] + " " + " ".join(PVS["rules"]))
+op("post", PVS["path"], "adminCreatePreviewSession", "Open a read-only preview of the real rider or driver app", ["admin"], "Config",
+   body="PreviewSessionRequest", ok=(201, "PreviewSession"), permission=PVS["permission"],
+   desc=" ".join(PVS["rules"]))
+for _p in ["/rider/config", "/driver/config"]:
+    for _m in PATHS[_p].values():
+        _m["parameters"].insert(0, q("draft", {"type": "string", "enum": ["0", "1"]}, "v0.18.25: '1' with a preview token (contract.json#previewSession) returns the zone's saved draft; ignored for every other token."))
+# v0.18.26 phone data to the server (CONTRACT.md §49, contract.json#phoneDataToServer; BASE B13, owner 2026-11-03).
+PDS = C["phoneDataToServer"]
+RP, DP, EC = PDS["riderPlaces"], PDS["driverPreferences"], PDS["driverEmergencyContacts"]
+S["SavedPlaceAddress"] = obj({"address": s(minLength=1, maxLength=512), "lat": n(minimum=-90, maximum=90), "lng": n(minimum=-180, maximum=180)},
+                             ["address"], "v0.18.26: " + RP["place"])
+_SP = OrderedDict([("label", s(minLength=1, maxLength=80)), ("kind", s(RP["kinds"], enum=["home", "work", "other"])),
+                   ("type", s("v0.18.26: the app's word for an other place (gym, mall, ...).", pattern="^[a-z][a-z0-9_-]{0,31}$")),
+                   ("place", ref("SavedPlaceAddress"))])
+S["SavedPlace"] = obj(OrderedDict([("placeId", ref("Id"))] + list(_SP.items()) + [("createdAt", ref("Timestamp")), ("updatedAt", ref("Timestamp"))]),
+                      ["placeId", "label", "kind", "place", "createdAt", "updatedAt"], "v0.18.26: one of the rider's saved places. " + PDS["privacy"])
+S["SavedPlaceRequest"] = obj(_SP, ["label", "kind", "place"], "v0.18.26: " + RP["kinds"])
+S["SavedPlaceImport"] = obj({"items": arr(ref("SavedPlaceRequest"), maxItems=C["countryLimits"]["ranges"]["savedPlacesPerPerson"][1])}, ["items"], "v0.18.26: " + RP["import"])
+for _o in PATHS["/rider/places"].values(): _o["description"] = "v0.18.26: " + RP["routes"] + " " + RP["tooMany"] + " " + PDS["privacy"]
+PATHS["/rider/places/{placeId}"]["delete"]["description"] = "v0.18.26: only the rider's own place (else 404 place_not_found)."
+op("put", "/rider/places/{placeId}", "updateSavedPlace", "Change a saved place", ["rider"], "Rider · Account",
+   params=[pref("PlaceId")], body="SavedPlaceRequest", ok=(200, "SavedPlace"), mutation=True,
+   desc="v0.18.26: only the rider's own place (else 404 place_not_found). " + RP["kinds"])
+op("post", "/rider/places/import", "importSavedPlaces", "Upload the phone's saved places once", ["rider"], "Rider · Account",
+   body="SavedPlaceImport", ok=(200, "SavedPlacePage"), mutation=True, desc="v0.18.26: " + RP["import"])
+S["DriverPreferences"] = obj({"categoriesOff": arr(ref("CategoryId"), uniqueItems=True, description=DP["categoriesOff"]),
+                              "updatedAt": {"oneOf": [ref("Timestamp"), {"type": "null"}], "description": DP["updatedAt"]}},
+                             ["categoriesOff", "updatedAt"], "v0.18.26: " + DP["dispatch"])
+S["DriverPreferencesUpdate"] = obj({"categoriesOff": arr(ref("CategoryId"), uniqueItems=True, maxItems=50, description=DP["categoriesOff"])}, ["categoriesOff"])
+op("get", "/driver/preferences", "getDriverPreferences", "Own ride preferences", ["driver"], "Driver · Account",
+   ok=(200, "DriverPreferences"), desc="v0.18.26: " + DP["routes"])
+op("put", "/driver/preferences", "putDriverPreferences", "Save own ride preferences", ["driver"], "Driver · Account",
+   body="DriverPreferencesUpdate", ok=(200, "DriverPreferences"), mutation=True, desc="v0.18.26: " + DP["dispatch"])
+S["EmergencyContact"] = obj({"name": s(minLength=1, maxLength=80), "phone": s(pattern=r"^\+?[0-9]{3,15}$"), "relation": s(maxLength=40)},
+                            ["name", "phone"], "v0.18.26: " + EC["item"])
+S["EmergencyContactList"] = obj({"items": arr(ref("EmergencyContact"), maxItems=C["countryLimits"]["ranges"]["emergencyContactsPerPerson"][1]),
+                                 "updatedAt": {"oneOf": [ref("Timestamp"), {"type": "null"}], "description": EC["updatedAt"]}}, ["items", "updatedAt"])
+S["EmergencyContactListUpdate"] = obj({"items": arr(ref("EmergencyContact"), maxItems=C["countryLimits"]["ranges"]["emergencyContactsPerPerson"][1])}, ["items"], EC["tooMany"])
+op("get", "/driver/emergency-contacts", "getDriverEmergencyContacts", "Own emergency contacts", ["driver"], "Driver · Account",
+   ok=(200, "EmergencyContactList"), desc="v0.18.26: " + EC["routes"] + " " + PDS["privacy"])
+op("put", "/driver/emergency-contacts", "putDriverEmergencyContacts", "Save own emergency contacts", ["driver"], "Driver · Account",
+   body="EmergencyContactListUpdate", ok=(200, "EmergencyContactList"), mutation=True, desc="v0.18.26: " + EC["routes"] + " " + EC["tooMany"])
+S["IncidentEmergencyContacts"] = obj({"incidentId": ref("Id"), "driverId": {"oneOf": [ref("Id"), {"type": "null"}]},
+                                      "items": arr(ref("EmergencyContact")), "updatedAt": {"oneOf": [ref("Timestamp"), {"type": "null"}]},
+                                      "rider": {"oneOf": [obj({"riderId": ref("Id"), "items": arr(ref("EmergencyContact")), "updatedAt": {"oneOf": [ref("Timestamp"), {"type": "null"}]}}, ["riderId", "items", "updatedAt"]), {"type": "null"}]}},
+                                     ["incidentId", "driverId", "items", "updatedAt", "rider"], "v0.18.26: " + PDS["admin"]["emergencyContacts"])
+op("get", "/admin/incidents/{incidentId}/emergency-contacts", "adminIncidentEmergencyContacts", "The incident driver's emergency contacts (read-only, audited)",
+   ["admin"], "Admin · Safety", params=[pref("IncidentId")], ok=(200, "IncidentEmergencyContacts"), permission="incidents.read",
+   desc="v0.18.26: " + PDS["admin"]["emergencyContacts"])
+S["AdminRiderSavedPlaces"] = obj({"riderId": ref("Id"), "items": arr(ref("SavedPlace"))}, ["riderId", "items"], "v0.18.26: " + PDS["admin"]["riderPlaces"])
+op("get", "/admin/riders/{riderId}/saved-places", "adminRiderSavedPlaces", "A rider's saved places (read-only, audited)", ["admin"], "Admin · People",
+   params=[pref("RiderId")], ok=(200, "AdminRiderSavedPlaces"), permission="riders.read", desc="v0.18.26: " + PDS["admin"]["riderPlaces"])
+S["AdminDriverPreferences"] = obj({"driverId": ref("Id"), "categoriesOff": arr(ref("CategoryId")), "updatedAt": {"oneOf": [ref("Timestamp"), {"type": "null"}]}},
+                                  ["driverId", "categoriesOff", "updatedAt"], "v0.18.26: " + PDS["admin"]["driverPreferences"])
+op("get", "/admin/drivers/{driverId}/preferences", "adminDriverPreferences", "A driver's ride preferences (read-only, audited)", ["admin"], "Admin · People",
+   params=[pref("DriverId")], ok=(200, "AdminDriverPreferences"), permission="drivers.read", desc="v0.18.26: " + PDS["admin"]["driverPreferences"])
+
+REC = PDS["riderEmergencyContacts"]
+op("get", "/rider/emergency-contacts", "getRiderEmergencyContacts", "Own emergency contacts", ["rider"], "Rider · Account",
+   ok=(200, "EmergencyContactList"), desc="v0.18.26: " + REC["note"] + " " + REC["routes"] + " " + PDS["privacy"])
+op("put", "/rider/emergency-contacts", "putRiderEmergencyContacts", "Save own emergency contacts", ["rider"], "Rider · Account",
+   body="EmergencyContactListUpdate", ok=(200, "EmergencyContactList"), mutation=True, desc="v0.18.26: " + REC["routes"])
 
 def to_plain(x):
     if isinstance(x, dict): return {k: to_plain(v) for k, v in x.items()}

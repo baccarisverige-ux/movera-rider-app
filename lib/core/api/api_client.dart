@@ -7,6 +7,7 @@ import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
+import 'package:movera_rider/core/preview/preview_mode.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/core/auth/signed_out_notice.dart';
@@ -23,7 +24,9 @@ class ApiClient {
     TokenStore? tokens,
     Future<void> Function()? onSessionExpired,
     Duration? requestTimeout,
-  }) : _env = env ?? AppEnv.current,
+    PreviewMode? preview,
+  }) : _preview = preview ?? PreviewMode.current,
+       _env = env ?? AppEnv.current,
        _client = client ?? _defaultClient(env ?? AppEnv.current),
        _tokens = tokens,
        _onSessionExpired = onSessionExpired,
@@ -32,6 +35,11 @@ class ApiClient {
            ((env ?? AppEnv.current).allowsMockTransport
                ? mockTransportTimeout
                : liveServerTimeout);
+
+  /// How long one request to the in-process mock may take (demo, dev, test).
+  /// Contract v0.18.25 `previewSession`: in an admin preview no write
+  /// leaves the app.
+  final PreviewMode _preview;
 
   /// How long one request to the in-process mock may take (demo, dev, test).
   static const mockTransportTimeout = Duration(seconds: 15);
@@ -244,8 +252,17 @@ class ApiClient {
     Map<String, dynamic>? body,
     String? idempotencyKey,
   }) async {
+    if (_preview.active && method != 'GET') {
+      PreviewMode.blocked.value++;
+      throw ApiError(
+        code: 'forbidden',
+        reason: PreviewMode.blockedReason,
+        statusCode: 403,
+        message: PreviewMode.notSentText(PreviewMode.deviceLanguage),
+      );
+    }
     final requestId = newRequestId();
-    final uri = Uri.parse('${_env.apiBaseUrl}$path');
+    final uri = Uri.parse('${_env.apiBaseUrl}${_preview.withDraft(path)}');
     try {
       final access = await _tokens?.readAccess();
       final held = _withoutSession(path, access, requestId);
