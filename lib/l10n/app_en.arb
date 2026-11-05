@@ -261,6 +261,8 @@
   "@errLockedToday": {"description": "Contract v0.18.14 auth.signInErrors.otp_locked_today."},
   "@@locale": "en",
   "appTitle": "Movera",
+  "previewBanner": "Preview",
+  "previewNotSent": "Preview – not sent",
   "cancelRide": "Cancel ride",
   "cancelReasonPickupIncorrect": "Pickup point is incorrect",
   "cancelReasonWrongRideOption": "I chose the wrong ride option",

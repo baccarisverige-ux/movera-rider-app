@@ -146,6 +146,8 @@
   "errLockedToday": "För många fel koder i dag. Försök igen senare.",
   "@@locale": "sv",
   "appTitle": "Movera",
+  "previewBanner": "Förhandsvisning",
+  "previewNotSent": "Förhandsvisning – inte skickat",
   "cancelRide": "Avbryt resan",
   "cancelReasonPickupIncorrect": "Upphämtningsplatsen är fel",
   "cancelReasonWrongRideOption": "Jag valde fel resealternativ",

@@ -1,4 +1,6 @@
 {
   "@@locale": "fr",
-  "appTitle": "Movera"
+  "appTitle": "Movera",
+  "previewBanner": "Aperçu",
+  "previewNotSent": "Aperçu – non envoyé"
 }

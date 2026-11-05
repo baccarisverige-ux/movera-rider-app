@@ -146,6 +146,8 @@
   "errLockedToday": "Trop de codes erronés aujourd’hui. Réessayez plus tard.",
   "@@locale": "fr",
   "appTitle": "Movera",
+  "previewBanner": "Aperçu",
+  "previewNotSent": "Aperçu – non envoyé",
   "cancelRide": "Annuler la course",
   "cancelReasonPickupIncorrect": "Le point de départ est incorrect",
   "cancelReasonWrongRideOption": "J’ai choisi la mauvaise option de course",

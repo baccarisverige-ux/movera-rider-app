@@ -152,6 +152,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'accountSuspended': l.accountSuspended,
   'errLockedToday': l.errLockedToday,
   'appTitle': l.appTitle,
+  'previewBanner': l.previewBanner,
+  'previewNotSent': l.previewNotSent,
   'cancelRide': l.cancelRide,
   'cancelReasonPickupIncorrect': l.cancelReasonPickupIncorrect,
   'cancelReasonWrongRideOption': l.cancelReasonWrongRideOption,
@@ -2205,6 +2207,10 @@ class _Exhaustive implements AppLocalizations {
   String get errLockedToday => '';
   @override
   String get appTitle => '';
+  @override
+  String get previewBanner => '';
+  @override
+  String get previewNotSent => '';
   @override
   String get cancelRide => '';
   @override
