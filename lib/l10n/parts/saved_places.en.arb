@@ -1,0 +1,107 @@
+{
+  "placeGym": "Gym",
+  "placeMall": "Mall",
+  "placeSchool": "School",
+  "placeAirport": "Airport",
+  "placeFamily": "Family",
+  "placeRestaurant": "Restaurant",
+  "placeOther": "Other",
+  "placeHome": "Home",
+  "placeSetHome": "Set Home",
+  "placeWork": "Work",
+  "placeSetWork": "Set Work",
+  "placeAdd": "Add",
+  "placeNew": "New place",
+  "spAddressNotFound": "We couldn’t find that address. Try a street name and city.",
+  "spWhereYouAreNotFound": "We couldn’t find where you are. Search for the address instead.",
+  "spNotSavedYet": "Not saved yet",
+  "spPickupLocation": "Pickup location",
+  "spSearchAddress": "Search address",
+  "spYourLastTrip": "Your last trip",
+  "spNoRecentTrips": "No recent trips yet",
+  "spNoRecentTripsBody": "Completed trips will appear here when real ride history is available.",
+  "spSearchResults": "Search results",
+  "spNoSearchResults": "No search results",
+  "spNoSuggestionsBody": "Suggestions aren’t available yet. Type a full address and press Search.",
+  "spFavorite": "Favorite",
+  "spNameAndLocation": "Add both a name and a location.",
+  "spReplaceQ": "Replace your saved {label}?",
+  "@spReplaceQ": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "spReplaceBody": "Your {label} address will change to {location}. To keep it, give this place another name.",
+  "@spReplaceBody": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "location": {
+        "type": "String"
+      }
+    }
+  },
+  "spReplaceConfirm": "Replace {label}",
+  "@spReplaceConfirm": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "spSaveFailed": "Couldn’t save this place. Try again.",
+  "spAddNewAddress": "Add new address",
+  "spEditSavedPlace": "Edit saved place",
+  "spName": "Name",
+  "spAddLocation": "Add location",
+  "spLoadFailed": "Couldn’t load your saved places. Try again.",
+  "spRemoveQ": "Remove {place}?",
+  "@spRemoveQ": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "spRemoveFailed": "Couldn’t remove {place}. Try again.",
+  "@spRemoveFailed": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "spTagline": "The driver will take you where you’re going",
+  "spAddHome": "Add Home",
+  "spAddWork": "Add Work",
+  "spAddSchool": "Add School",
+  "spAddGym": "Add Gym",
+  "spAddAnother": "Add another place",
+  "spEditPlace": "Edit {place}",
+  "@spEditPlace": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "spDeletePlace": "Delete {place}",
+  "@spDeletePlace": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "spLocationOff": "Location is turned off. Turn it on, or search for the address.",
+  "spLocationDeniedForever": "Location access is off for Movera. Allow it in Settings, or search for the address.",
+  "spWebLocationDeniedForever": "Location is blocked for this site. Allow it in your browser settings, or search for the address.",
+  "spLocationDenied": "Allow location access to use where you are, or search for the address.",
+  "spNoAddressHere": "We couldn’t find an address for where you are. Search for it instead.",
+  "spLocationUnavailable": "Location unavailable",
+  "spNoLocationSuggestions": "No location suggestions",
+  "spSuggestionsNotConnected": "Location suggestions aren’t connected in this build yet."
+}

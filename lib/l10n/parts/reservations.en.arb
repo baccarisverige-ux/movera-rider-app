@@ -1,0 +1,289 @@
+{
+  "scheduleForLater": "Schedule for later",
+  "later": "Later",
+  "scheduleARide": "Schedule a ride",
+  "bookForPrice": "Book for {price}",
+  "@bookForPrice": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "bookNow": "Book now",
+  "bookNowBody": "Request a driver right away",
+  "bookForLater": "Book for later",
+  "bookForLaterBody": "Choose a date and pickup time",
+  "bookingUncertain": "We couldn’t confirm your booking. Check your connection and try again.",
+  "bookingFailed": "We could not book this ride. Check the fare and try again.",
+  "bookNowOrLater": "Book now or later",
+  "resCompleted": "Completed",
+  "resCancelledFee": "Cancelled · fee {amount}",
+  "@resCancelledFee": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "resCancelled": "Cancelled",
+  "resPaymentFailed": "Payment failed",
+  "resReservedFor": "Your ride is reserved for {date} at {time}",
+  "@resReservedFor": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resWasScheduledFor": "This ride was scheduled for {date} at {time}",
+  "@resWasScheduledFor": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resKeepReady": "We'll keep your reservation ready for {date} at {time}.",
+  "@resKeepReady": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resNotifyAssigned": "We'll notify you as soon as a driver is assigned.",
+  "resStatusCancelled": "Reservation cancelled",
+  "resStatusCompleted": "Ride completed",
+  "resStatusConfirmed": "Reservation confirmed",
+  "resBodyCancelled": "This reservation was cancelled. Details stay in your ride history.",
+  "resBodyCancelledReason": "Cancelled. {reason}",
+  "@resBodyCancelledReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "resBodyCompleted": "This scheduled ride is complete.",
+  "resBodyDriverAssigned": "A driver has been assigned to this reservation.",
+  "resBodyNameAssigned": "{name} is assigned to this reservation.",
+  "@resBodyNameAssigned": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduledCancelFree": "Cancelling a scheduled ride is free.",
+  "scheduledRides": "Scheduled rides",
+  "bookARide": "Book a ride",
+  "scheduleCancelTermsNote": "Cancelling is free until a set time before pickup, which depends on the ride type. Your reservation shows the exact terms.",
+  "reservationIn": "Reservation in {time}",
+  "@reservationIn": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "reservationNow": "Reservation now",
+  "resErrNoPriceEdit": "We couldn't get a price for this ride, so your changes weren't saved. Try again in a moment.",
+  "resErrNoPriceBook": "We couldn't get a price for this ride, so it wasn't booked. Try again in a moment.",
+  "resErrUnavailable": "Booking for later isn't available yet, so nothing was booked.",
+  "resErrCancelOffline": "No connection, so your cancellation wasn't confirmed. Your ride is still booked — try again when you're back online.",
+  "resErrCancelRate": "Too many tries. Your ride is still booked — {retry}.",
+  "@resErrCancelRate": {
+    "placeholders": {
+      "retry": {
+        "type": "String"
+      }
+    }
+  },
+  "resErrCancelServer": "Movera is having trouble right now, so your ride is still booked. Try cancelling again in a moment.",
+  "resErrCancelRefused": "This ride can't be cancelled right now.",
+  "resErrCancelUnknown": "Couldn't cancel. Your ride is still booked — try again.",
+  "resErrBookOffline": "No connection, so your booking wasn't confirmed. Check Upcoming rides before trying again.",
+  "resErrBookRate": "Too many tries, so your booking wasn't confirmed. {retry}.",
+  "@resErrBookRate": {
+    "placeholders": {
+      "retry": {
+        "type": "String"
+      }
+    }
+  },
+  "resErrBookServer": "Movera is having trouble right now and couldn't confirm your booking. Check Upcoming rides before trying again.",
+  "resErrBookRefused": "Movera couldn't book this ride. Check the time and details, then try again.",
+  "resErrBookUnknown": "Couldn't confirm your booking. Check Upcoming rides before trying again.",
+  "resErrEditOffline": "No connection, so your changes weren't confirmed. Check your ride's details before trying again.",
+  "resErrEditRate": "Too many tries, so your changes weren't confirmed. {retry}.",
+  "@resErrEditRate": {
+    "placeholders": {
+      "retry": {
+        "type": "String"
+      }
+    }
+  },
+  "resErrEditServer": "Movera is having trouble right now, so your changes weren't confirmed. Check your ride's details before trying again.",
+  "resErrEditRefused": "This ride can't be changed right now.",
+  "resErrEditUnknown": "Couldn't save your changes. Check your ride's details before trying again.",
+  "resNoChangeCharge": "No additional change charge",
+  "resNotFound": "Reservation not found",
+  "resScheduleCaps": "SCHEDULE",
+  "scheduleHeaderCaps": "SCHEDULE",
+  "resCancelledReservation": "Cancelled reservation",
+  "resUpcomingRide": "Upcoming ride",
+  "resCompletedRide": "Completed ride",
+  "resSeatsPayment": "{count, plural, =1{1 seat} other{{count} seats}}  ·  {payment}",
+  "@resSeatsPayment": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "payment": {
+        "type": "String"
+      }
+    }
+  },
+  "resDriverOnTheWay": "Driver details appear when your driver is on the way.",
+  "resScheduledFor": "Scheduled for",
+  "resPickupAt": "Pickup at",
+  "resDropoffAt": "Drop-off at",
+  "resPreferences": "Preferences",
+  "resCancellationFee": "Cancellation fee",
+  "resNeedAnother": "Need another ride?",
+  "resPlanReturn": "Plan a return ride",
+  "resPlanReturnBody": "Choose category, then confirm a new reservation",
+  "resThingsToKnow": "Things to know",
+  "resViewTerms": "View scheduled ride terms",
+  "resYourDriverName": "Your driver {name}",
+  "@resYourDriverName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "resPlateLabel": "plate {plate}",
+  "@resPlateLabel": {
+    "description": "Screen-reader part of the driver card: the car's registration plate.",
+    "placeholders": {
+      "plate": {
+        "type": "String"
+      }
+    }
+  },
+  "resYourDriverCaps": "YOUR DRIVER",
+  "resWaitingTime": "Waiting time",
+  "resCancellation": "Cancellation",
+  "resPricing": "Pricing",
+  "resReviewChanges": "Review your changes",
+  "resReviewIntro": "Check the updated trip details and price before confirming.",
+  "resCurrent": "Current reservation",
+  "resUpdated": "Updated reservation",
+  "resPreviousPrice": "Previous price",
+  "resNewPrice": "New reservation price",
+  "resPriceDifference": "Price difference",
+  "resConfirmChanges": "Confirm changes",
+  "resKeepCurrent": "Keep current reservation",
+  "resScheduledTitle": "Your ride is scheduled",
+  "resFrom": "From",
+  "resTo": "To",
+  "resEdit": "Edit reservation",
+  "resPlanYourReturn": "Plan your return",
+  "resReturnNoPlaces": "We don’t have the exact pickup and drop-off of this ride, so the return can’t be filled in for you. Plan it with Schedule a ride instead.",
+  "resScheduleARide": "Schedule a ride",
+  "resPriceUnchanged": "Price unchanged",
+  "resCostsMore": "Your updated ride costs {amount} more.",
+  "@resCostsMore": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "resCostsLess": "Your updated ride costs {amount} less.",
+  "@resCostsLess": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "resCancelQ": "Cancel reservation?",
+  "resCancelBody": "Your ride for {date} at {time} will move to history. It will not be deleted.",
+  "@resCancelBody": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resKeep": "Keep reservation",
+  "resValidPickup": "Choose a valid pickup address.",
+  "resValidDestination": "Choose a valid destination address.",
+  "resTermsTitle": "Scheduled ride terms",
+  "resTermsOtherFees": "{rule} Other fees and time windows apply only when they are shown before booking.",
+  "@resTermsOtherFees": {
+    "placeholders": {
+      "rule": {
+        "type": "String"
+      }
+    }
+  },
+  "resRideScheduled": "Ride scheduled",
+  "resBooked": "You’re booked",
+  "resBookedBody": "Your scheduled ride is confirmed.",
+  "schedWherePickup": "Where should your Movera driver pick you up?",
+  "schedEnterPickup": "Enter pickup address",
+  "schedEnterStop": "Enter stop address",
+  "schedDropoff": "Drop-off",
+  "schedDateNext": "You will choose the date and time on the next screen.",
+  "resErrTooSoon": "Book at least {minutes} minutes before pickup.",
+  "@resErrTooSoon": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "resErrTooFar": "You can book at most {days} days ahead.",
+  "@resErrTooFar": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "resErrTripTooLong": "This ride is too long to book ahead. Book it when you want to go.",
+  "resErrChangeTooLate": "Less than {minutes} minutes before pickup the ride can't be changed. Your ride is unchanged.",
+  "@resErrChangeTooLate": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "resErrZoneOff": "Not available in this area yet",
+  "bookingFreeRule": "Free change and cancel more than {time} before pickup",
+  "@bookingFreeRule": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleForLaterChip": "Book a ride for later"
+}
