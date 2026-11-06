@@ -1,6 +1,7 @@
 import 'package:movera_rider/core/location/location_repository.dart';
 
 import 'api_rider_config_repository.dart';
+import 'live_data_only.dart';
 import 'rider_app_config.dart';
 import 'rider_zones.dart';
 
@@ -85,8 +86,10 @@ extension TripZoneConfig on RiderConfigRepository {
 
 /// The built-in seed for a trip in [currency], for the first frame before
 /// [TripZoneConfig.forTrip] answers. Null for a currency no zone uses.
-RiderAppConfig? seedConfigForTrip(String currency) =>
-    SeedRiderConfigRepository.seedForCurrency(currency);
+/// L-a R1/R3: none on a live build ([LiveDataOnly]): no sample amounts.
+RiderAppConfig? seedConfigForTrip(String currency) => LiveDataOnly.on
+    ? null
+    : SeedRiderConfigRepository.seedForCurrency(currency);
 
 /// The zone the rider is in now, for screens with no trip (Wallet,
 /// Payment): the zone of the app's last good location fix, else the zone

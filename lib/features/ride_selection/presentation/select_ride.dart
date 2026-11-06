@@ -9,6 +9,7 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/features/ride_selection/presentation/checking_area_view.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/payments/presentation/pay_with_page.dart';
@@ -321,6 +322,7 @@ class _SelectRideState extends State<SelectRide>
       _pickupPosition.latitude,
       _pickupPosition.longitude,
     ).currency;
+    if (!RiderZones.known) AppScope.instance.zones.addListener(_onZonesKnown);
     _sheetSlide = AnimationController(
       vsync: this,
       duration: MoveraDurations.sheetOpen,
@@ -363,6 +365,21 @@ class _SelectRideState extends State<SelectRide>
     _loadQuotes();
     unawaited(_loadRoutePins());
     unawaited(_loadWalletBalance());
+    unawaited(_loadZoneConfig());
+  }
+
+  /// L-a R1/R3: the server's zones arrived after this screen opened: the
+  /// pickup's zone and currency are known now, so price it again.
+  void _onZonesKnown() {
+    if (!mounted || !RiderZones.known) return;
+    AppScope.instance.zones.removeListener(_onZonesKnown);
+    setState(() {
+      _selection.currency = RiderZones.at(
+        _pickupPosition.latitude,
+        _pickupPosition.longitude,
+      ).currency;
+    });
+    unawaited(_loadQuotes());
     unawaited(_loadZoneConfig());
   }
 
@@ -567,6 +584,7 @@ class _SelectRideState extends State<SelectRide>
 
   @override
   void dispose() {
+    AppScope.instance.zones.removeListener(_onZonesKnown);
     WidgetsBinding.instance.removeObserver(this);
     _glideTicker?.cancel();
     _nearby.removeListener(_onNearbyCars);
@@ -1121,6 +1139,11 @@ class _SelectRideState extends State<SelectRide>
 
   @override
   Widget build(BuildContext context) {
+    // L-a R1/R3 (owner Q5 A): a live build before the server's zones: no
+    // sample zone, no price; an error with Retry when the read fails.
+    if (!RiderZones.known) {
+      return CheckingAreaView(zones: AppScope.instance.zones);
+    }
     // v0.11.0 §21: outside every open zone there is nothing to book.
     if (_selection.notServed ||
         !RiderZones.serves(

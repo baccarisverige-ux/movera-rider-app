@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:movera_rider/core/config/live_data_only.dart';
 import 'package:movera_rider/core/preview/preview_mode.dart';
 import 'package:movera_rider/features/messages/data/chat_read_marks.dart';
 import 'package:flutter/foundation.dart';
@@ -103,6 +104,8 @@ Future<void> bootStep(String name, Future<void> Function() step) async {
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // L-a R1/R3 (owner Q5 A): a live build shows no sample zones or prices.
+  LiveDataOnly.on = !AppEnv.current.allowsMockTransport;
   PreviewMode.readFromUrl();
   // UI-15: bundled Poppins, when present, means no font download at start.
   await configureBundledFonts();

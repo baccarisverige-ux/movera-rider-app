@@ -438,8 +438,16 @@ class AppScope {
   /// fallbacks. Loaded at bootstrap and again when Select Ride opens.
   late final RideCatalogController catalog = RideCatalogController(
     api: api,
-    configSource: api.contractWire ? () => riderConfig.current() : null,
+    // L-a R1/R3: on a live build never the built-in seed's catalog.
+    configSource: api.contractWire ? _servedConfig : null,
   );
+
+  Future<RiderAppConfig> _servedConfig() {
+    final config = riderConfig;
+    return config is ApiRiderConfigRepository
+        ? config.currentServed()
+        : config.current();
+  }
 
   /// RiderAppConfig (contract §6): on the contract wire the server's
   /// (`GET /rider/config`, refreshed on `config_published`, last good kept,

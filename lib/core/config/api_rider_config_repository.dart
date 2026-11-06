@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/core/config/live_data_only.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
@@ -93,6 +94,23 @@ class ApiRiderConfigRepository extends ChangeNotifier
 
   @override
   Future<RiderAppConfig> current() => forZone(homeZoneId);
+
+  /// True when [config] is a document the server sent (now or kept on the
+  /// device), not the built-in seed.
+  bool isServerDocument(RiderAppConfig config) =>
+      _documents.values.any((known) => identical(known, config));
+
+  /// L-a R1/R3 (owner Q5 A): [current], but on a live build
+  /// ([LiveDataOnly]) only a document the server sent: the built-in seed
+  /// (sample prices and fees) throws a [StateError] instead. The demo gets
+  /// [current] as before.
+  Future<RiderAppConfig> currentServed() async {
+    final config = await current();
+    if (LiveDataOnly.on && !isServerDocument(config)) {
+      throw StateError('rider config not loaded');
+    }
+    return config;
+  }
 
   @override
   Future<RiderAppConfig> forZone(String zoneId) async {

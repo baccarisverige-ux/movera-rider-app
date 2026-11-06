@@ -625,5 +625,11 @@
   "routeChangeRefused": "Movera could not make this change right now. Your trip keeps its route.",
   "@routeChangeRefused": {"description": "Deep-fix 2026-11-02"},
   "g7RouteExpired": "The driver did not answer in time. The trip goes on to the first destination.",
-  "@g7RouteExpired": {"description": "Deep-fix 2026-11-02"}
+  "@g7RouteExpired": {"description": "Deep-fix 2026-11-02"},
+  "checkingYourArea": "Checking your area…",
+  "@checkingYourArea": {"description": "L-a R1/R3 (owner Q5 A): live build, before the server has said where Movera runs and what it costs. No sample zones or prices are shown."},
+  "checkingYourAreaFailed": "Movera could not check your area. Check your connection and try again.",
+  "@checkingYourAreaFailed": {"description": "L-a R1/R3: the server zones or config did not arrive."},
+  "checkingYourAreaRetry": "Try again",
+  "@checkingYourAreaRetry": {"description": "L-a R1/R3: button that asks the server again."}
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/core/config/live_data_only.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
@@ -136,6 +137,8 @@ class ReservationController extends ChangeNotifier {
     if (config != null && config.currency == currency) return config;
     // Without a loaded config a kronor ride keeps the single rule, as before.
     if (config == null && currency == Money.defaultCurrency) return null;
+    // L-a R1/R3: a live build has no sample rules.
+    if (LiveDataOnly.on) return null;
     return SeedRiderConfigRepository.seedForCurrency(currency);
   }
 

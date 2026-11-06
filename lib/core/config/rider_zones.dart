@@ -1,3 +1,5 @@
+import 'package:movera_rider/core/config/live_data_only.dart';
+
 /// The zones the Rider serves, and which one a pickup is in. Q7 (owner
 /// decision): the pickup location decides the zone, and the zone decides
 /// the currency.
@@ -230,8 +232,14 @@ abstract final class RiderZones {
     _server = null;
   }
 
-  /// The zones the app knows: the server's, else the samples.
-  static List<RiderZone> get all => _server ?? samples;
+  /// False only on a live build ([LiveDataOnly]) before the server's list
+  /// (or the kept answer) is in use: where Movera runs is not known yet.
+  static bool get known => _server != null || !LiveDataOnly.on;
+
+  /// The zones the app knows: the server's, else the samples (demo and
+  /// tests). A live build has none before the server answers (L-a R1).
+  static List<RiderZone> get all =>
+      _server ?? (LiveDataOnly.on ? const <RiderZone>[] : samples);
 
   /// The home zone: the one a pickup outside every known zone gets for its
   /// currency and clock. On the server's list: its first city zone, Stockholm
