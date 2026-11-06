@@ -62,6 +62,23 @@ class RiderZonesController extends ChangeNotifier {
 
   List<RiderZone> get zones => RiderZones.all;
 
+  bool _failed = false;
+
+  /// L-a R1/R3: the last read of the server's list failed and no list is in
+  /// use yet (a live build with no kept answer). The screen shows an error
+  /// with Retry instead of "Checking your area…" for ever.
+  bool get failed => _failed && !RiderZones.known;
+
+  /// L-a R1/R3: Retry on that error. Reads the server again; while the
+  /// read runs the screen is back on "Checking your area…".
+  Future<bool> retry() {
+    if (_failed) {
+      _failed = false;
+      notifyListeners();
+    }
+    return refresh();
+  }
+
   /// The zones of an answer `{ zones: Zone[] }`; null when it is not one.
   /// A zone that does not parse is left out.
   static List<RiderZone>? parse(Object? answer) {
@@ -87,7 +104,10 @@ class RiderZonesController extends ChangeNotifier {
 
   /// Reads the server's list. True when it was read.
   Future<bool> refresh() {
-    if (api == null) return Future.value(false);
+    if (api == null) {
+      _markFailed();
+      return Future.value(false);
+    }
     return _inFlight ??= _fetch().whenComplete(() => _inFlight = null);
   }
 
@@ -107,6 +127,7 @@ class RiderZonesController extends ChangeNotifier {
       return true;
     } catch (error) {
       AppLog.warning('rider_zones.unavailable', extra: {'error': '$error'});
+      _markFailed();
       return false;
     }
   }
@@ -122,7 +143,14 @@ class RiderZonesController extends ChangeNotifier {
     if (event['doc'] == 'zones') unawaited(refresh());
   }
 
+  void _markFailed() {
+    if (_failed) return;
+    _failed = true;
+    if (!RiderZones.known) notifyListeners();
+  }
+
   void _use(List<RiderZone> zones) {
+    _failed = false;
     RiderZones.useServer(zones);
     notifyListeners();
   }

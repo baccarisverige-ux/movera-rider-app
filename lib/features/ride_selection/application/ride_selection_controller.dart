@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/config/live_data_only.dart';
 import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
@@ -752,6 +753,13 @@ class RideSelectionController {
     DateTime? now,
   }) {
     _discardExpiredQuote(id, now: now);
+    // L-a R1/R3 (owner Q5 A): on a live build a built-in list price is a
+    // sample, not a price: only the server's quote or list is shown.
+    if (LiveDataOnly.on &&
+        (_catalog?.source ?? RideCatalogSource.builtIn) ==
+            RideCatalogSource.builtIn) {
+      return quoteIsAvailable(id, now: now);
+    }
     return offeredPrices.containsKey(id) ||
         (catalogCurrency == currency && !_expiredQuoteIds.contains(id));
   }

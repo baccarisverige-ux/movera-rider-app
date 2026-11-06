@@ -1201,6 +1201,9 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'routeVisitedStopLocked': l.routeVisitedStopLocked,
   'routeChangeRefused': l.routeChangeRefused,
   'g7RouteExpired': l.g7RouteExpired,
+  'checkingYourArea': l.checkingYourArea,
+  'checkingYourAreaFailed': l.checkingYourAreaFailed,
+  'checkingYourAreaRetry': l.checkingYourAreaRetry,
   'rcYes': l.rcYes,
   'rcNo': l.rcNo,
   'rcNotSure': l.rcNotSure,
@@ -4326,6 +4329,12 @@ class _Exhaustive implements AppLocalizations {
   String get routeChangeRefused => '';
   @override
   String get g7RouteExpired => '';
+  @override
+  String get checkingYourArea => '';
+  @override
+  String get checkingYourAreaFailed => '';
+  @override
+  String get checkingYourAreaRetry => '';
   @override
   String get rcYes => '';
   @override

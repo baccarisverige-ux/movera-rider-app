@@ -244,5 +244,8 @@
   "pickupSpotApproximate": "{name} (approximatif)",
   "routeVisitedStopLocked": "Vous êtes déjà passé par cet arrêt : il ne peut plus être supprimé ni modifié.",
   "routeChangeRefused": "Movera n’a pas pu faire ce changement pour le moment. La course garde son itinéraire.",
-  "g7RouteExpired": "Le chauffeur n’a pas répondu à temps. La course continue vers la première destination."
+  "g7RouteExpired": "Le chauffeur n’a pas répondu à temps. La course continue vers la première destination.",
+  "checkingYourArea": "Vérification de votre zone…",
+  "checkingYourAreaFailed": "Movera n’a pas pu vérifier votre zone. Vérifiez votre connexion et réessayez.",
+  "checkingYourAreaRetry": "Réessayer"
 }
