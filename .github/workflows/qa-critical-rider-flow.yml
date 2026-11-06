@@ -478,7 +478,14 @@ jobs:
             }
             await page.screenshot({ path: 'qa-critical-wallet-funded.png', fullPage: true });
 
-            await page.reload({ waitUntil: 'networkidle', timeout: 120000 });
+            // B20: 'load' as openHome: networkidle never settled (map tiles), same
+            // timeout on app 911581f9 and on main once the robot runs on a local build.
+            await page.reload({ waitUntil: 'load', timeout: 120000 });
+            await page.waitForFunction(
+              () => document.querySelector('flt-semantics-placeholder, flutter-view, flt-glass-pane'),
+              null,
+              { timeout: 90000 },
+            );
             await page.waitForTimeout(4500);
             await enableA11y(page);
             await skipAuthPreview(page);
