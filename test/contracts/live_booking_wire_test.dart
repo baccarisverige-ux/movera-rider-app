@@ -344,6 +344,8 @@ void main() {
         'stops': <Object>[],
         'kind': 'live',
         'paymentMethod': 'cash',
+        // Fix job 5 (v0.18.33, owner Q6): always sent; no wallet balance here.
+        'walletFirst': false,
         'notes': 'Bags, Pet',
       });
       // The created trip is the session's, with its first version.

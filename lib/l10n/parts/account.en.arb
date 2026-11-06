@@ -1,0 +1,256 @@
+{
+  "menu": "Menu",
+  "menuAppVersion": "Movera Rider v{version}",
+  "@menuAppVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "menuHiName": "Hi {name}",
+  "@menuHiName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "menuWalletWithAmount": "Wallet, {amount}",
+  "@menuWalletWithAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "menuWallet": "Wallet",
+  "menuRideHistory": "Ride History",
+  "menuNotifications": "Notifications",
+  "menuSavedPlaces": "Saved Places",
+  "menuSupport": "Support",
+  "menuPromoBodyNone": "Offers you can use are applied automatically to your ride.",
+  "menuNoPromosNow": "You have no offers right now. New offers will show here.",
+  "menuPromoBody": "{percent}% off your next {rides} rides · {left} left. We apply the offer that saves you the most.",
+  "@menuPromoBody": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      },
+      "rides": {
+        "type": "String"
+      },
+      "left": {
+        "type": "String"
+      }
+    }
+  },
+  "menuYourPromos": "Your promotions",
+  "menuSafetyCheckup": "Safety checkup",
+  "menuSafetyCheckupBody": "Add a trusted contact and set your safety preferences.",
+  "menuFamily": "Movera Family",
+  "menuFamilyBody": "Coming soon: book and follow rides for your family.",
+  "menuFamilyArticle": "Soon you will be able to add family members to your account and book rides for them, with the trip and the driver visible to you from start to finish. We will let you know the moment it is ready.",
+  "menuInviteFriends": "Invite friends",
+  "menuInviteFriendsBody": "Coming soon: invite friends to Movera.",
+  "menuBusiness": "Movera Business",
+  "menuBusinessBody": "Coming soon: keep work rides and receipts separate.",
+  "menuBusinessArticle": "A business profile keeps your work rides apart from your personal ones, with monthly receipts ready for expensing. It is on its way; we will let you know when it opens.",
+  "menuGreener": "Greener rides",
+  "menuGreenerBody": "Choose Electric for fossil-free rides.",
+  "menuGreenerArticle": "Choose the Electric category to ride emission-free. Soon your receipts will show the CO₂ you saved on every trip and over the year.",
+  "accountPersonalInfo": "Personal info",
+  "accountPersonalInfoBody": "Name, phone, email, language",
+  "accountSecurity": "Security",
+  "accountSecurityBody": "Passkeys, 2-step, devices",
+  "accountPrivacy": "Privacy",
+  "accountPrivacyBody": "How Movera uses your data",
+  "accountTerms": "Terms",
+  "accountTermsBody": "How Movera rides work",
+  "accountPrivacyNotice": "Privacy notice",
+  "accountPrivacyNoticeBody": "What we keep and why",
+  "menuAboutMovera": "About Movera",
+  "menuAboutBody": "Company information",
+  "menuAboutArticle": "Movera is a ride app for Sweden. Available booking and payment options are shown during your ride request.\n\nIcons: Solar Icons by 480 Design (CC BY 4.0). Illustrations: unDraw.",
+  "accountSignOut": "Sign out",
+  "accountSignOutBody": "Remove your data from this device",
+  "nameIsHere": "{name} is here",
+  "@nameIsHere": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "nameCancelled": "{name} cancelled",
+  "@nameCancelled": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "profilePersonal": "Personal",
+  "profileBusiness": "Business",
+  "accountAddYourName": "Add your name",
+  "menuWelcomeNoName": "Welcome to Movera",
+  "@menuWelcomeNoName": {
+    "description": "Menu greeting for a rider who has not saved a name."
+  },
+  "emailNotAdded": "Email not added",
+  "accountHeadlineBody": "Your Movera profile and account settings.",
+  "accountFinish": "Finish your account",
+  "securityStatusUnavailableDot": "Security status unavailable.",
+  "accountFinishBody": "Add verified recovery and 2-step so this account stays yours.",
+  "accountSafety": "Safety",
+  "accountSafetyBody": "Share a trip and reach help fast",
+  "accountSupportBody": "Help with a ride or reservation",
+  "accountDelete": "Delete account",
+  "accountDeleteBody": "Ask Movera to delete your account",
+  "name": "Name",
+  "phone": "Phone",
+  "email": "Email",
+  "accountCheck": "Account check",
+  "accountCheckBody": "A few steps keep this Movera account easy to recover.",
+  "phoneNumber": "Phone number",
+  "securityStatusUnavailable": "Security status unavailable",
+  "securityBody": "How you sign in to Movera.",
+  "securityUnavailable": "Security controls unavailable",
+  "securityUnavailableBody": "Movera could not verify account security with the server.",
+  "securitySessionsUpdateFailed": "Could not update active sessions.",
+  "@securitySessionsUpdateFailed": {
+    "description": "Security screen error when signing out other devices fails."
+  },
+  "passkeyReady": "Ready on this device",
+  "otpOn": "One-time codes are on",
+  "signOutOtherDevices": "Sign out other devices",
+  "signOutOtherDevicesQ": "Sign out other devices?",
+  "signOutOthers": "Sign out others",
+  "emailBody": "Receipts and account notes",
+  "deleteAccountQ": "Delete your account?",
+  "deleteAccountQBody": "This can't be undone. You will be signed out on this device.",
+  "delete": "Delete",
+  "deleteSendFailed": "We couldn't send your request. Check your connection and try again.",
+  "deleteBody": "We delete your Movera account and the data tied to it.",
+  "deleteYourProfile": "Your profile",
+  "deleteYourProfileBody": "Name, phone number, email and sign-in methods",
+  "deleteYourPlaces": "Your places",
+  "deleteYourPlacesBody": "Home, Work, saved places and recent addresses",
+  "deletePaymentsBody": "Saved cards, wallet balance and payment settings",
+  "deleteTrips": "Trips and safety",
+  "deleteTripsBody": "Ride history, reservations and trusted contacts",
+  "deleteLegalNote": "Receipts we must keep by law are kept only as long as required. Deleting can't be undone, and you are signed out on this device once the request is sent.",
+  "deleteMyAccount": "Delete my account",
+  "deleteSent": "Your deletion request was sent",
+  "deleteSentBody": "Movera will delete your account. You are signed out, and your data has been removed from this device.",
+  "signOutQ": "Sign out?",
+  "signOutQBody": "Your saved places, cards and trips are removed from this device. Sign in with your phone number to use Movera again.",
+  "language": "Language",
+  "languageBody": "App language",
+  "codeExpired": "This code has expired. Tap Resend code for a new one.",
+  "codeSentToPhone": "We've sent a code to your phone.",
+  "verify": "Verify",
+  "nameSaveFailed": "Couldn't save your name. Try again.",
+  "signedInWith": "Signed in with {provider}",
+  "@signedInWith": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "signedInAs": "Signed in as {name}",
+  "@signedInAs": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "errOffline": "No connection. Check your internet and try again.",
+  "errTooManyWait": "Too many tries. Wait a moment and try again.",
+  "errTooManyIn": "Too many tries. Try again in {wait}.",
+  "@errTooManyIn": {
+    "placeholders": {
+      "wait": {
+        "type": "String"
+      }
+    }
+  },
+  "errServer": "Movera is having trouble right now. Try again in a moment.",
+  "errWrongCode": "That code isn't right. Check it and try again.",
+  "errSendCode": "Couldn't send the code. Try again.",
+  "errCheckCode": "Couldn't check the code. Try again.",
+  "errProvider": "Couldn't sign in with {provider}. Try again.",
+  "@errProvider": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "notification": "Notification",
+  "notificationsEmptyBody": "Ride and account updates will appear here when they arrive.",
+  "notificationRideEnded": "This ride has ended.",
+  "@notificationRideEnded": {
+    "description": "Toast when a tapped notification's ride can no longer be opened."
+  },
+  "notificationUnread": "Unread",
+  "@notificationUnread": {
+    "description": "Screen-reader label of the dot on an unread notification."
+  },
+  "pushOff": "Notifications are off",
+  "pushGetUpdates": "Get ride updates",
+  "pushBlockedBody": "Turn on notifications for Movera in Settings to hear when your driver is assigned, arriving and waiting. Then tap Try again.",
+  "pushBody": "Movera lets you know when your driver is assigned, arriving and waiting, even when the app is closed. Your phone asks next.",
+  "pushFailed": "Notifications could not be turned on. Try again later.",
+  "pushTurnOn": "Turn on notifications",
+  "pushRideUpdatesOff": "Ride updates are off",
+  "pushTurnOnInSettings": "Turn them on in Settings.",
+  "pushHearDriver": "Hear when your driver is on the way.",
+  "pushWebBlockedBody": "Allow notifications for this site in your browser settings to hear when your driver is assigned, arriving and waiting. Then tap Try again.",
+  "pushTurnOnInBrowser": "Turn them on in your browser settings.",
+  "notifYesterday": "Yesterday {clock}",
+  "@notifYesterday": {
+    "placeholders": {
+      "clock": {
+        "type": "String"
+      }
+    }
+  },
+  "phoneCountryCode": "Country code: {country}, {dial}",
+  "@phoneCountryCode": {
+    "description": "Screen-reader label of the phone field's country button.",
+    "placeholders": {
+      "country": {
+        "type": "String"
+      },
+      "dial": {
+        "type": "String"
+      }
+    }
+  },
+  "errTooManyWrongCodes": "Too many wrong tries – tap {button}",
+  "@errTooManyWrongCodes": {"description": "Owner decision 3: after 5 wrong codes. {button} is the resend button label.", "placeholders": {"button": {"type": "String"}}},
+  "signInRestricted": "This number isn’t open for sign-in yet. Join the waiting list and we’ll let you know.",
+  "authNeedHelp": "Need help?",
+  "authHelpComingSoon": "Contact details coming soon",
+  "authHelpCompany": "Company",
+  "signedOutExpired": "You were signed out – please sign in again",
+  "@signedOutExpired": {"description": "Contract v0.18.5 auth.signedOut.texts.expired (G1-D3): sign-in screen after a 401 refresh, session_expired."},
+  "signedOutRevoked": "You were signed out – please sign in again",
+  "@signedOutRevoked": {"description": "Contract v0.18.5 auth.signedOut.texts.revoked (G1-D3)."},
+  "signedOutDetailExpired": "You have not used the app for 30 days.",
+  "@signedOutDetailExpired": {"description": "Contract v0.18.5 auth.signedOut.detail.expired (G1-D3): reason line."},
+  "signedOutDetailRevoked": "Movera ended your session.",
+  "@signedOutDetailRevoked": {"description": "Contract v0.18.5 auth.signedOut.detail.revoked (G1-D3): reason line."},
+  "authOr": "or",
+  "@authOr": {"description": "G1-B5 divider 'or', same as the driver app (authOr)."},
+  "authCodeFieldLabel": "Verification code",
+  "@authCodeFieldLabel": {"description": "G1-B6: screen-reader label of the 4 code boxes."},
+  "accountOutstandingFees": "Unpaid fees",
+  "accountSuspended": "Your Movera account is paused. Contact Movera support if you have questions.",
+  "@accountSuspended": {"description": "Deep-fix 2026-11-02"},
+  "errLockedToday": "Too many wrong codes today. Try again later.",
+  "@errLockedToday": {"description": "Contract v0.18.14 auth.signInErrors.otp_locked_today."}
+}

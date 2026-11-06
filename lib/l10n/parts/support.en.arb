@@ -1,0 +1,123 @@
+{
+  "helpCentre": "Help centre",
+  "helpCentreBody": "Answers to common questions, any time",
+  "reportReceiptIssue": "Report an issue with this receipt",
+  "issueSubmitted": "Issue submitted for review.",
+  "issueSubmitFailed": "Could not submit the issue. Please try again.",
+  "reportReceiptIssueTitle": "Report receipt issue",
+  "reportReceiptIssueBody": "Tell us what looks wrong. Your ride record will be reviewed.",
+  "reportReceiptIssueHint": "What is wrong with the receipt?",
+  "supportMessages": "Messages",
+  "supportHelp": "Help",
+  "supportWhatHelp": "What can we help with?",
+  "supportSelectARide": "Select a ride",
+  "supportViewAllRides": "View all rides",
+  "supportViewAll": "View all",
+  "supportNoRidesToReview": "No rides to review",
+  "supportRidesAppearHere": "Your completed and cancelled rides will appear here.",
+  "supportBrowseTopics": "Browse all help topics",
+  "supportPaymentsTitle": "Payments and pricing",
+  "supportPaymentsBody": "Your price is shown before you book and on your receipt. If a charge looks wrong, open the ride in Help or in Ride history and send us a message about it.",
+  "supportAccountTitle": "Account and data",
+  "supportAccountBody": "You can see and edit your name and other profile details in Account.",
+  "supportSomethingElse": "Something else",
+  "supportMessaging": "Support messaging",
+  "supportBrowseArticles": "Browse help articles",
+  "supportEmail": "Email support",
+  "supportEmailSubject": "Movera support",
+  "supportNoMailApp": "No mail app opened. Write to {email}.",
+  "@supportNoMailApp": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "supportCases": "Cases",
+  "supportHowHelp": "How can we help you?",
+  "supportHelpWithRide": "I need help with a ride",
+  "supportSelectRide": "Select ride",
+  "supportNoRidesYet": "No rides yet",
+  "issueChargedMore": "I was charged more than expected",
+  "issueChargedTwice": "I was charged twice",
+  "issueLostItem": "I lost an item",
+  "issueRideWithoutMe": "My ride happened without me",
+  "issueDriverExpectations": "The driver didn’t meet expectations",
+  "issueWaitFee": "I was wrongly charged a wait time fee",
+  "issueTips": "I have a question about tips",
+  "supportSelectIssue": "Select an issue",
+  "helpAboutTitle": "About Movera",
+  "helpAboutBody": "Movera lets riders choose an available ride category, set pickup and destination, and manage the ride flow in the app.",
+  "helpAppTitle": "App and features",
+  "helpAppBody": "Use the map to set pickup and destination, choose a category, and schedule a ride when you need a later pickup.",
+  "helpUsingTitle": "Using Movera",
+  "helpUsingBody": "Confirm pickup, choose a ride category, and follow the booking flow shown in the app.",
+  "helpSafetyBody": "Use the available Safety tools in the app if you need safety-related help during a ride.",
+  "helpArticles": "Help articles",
+  "supportOptions": "Support options",
+  "supportMessagesTitle": "Support messages",
+  "supportActive": "Active",
+  "supportNoActiveCases": "No active cases",
+  "supportCasesNotListed": "Your cases aren't listed in the app yet",
+  "supportActiveBody": "Messages you send about a ride go to the Movera team for review.",
+  "supportClosed": "Closed",
+  "supportNoClosedCases": "No closed cases",
+  "supportClosedBody": "You have no closed support cases.",
+  "supportSendFailed": "Couldn't send. Check your connection and try again.",
+  "supportTellWhatHappened": "Tell us what happened",
+  "supportAddDetails": "Add details (optional)",
+  "supportSendToMovera": "Send to Movera",
+  "supportChooseRide": "Choose a ride",
+  "supportExit": "Exit",
+  "supportFailed": "Failed",
+  "supportPriceCancelled": "{price} · Cancelled",
+  "@supportPriceCancelled": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "supportPriceCancelledExtra": "{price} · Cancelled · {extra}",
+  "@supportPriceCancelledExtra": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      },
+      "extra": {
+        "type": "String"
+      }
+    }
+  },
+  "supportIssueAck": "Add any details below, then send it to Movera. The ride details are included.",
+  "supportFollowUp": "Sent to Movera. The team reviews it together with this ride’s details.",
+  "supportWelcomeRide": "Tell us what happened on this ride.",
+  "supportWelcomeGeneral": "To send Movera a message from the app, choose the ride it’s about. Help articles and the Safety tools are always available.",
+  "supportWelcomeTicket": "Tell us what you need help with.",
+  "supportFollowUpTicket": "Thanks! We'll answer as soon as we can.",
+  "reportNotOnServer": "Sending a report from the app isn’t available yet, so this was not sent. Movera support can’t see it.",
+  "@reportNotOnServer": {
+    "description": "Audit Phase 5: shown when movera-server does not serve this feature."
+  },
+  "supportTicketMovera": "Movera support",
+  "supportTicketsEmpty": "You have not sent a message to Movera yet.",
+  "supportTicketsFailed": "Your messages could not be loaded.",
+  "supportMovera": "Movera Support",
+  "supportAgentLine": "{name} · Movera Support",
+  "@supportAgentLine": {"placeholders": {"name": {"type": "String"}}},
+  "supportReplyHint": "Write a message",
+  "supportReplySend": "Send",
+  "supportTicketClosedNote": "This conversation is solved. Open a new ticket if you need more help.",
+  "supportReplyFailed": "The message was not sent. Try again.",
+  "supportNewTicket": "New ticket",
+  "supportCommentHint": "Any comment or idea for us? (optional)",
+  "supportCommentSend": "Send comment",
+  "supportCommentThanks": "Thanks for your comment.",
+  "supportTopicRideDispute": "Problem with a ride",
+  "supportTopicHelp": "Help with the app",
+  "supportTopicLostItem": "Lost item",
+  "supportTopicPayment": "Payment",
+  "supportTopicAccount": "Account and documents",
+  "supportTopicSafety": "Safety",
+  "supportTopicOther": "Something else"
+}

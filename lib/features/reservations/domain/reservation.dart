@@ -149,7 +149,12 @@ class ReservationDraft {
     this.parentReservationId,
     this.timeZone,
     this.stops = const <ReservationPlace>[],
+    this.walletFirst = true,
   });
+
+  /// Fix job 5 (contract v0.18.33, owner Q6): the rider's per-ride wallet
+  /// switch, sent as `walletFirst` (starts on).
+  final bool walletFirst;
 
   /// The pickup instant. With a [timeZone] it is the instant of the
   /// rider's pick in that zone's wall-clock time (rider-63).

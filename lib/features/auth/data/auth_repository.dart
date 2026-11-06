@@ -3,7 +3,6 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/features/auth/application/pending_rider_name.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
-import 'package:movera_rider/features/auth/domain/test_account.dart';
 import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 
 class AuthRepository {
@@ -152,26 +151,6 @@ class AuthRepository {
         if (locale != null) 'locale': locale,
       },
     );
-  }
-
-  /// Contract v0.15.0 (decision 6): the rider test numbers with each
-  /// account's status. Only test builds ask; production has no such route.
-  Future<List<TestAccount>> testAccounts() async {
-    final response = await _api.get('/api/v1/auth/test-accounts');
-    final list = response['accounts'];
-    if (list is! List) return const [];
-    return [
-      for (final item in list)
-        if (item is Map &&
-            item['app'] == 'rider' &&
-            item['phone'] is String &&
-            item['status'] is String)
-          TestAccount(
-            phone: item['phone'] as String,
-            status: item['status'] as String,
-            name: item['name'] is String ? item['name'] as String : null,
-          ),
-    ];
   }
 
   Future<void> _persistTokens(Map<String, dynamic> response) async {

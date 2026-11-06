@@ -36,6 +36,14 @@ enum RealtimeKind {
 
   /// v0.18.7: the rider moved the pickup (carries the projection).
   pickupMoved,
+
+  /// v0.18.38 §62 (fix job 8): in-app calls (no projection, no version
+  /// change; `call` = CallView, `signal` on call_signal).
+  callRinging,
+  callAnswered,
+  callSignal,
+  callEnded,
+  callMissed,
 }
 
 extension RealtimeKindWire on RealtimeKind {
@@ -50,13 +58,23 @@ extension RealtimeKindWire on RealtimeKind {
     RealtimeKind.ratingUpdated => 'rating_updated',
     RealtimeKind.message => 'message',
     RealtimeKind.pickupMoved => 'pickup_moved',
+    RealtimeKind.callRinging => 'call_ringing',
+    RealtimeKind.callAnswered => 'call_answered',
+    RealtimeKind.callSignal => 'call_signal',
+    RealtimeKind.callEnded => 'call_ended',
+    RealtimeKind.callMissed => 'call_missed',
   };
+
+  /// v0.18.38 §62: one of the in-app call kinds.
+  bool get isCall => wireName.startsWith('call_');
 
   /// `contract.json#realtime.afterTerminal`.
   bool get passesAfterTerminal =>
       this == RealtimeKind.paymentUpdated ||
       this == RealtimeKind.ratingUpdated ||
-      this == RealtimeKind.message;
+      this == RealtimeKind.message ||
+      // v0.18.38 §62: the call window runs 60 min after the drop-off.
+      isCall;
 
   static RealtimeKind? parse(Object? raw) {
     if (raw is! String) return null;

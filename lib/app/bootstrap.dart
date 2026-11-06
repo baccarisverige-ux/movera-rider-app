@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:movera_rider/core/preview/preview_mode.dart';
 import 'package:movera_rider/features/messages/data/chat_read_marks.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -25,6 +26,7 @@ import 'package:movera_rider/features/notifications/application/push_coordinator
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/features/ride_booking/application/rider_trip_watch.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/web_ride_seed.dart';
 import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
@@ -101,6 +103,7 @@ Future<void> bootStep(String name, Future<void> Function() step) async {
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  PreviewMode.readFromUrl();
   // UI-15: bundled Poppins, when present, means no font download at start.
   // B9 "Fast app start": on the web this reads AssetManifest over the
   // network, so it now runs alongside the local start-up steps below and is
@@ -215,6 +218,9 @@ Future<void> bootstrap() async {
     // content) from the same stream.
     config.eventTaps.add(AppScope.instance.content.onConfigEvent);
     config.eventTaps.add(AppScope.instance.zones.onConfigEvent);
+    // v0.18.32 P21: a trip made elsewhere reaches Home at once.
+    config.eventTaps.add(RiderTripWatch.instance.onConfigEvent);
+    RiderTripWatch.instance.start();
   }
   // v0.18.2 auth.beforeSignIn: the reads that need a session start now
   // only when one is stored; otherwise right after sign-in

@@ -37,7 +37,11 @@ class RatingFeedback {
     required this.stars,
     this.tags = const <String>[],
     this.comment = '',
+    this.dontMatchAgain = false,
   });
+
+  /// Fix job 10 (v0.18.43 §64): "Don't match me with this driver again".
+  final bool dontMatchAgain;
 
   final double stars;
   final List<String> tags;
@@ -51,5 +55,5 @@ class RatingFeedback {
 
   /// A stable text of the choice, for the idempotency intent.
   String get intent =>
-      '${stars.toStringAsFixed(1)}|${tags.join(',')}|${sentComment ?? ''}';
+      '${stars.toStringAsFixed(1)}|${tags.join(',')}|${sentComment ?? ''}|${dontMatchAgain ? 'x' : ''}';
 }

@@ -1,3 +1,4 @@
+import 'package:movera_rider/features/account_status/domain/rider_moderation.dart';
 import 'package:movera_rider/features/payments/presentation/card_brand_label.dart';
 
 import 'dart:async';
@@ -27,7 +28,7 @@ import 'package:movera_rider/features/active_ride/presentation/route_change_flow
     show routeStopMarkers;
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
-import 'package:movera_rider/core/maps/straight_line.dart';
+import 'package:movera_rider/features/ride_booking/application/trip_route_line.dart';
 import 'package:movera_rider/core/performance/route_transition_metrics.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
@@ -79,6 +80,11 @@ import 'package:movera_rider/core/contracts/server_clock.dart';
 
 export 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 
+part 'select_ride_booking_helpers.dart';
+part 'select_ride_book_now.dart';
+part 'select_ride_book_scheduled.dart';
+part 'select_ride_footer.dart';
+part 'select_ride_list.dart';
 part 'select_ride_options.dart';
 part 'select_ride_quotes.dart';
 part 'select_ride_reveal.dart';
@@ -223,27 +229,6 @@ class _SelectRideState extends State<SelectRide>
   /// Owner round 2: the chosen ride's strong outline.
   static const Color _selectedOutline = Color(0xFF0F1B2D);
 
-  List<_RideOption> get _allRides {
-    return _selection.rides().map((ride) {
-      return _RideOption(
-        id: ride.id,
-        image: ride.image,
-        name: ride.name,
-        // v0.7.1: the admin's sub-line in the rider's language; else
-        // (rider-77) the built-in note in the rider's language.
-        note: ride.lineIn(L10n.current.localeName) ?? rideNoteFor(ride.note),
-        arrival: ride.arrival,
-        etaMin: ride.etaMin,
-        price: ride.price,
-        currency: ride.currency,
-        seats: ride.seats,
-        badge: ride.badge == null ? null : rideBadgeFor(ride.badge!),
-        glyph: _glyphIcon(ride.glyph),
-        glyphKey: ride.glyph,
-      );
-    }).toList();
-  }
-
   /// The small badge drawn over the category picture, by the catalog's
   /// glyph key. Unknown keys draw nothing.
   static IconData? _glyphIcon(String? key) => switch (key) {
@@ -280,9 +265,9 @@ class _SelectRideState extends State<SelectRide>
       );
   bool _mapReady = false;
 
-  /// uat-r1: the road for the pickup → destination leg, drawn in place of
-  /// the straight first-paint line once the routing seam answers.
+  /// uat-r1/A14: the road pickup → stops → destination, and whether a leg had no road.
   List<LatLng>? _roadRoutePoints;
+  bool _roadApproximate = false;
   Stopwatch? _nextMapReadyWatch;
   bool _mapMountScheduled = false;
   bool _mapParked = false;
@@ -484,32 +469,24 @@ class _SelectRideState extends State<SelectRide>
     }
   }
 
-  /// uat-r1 (owner's iPhone report): this map drew its own straight
-  /// pickup → destination line and never asked the routing seam for the
-  /// road. The straight line is only the first paint now; the road route
-  /// replaces it when the provider answers, also when it answers late. A
-  /// provider failure keeps the straight line and never reaches the
-  /// screen. With stops the straight line stays, as on Finding.
+  /// uat-r1/A14: the straight first paint is replaced by the road through
+  /// every stop when the routing seam answers, also late; a failure keeps
+  /// what is drawn and never reaches the screen.
   Future<void> _refreshRoadRoute() async {
-    if (_locatedStops.isNotEmpty) return;
     final from = _pickupPosition;
-    final to = widget.destinationPosition;
-    final Polyline route;
-    try {
-      route = await roadRoutePolyline(
-        id: 'route',
-        from: from,
-        to: to,
-        color: RiderRouteStyle.color,
-      );
-    } catch (_) {
-      return;
-    }
-    if (!mounted || route.points.length < 2) return;
-    // The pickup moved (or stops arrived) while this answer was on its
-    // way: the newer request draws the line.
-    if (from != _pickupPosition || _locatedStops.isNotEmpty) return;
-    setState(() => _roadRoutePoints = route.points);
+    final stops = _locatedStops;
+    final route = await roadTripLine(
+      from: from,
+      stops: stops,
+      to: widget.destinationPosition,
+    );
+    if (!mounted || route == null) return;
+    // The pickup or the stops changed meanwhile: the newer request draws.
+    if (from != _pickupPosition || !identical(stops, _locatedStops)) return;
+    setState(() {
+      _roadRoutePoints = route.points;
+      _roadApproximate = route.approximate;
+    });
     // Owner N6: a road that answers after the rider pinched or panned the
     // map leaves their camera alone (it snapped back to the overview).
     if (AppScope.instance.maps.movedByHand) return;
@@ -540,14 +517,23 @@ class _SelectRideState extends State<SelectRide>
       generation: generation,
       pickup: _pickupAddress,
       destination: widget.destinationAddress,
-      distanceMeters: straightLineMeters(
+      distanceMeters: tripStraightMeters(
         _pickupPosition,
+        stops,
         widget.destinationPosition,
       ),
       pickupPoint: _geoPoint(_pickupPosition),
       destinationPoint: _geoPoint(widget.destinationPosition),
     );
     if (!mounted) return;
+    // v0.18.44 §67: a drop-off too close to the pickup is not a ride; the
+    // rider is told and goes back to the destination step (a plain Back:
+    // Home reopens the address screen on the destination with this route).
+    if (_selection.dropoffTooClose) {
+      MoveraToast.show(context, context.l10n.dropoffTooClose);
+      Navigator.of(context).maybePop();
+      return;
+    }
     setState(() {});
     _scheduleExpiryRequote();
   }
@@ -687,21 +673,6 @@ class _SelectRideState extends State<SelectRide>
     'kids',
     'child_seat',
   };
-
-  /// The list as it is drawn: the two headings (only when both groups have
-  /// rides) and the rides under them.
-  List<({String? heading, _RideOption? ride})> get _listEntries {
-    final rides = _visibleRides;
-    final premium = rides.where((r) => _premiumGroup.contains(r.id)).toList();
-    final everyday = rides.where((r) => !_premiumGroup.contains(r.id)).toList();
-    final headed = premium.isNotEmpty && everyday.isNotEmpty;
-    return [
-      if (headed) (heading: context.l10n.ridesForYou, ride: null),
-      for (final ride in everyday) (heading: null, ride: ride),
-      if (headed) (heading: context.l10n.ridesPremium, ride: null),
-      for (final ride in premium) (heading: null, ride: ride),
-    ];
-  }
 
   static const double _rowHeight = 78;
 
@@ -956,7 +927,6 @@ class _SelectRideState extends State<SelectRide>
       onWalletFirstChanged: (value) {
         if (!mounted) return;
         setState(() => _selection.useWalletFirst = value);
-        unawaited(_saveWalletFirst(value));
       },
     );
     if (brand == null || !mounted) return;
@@ -1001,10 +971,10 @@ class _SelectRideState extends State<SelectRide>
         _selection.currency,
       );
       final balance = await wallet.loadBalance();
-      final walletFirst = await wallet.loadUseWalletFirst();
       if (!mounted) return;
+      // Fix job 5 (owner Q6 "Switch per ride, starts ON"): every ride starts
+      // with the wallet on; the rider's switch is for this ride only.
       setState(() {
-        _selection.useWalletFirst = walletFirst;
         _selection.walletCurrency = wallet.currency;
         _selection.setWalletBalance(balance);
       });
@@ -1014,224 +984,6 @@ class _SelectRideState extends State<SelectRide>
         extra: {'error': '$error'},
       );
     }
-  }
-
-  Future<void> _saveWalletFirst(bool value) async {
-    final saved = await AppScope.instance.walletController.saveUseWalletFirst(
-      value,
-    );
-    // CODE-16: a toggle that was not saved must not keep showing the change.
-    if (!saved && mounted && _selection.useWalletFirst == value) {
-      setState(() => _selection.useWalletFirst = !value);
-    }
-  }
-
-  Future<void> _bookScheduled() async {
-    try {
-      final pickupConfirmedBefore = _pickupConfirmed;
-      if (_selection.scheduledFor == null) {
-        await _chooseLater();
-      } else if (_returnTimeNeedsPicker) {
-        // Route the rider through the shared validated picker, which opens on
-        // the prefill clamped to the next legal slot.
-        await _chooseLater(initial: _selection.scheduledFor);
-      }
-      if (_selection.scheduledFor == null || !mounted) return;
-      // Still stale after the picker: the rider dismissed it, so book nothing.
-      // Unless the pickup spot was confirmed in that same pass - then the
-      // chosen time went stale on the pickup screen, and the re-pick below
-      // must ask again rather than silently dropping the booking.
-      if (_returnTimeNeedsPicker && _pickupConfirmed == pickupConfirmedBefore) {
-        return;
-      }
-      await _withParkedMap(() async {
-        if (!mounted) return;
-        // rider-r4-34: as Book now, the generic Card row needs a saved card
-        // first; a reservation is never paid by "Card" with none behind it.
-        final method = _selection.selectedPaymentItem();
-        if (method?.brand == 'cards' && !_selection.hasSavedCard) {
-          if (await _addCardFirst() == null || !mounted) return;
-        }
-        SetPickupResult? spot;
-        if (!_pickupConfirmed) {
-          // Same Set pickup sheet as Book now, ending in "Confirm and
-          // schedule" instead of a search.
-          final ride = _selectedRideOrNull;
-          if (ride == null) return;
-          // rider-r4-30: the date picker can outlast the quote; Set pickup
-          // shows a live quote, never the list price it falls back to.
-          if (_bookableQuote(ride.id) == null) {
-            final fresh = await _quoteAfterPickup(ride);
-            if (!mounted) return;
-            if (fresh == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(context.l10n.priceUnavailableRefreshing),
-                ),
-              );
-              unawaited(_loadQuotes());
-              return;
-            }
-          }
-          _pinQuote = null;
-          _pinQuoteAdopted = false;
-          spot = await _openSetPickup(
-            ride,
-            confirmLabel: context.l10n.confirmAndSchedule,
-            scheduledPickup: _selection.scheduledFor,
-          );
-          if (!mounted) return;
-          if (spot == null) {
-            // rider-u188: as Book now, the pin's price belongs to a point
-            // the rider did not confirm.
-            if (_pinQuoteAdopted) unawaited(_loadQuotes());
-            return;
-          }
-          _pickupAddress = spot.address;
-          _pickupPosition = spot.position;
-          _roadRoutePoints = null;
-          unawaited(_refreshRoadRoute());
-          _pickupConfirmed = true;
-          _notes = _notes.withBagLevel(spot.bagLevel);
-          // rider-r3-6: Card may have been picked on Set pickup.
-          if (_selection.selectedPaymentItem()?.brand == 'cards' &&
-              !_selection.hasSavedCard) {
-            if (await _addCardFirst() == null || !mounted) return;
-          }
-        }
-        if (_returnTimeNeedsPicker) {
-          // The prefill went stale while the rider confirmed the pickup spot.
-          final when = await ScheduleDateTimeSelector.choose(
-            context,
-            initial: _selection.scheduledFor,
-            // rider-89: Arrive by needs the trip estimate here too.
-            tripMinutes: _tripMinutes(),
-            timeZone: _pickupSchedule.timeZone,
-            horizonDays: _pickupSchedule.horizonDays,
-            freeChangeBeforeMin:
-                _zoneConfig?.freeChangeBeforeMin ??
-                RiderAppConfig.defaultFreeChangeBeforeMin,
-          );
-          if (when == null || !mounted) return;
-          _selection.scheduleFor(when);
-        }
-        final booked = _selectedRideOrNull;
-        if (booked == null) return;
-        // rider-79: as Book now, the price booked is the confirmed
-        // pickup's: a pin price still loading is waited for, and a quote
-        // from another point is priced again.
-        final bookable = await _quoteAfterPickup(booked);
-        if (!mounted) return;
-        if (bookable == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.priceUnavailableRefreshing)),
-          );
-          unawaited(_loadQuotes());
-          return;
-        }
-        final shown = spot?.fareTotalKr;
-        if (shown != null &&
-            _selection.moneyOf(shown).amountMinor !=
-                bookable.quote.totalMinor &&
-            !await _acceptNewPrice(shown, bookable.price)) {
-          if (!mounted) return;
-          setState(() {});
-          unawaited(_loadQuotes());
-          return;
-        }
-        if (!mounted) return;
-        if (_walletCannotPay(bookable.price)) return;
-        // rider-r4-28: the stops the price was quoted for are booked too.
-        final stops = await _routeStops();
-        if (!mounted) return;
-        final Reservation? created;
-        try {
-          created = await ScheduledRideCheckout.run(
-            context,
-            reservations: _reservations,
-            selection: _selection,
-            pickup: ReservationPlace(
-              label: _pickupAddress,
-              lat: _pickupPosition.latitude,
-              lng: _pickupPosition.longitude,
-            ),
-            destination: ReservationPlace(
-              label: widget.destinationAddress,
-              lat: widget.destinationPosition.latitude,
-              lng: widget.destinationPosition.longitude,
-            ),
-            pickupPosition: _pickupPosition,
-            note: _driverNote(widget.note),
-            parentReservationId: widget.parentReservationId,
-            editingReservationId: widget.editingReservationId,
-            original: widget.editingReservationId == null
-                ? null
-                : _reservations.byId(widget.editingReservationId!),
-            // rider-63: the zone the time was picked in.
-            timeZone: _pickupSchedule.timeZone,
-            stops: [
-              for (final stop in stops)
-                ReservationPlace(
-                  label: stop.address,
-                  lat: stop.latitude,
-                  lng: stop.longitude,
-                ),
-            ],
-            // rider-r4-35: the quote ran out on Review changes.
-            requote: (reviewed) => _requoteReviewed(booked, reviewed),
-          );
-        } catch (error, stack) {
-          final action = widget.editingReservationId == null
-              ? ReservationAction.book
-              : ReservationAction.edit;
-          AppScope.instance.crashes.record(
-            error,
-            stack,
-            operation: 'reservation.${action.name}',
-          );
-          if (mounted) {
-            MoveraToast.show(context, reservationErrorMessage(error, action));
-          }
-          return;
-        }
-        if (!mounted || created == null) return;
-        final opener = widget.onScheduled;
-        if (opener != null) {
-          await opener(context, created.reservationId);
-          return;
-        }
-        Navigator.pop(context, created);
-      });
-    } finally {
-      _releaseBookingLock();
-    }
-  }
-
-  /// rider-r4-35: prices [ride] again after Review changes outlasted its
-  /// quote; a different price is agreed to first. Null: nothing to save.
-  Future<double?> _requoteReviewed(_RideOption ride, double reviewed) async {
-    final bookable = await _quoteAfterPickup(ride);
-    if (!mounted) return null;
-    if (bookable == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.priceUnavailableRefreshing)),
-      );
-      return null;
-    }
-    if (_selection.moneyOf(reviewed).amountMinor != bookable.quote.totalMinor &&
-        !await _acceptNewPrice(reviewed, bookable.price)) {
-      return null;
-    }
-    return mounted ? bookable.price : null;
-  }
-
-  String? _driverNote(String? extra) {
-    final parts = <String>[
-      if (extra != null && extra.trim().isNotEmpty) extra.trim(),
-      ..._notes.selected,
-    ];
-    if (parts.isEmpty) return extra;
-    return parts.join(' · ');
   }
 
   void _releaseBookingLock() {
@@ -1244,13 +996,6 @@ class _SelectRideState extends State<SelectRide>
       return;
     }
     if (_expiryRequote == null) _scheduleExpiryRequote(requoteSpent: true);
-  }
-
-  void _releaseRouteWork() {
-    _bookingInFlight = false;
-    _expiryRequote?.cancel();
-    _expiryRequote = null;
-    _selection.cancelPendingQuotes();
   }
 
   void _onRoutePop(bool didPop, Object? _) {
@@ -1286,98 +1031,7 @@ class _SelectRideState extends State<SelectRide>
     _bookNow();
   }
 
-  /// Where the rider's Home is, so Set pickup can offer a "Near Home" spot.
-  /// Best effort: no Home, or a slow lookup, simply means no such spot.
-  Future<LatLng?> _homePosition() async {
-    try {
-      final places = AppScope.instance.savedPlaces;
-      await places.hydrate().timeout(const Duration(milliseconds: 600));
-      final home = places.shortcuts().where((p) => p.kind == 'home');
-      if (home.isEmpty) return null;
-      final found = await AppScope.instance.geocoding
-          .geocodeAddress(home.first.subtitle)
-          .timeout(const Duration(milliseconds: 900));
-      if (found == null) return null;
-      return LatLng(found.point.latitude, found.point.longitude);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<SetPickupResult?> _openSetPickup(
-    _RideOption ride, {
-    String? confirmLabel,
-    DateTime? scheduledPickup,
-  }) async {
-    final home = await _homePosition();
-    if (!mounted) return null;
-    final quote = _selection.authoritativeQuotes[ride.id];
-    final promotion = _promotion;
-    SetPickupPayment paymentLine() {
-      final item = _selection.selectedPaymentItem();
-      return SetPickupPayment(
-        brand: item?.brand ?? 'cash',
-        name: item?.name ?? context.l10n.payCash,
-        detail: item?.detail ?? '',
-      );
-    }
-
-    return SetPickupPage.open(
-      context,
-      initialPosition: _pickupPosition,
-      initialAddress: _pickupAddress,
-      destinationAddress: widget.destinationAddress,
-      destinationPosition: widget.destinationPosition,
-      stops: [for (final stop in _locatedStops) stop.address],
-      ride: SetPickupRide(
-        name: ride.name,
-        image: ride.image,
-        seats: ride.seats,
-        etaMin: ride.etaMin,
-        tripMinutes: _tripMinutes(),
-      ),
-      fare: SetPickupFare(
-        totalKr: _priceFor(ride),
-        walletKr: _selection.walletAppliedKr(_priceFor(ride)),
-        discountKr: _discountFor(ride),
-        promotionPercent: quote != null && quote.discountMinor > 0
-            ? promotion?.percentOff
-            : null,
-        currency: _selection.currency,
-      ),
-      payment: paymentLine(),
-      brandMark: _brandMark,
-      onChangePayment: () async {
-        await _showPaymentPicker();
-        return paymentLine();
-      },
-      onRequote: (pin) => _requoteFromPin(ride, pin),
-      fareAfterPaymentChange: (fare) => SetPickupFare(
-        totalKr: fare.totalKr,
-        discountKr: fare.discountKr,
-        promotionPercent: fare.promotionPercent,
-        walletKr: _selection.walletAppliedKr(fare.totalKr),
-        currency: fare.currency,
-      ),
-      initialBagLevel: _notes.bagLevel,
-      home: home,
-      initialIsCurrentLocation: !_pickupConfirmed && !widget.pickupIsFallback,
-      positionIsFallback: widget.pickupIsFallback && !_pickupConfirmed,
-      confirmLabel: confirmLabel,
-      scheduledPickup: scheduledPickup,
-    );
-  }
-
   Future<List<RouteStop>>? _stopsLookup;
-
-  /// [_locateStops], looked up once per screen and shared by quoting and
-  /// booking so both price the same route.
-  Future<List<RouteStop>> _routeStops() {
-    if (widget.stops.every((stop) => stop.trim().isEmpty)) {
-      return Future.value(const <RouteStop>[]);
-    }
-    return _stopsLookup ??= _locateStops();
-  }
 
   /// The stops that made it into the quote, for the map and the header.
   List<RouteStop> _locatedStops = const [];
@@ -1425,12 +1079,12 @@ class _SelectRideState extends State<SelectRide>
     if (mounted) {
       setState(() {
         _locatedStops = List.unmodifiable(located);
-        // uat-r1: with stops the line goes through them, not along the
-        // road from pickup straight to the destination.
+        // A14: the line goes through the stops, by road once it answers.
         if (located.isNotEmpty) _roadRoutePoints = null;
         _stopsNotice = _stopsLeftOutNotice(notFound: notFound, failed: failed);
         _stopsRetry = failed.isNotEmpty;
       });
+      if (located.isNotEmpty) unawaited(_refreshRoadRoute());
     }
     return located;
   }
@@ -1463,296 +1117,6 @@ class _SelectRideState extends State<SelectRide>
     // Look the stops up again and price the new route.
     _stopsLookup = null;
     unawaited(_loadQuotes());
-  }
-
-  void _bookNow() {
-    final selected = _selectedRideOrNull;
-    if (selected == null) {
-      _releaseBookingLock();
-      return;
-    }
-    final quote = _selection.quoteForBooking(selected.id);
-    if (quote == null ||
-        _selection.authoritativePriceFor(selected.id) == null ||
-        !quote.bookable) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.fareChangedRefreshing)),
-      );
-      _releaseBookingLock();
-      unawaited(_loadQuotes());
-      return;
-    }
-    final paymentItem = _selection.selectedPaymentItem();
-    if (paymentItem == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(context.l10n.noPaymentMethod)));
-      _releaseBookingLock();
-      return;
-    }
-    var payment = _PaymentOption(
-      brand: paymentItem.brand,
-      name: paymentItem.name,
-      detail: paymentItem.detail,
-    );
-    _withParkedMap(() async {
-      try {
-        if (!mounted) return;
-        if (FindingDriverController.active != null) return;
-        // A card needs to be saved first: Add card opens before Set pickup
-        // and the new card becomes the chosen method.
-        if (payment.brand == 'cards' && !_selection.hasSavedCard) {
-          final card = await _addCardFirst();
-          if (card == null || !mounted) return;
-          payment = _PaymentOption(
-            brand: card.methodBrand,
-            name: card.displayName,
-            detail: context.l10n.cardExpires(card.expiryLabel),
-          );
-        }
-        // Set pickup every time; the current location is preselected.
-        _pinQuote = null;
-        _pinQuoteAdopted = false;
-        final spot = await _openSetPickup(selected);
-        if (!mounted) return;
-        if (spot == null) {
-          // The pin's price belongs to a point the rider did not confirm.
-          if (_pinQuoteAdopted) unawaited(_loadQuotes());
-          return;
-        }
-        _pickupAddress = spot.address;
-        _pickupPosition = spot.position;
-        _roadRoutePoints = null;
-        unawaited(_refreshRoadRoute());
-        _pickupConfirmed = true;
-        _notes = _notes.withBagLevel(spot.bagLevel);
-        final chosen = _selection.selectedPaymentItem();
-        if (chosen != null) {
-          payment = _PaymentOption(
-            brand: chosen.brand,
-            name: chosen.name,
-            detail: chosen.detail,
-          );
-        }
-        // rider-r3-6: the generic Card row picked on Set pickup needs a
-        // saved card too, as it does before Set pickup.
-        if (payment.brand == 'cards' && !_selection.hasSavedCard) {
-          final card = await _addCardFirst();
-          if (card == null || !mounted) return;
-          payment = _PaymentOption(
-            brand: card.methodBrand,
-            name: card.displayName,
-            detail: context.l10n.cardExpires(card.expiryLabel),
-          );
-        }
-
-        // Book the price Set pickup showed, not the one from before it.
-        var bookable = await _quoteAfterPickup(selected);
-        if (!mounted) return;
-        var shown = spot.fareTotalKr;
-        while (bookable != null &&
-            shown != null &&
-            _selection.moneyOf(shown).amountMinor !=
-                bookable.quote.totalMinor) {
-          if (!await _acceptNewPrice(shown, bookable.price)) {
-            if (!mounted) return;
-            setState(() {});
-            // rider-79: the other categories are priced from the confirmed
-            // pickup too.
-            unawaited(_loadQuotes());
-            return;
-          }
-          if (!mounted) return;
-          // rider-u190: the dialog has no time limit. A quote that ran out
-          // while it was open is priced again; a new price is asked again.
-          shown = bookable.price;
-          bookable = await _quoteAfterPickup(selected);
-          if (!mounted) return;
-        }
-        if (bookable == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.priceUnavailableRefreshing)),
-          );
-          unawaited(_loadQuotes());
-          return;
-        }
-        final quote = bookable.quote;
-        final authoritativePrice = bookable.price;
-        if (_walletCannotPay(authoritativePrice)) return;
-        // The wallet part the rider was shown travels with the booking.
-        final walletSplit = _selection.walletSplitFor(quote.totalMinor);
-
-        final stops = await _routeStops();
-        if (!mounted) return;
-
-        String rideId;
-        try {
-          rideId = await (widget.booking ?? BookingController()).submitFinding(
-            stops: stops,
-            pickupAddress: _pickupAddress,
-            destinationAddress: widget.destinationAddress,
-            pickupLat: _pickupPosition.latitude,
-            pickupLng: _pickupPosition.longitude,
-            destinationLat: widget.destinationPosition.latitude,
-            destinationLng: widget.destinationPosition.longitude,
-            rideType: selected.id,
-            price: authoritativePrice,
-            paymentMethod: payment.brand,
-            quoteId: quote.id,
-            quoteSignedPayload: quote.signedPayload,
-            quoteExpiresAt: quote.expiresAt,
-            quoteTotalMinor: quote.totalMinor,
-            quoteCurrency: quote.currency,
-            rideTypeLabel: selected.name,
-            paymentMethodLabel: payment.name,
-            notes: _notes,
-            useWalletFirst: _selection.useWalletFirst,
-            walletAmountMinor: walletSplit.walletMinor,
-          );
-          if (rideId.trim().isEmpty) {
-            throw StateError('Booking response did not contain a ride id.');
-          }
-        } catch (error) {
-          if (!mounted) return;
-          if (error is ApiError && error.detail == 'active_trip_exists') {
-            await _openRideAlreadyGoing();
-            return;
-          }
-          // v0.18.10 (owner G8 item 2): a payment method the server does
-          // not take is said plainly, then back to the payment choice;
-          // never a silent return to Select Ride.
-          // G16-1: a paused account cannot book; it is said plainly.
-          if (error is ApiError && error.detail == 'account_suspended') {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                key: const ValueKey('booking-account-suspended'),
-                content: Text(context.l10n.accountSuspended),
-              ),
-            );
-            return;
-          }
-          if (error is ApiError && error.detail.startsWith('payment_method_')) {
-            await _paymentMethodRefused(error.detail);
-            return;
-          }
-          // RC-09: a booking that may exist on the server is not "refused".
-          final uncertain = BookingController.mayHaveBooked(error);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                uncertain
-                    ? context.l10n.bookingUncertain
-                    : context.l10n.bookingFailed,
-              ),
-            ),
-          );
-          unawaited(_loadQuotes());
-          return;
-        }
-
-        if (!mounted) {
-          await RideRestoreCoordinator.instance.recoverCreatedFinding(
-            rideId,
-            realtime: widget.realtime,
-          );
-          return;
-        }
-
-        final existingOwner = FindingDriverController.active;
-        if (existingOwner != null) {
-          final authoritativeRideId =
-              await (widget.booking ?? BookingController())
-                  .reconcileCreatedFinding(rideId);
-          if (!mounted) {
-            if (authoritativeRideId == rideId) {
-              await RideRestoreCoordinator.instance.recoverCreatedFinding(
-                rideId,
-                realtime: widget.realtime,
-              );
-            }
-            return;
-          }
-
-          final ownerAfterReconcile = FindingDriverController.active;
-          if (authoritativeRideId != rideId ||
-              ownerAfterReconcile?.ownedRideId == rideId) {
-            return;
-          }
-        }
-
-        SheetCoordinator.instance.open(RideSheet.finding);
-        try {
-          await Navigator.push(
-            context,
-            RideStageTransition(
-              FindingDrivers(
-                pickupAddress: _pickupAddress,
-                destinationAddress: widget.destinationAddress,
-                pickupPosition: _pickupPosition,
-                destinationPosition: widget.destinationPosition,
-                rideType: selected.name,
-                price: authoritativePrice,
-                currency: quote.currency,
-                paymentMethod: payment.name,
-                walletAmountMinor: walletSplit.walletMinor,
-                notes: _notes,
-                stops: stops,
-                realtime: widget.realtime,
-                etaMinutes: selected.etaMin,
-              ),
-              settings: const RouteSettings(name: AppRoutes.findingDriver),
-            ),
-          );
-        } finally {
-          SheetCoordinator.instance.close(RideSheet.finding);
-        }
-      } finally {
-        _releaseBookingLock();
-      }
-    });
-  }
-
-  /// Live test 2026-10-26: the server keeps one live ride per rider and
-  /// refuses a booking with `active_trip_exists` while one is still going,
-  /// for example a ride this device lost track of. That ride is opened
-  /// instead of the "check the fare" message, which sent the rider back to
-  /// a price that was never the problem.
-  Future<void> _openRideAlreadyGoing() async {
-    final trip = await (widget.booking ?? BookingController())
-        .adoptRideAlreadyGoing(activeTrips: widget.activeTrips);
-    if (!mounted) return;
-    final coordinator = RideRestoreCoordinator.instance;
-    final surface = coordinator.surfaceFor(trip);
-    if (trip == null ||
-        (surface != RestoredSurface.finding &&
-            surface != RestoredSurface.waiting)) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(context.l10n.rideAlreadyGoing)));
-      unawaited(_loadQuotes());
-      return;
-    }
-    AppLog.info('booking.opened_active_trip', extra: {'rideId': trip.rideId});
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.rideAlreadyGoingOpened)),
-    );
-    final finding = surface == RestoredSurface.finding;
-    if (finding) SheetCoordinator.instance.open(RideSheet.finding);
-    try {
-      await Navigator.push(
-        context,
-        RideStageTransition(
-          coordinator.pageFor(trip),
-          settings: RouteSettings(
-            name: finding
-                ? AppRoutes.findingDriver
-                : AppRoutes.waitingForDriver,
-          ),
-        ),
-      );
-    } finally {
-      if (finding) SheetCoordinator.instance.close(RideSheet.finding);
-    }
   }
 
   @override
@@ -1832,10 +1196,13 @@ class _SelectRideState extends State<SelectRide>
                                     points: _roadRoutePoints!,
                                     color: RiderRouteStyle.color,
                                   )
-                                : routePolyline(
+                                : resolvedRoutePolyline(
                                     id: 'route',
-                                    from: _pickupPosition,
-                                    to: widget.destinationPosition,
+                                    points: straightTripLine(
+                                      _pickupPosition,
+                                      _locatedStops,
+                                      widget.destinationPosition,
+                                    ),
                                     color: RiderRouteStyle.color,
                                   ),
                           ),
@@ -1896,9 +1263,8 @@ class _SelectRideState extends State<SelectRide>
                     : const SelectRideRouteCanvas(),
               ),
             ),
-            // Owner N2: no road route, only the direct line: say so.
-            if (showLiveMap &&
-                ApproximateRouteBadge.isStraight(_roadRoutePoints))
+            // Owner N2/A14: a leg without road (direct line): say so.
+            if (showLiveMap && _roadRoutePoints != null && _roadApproximate)
               Positioned(
                 left: 12,
                 bottom: minSheet + 12,
@@ -2007,146 +1373,5 @@ class _SelectRideState extends State<SelectRide>
     if (index < 0) return null;
     setState(() => _selection.selectPayment(index));
     return card;
-  }
-
-  /// The fixed bottom block: one thin payment line, then Book.
-  Widget _footer(double bottomInset) {
-    final selected = _selectedRideOrNull;
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(16, 6, 16, 12 + bottomInset),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: const Border(top: BorderSide(color: _line)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF162C36).withValues(alpha: 0.07),
-            blurRadius: 20,
-            offset: const Offset(0, -8),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // LOW 12: the booking summary says the free change / cancel rule.
-          if (_scheduledPickup != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                ReservationFormat.freeRule(
-                  _zoneConfig?.freeChangeBeforeMin ??
-                      RiderAppConfig.defaultFreeChangeBeforeMin,
-                ),
-                key: const ValueKey<String>('select-ride-free-rule'),
-                textAlign: TextAlign.center,
-                style: _text(11.5, weight: FontWeight.w500, color: _muted),
-              ),
-            ),
-          _paymentButton(),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: Material(
-                  color: _cta,
-                  borderRadius: BorderRadius.circular(18),
-                  child: InkWell(
-                    onTap: _bookingInFlight ? null : _book,
-                    borderRadius: BorderRadius.circular(18),
-                    child: SizedBox(
-                      height: 54,
-                      child: Center(
-                        child: Text(
-                          selected == null
-                              ? context.l10n.noRidesAvailable
-                              : _selection.bookingMode.ctaLabel(
-                                  rideNameFor(selected.name),
-                                ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: _text(
-                            16,
-                            weight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              // UI-5: the icon-only button has a name for screen readers.
-              Semantics(
-                button: true,
-                label: context.l10n.bookNowOrLater,
-                child: Material(
-                  color: _cta,
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: _showBookingPicker,
-                    child: const SizedBox(
-                      width: 54,
-                      height: 54,
-                      child: ExcludeSemantics(
-                        child: Icon(
-                          Icons.calendar_month_rounded,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _brandMark(String brand) {
-    Widget logo;
-    Color background = Colors.white;
-    final savedCard = _selection.savedCardFor(brand);
-    if (savedCard != null) {
-      logo = CardBrandLabel(savedCard.brand);
-    } else if (brand == 'apple' || brand == 'cards') {
-      // Owner rules: no other company's logo (Apple Pay is named as text).
-      logo = const Icon(
-        Icons.credit_card_rounded,
-        color: Color(0xFF11181D),
-        size: 22,
-      );
-    } else if (brand == 'cash') {
-      background = const Color(0xFFEEF6F0);
-      logo = const Icon(
-        Icons.directions_car_filled_outlined,
-        color: Color(0xFF1F7A4D),
-        size: 20,
-      );
-    } else {
-      logo = Image.asset(
-        excludeFromSemantics: true,
-        AppAssets.wallet,
-        color: _ink,
-        fit: BoxFit.contain,
-      );
-    }
-    return Container(
-      width: 42,
-      height: 38,
-      padding: const EdgeInsets.all(7),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(
-          color: background == Colors.white ? _line : background,
-        ),
-      ),
-      child: logo,
-    );
   }
 }

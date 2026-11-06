@@ -2,6 +2,7 @@ name: Batch 6 Phase 79 Inbound Push Certification
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'lib/core/notifications/**'
       - 'lib/features/notifications/**'
@@ -15,8 +16,16 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # A newer push cancels the older run of the same workflow on the same ref
+  # (pull request refs and branch refs are different groups).
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   inbound-push:
+    # CI cost cut (owner 2026-11-06): drafts skip this check.
+    if: github.event.pull_request.draft != true
     runs-on: ubuntu-24.04  # ubuntu-latest is 26.04: Java 25 does not run Gradle 8.14
     timeout-minutes: 35
     steps:

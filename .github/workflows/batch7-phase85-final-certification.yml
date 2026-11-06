@@ -4,8 +4,24 @@
 # phone, tablet and landscape sizes (needs the Maps key secret).
 name: Batch 7 Phase 85 browser responsive matrix
 
+# CI cost cut (owner 2026-11-06):
+#   - every pull request push (not drafts): one fast browser, Chromium only,
+#     at every responsive size;
+#   - full run (Chromium + WebKit, and web memory over repeated bookings):
+#     only with the label `ready-to-merge` (adding the label starts it; every
+#     later push while the label is on runs it again), on pushes to main, and
+#     manually (Actions > this workflow > Run workflow).
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'web/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/batch7-phase85-final-certification.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
     paths:
       - 'lib/**'
       - 'test/**'
@@ -20,12 +36,21 @@ permissions:
   contents: read
 
 concurrency:
-  group: phase85-${{ github.event.pull_request.number || github.ref }}
+  # Adding some other label does not cancel a running matrix: that event gets
+  # its own group and its jobs are skipped.
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ (github.event.action == 'labeled' && github.event.label.name != 'ready-to-merge') && github.event.label.name || 'run' }}
   cancel-in-progress: true
 
 jobs:
   responsive-browser:
     name: Local Chromium + WebKit responsive matrix
+    # Same check name as before; WebKit only in the full run.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.draft != true &&
+       (github.event.action != 'labeled' || github.event.label.name == 'ready-to-merge'))
+    env:
+      FULL_MATRIX: ${{ (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ready-to-merge')) }}
     runs-on: ubuntu-24.04  # ubuntu-latest is 26.04: no Playwright Chromium, json.hpp fails to compile
     timeout-minutes: 55
     steps:
@@ -86,7 +111,7 @@ jobs:
         run: |
           npm init -y >/dev/null 2>&1
           npm install --save-dev playwright@1.55.0 >/dev/null 2>&1
-          npx playwright install --with-deps chromium webkit
+          if [ "$FULL_MATRIX" = true ]; then npx playwright install --with-deps chromium webkit; else npx playwright install --with-deps chromium; fi
 
       - name: Serve exact candidate
         run: |
@@ -259,11 +284,15 @@ jobs:
           }
           await chrome.close();
 
-          const safari = await webkit.launch({ headless: true });
-          for (const [width, height] of [[390, 844], [430, 932], [844, 390]]) {
-            await inspect(safari, 'webkit', width, height);
+          if (process.env.FULL_MATRIX === 'true') {
+            const safari = await webkit.launch({ headless: true });
+            for (const [width, height] of [[390, 844], [430, 932], [844, 390]]) {
+              await inspect(safari, 'webkit', width, height);
+            }
+            await safari.close();
+          } else {
+            console.log('WebKit skipped: fast run. Label ready-to-merge runs the full matrix.');
           }
-          await safari.close();
 
           fs.writeFileSync('phase85-browser-evidence.json', JSON.stringify(evidence, null, 2));
           console.log('PASS: Phase 85 local browser/responsive matrix on ' + process.env.GITHUB_SHA);
@@ -281,3 +310,45 @@ jobs:
             phase85-browser-evidence.json
             phase85-*.png
           if-no-files-found: warn
+
+  web-memory:
+    name: Web memory over repeated bookings (audit Phase 7)
+    # Copy of the ci.yml job (same steps) for the full run.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.draft != true &&
+       contains(github.event.pull_request.labels.*.name, 'ready-to-merge') &&
+       (github.event.action != 'labeled' || github.event.label.name == 'ready-to-merge'))
+    runs-on: ubuntu-24.04  # ubuntu-latest is 26.04: no Playwright Chromium, json.hpp fails to compile
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.7'
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-'3.47.7'-${{ hashFiles('pubspec.lock') }}
+      - run: flutter pub get --enforce-lockfile
+      - name: Demo web build with QA hooks
+        run: flutter build web --release --dart-define=MOVERA_QA=true
+      - name: Chromium
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
+          npm init -y >/dev/null
+          npm install playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium
+      - name: Six bookings in a row (book, search, cancel), heap after GC per booking
+        run: |
+          NODE_PATH="$RUNNER_TEMP/pw/node_modules" node tool/web_lifecycle_probe.mjs \
+            --dir build/web --cycles 6 --mode cancel --multi-surface --raster --out probe.json
+          python3 tool/check_memory_budget.py probe.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-memory-probe
+          path: probe.json
+          if-no-files-found: ignore

@@ -20,7 +20,6 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
-import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_flow.dart';
@@ -39,6 +38,7 @@ import 'package:movera_rider/features/active_ride/application/route_change_contr
     show RideSnapshot;
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
+import 'package:movera_rider/features/ride_booking/application/trip_route_line.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
@@ -182,6 +182,7 @@ class _FindingDriversState extends State<FindingDrivers> {
   Offset _pinAnchor = const Offset(0.5, 0.5);
   BitmapDescriptor? _driverCar;
   List<LatLng>? _roadRoutePoints;
+  bool _roadApproximate = false;
 
   late String _pickupAddress;
   late LatLng _pickupPosition;
@@ -575,35 +576,15 @@ class _FindingDriversState extends State<FindingDrivers> {
       ),
       for (final vehicle in _match.nearby) _nearbyMarker(vehicle),
     };
+    // A14: the road through every stop, straight through them until then.
     _polylines = styledRoute(
-      routePoints != null && routePoints.length >= 2
-          ? routePolyline(
-              id: 'route',
-              from: routePoints.first,
-              to: routePoints.last,
-              color: RiderRouteStyle.color,
-              routing: _ResolvedRoute(routePoints),
-            )
-          : _stops.isNotEmpty
-          ? routePolyline(
-              id: 'route',
-              from: _pickupPosition,
-              to: _destinationPosition,
-              color: RiderRouteStyle.color,
-              routing: _ResolvedRoute(
-                routeWithStops(
-                  pickup: _pickupPosition,
-                  stops: _stops,
-                  destination: _destinationPosition,
-                ),
-              ),
-            )
-          : routePolyline(
-              id: 'route',
-              from: _pickupPosition,
-              to: _destinationPosition,
-              color: RiderRouteStyle.color,
-            ),
+      resolvedRoutePolyline(
+        id: 'route',
+        points: routePoints != null && routePoints.length >= 2
+            ? routePoints
+            : straightTripLine(_pickupPosition, _stops, _destinationPosition),
+        color: RiderRouteStyle.color,
+      ),
     );
   }
 
@@ -644,25 +625,20 @@ class _FindingDriversState extends State<FindingDrivers> {
   }
 
   Future<void> _refreshRoadRoute() async {
-    // With stops the straight pickup → stops → destination line is drawn.
-    if (_stops.isNotEmpty) return;
     final from = _pickupPosition;
+    final stops = _stops;
     final to = _destinationPosition;
-    final route = await roadRoutePolyline(
-      id: 'route',
-      from: from,
-      to: to,
-      color: RiderRouteStyle.color,
-    );
-    if (!mounted || route.points.length < 2) return;
+    final route = await roadTripLine(from: from, stops: stops, to: to);
+    if (!mounted || route == null) return;
     // rider-35: the route changed while this answer was on its way; the
     // newer request draws the line.
     if (from != _pickupPosition ||
         to != _destinationPosition ||
-        _stops.isNotEmpty) {
+        !identical(stops, _stops)) {
       return;
     }
     _roadRoutePoints = route.points;
+    _roadApproximate = route.approximate;
     _loadMapBits();
     setState(() {});
   }
@@ -1119,9 +1095,8 @@ class _FindingDriversState extends State<FindingDrivers> {
                       ),
               ),
             ),
-            // Owner N2: no road route, only the direct line: say so.
-            if (!_mapParked &&
-                ApproximateRouteBadge.isStraight(_roadRoutePoints))
+            // Owner N2/A14: a leg without road (direct line): say so.
+            if (!_mapParked && _roadRoutePoints != null && _roadApproximate)
               Positioned(
                 left: 12,
                 bottom: mapReserve + 24,
@@ -1484,17 +1459,6 @@ class _FindingDriversState extends State<FindingDrivers> {
       ),
     );
   }
-}
-
-class _ResolvedRoute implements RoutingService {
-  const _ResolvedRoute(this.points);
-
-  final List<LatLng> points;
-
-  @override
-  List<GeoPoint> line({required GeoPoint from, required GeoPoint to}) => [
-    for (final point in points) GeoPoint(point.latitude, point.longitude),
-  ];
 }
 
 /// A booking asked again is priced again: a price other than the one the

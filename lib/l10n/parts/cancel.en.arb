@@ -1,0 +1,204 @@
+{
+  "cancelRide": "Cancel ride",
+  "cancelReasonPickupIncorrect": "Pickup point is incorrect",
+  "cancelReasonWrongRideOption": "I chose the wrong ride option",
+  "cancelReasonByMistake": "I requested the ride by mistake",
+  "cancelReasonWaitTooLong": "The wait is taking too long",
+  "cancelReasonDestinationChange": "Destination needs to be changed",
+  "cancelReasonDriverNotSuitable": "Driver/ride details are not suitable",
+  "cancelReasonPlansChanged": "Plans changed",
+  "cancelReasonSomethingElse": "Something else",
+  "cancelOfflineQueued": "We couldn’t reach Movera. We’ll cancel your ride as soon as you’re back online.",
+  "cancelNoLonger": "This ride can no longer be cancelled.",
+  "cancelRequest": "Cancel request",
+  "cancelWhyCommitted": "Your request is cancelled. Telling us why is optional and helps us improve matching.",
+  "cancelWhyReservation": "Optional. This helps us improve scheduled rides.",
+  "cancelWhyInTrip": "Optional. This helps us understand trips that end early.",
+  "cancelWhyMatching": "Optional. This helps us improve matching.",
+  "keepRide": "Keep ride",
+  "cancelBodyInTrip": "Your driver will drop you off as soon as it is safe. You pay for the distance driven so far.",
+  "cancelBodyMatched": "Your driver is already on the way. If you cancel now, you will need to request again.",
+  "cancelBodyTakingLonger": "This is taking longer than usual. We are still searching for a nearby driver. If you cancel, you will need to request again.",
+  "cancelBodySearching": "Movera is still searching for a nearby driver. Your trip should be confirmed shortly.",
+  "cancelRideQ": "Cancel ride?",
+  "keepSearching": "Keep searching",
+  "keepWaiting": "Keep waiting",
+  "cancelTrip": "Cancel trip",
+  "cancelledByMovera": "Cancelled by Movera",
+  "cancelFailedStillOn": "Couldn't cancel. Your ride is still on.",
+  "cancelCostsNow": "Cancelling now costs {amount}.",
+  "@cancelCostsNow": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelFreeUnderMinute": "Cancelling is free for less than a minute more.",
+  "cancelFreeMinutes": "Cancelling is free for {minutes} more minutes.",
+  "@cancelFreeMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelFailedTryAgain": "Couldn't cancel. Your ride is still on — try again.",
+  "cancelUnconfirmedOffline": "We couldn't reach Movera to confirm your cancellation. Your ride is still active until it's confirmed — we'll retry automatically when you're back online.",
+  "freeWaitingLeft": "Free waiting · {time} left",
+  "@freeWaitingLeft": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "keepCurrentRoute": "Keep current route",
+  "keepCard": "Keep card",
+  "cancel": "Cancel",
+  "reasonNoShow": "No-show",
+  "reasonPayment": "Payment problem",
+  "reasonZoneClosed": "Service area closed",
+  "reasonError": "Something went wrong",
+  "reasonRequestExpired": "Request expired",
+  "@reasonRequestExpired": {
+    "description": "History cancel reason: the ride request expired before a driver was found."
+  },
+  "reasonCancelledBySystem": "Cancelled by the system",
+  "@reasonCancelledBySystem": {
+    "description": "History cancel reason: the platform cancelled the ride."
+  },
+  "reasonRideFailed": "Ride failed",
+  "@reasonRideFailed": {
+    "description": "History cancel reason: the trip could not continue."
+  },
+  "reasonDriverEnded": "Driver ended the ride",
+  "@reasonDriverEnded": {
+    "description": "History cancel reason: the driver ended the ride."
+  },
+  "reasonRiderCancelledLive": "You cancelled the ride",
+  "@reasonRiderCancelledLive": {
+    "description": "Cancel reason of a reservation the rider cancelled once its live ride had started."
+  },
+  "cancelFee": "Cancellation fee: {amount}",
+  "@cancelFee": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "freeToCancelUntil": "Free to cancel until {time}",
+  "@freeToCancelUntil": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "freeCancellation": "Free cancellation",
+  "freeEndedPayNow": "Free cancellation ended at {until}, {before} before pickup. You pay {amount} if you cancel now.",
+  "@freeEndedPayNow": {
+    "placeholders": {
+      "until": {
+        "type": "String"
+      },
+      "before": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "freeThatIsBefore": "That is {before} before pickup. After that, cancelling costs {amount}.",
+  "@freeThatIsBefore": {
+    "placeholders": {
+      "before": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "freeAnyTime": "Free to cancel at any time.",
+  "freeEndedCostsNow": "Free cancellation ended at {until}, {before} before pickup. Cancelling now costs {amount}.",
+  "@freeEndedCostsNow": {
+    "placeholders": {
+      "until": {
+        "type": "String"
+      },
+      "before": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "freeUntilThen": "Free until {until} ({before} before pickup). After that, cancelling costs {amount}.",
+  "@freeUntilThen": {
+    "placeholders": {
+      "until": {
+        "type": "String"
+      },
+      "before": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelRuleText": "Cancelling is free until {window} before pickup. After that, it costs {amount}.",
+  "@cancelRuleText": {
+    "placeholders": {
+      "window": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelledRide": "Cancelled ride",
+  "reasonLine": "Reason: {reason}",
+  "@reasonLine": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelReservation": "Cancel reservation",
+  "cancelledFeeCharged": "Cancellation fee {amount}",
+  "@cancelledFeeCharged": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelledNoShowFee": "No-show fee {amount}",
+  "@cancelledNoShowFee": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelledNoFee": "No fee",
+  "freeRuleHours": "{count, plural, =1{1 hour} other{{count} hours}}",
+  "@freeRuleHours": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cancelFreeChained": "Cancel for free: your driver is finishing another trip first",
+  "@cancelFreeChained": {
+    "description": "Fix job 5 (v0.18.33, owner Q3 + Q5): waiting screen cancel line for a trip queued behind the driver's current trip, or a late chained trip."
+  }
+}

@@ -220,6 +220,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
     final showDriver = _reservations.showsDriverOf(ride);
     final previousDriver = ride.previousDriver;
     final noDriverFound = _reservations.isNoDriverFound(ride);
+    final stillLooking = _reservations.isStillLookingPastPickup(ride);
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
@@ -269,7 +270,10 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  ride.status.isUpcoming
+                  // v0.18.39 §63 (rule-29 review): not "reserved" once the server ended it.
+                  noDriverFound
+                      ? context.l10n.termNoDriverFound
+                      : ride.status.isUpcoming
                       ? ReservationFormat.reservedHeadline(ride.pickupWallTime)
                       : ReservationFormat.pastHeadline(ride.pickupWallTime),
                   style: reservationText(
@@ -317,7 +321,15 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   ReservationStatusBanner(
                     key: const Key('upcoming-no-driver-found'),
                     title: context.l10n.termNoDriverFound,
-                    body: context.l10n.chronoNoDriverCancel,
+                    // v0.18.39 §63 (P17): the server ended it, nothing to cancel or edit.
+                    body: context.l10n.searchStepNoDriverFound,
+                    positive: false,
+                  )
+                else if (stillLooking)
+                  ReservationStatusBanner(
+                    key: const Key('upcoming-still-looking'),
+                    title: context.l10n.stillLooking,
+                    body: context.l10n.stillLookingActive,
                     positive: false,
                   )
                 else
@@ -413,7 +425,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                 ],
                 // RC5: a Ride check on this trip, with its answers.
                 RideCheckTripEntry(rideId: ride.reservationId, topSpacing: 14),
-                if (ride.status.canEdit) ...[
+                if (ride.status.canEdit && !noDriverFound) ...[
                   const SizedBox(height: 22),
                   ReservationEditButton(
                     onTap: _actionBusy ? null : () => _editReservation(ride),

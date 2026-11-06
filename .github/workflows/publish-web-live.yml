@@ -1,4 +1,4 @@
-name: Publish Rider Web Demo
+name: Publish Rider Web Live
 
 on:
   push:
@@ -35,16 +35,13 @@ jobs:
       - name: Resolve dependencies
         run: flutter pub get
 
-      # The live rider (the test week's server) next to the demo, once the repository variable
+      # The live rider (the test week's server), once the repository variable
       # MOVERA_LIVE_API_URL names the server (e.g. https://movera-server-xxxx.onrender.com).
-      # Built first: the demo build below reuses build/web.
+      # The only public build (the demo is no longer published).
       - name: Build the live rider web
         if: ${{ vars.MOVERA_LIVE_API_URL != '' }}
         env:
           LIVE_API: ${{ vars.MOVERA_LIVE_API_URL }}
-          # Owner 2026-11-03: the test numbers (numbers only) from the repository
-          # secret MOVERA_TEST_NUMBERS; empty -> the app says to ask an admin.
-          MOVERA_TEST_NUMBERS: ${{ secrets.MOVERA_TEST_NUMBERS }}
           RIDER_MAP_ID: ${{ vars.RIDER_MAP_ID || '9fdc5d9e56d4a0916c77a424' }}
           MAPS_WEB_API_KEY: ${{ secrets.MAPS1 || secrets.MAPS || secrets.GOOGLE_MAPS_WEB_API_KEY || secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS_API_KEY }}
         run: |
@@ -75,8 +72,7 @@ jobs:
             --dart-define=MOVERA_API_BASE_URL="$LIVE_API" \
             --dart-define=MOVERA_AUTH_REQUIRED=true \
             --dart-define=MOVERA_APP_VERSION="$app_version" \
-            --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID" \
-            --dart-define=MOVERA_TEST_NUMBERS="$MOVERA_TEST_NUMBERS"
+            --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID"
           printf '%s\n' '{"flavor":"staging","production":false}' > build/web/movera-environment.json
           python3 - <<'PY'
           import os
@@ -98,106 +94,24 @@ jobs:
           cp -a build/web /tmp/movera-live
           git checkout -- .
 
-      - name: Build explicit demo Flutter web
-        env:
-          # Same Google Cloud Map ID (cloud-based styling) as the driver app.
-          RIDER_MAP_ID: ${{ vars.RIDER_MAP_ID || '9fdc5d9e56d4a0916c77a424' }}
+      # Owner 2026-11-05 ("Archive + send to live"): the public demo is no longer
+      # published. The site root and any non-/live/ path open the live rider, the
+      # same way the driver's deploy-pages.yml and the admin's pages.yml do.
+      # The old demo steps are archived in the Rules repo
+      # (archive/public-demo-pages-2026-11-05/). lib/main_demo.dart stays for tests.
+      - name: Assemble the site
         run: |
-          if ! printf '%s' "$RIDER_MAP_ID" | grep -Eq '^[A-Za-z0-9]+$'; then
-            echo "::error::Invalid RIDER_MAP_ID (letters and digits only)."
+          if [ ! -d /tmp/movera-live ]; then
+            echo "::error::No live build: set the repository variable MOVERA_LIVE_API_URL."
             exit 1
           fi
-          # rider-u18: telemetry reports the pubspec version, not 'dev'.
-          app_version="$(sed -n 's/^version: *//p' pubspec.yaml)"
-          test -n "$app_version"
-          # Owner 2026-11-04 (B9, "Yes, both apps"): --wasm builds main.dart.wasm
-          # (skwasm) AND main.dart.js; flutter_bootstrap.js picks wasm where the
-          # browser supports it and falls back to JS elsewhere (older Safari).
-          flutter build web --release --wasm \
-            -t lib/main_demo.dart \
-            --dart-define=MOVERA_FLAVOR=demo \
-            --dart-define=MOVERA_API_BASE_URL=https://api.demo.movera.invalid \
-            --dart-define=MOVERA_APP_VERSION="$app_version" \
-            --dart-define=MOVERA_GOOGLE_MAP_ID=${{ vars.RIDER_MAP_ID || '9fdc5d9e56d4a0916c77a424' }}
-          printf '%s\n' '{"flavor":"demo","production":false}' > build/web/movera-environment.json
-
-      - name: Configure Google Maps for web
-        env:
-          MAPS_WEB_API_KEY: ${{ secrets.MAPS1 || secrets.MAPS || secrets.GOOGLE_MAPS_WEB_API_KEY || secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS_API_KEY }}
-        run: |
-          if [ -z "$MAPS_WEB_API_KEY" ]; then
-            echo "::error::Missing Google Maps API key. Add the MAPS1 repository secret."
-            exit 1
-          fi
-          python3 - <<'PY'
-          import os
-          from pathlib import Path
-
-          p = Path('build/web/index.html')
-          s = p.read_text()
-          bootstrap = '  <script src="flutter_bootstrap.js" defer onerror="window.moveraBootFailed && window.moveraBootFailed()"></script>'
-          # async matters: without it this is a render-blocking script sitting
-          # ahead of the app, and the parser stops for ~0.9s of Maps JS before
-          # Flutter even starts loading. Nothing reads google.maps until a map
-          # widget is built, long after boot, so it does not need to block —
-          # measured at 713ms, against a first frame at 2.3s.
-          # LT-4 (owner 2026-11-03, "load on open"): the page no longer loads Maps at start; it keeps
-          # the script's address and web/index.html moveraLoadGoogleMaps() adds it when the first map opens.
-          maps = f'  <script>window.moveraMapsSrc = "https://maps.googleapis.com/maps/api/js?key={os.environ["MAPS_WEB_API_KEY"]}";</script>'
-          if bootstrap not in s:
-              raise SystemExit('Flutter bootstrap tag not found')
-          if 'maps.googleapis.com/maps/api/js' not in s:
-              s = s.replace(bootstrap, maps + '\n' + bootstrap)
-          p.write_text(s)
-          PY
-
-      - name: Fingerprint compiled Flutter bundle
-        run: |
-          python3 - <<'PY'
-          import os
-          from pathlib import Path
-
-          build = Path('build/web')
-          version = os.environ['GITHUB_SHA'][:8]
-          main = build / 'main.dart.js'
-          bootstrap = build / 'flutter_bootstrap.js'
-          index = build / 'index.html'
-
-          versioned_main = f'main.{version}.dart.js'
-          versioned_bootstrap = f'flutter_bootstrap.{version}.js'
-
-          bootstrap_text = bootstrap.read_text()
-          bootstrap_text = bootstrap_text.replace('main.dart.js', versioned_main)
-          bootstrap.write_text(bootstrap_text)
-          main.rename(build / versioned_main)
-          bootstrap.rename(build / versioned_bootstrap)
-
-          index_text = index.read_text()
-          index_text = index_text.replace(
-              'flutter_bootstrap.js',
-              versioned_bootstrap,
-          )
-          # Pages caches plain names: version the map gesture layer too.
-          index_text = index_text.replace(
-              'src="rider_map_camera.js"',
-              f'src="rider_map_camera.js?v={version}"',
-          )
-          index.write_text(index_text)
-          PY
-
-      - name: Prepare GitHub Pages build
-        run: |
           rm -rf /tmp/movera-pages
           mkdir -p /tmp/movera-pages
-          cp -a build/web/. /tmp/movera-pages/
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('/tmp/movera-pages/index.html')
-          s = p.read_text()
-          s = s.replace('<base href="/">', '<base href="/movera-rider-app/">')
-          p.write_text(s)
-          PY
-          if [ -d /tmp/movera-live ]; then cp -a /tmp/movera-live /tmp/movera-pages/live; fi
+          cp -a /tmp/movera-live /tmp/movera-pages/live
+          for page in index.html 404.html; do
+            printf '%s\n' '<!doctype html><meta http-equiv="refresh" content="0;url=/movera-rider-app/live/"><link rel="canonical" href="/movera-rider-app/live/"><script>location.replace("/movera-rider-app/live/")</script>' > "/tmp/movera-pages/$page"
+          done
+          touch /tmp/movera-pages/.nojekyll
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
@@ -212,34 +126,3 @@ jobs:
       - name: Deploy GitHub Pages
         id: pages
         uses: actions/deploy-pages@v4
-
-      - name: Point compiled app assets to public CDN
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('build/web/index.html')
-          s = p.read_text()
-          s = s.replace('<base href="/">', '<base href="https://cdn.jsdelivr.net/gh/baccarisverige-ux/movera-rider-app@web-live/">')
-          p.write_text(s)
-          PY
-
-      - name: Publish compiled output to web-live branch
-        run: |
-          rm -rf /tmp/movera-web
-          mkdir -p /tmp/movera-web
-          cp -a build/web/. /tmp/movera-web/
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # flutter build regenerates tracked files (plugin registrants, pubspec.lock)
-          # as a side effect; the built output is already copied to /tmp/movera-web
-          # above, so discard those before switching branches or checkout aborts.
-          git checkout -- .
-          git fetch origin web-live:web-live
-          git checkout web-live
-          git rm -rf . || true
-          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          cp -a /tmp/movera-web/. .
-          touch .nojekyll
-          git add -A
-          git commit -m "Publish Movera Rider web build"
-          git push origin HEAD:web-live

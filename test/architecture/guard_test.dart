@@ -40,6 +40,12 @@ void main() {
     'lib/features/ride_selection/presentation/select_ride_reveal.dart',
     'lib/features/ride_selection/presentation/select_ride_sheet_control.dart',
     'lib/features/ride_selection/presentation/select_ride_tiles.dart',
+    // Base split (2026-11-05) moved more of Select Ride into part files.
+    'lib/features/ride_selection/presentation/select_ride_booking_helpers.dart',
+    'lib/features/ride_selection/presentation/select_ride_list.dart',
+    'lib/features/ride_selection/presentation/select_ride_book_now.dart',
+    'lib/features/ride_selection/presentation/select_ride_book_scheduled.dart',
+    'lib/features/ride_selection/presentation/select_ride_footer.dart',
   ];
 
   test('presentation does not import raw http or shared_preferences', () {
@@ -489,21 +495,22 @@ void main() {
       ).readAsStringSync();
       expect(repo.contains('BookingCoordinator()'), isFalse);
       expect(repo.contains('AppScope.instance.booking'), isTrue);
-      final src = File(
-        'lib/features/ride_selection/presentation/select_ride.dart',
-      ).readAsStringSync();
+      // Base split (2026-11-05): Book now and the footer are part files.
+      final src = ['select_ride.dart', 'select_ride_footer.dart']
+          .map(
+            (name) => File(
+              'lib/features/ride_selection/presentation/$name',
+            ).readAsStringSync(),
+          )
+          .join('\n');
       expect(src.contains('bool _bookingInFlight'), isTrue);
       expect(src.contains('if (_bookingInFlight) return'), isTrue);
       expect(src.contains('onTap: _bookingInFlight ? null : _book'), isTrue);
       expect(src.contains('selectPaymentNamed'), isTrue);
-      final nowStart = src.indexOf('void _bookNow()');
-      final buildStart = src.indexOf(
-        'Widget build(BuildContext context)',
-        nowStart,
-      );
-      expect(nowStart, greaterThan(0));
-      expect(buildStart, greaterThan(nowStart));
-      final now = src.substring(nowStart, buildStart);
+      final now = File(
+        'lib/features/ride_selection/presentation/select_ride_book_now.dart',
+      ).readAsStringSync();
+      expect(now.contains('void _bookNow()'), isTrue);
       expect(now.contains('pickupAddress: _pickupAddress'), isTrue);
       expect(now.contains('pickupAddress: widget.pickupAddress'), isFalse);
       expect(now.contains('FindingDriverController.active'), isTrue);

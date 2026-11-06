@@ -196,7 +196,9 @@ class BookingCoordinator {
       // A saved card is a method of its own (`card:<id>`).
       if (paymentMethod.startsWith('card:'))
         'paymentMethodId': paymentMethod.substring(5),
-      if (walletFirst || paymentMethod == 'wallet') 'walletFirst': true,
+      // Fix job 5 (v0.18.33, owner Q6): always sent; the server's default
+      // is on, so a rider who switched it off for this ride says so.
+      'walletFirst': walletFirst || paymentMethod == 'wallet',
       // Bags, pet, baby and child: the driver reads them before accepting.
       if (note.isNotEmpty) 'notes': note,
     };
@@ -811,7 +813,7 @@ class BookingCoordinator {
               destinationAddress: destinationAddress,
               stops: stops,
               notes: notes,
-              walletFirst: useWalletFirst && walletAmountMinor > 0,
+              walletFirst: useWalletFirst,
             ),
             idempotencyKey: key,
             client: _client,

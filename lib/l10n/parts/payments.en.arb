@@ -1,0 +1,300 @@
+{
+  "priceUpdated": "Price updated",
+  "priceUpdatedBody": "The price for this pickup is now {now} (was {was}).",
+  "@priceUpdatedBody": {
+    "placeholders": {
+      "now": {
+        "type": "String"
+      },
+      "was": {
+        "type": "String"
+      }
+    }
+  },
+  "priceUnavailableRefreshing": "Price unavailable. Refreshing fare…",
+  "fareChangedRefreshing": "Fare changed or expired. Refreshing price…",
+  "cardExpires": "Expires {date}",
+  "@cardExpires": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "walletWrongCurrency": "Your wallet balance is in {wallet} and can’t pay a ride in {ride}.",
+  "@walletWrongCurrency": {
+    "placeholders": {
+      "wallet": {
+        "type": "String"
+      },
+      "ride": {
+        "type": "String"
+      }
+    }
+  },
+  "walletSplit": "Wallet −{wallet} · you pay {rest}",
+  "@walletSplit": {
+    "placeholders": {
+      "wallet": {
+        "type": "String"
+      },
+      "rest": {
+        "type": "String"
+      }
+    }
+  },
+  "payCash": "Pay in car",
+  "promotion": "Promotion",
+  "promotionPercent": "Promotion {percent}%",
+  "@promotionPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "payWith": "Pay with",
+  "walletBalance": "Balance: {amount}",
+  "@walletBalance": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "walletTapToPay": "Tap to pay this ride from your balance",
+  "walletTooLowForRide": "Balance too low for this ride",
+  "walletTooLowChooseAnother": "Your wallet balance does not cover this ride. Choose another way to pay.",
+  "walletFirst": "Use wallet balance first",
+  "walletFirstBody": "Your balance is taken off every fare; the rest goes to the method you choose.",
+  "paymentMethods": "Payment methods",
+  "vouchers": "Vouchers",
+  "voucherSoon": "Voucher codes open soon",
+  "cardCheckNumber": "Check the card number",
+  "cardBrandsAccepted": "We accept Visa and Mastercard",
+  "@cardBrandsAccepted": {
+    "description": "Error under the card number when the card is neither Visa nor Mastercard."
+  },
+  "cardUseMmYy": "Use MM/YY",
+  "cardExpired": "This card has expired",
+  "cardCvc3": "3 digits",
+  "cardCheckDetails": "Check the card details",
+  "cardSaveFailed": "We could not save this card. Try again.",
+  "cardNameOnCardUpper": "NAME ON CARD",
+  "cardNumber": "Card number",
+  "cardExpiry": "Expiry",
+  "cardMmYy": "MM/YY",
+  "cardNameOnCard": "Name on card",
+  "paymentMethod": "Payment method",
+  "refundAmount": "Refund amount",
+  "refundWalletBody": "Available immediately and used first on your next ride.",
+  "refundOriginalBody": "Returned to your original payment method within 2 to 3 business days.",
+  "paymentProcessing": "Payment processing",
+  "paymentConfirmed": "Payment confirmed",
+  "paymentNotCompleted": "Payment not completed",
+  "tipYourDriver": "Tip your driver",
+  "tipName": "Tip {name}",
+  "@tipName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tipOptional": "Tip is optional.",
+  "tipSelected": "{amount} selected.",
+  "@tipSelected": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "tipAmount": "Tip {amount}",
+  "@tipAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "topUpUnconfirmed": "We couldn't confirm your top-up. If it went through, it will show in your balance — trying again won't charge you twice.",
+  "topUpDeclined": "The payment was declined, so you weren't charged.",
+  "topUpOffline": "No connection, so the top-up didn't go through. You weren't charged — try again when you're back online.",
+  "topUpRateLimited": "Too many tries. You weren't charged — try again {when}.",
+  "@topUpRateLimited": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "topUpServerTrouble": "Movera is having trouble right now. You weren't charged — try again in a moment.",
+  "topUpFailed": "The top-up didn't go through. You weren't charged — try again.",
+  "walletAmount": "Wallet {amount}",
+  "@walletAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "vouchersNotYet": "Vouchers aren’t available yet",
+  "vouchersNotYetBody": "Validated Movera voucher codes will appear here when the service launches.",
+  "walletAndPayments": "Wallet & Payments",
+  "walletHeadingNoTopUp": "Your wallet",
+  "walletSubtitleNoTopUp": "Your balance is shown here.",
+  "topUpForRides": "Top up for rides.",
+  "walletLoadFailed": "Couldn’t load wallet",
+  "walletLoadFailedBody": "Your balance couldn’t be read. Try again.",
+  "vouchersUnavailable": "Vouchers unavailable",
+  "topUpsUnavailable": "Wallet top-ups are unavailable until payment processing is connected.",
+  "paymentMethodsUpper": "PAYMENT METHODS",
+  "payFromBalance": "Pay from your balance",
+  "payDriverCash": "Pay the driver in the car when the trip ends.",
+  "vouchersUpper": "VOUCHERS",
+  "paymentPrefsProtected": "Your payment preferences are protected and can be changed anytime.",
+  "payCard": "Card",
+  "paymentMethodLine": "Payment method: {method}",
+  "@paymentMethodLine": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "promoOffLeftOf": "{percent}% off · {left} of {total} rides left",
+  "@promoOffLeftOf": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      },
+      "left": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "tipWellLitTitle": "Meet in a well-lit place",
+  "tipWellLitBody": "Wait indoors or near other people until your Movera arrives.",
+  "tipCheckCarTitle": "Check the car before you sit",
+  "tipCheckCarBody": "Match the plate, colour and driver photo in the app.",
+  "tipShareTitle": "Share the ride when it helps",
+  "tipShareBody": "Use trip sharing so someone you trust can follow along.",
+  "tipSitTitle": "Sit where you feel comfortable",
+  "tipSitBody": "The back seat is usually the calmest choice.",
+  "tip112Title": "Keep 112 available",
+  "tip112Body": "In Sweden, 112 is the emergency number. Only you can place that call.",
+  "promotionApplied": "{percent} % promotion applied",
+  "@promotionApplied": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "paymentComingSoon": "Coming soon",
+  "@paymentComingSoon": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
+  "paymentMethodOff": "This payment method is not offered here. Choose another one.",
+  "@paymentMethodOff": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
+  "paymentMethodComingSoon": "This payment method is coming soon. Choose Pay in car.",
+  "@paymentMethodComingSoon": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
+  "paymentMethodNotAvailable": "This payment method cannot be used. Choose another one.",
+  "@paymentMethodNotAvailable": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
+  "tipCustomAmount": "Other amount",
+  "@tipCustomAmount": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
+  "tipCustomAmountLabel": "Tip: other amount",
+  "@tipCustomAmountLabel": {
+    "description": "Live G8 round 3: screen-reader name of the Other amount tip button"
+  },
+  "tipMax": "At most {amount}",
+  "@tipMax": {
+    "description": "Rider G8 (contract 0.18.10 finish)",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "tipAmountNotAllowed": "Choose one of the amounts.",
+  "@tipAmountNotAllowed": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
+  "tipAboveMax": "The amount is too high.",
+  "@tipAboveMax": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
+  "tipAllToDriver": "The whole tip goes to the driver.",
+  "@tipAllToDriver": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
+  "tipCashInHand": "Give the tip to the driver in cash.",
+  "@tipCashInHand": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
+  "tipAlreadyGiven": "You already tipped for this trip.",
+  "@tipAlreadyGiven": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
+  "tipNotAllowed": "A tip is only possible after a finished trip.",
+  "@tipNotAllowed": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
+  "tipCashAfterTripOff": "A cash tip can only be given in the car.",
+  "@tipCashAfterTripOff": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
+  "receiptDriverEnded": "The driver ended the trip before the destination.",
+  "@receiptDriverEnded": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
+  "receiptRiderEnded": "You ended the trip early.",
+  "@receiptRiderEnded": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
+  "receiptDebtIncluded": "Earlier unpaid fee",
+  "@receiptDebtIncluded": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
+  "receiptTip": "Tip",
+  "@receiptTip": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
+  "receiptRefunded": "Refunded",
+  "@receiptRefunded": {
+    "description": "Rider G8 (contract 0.18.10 finish)"
+  },
+  "priceIncludesUnpaidFee": "Includes {amount} unpaid fee from an earlier trip",
+  "@priceIncludesUnpaidFee": {
+    "description": "Deep-fix 2026-11-02",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptHeading": "Receipt",
+  "@receiptHeading": {
+    "description": "Deep-fix 2026-11-02"
+  },
+  "receiptDebtIncludedNote": "An unpaid fee from an earlier trip was added to this trip.",
+  "@receiptDebtIncludedNote": {
+    "description": "Fix job 0 (A2-2, contract 0.18.39 outstandingFee.receiptText.rider): under the earlier unpaid fee line on the next trip's receipt."
+  },
+  "walletUsedFirst": "Your wallet is used first",
+  "@walletUsedFirst": {
+    "description": "Fix job 5 (contract v0.18.33, owner Q6): Select ride, above the wallet split of the chosen ride while Use wallet first is on for this ride."
+  }
+}

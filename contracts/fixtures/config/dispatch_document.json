@@ -90,6 +90,10 @@
     "on": true,
     "count": 1
   },
+  "bookedNext": {
+    "on": true,
+    "withinMin": 60
+  },
   "waiting": [
     {
       "id": "w1",
@@ -134,5 +138,10 @@
   ],
   "raisePrice": {
     "maxFactor": 2
+  },
+  "noDriverNearby": {
+    "on": true,
+    "afterSec": 300,
+    "message": "No driver nearby right now. We keep searching for you."
   }
 }

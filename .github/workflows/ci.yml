@@ -9,14 +9,20 @@ name: CI gate
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-gate-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # A newer push cancels the older run of the same workflow on the same ref
+  # (pull request refs and branch refs are different groups).
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -27,8 +33,38 @@ env:
   CORE_COVERAGE_FLOOR: '92.8'
 
 jobs:
+  # CI cost cut (owner 2026-11-06): docs-only pull requests and drafts skip the
+  # heavy jobs. paths-ignore is not used on pull_request here because the
+  # required checks would then never report and the PR would wait forever; a
+  # skipped job reports as passed, so branch protection still works.
+  changes:
+    name: Detect docs-only change
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - id: diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -z "$PR" ]; then echo "code=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          files="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[].filename')"
+          # Any file that is not *.md and not under docs/ counts as code.
+          if [ -z "$files" ] || printf '%s\n' "$files" | grep -qvE '(\.md$|^docs/)'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "$files"
+
   static:
     name: Lockfile, format, analyze, repo gates
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true' && github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -135,6 +171,8 @@ jobs:
                   sys.exit(f'::error::{lang}: missing {sorted(missing)} extra {sorted(extra)}')
           print(f"{len(keys['en'])} messages in en, fr and sv")
           PY
+          # Base split (2026-11-05): each ARB is its lib/l10n/parts area files combined.
+          python3 tool/l10n_parts.py --check
           cp test/l10n/all_messages.g.dart "$RUNNER_TEMP/all_messages.g.dart"
           python3 tool/gen_l10n_messages.py
           diff -u "$RUNNER_TEMP/all_messages.g.dart" test/l10n/all_messages.g.dart || {
@@ -147,6 +185,8 @@ jobs:
 
   test:
     name: Unit and widget tests (once) + coverage
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true' && github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
@@ -205,6 +245,8 @@ jobs:
 
   integration:
     name: Linux integration tests
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true' && github.event.pull_request.draft != true
     runs-on: ubuntu-24.04  # ubuntu-latest is 26.04: no Playwright Chromium, json.hpp fails to compile
     timeout-minutes: 40
     steps:
@@ -235,6 +277,8 @@ jobs:
 
   web-build:
     name: Web release builds (production + staging)
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true' && github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -271,6 +315,11 @@ jobs:
 
   web-memory:
     name: Web memory over repeated bookings (audit Phase 7)
+    # CI cost cut (owner 2026-11-06): 9 billed minutes, so on pull requests it
+    # runs in the full browser run (label `ready-to-merge`, workflow
+    # batch7-phase85-final-certification.yml). Here: pushes to main + manual.
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true' && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04  # ubuntu-latest is 26.04: no Playwright Chromium, json.hpp fails to compile
     timeout-minutes: 30
     steps:
@@ -325,13 +374,33 @@ jobs:
   gate:
     name: gate
     if: always()
-    needs: [static, test, integration, web-build, web-memory, secret-scan]
+    needs: [changes, static, test, integration, web-build, web-memory, secret-scan]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Every job passed on this commit
+        # CI cost cut (owner 2026-11-06). A skipped job passes only where the
+        # skip is planned: everything on a draft or a docs-only change, and web
+        # memory on a pull request (it runs with the `ready-to-merge` label).
+        # changes and secret-scan must always pass.
         env:
-          RESULTS: ${{ toJSON(needs.*.result) }}
+          RESULTS: ${{ toJSON(needs) }}
+          CODE: ${{ needs.changes.outputs.code }}
+          DRAFT: ${{ github.event.pull_request.draft == true }}
+          IS_PR: ${{ github.event_name == 'pull_request' }}
         run: |
           echo "$RESULTS"
-          echo "$RESULTS" | python3 -c 'import json,sys; r=json.load(sys.stdin); sys.exit(0 if r and all(x=="success" for x in r) else 1)'
+          echo "$RESULTS" | python3 -c '
+          import json, os, sys
+          needs = {k: v["result"] for k, v in json.load(sys.stdin).items()}
+          skip_all = os.environ["CODE"] != "true" or os.environ["DRAFT"] == "true"
+          ok = bool(needs)
+          for job, result in needs.items():
+              if result == "success":
+                  continue
+              planned = result == "skipped" and job not in ("changes", "secret-scan") and (
+                  skip_all or (job == "web-memory" and os.environ["IS_PR"] == "true"))
+              print(job, result, "planned skip" if planned else "FAIL")
+              ok = ok and planned
+          sys.exit(0 if ok else 1)
+          '
