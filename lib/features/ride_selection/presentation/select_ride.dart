@@ -1,3 +1,4 @@
+import 'package:movera_rider/features/account_status/domain/rider_moderation.dart';
 import 'package:movera_rider/features/payments/presentation/card_brand_label.dart';
 
 import 'dart:async';

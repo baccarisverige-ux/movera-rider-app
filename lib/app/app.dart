@@ -10,6 +10,7 @@ import 'package:movera_rider/core/platform/safe_area_insets.dart';
 import 'package:movera_rider/features/calls/application/rider_trip_calls.dart';
 import 'package:movera_rider/features/calls/presentation/call_screen.dart';
 import 'package:movera_rider/features/content/presentation/content_gate.dart';
+import 'package:movera_rider/features/account_status/presentation/account_status_screens.dart';
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in.dart';
 import 'package:movera_rider/features/ride_booking/presentation/ride_restore_gate.dart';
@@ -61,24 +62,28 @@ class MoveraApp extends StatelessWidget {
           builder: (context, child) => SafeAreaFromPage(
             child: LanguageRebuild(
               code: language.code,
-              child: ContentGate(
-                controller: AppScope.instance.content,
-                legal: AppScope.instance.legal,
-                // Contract v0.18.25: an admin preview shows a "Preview" strip.
-                child: PreviewMode.current.active
-                    ? Column(
-                        children: [
-                          const PreviewBanner(),
-                          Expanded(
-                            child: MediaQuery.removePadding(
-                              context: context,
-                              removeTop: true,
-                              child: child!,
+              child: ModerationGate(
+                child: ContentGate(
+                  controller: AppScope.instance.content,
+                  legal: AppScope.instance.legal,
+                  // v0.18.43 §64 (fix job 10): the rider's level (warning
+                  // banner, paused / blocked screen) over every screen.
+                  // Contract v0.18.25: an admin preview shows a "Preview" strip.
+                  child: PreviewMode.current.active
+                      ? Column(
+                          children: [
+                            const PreviewBanner(),
+                            Expanded(
+                              child: MediaQuery.removePadding(
+                                context: context,
+                                removeTop: true,
+                                child: child!,
+                              ),
                             ),
-                          ),
-                        ],
-                      )
-                    : child!,
+                          ],
+                        )
+                      : child!,
+                ),
               ),
             ),
           ),

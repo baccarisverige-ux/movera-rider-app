@@ -148,6 +148,14 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'appTitle': l.appTitle,
   'previewBanner': l.previewBanner,
   'previewNotSent': l.previewNotSent,
+  'dontMatchDriverAgain': l.dontMatchDriverAgain,
+  'accountPausedTitle': l.accountPausedTitle,
+  'accountBlockedTitle': l.accountBlockedTitle,
+  'moderationWarningTitle': l.moderationWarningTitle,
+  'accountPausedUntil': l.accountPausedUntil('<date>'),
+  'accountStatusBody': l.accountStatusBody,
+  'accountStatusContactSupport': l.accountStatusContactSupport,
+  'accountStatusSignOut': l.accountStatusSignOut,
   'callFailed': l.callFailed,
   'callCalling': l.callCalling,
   'callConnecting': l.callConnecting,
@@ -1718,6 +1726,7 @@ const messagePlaceholders = <String, List<String>>{
   'notifYesterday': ['clock'],
   'phoneCountryCode': ['country', 'dial'],
   'errTooManyWrongCodes': ['button'],
+  'accountPausedUntil': ['date'],
   'cancelCostsNow': ['amount'],
   'cancelFreeMinutes': ['minutes'],
   'freeWaitingLeft': ['time'],
@@ -2211,6 +2220,22 @@ class _Exhaustive implements AppLocalizations {
   String get previewBanner => '';
   @override
   String get previewNotSent => '';
+  @override
+  String get dontMatchDriverAgain => '';
+  @override
+  String get accountPausedTitle => '';
+  @override
+  String get accountBlockedTitle => '';
+  @override
+  String get moderationWarningTitle => '';
+  @override
+  String accountPausedUntil(String date) => '';
+  @override
+  String get accountStatusBody => '';
+  @override
+  String get accountStatusContactSupport => '';
+  @override
+  String get accountStatusSignOut => '';
   @override
   String get callFailed => '';
   @override

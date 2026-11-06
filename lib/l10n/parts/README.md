@@ -12,7 +12,7 @@ result. CI (`python3 tool/l10n_parts.py --check`) and
 `test/l10n/l10n_parts_test.dart` fail when an ARB differs from its parts.
 
 Areas: app, account, cancel, general, legal, payments, reservations, ride,
-ride_check, safety, saved_places, search, status_words (written by
+blocked_pairs (fix job 10), ride_check, safety, saved_places, search, status_words (written by
 `tool/gen_status_words.py`), support. Pick the area of the screen the text is
 on; `general` is for texts shared by many screens. A new area is a new
 `<area>.en.arb`, `<area>.fr.arb` and `<area>.sv.arb` with the same keys.

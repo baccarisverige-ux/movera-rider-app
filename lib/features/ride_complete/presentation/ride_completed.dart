@@ -1,4 +1,5 @@
 import 'package:movera_rider/features/favourites/favourite_drivers.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -297,6 +298,8 @@ class _RideCompletedState extends State<RideCompleted> {
             tipMinor: _tipMinor,
             tags: _feedback?.tags ?? const <String>[],
             comment: _feedback?.sentComment,
+            dontMatchAgain:
+                !_ratingSaved && (_feedback?.dontMatchAgain ?? false),
             idempotencyKey: _feedbackMutation.keyFor(feedbackIntent),
           );
           _acceptedFeedbackIntent = feedbackIntent;
