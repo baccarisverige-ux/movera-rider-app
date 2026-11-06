@@ -1,0 +1,10 @@
+{
+  "dontMatchDriverAgain": "Matcha mig inte med den här föraren igen",
+  "accountPausedTitle": "Ditt konto är pausat",
+  "accountBlockedTitle": "Ditt konto är spärrat",
+  "moderationWarningTitle": "Varning från Movera",
+  "accountPausedUntil": "Pausat till {date}",
+  "accountStatusBody": "Du kan inte boka resor just nu. Kontakta support om du har frågor.",
+  "accountStatusContactSupport": "Kontakta support",
+  "accountStatusSignOut": "Logga ut"
+}

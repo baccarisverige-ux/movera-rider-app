@@ -1,4 +1,6 @@
-# Movera shared contract v0.18.41
+# Movera shared contract v0.18.43
+
+v0.18.43 (fix job 10 "rider block levels + never match pair", Rules `plan/FIX-JOBS-8-9-10-PLAN-2026-11-05.md`, owner G16 Q16-4 and G15 2026-11-05: block told → "Never told", undo own block → "No, only Support"; builds on v0.18.41 main; X-Api-Version stays `0.5`, additive; server migration 0087): a **blocked pair** (rider + driver) is never matched again — no Exclusive, Radar, airport-queue, admin money or on-trip offer, and the booked ride is not listed to that driver. The rider and the driver can tick **Don't match me with this driver/rider again** on a rating of at most `CountryRules.dontMatchAgain.atStars` (1) stars; the other side is **never told**; only **Support** undoes it. Admin › Trips › Block this pair; rider and driver pages list the pairs with Undo. The rider app shows the A2 levels (warning banner, paused screen with date, blocked screen). §64, `contract.json#blockedPairs`.
 
 v0.18.41 (fix plan A14 "stop route line", proven cause, Rules `plan/FIX-PLAN-RERUN-2026-11-05.md` A14, boss Decision 8; builds on v0.18.39 main; X-Api-Version stays `0.5`, additive, no migration): **`POST /routes` takes optional `via`** (the stops, up to 10) and routes `[from, ...via, to]` with the same router as quotes; the rider's Select ride and Finding drivers maps draw the road line through every stop ("Approximate route" when a leg has no road), never pickup → destination. See §66 and `contract.json#routeVia`.
 
@@ -1269,6 +1271,18 @@ Owner N2 (2026-11-05): "'No driver nearby' after 5 min" — an admin setting per
 - **Re-ask limit** (`DispatchDocument.reaskLimit`, default 2, 1–5, Admin › Dispatch): a driver who declined or let run out that many offers of the trip in this search is not asked again in it (withdrawn offers do not count).
 - **P17** (`DriverAppConfig.reservations.noDriverStopAfterMin`, default 15): a booked ride with no driver at pickup + 15 min is expired by the server, no fee (nothing is charged at booking today: cash only, a wallet part is only reserved), `reservation.noDriverFound` true, searchStep `no_driver_found`, rider push `reservation_no_driver_found`, admin alert `booked_no_driver_ended`.
 - **Driver app**: no change. **Several server copies (rule 33)**: durable timers in the database, handled with the trip row locked; state in the searches row; counts from the offers table.
+
+## 64. Never match a pair, rider level screens — fix job 10 (v0.18.43)
+
+Owner G16 Q16-4 (rider/driver "don't match again"), G15 2026-11-05: the other side → "Never told"; undo own block → "No, only Support". Full rules: `contract.json#blockedPairs`.
+
+- **BlockedPair** `{ pairId, riderId, driverId, by: admin | rider | driver, reason?, tripId?, at, adminId? }`; one active pair per rider + driver.
+- **Dispatch**: a pair is never offered — Exclusive, Radar, airport queue, admin money offer, on-trip next trip — and a booked ride is neither listed to nor claimable by that driver. The search goes on as if the driver were not there.
+- **Rating**: `RatingRequest.dontMatchAgain: true` only with stars ≤ `CountryRules.dontMatchAgain.atStars` (default 1, range 1–2) while `on` (default true); else `400 invalid_body`, reason `dont_match_not_allowed`, nothing saved. The pair is written with the rating; the answer is unchanged.
+- **Never told**: no event, push, field or count shows the block to the other side. Only admins see pairs.
+- **Admin**: `POST /admin/trips/{tripId}/block-pair { reason? }` (riders.block; 409 `no_driver` without a driver), `DELETE /admin/blocked-pairs/{pairId}` (riders.block, Support undo, the only undo), `GET /admin/blocked-pairs?riderId=|driverId=` (riders.read). Audit `blocked_pair.add` / `blocked_pair.remove`. Setting: Pricing › Tips & limits › Don't match again (per country).
+- **Apps**: `RiderAppConfig.dontMatchAgain` / `DriverAppConfig.dontMatchAgain` (served from CountryRules): the tick shows only at ≤ atStars. Rider app also shows the v0.18.29 levels: warning banner on Home, paused screen (reason, end date, Contact support, Sign out), blocked screen (no date). The driver app shows nothing about a block.
+- **Rule 33**: state only in `blocked_pairs` (partial unique index, insert ON CONFLICT DO NOTHING); every dispatch path reads it in the same query round.
 
 ## 65. Admin live drivers, paged — fix plan A8/A10 (v0.18.34)
 
