@@ -135,8 +135,10 @@ void main() {
       expect(paused.blocksRiding, isTrue);
       expect(paused.until, DateTime.utc(2026, 11, 13, 10));
       expect(
-        RiderModeration.fromJson({'level': 'warning', 'reason': 'x'})
-            .blocksRiding,
+        RiderModeration.fromJson({
+          'level': 'warning',
+          'reason': 'x',
+        }).blocksRiding,
         isFalse,
       );
       expect(
