@@ -41,7 +41,6 @@ jobs:
           MOVERA_RELEASE_KEY_ALIAS: ${{ secrets.MOVERA_RELEASE_KEY_ALIAS }}
           MOVERA_RELEASE_KEY_PASSWORD: ${{ secrets.MOVERA_RELEASE_KEY_PASSWORD }}
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
-          MOVERA_TEST_NUMBERS: ${{ secrets.MOVERA_TEST_NUMBERS }}
           RIDER_MAP_ID: ${{ vars.RIDER_MAP_ID || '9fdc5d9e56d4a0916c77a424' }}
           LIVE_API: https://movera-server.onrender.com
           BUILD_NUMBER: ${{ github.run_number }}
@@ -65,8 +64,7 @@ jobs:
             --dart-define=MOVERA_API_BASE_URL="$LIVE_API" \
             --dart-define=MOVERA_AUTH_REQUIRED=true \
             --dart-define=MOVERA_APP_VERSION="$app_version" \
-            --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID" \
-            --dart-define=MOVERA_TEST_NUMBERS="$MOVERA_TEST_NUMBERS"
+            --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID"
           apk=build/app/outputs/flutter-apk/app-release.apk
           test -f "$apk"
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
