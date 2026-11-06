@@ -1,3 +1,4 @@
+import 'package:movera_rider/features/account_status/domain/rider_moderation.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
@@ -254,6 +255,9 @@ class SyncedProfileRepository
     if (server is Map) {
       // v0.18.7 (Q3): what the rider owes, per currency.
       RiderOutstanding.current.value = RiderOutstanding.fromRider(server);
+      // v0.18.40 §64 (fix job 10): the rider's level (warning / paused /
+      // banned) from Rider.moderation.
+      RiderModeration.current.value = RiderModeration.fromRider(server);
       _version = _versionOf(server) ?? _version;
       final language = server['language'];
       _accountLanguage =

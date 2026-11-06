@@ -23,6 +23,7 @@ class RideFeedbackRepository {
     List<String> tags = const <String>[],
     String? comment,
     String tipMethod = 'cash',
+    bool dontMatchAgain = false,
     required String idempotencyKey,
   }) async {
     if (rideId.trim().isEmpty) throw ArgumentError.value(rideId, 'rideId');
@@ -62,6 +63,8 @@ class RideFeedbackRepository {
             'stars': rating.round(),
             if (tags.isNotEmpty) 'tags': tags,
             if (note != null && note.isNotEmpty) 'comment': note,
+            // Fix job 10 (v0.18.40 §64): only when ticked.
+            if (dontMatchAgain) 'dontMatchAgain': true,
           },
           idempotencyKey: idempotencyKey,
         );

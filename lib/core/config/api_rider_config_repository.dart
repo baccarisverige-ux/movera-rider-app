@@ -1,3 +1,5 @@
+import 'package:movera_rider/features/ratings/domain/dont_match_again.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -113,6 +115,8 @@ class ApiRiderConfigRepository extends ChangeNotifier
       final raw = await _api.get('$path?zoneId=${Uri.encodeComponent(zoneId)}');
       final parsed = RiderAppConfig.fromJson(raw, fallback: _seed(zoneId));
       if (parsed == null) throw const FormatException('not a RiderAppConfig');
+      // v0.18.40 §64 (fix job 10): the 1-star "don't match again" tick.
+      DontMatchAgain.current = DontMatchAgain.fromJson(raw['dontMatchAgain']);
       // G7 live fix: the served document of the same version may differ
       // (the server copies the zone's driver document settings, e.g.
       // `routeChange`, and live prices into it without a new rider

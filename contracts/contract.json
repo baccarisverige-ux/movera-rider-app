@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.39",
+  "version": "0.18.40",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -3674,6 +3674,10 @@
       "maxCallMin": 15,
       "adminCallRoles": [],
       "phoneProvider": "none"
+    },
+    "dontMatchAgain": {
+      "on": true,
+      "atStars": 1
     }
   },
   "realtime": {
@@ -8097,5 +8101,47 @@
         240
       ]
     }
+  },
+  "blockedPairs": {
+    "note": "v0.18.40 §64 (fix job 10, Rules plan/FIX-JOBS-8-9-10-PLAN-2026-11-05.md; owner G16 Q16-4 and G15 2026-11-05: block told → 'Never told', undo own block → 'No, only Support'). Builds on v0.18.39 main. X-Api-Version stays 0.5; additive; server migration 0087 (blocked_pairs).",
+    "pair": "BlockedPair { pairId, riderId, driverId, by: admin|rider|driver, reason?, tripId?, at, adminId? }: this rider and this driver are never matched again. One active pair per rider + driver (a second block of the same pair answers the pair that exists).",
+    "by": [
+      "admin",
+      "rider",
+      "driver"
+    ],
+    "dispatch": "A blocked pair is never offered: no Exclusive, no Radar, no airport-queue offer, no admin money offer, no on-trip next trip, and the booked ride is not listed to that driver in Scheduled rides nor claimable by him. The search goes on with the other drivers exactly as if that driver were not there; with nobody else it goes on as 'no driver' (no special step, no message).",
+    "rating": "POST /trips/{tripId}/rating may carry dontMatchAgain: true (rider and driver). Allowed only with stars ≤ CountryRules.dontMatchAgain.atStars (default 1) while dontMatchAgain.on (default true); otherwise 400 invalid_body, reason dont_match_not_allowed, and nothing is saved. With it the server writes the pair (by = the rater) in the same transaction as the rating. The answer is the same Rating as without it.",
+    "neverTold": "The other side is never told (owner 'Never told'): no event, push, notice, field or count shows a block to the rider or driver who was blocked; the trip, offer and profile projections are unchanged. Only admins see pairs.",
+    "undo": "Only Support undoes a pair (owner 'No, only Support'): DELETE /admin/blocked-pairs/{pairId} (riders.block, audit blocked_pair.remove). The apps have no undo and no list.",
+    "admin": "POST /admin/trips/{tripId}/block-pair { reason? } (riders.block, Idempotency-Key, audit blocked_pair.add) blocks the trip's rider and driver (by admin); 409 invalid_transition, reason no_driver, when the trip has no driver. GET /admin/blocked-pairs?riderId=|driverId= (riders.read) lists the active pairs of one person, newest first. Admin › Trips › trip page: Block this pair; Admin › Rider and Admin › Driver pages: Blocked pairs with Undo.",
+    "settings": {
+      "where": "CountryRules.dontMatchAgain { on, atStars } per country (Admin › Pricing › Tips & limits › Don't match again). The server serves the same block as RiderAppConfig.dontMatchAgain and DriverAppConfig.dontMatchAgain (GET /rider/config, /driver/config) so both apps show the tick only when it is allowed.",
+      "ranges": {
+        "atStars": [
+          1,
+          2
+        ]
+      }
+    },
+    "apps": {
+      "tick": "Both rating screens show one tick under the stars only while the chosen stars ≤ atStars and on: rider 'Don't match me with this driver again', driver 'Don't match me with this rider again'. Unticked by default; raising the stars above atStars clears it. After sending nothing else changes on screen.",
+      "riderText": {
+        "sv": "Matcha mig inte med den här föraren igen",
+        "fr": "Ne plus me proposer ce chauffeur",
+        "en": "Don't match me with this driver again"
+      },
+      "driverText": {
+        "sv": "Matcha mig inte med den här kunden igen",
+        "fr": "Ne plus me proposer ce client",
+        "en": "Don't match me with this rider again"
+      }
+    },
+    "riderLevels": "The rider app shows the riderModeration levels (v0.18.29): warning = a banner 'Warning from Movera' with the reason on Home (GET /rider/profile Rider.moderation); paused = a full screen 'Your account is paused' with the reason and the end date (moderation.until), Contact support and Sign out; banned = the same screen 'Your account is blocked' without a date. The screen opens from Rider.moderation and from any 403 account_suspended (its projection). The driver app shows nothing new.",
+    "reasons": [
+      "dont_match_not_allowed",
+      "no_driver"
+    ],
+    "rule33": "State lives only in blocked_pairs (partial unique index on rider_id + driver_id where removed_at is null; inserts are ON CONFLICT DO NOTHING); every dispatch path reads it in the same query round, so any server copy gives the same answer."
   }
 }
