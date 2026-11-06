@@ -1,4 +1,5 @@
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/location/picked_places.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/destination_search/domain/place_suggestion.dart';
 
@@ -35,10 +36,18 @@ class PlaceSuggestionRepository {
       );
       final list = body['suggestions'];
       if (list is! List) return const [];
-      return list
+      final suggestions = list
           .map(PlaceSuggestion.fromJson)
           .whereType<PlaceSuggestion>()
           .toList();
+      // v0.18.42 §67: the label the rider may pick, with its place id, so
+      // the geocode of that label is asked by place id and keeps the name.
+      for (final s in suggestions) {
+        if (s.placeId case final id?) {
+          PickedPlaces.shared.remember(s.address, id);
+        }
+      }
+      return suggestions;
     } catch (error) {
       throw PlaceSuggestionsUnavailable(error);
     }

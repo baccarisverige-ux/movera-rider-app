@@ -1549,6 +1549,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'searchStepAnswerFailed': l.searchStepAnswerFailed,
   'searchStepNoDriverNearby': l.searchStepNoDriverNearby,
   'searchStepNoDriverFound': l.searchStepNoDriverFound,
+  'dropoffTooClose': l.dropoffTooClose,
   'swTripStatusDraft': l.swTripStatusDraft,
   'swTripStatusQuoted': l.swTripStatusQuoted,
   'swTripStatusRequested': l.swTripStatusRequested,
@@ -5012,6 +5013,8 @@ class _Exhaustive implements AppLocalizations {
   String get searchStepNoDriverNearby => '';
   @override
   String get searchStepNoDriverFound => '';
+  @override
+  String get dropoffTooClose => '';
   @override
   String get swTripStatusDraft => '';
   @override

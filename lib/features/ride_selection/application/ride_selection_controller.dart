@@ -154,6 +154,10 @@ class RideSelectionController {
   /// open zone (`403 forbidden service_not_available`).
   bool notServed = false;
 
+  /// v0.18.42 §67: the server refused the route with dropoff_too_close (the
+  /// drop-off is closer to the pickup than the zone's minTripMeters).
+  bool dropoffTooClose = false;
+
   /// Rides whose quote ran out: until a new one lands they have no price
   /// to show, and their list price is never taken as the fare
   /// (rider-u185, P4).
@@ -499,6 +503,7 @@ class RideSelectionController {
   }) async {
     usedFallback = false;
     notServed = false;
+    dropoffTooClose = false;
     final catalog = rides();
     if (catalog.isEmpty) return;
     // rider-r4-29: a category the catalog no longer offers keeps no quote;
@@ -568,6 +573,7 @@ class RideSelectionController {
       if (generation != _quoteGeneration) return;
       if (error is QuoteCategoryNotOffered) notOfferedIds.add(rideId);
       if (isNotServedError(error)) notServed = true;
+      if (isDropoffTooCloseError(error)) dropoffTooClose = true;
       offeredPrices.remove(rideId);
       quoteIds.remove(rideId);
       quoteExpiresAt.remove(rideId);
@@ -890,3 +896,10 @@ bool isNotServedError(Object error) =>
     error is ApiError &&
     error.statusCode == 403 &&
     error.detail == 'service_not_available';
+
+/// v0.18.42 §67 (contract.json#sameAddress): `400 invalid_request` reason
+/// `dropoff_too_close`.
+bool isDropoffTooCloseError(Object error) =>
+    error is ApiError &&
+    error.statusCode == 400 &&
+    error.detail == 'dropoff_too_close';

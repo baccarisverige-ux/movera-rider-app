@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/location/geocoding_repository.dart';
+import 'package:movera_rider/core/location/picked_places.dart';
 import 'package:movera_rider/core/location/web_reverse_geocode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -135,17 +136,28 @@ class AppGeocoding implements GeocodingRepository {
 
   Future<PlaceResult?> _forwardFromApi(String query) async {
     final api = _requireApi();
+    final placeId = PickedPlaces.shared.placeIdFor(query);
     final response = await _onceMore(
       () => api
-          .post('/api/v1/locations/geocode', body: {'query': query})
+          .post(
+            '/api/v1/locations/geocode',
+            body: {'query': query, if (placeId != null) 'placeId': placeId},
+          )
           .timeout(requestTimeout),
     );
     final data = _payload(response);
     final latitude = data['latitude'];
     final longitude = data['longitude'];
     if (latitude is! num || longitude is! num) return null;
+    final address = data['address'];
     return PlaceResult(
-      address: data['address'] as String? ?? query,
+      // v0.18.42 §67 (proven same-address cause): a picked suggestion keeps
+      // the label the rider chose ("Solna Centrum, Solnavägen, …"); the
+      // server's address is that place's street address and only names a
+      // typed query.
+      address: placeId != null
+          ? query
+          : (address is String && address.trim().isNotEmpty ? address : query),
       point: GeoPoint(latitude.toDouble(), longitude.toDouble()),
     );
   }

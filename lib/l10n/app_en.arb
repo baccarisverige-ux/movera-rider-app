@@ -3255,6 +3255,8 @@
   "@searchStepNoDriverNearby": {"description": "v0.18.39 §63 (owner N2): the search step no_driver_nearby, shown once; the search goes on (Keep waiting / Cancel free)"},
   "searchStepNoDriverFound": "No driver was found for your booked ride. You pay nothing.",
   "@searchStepNoDriverFound": {"description": "v0.18.39 §63 (P17): a booked ride the server ended with no driver at pickup + 15 min; no fee"},
+  "dropoffTooClose": "Drop-off is too close to pickup",
+  "@dropoffTooClose": {"description": "v0.18.42 §67 (same-address fix, boss answer decisions/driver-g15.md): the server refused the quote with dropoff_too_close (drop-off closer than the zone's minTripMeters, default 300 m); the rider stays on the destination step"},
   "swTripStatusDraft": "Draft",
   "@swTripStatusDraft": {"description": "Contract status word statusWords.families.tripStatus.draft (tool/gen_status_words.py)."},
   "swTripStatusQuoted": "Quoted",
