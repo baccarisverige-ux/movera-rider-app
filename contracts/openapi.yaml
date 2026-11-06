@@ -1,11 +1,11 @@
-# Movera API v0.18.45 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.47 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.45
+  version: 0.18.47
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.45 in this folder; this file must agree with them.
+    v0.18.47 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.45
+  version: 0.18.47
   source: contract.json
 paths:
   /auth/otp/request:
@@ -16129,10 +16129,14 @@ paths:
                   alert desk. Optional query zoneId / zoneIds / country narrows the stream inside the admin''s own zones (contract.json#adminListFilters
                   rules: a named zone outside them is 403 zone_out_of_scope). An admin without a type''s permission never
                   gets that type. Country managers (roles/zones job) are scoped by the same zone list; nothing on this stream
-                  changes when that job lands. `after` query or the Last-Event-ID header: the stream starts with every event
-                  after that sequence (in scope), then goes live. Events are kept retentionHours; an older cursor gets one
-                  `resync` event first, then live events. Each SSE `data:` line is one JSON AdminLiveEvent; `id:` is the sequence;
-                  heartbeat comments every 15 s.'
+                  changes when that job lands. v0.18.47 (503 fix, Rules plan/FIX-503-ADMIN-BURST-2026-11-06.md): a stream
+                  WITHOUT a cursor (no `after` query, no Last-Event-ID header) starts FROM NOW: no old events and no resync;
+                  the panel reads every list when a page opens. With a cursor: the stream starts with the events after it
+                  (in scope), then goes live; when more than replayMax events are after it, the stream sends ONE `resync`
+                  (id = the cursor it came with) and continues from the newest event instead. Events are kept retentionHours;
+                  an older cursor gets one `resync` event first, then live events. The JSON page (no text/event-stream) is
+                  unchanged: it pages from `after` (default 0). Each SSE `data:` line is one JSON AdminLiveEvent; `id:` is
+                  the sequence; heartbeat comments every 15 s.'
               x-sse-data: '#/components/schemas/AdminLiveEvent'
             application/json:
               schema:

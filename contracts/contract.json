@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.45",
+  "version": "0.18.47",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -7434,7 +7434,7 @@
       },
       "resync": {
         "permission": "overview.read",
-        "when": "the cursor is older than the kept events (retentionHours): the panel reloads every live list once; entityId = the admin's id, zoneId null"
+        "when": "the cursor is older than the kept events (retentionHours), or more than replayMax events are after it (v0.18.47): the panel reloads every live list once; entityId = the admin's id, zoneId null"
       }
     },
     "scope": [
@@ -7443,7 +7443,7 @@
       "An admin without a type's permission never gets that type.",
       "Country managers (roles/zones job) are scoped by the same zone list; nothing on this stream changes when that job lands."
     ],
-    "replay": "`after` query or the Last-Event-ID header: the stream starts with every event after that sequence (in scope), then goes live. Events are kept retentionHours; an older cursor gets one `resync` event first, then live events.",
+    "replay": "v0.18.47 (503 fix, Rules plan/FIX-503-ADMIN-BURST-2026-11-06.md): a stream WITHOUT a cursor (no `after` query, no Last-Event-ID header) starts FROM NOW: no old events and no resync; the panel reads every list when a page opens. With a cursor: the stream starts with the events after it (in scope), then goes live; when more than replayMax events are after it, the stream sends ONE `resync` (id = the cursor it came with) and continues from the newest event instead. Events are kept retentionHours; an older cursor gets one `resync` event first, then live events. The JSON page (no text/event-stream) is unchanged: it pages from `after` (default 0).",
     "retentionHours": 24,
     "limits": {
       "maxStreamsPerAdmin": 5,
@@ -7517,7 +7517,10 @@
       "reconnect": "EventSource reconnects by itself with Last-Event-ID. While it is not open the panel shows a small 'Reconnecting…' badge (owner L1 a) and refreshes the live lists every fallbackPollSeconds; never a big warning banner.",
       "badgeText": "Reconnecting…"
     },
-    "apps": "Rider and driver apps: no change (they use their own trip / offer / config streams). RULE 0 check only."
+    "apps": "Rider and driver apps: no change (they use their own trip / offer / config streams). RULE 0 check only.",
+    "replayMax": 500,
+    "replayNote": "v0.18.47 proven cause: on staging every new admin stream (page open, sign-in, reload) replayed the last 24 h, 5571 events in 5 s, and the panel reloaded lists for each: the database pool filled (20/20, 204 waiting) and the server shed requests with 503.",
+    "rule33": "The cursor and the stream start are database sequences of the one admin_live_events table, so a Last-Event-ID from one server copy is valid on every copy; each copy LISTENs once and reads the newest sequence from the database when a stream opens; no shared in-memory state."
   },
   "rateLimit": {
     "version": "0.18.24",

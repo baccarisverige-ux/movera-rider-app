@@ -1,4 +1,6 @@
-# Movera shared contract v0.18.45
+# Movera shared contract v0.18.47
+
+v0.18.47 (503 fix, proven cause, Rules `plan/FIX-503-ADMIN-BURST-2026-11-06.md`, owner "Build both rules"; X-Api-Version stays `0.5`, no migration; 0.18.46 stays reserved for G12): **`GET /admin/events` without a cursor starts from now; a cursor with more than `replayMax` (500) unseen events gets one `resync` instead of the backlog.** §69.
 
 v0.18.45 (L-a driver booked rides live, Rules `plan/LA-BUILD-PLAN-2026-11-06.md` §1, owner Q7 "Live push" in `decisions/driver-g15.md`; X-Api-Version stays `0.5`, additive, no migration): **`GET /driver/config/stream` also carries `driver_reservations_changed`** `{ eventId, kind, tripId, occurredAt, serverTime }`, a hint only: the driver app re-reads `GET /driver/reservations` (open + accepted) at sign-in, on every reconnect and on this event (debounce: at most 1 re-read per 2 s). Also fixes the §67 note typo ("renumbered from 0.18.42"). See §68 and `contract.json#driverReservationsLive`.
 
@@ -1317,3 +1319,12 @@ Proven cause (rule 36, rider-app main 10f17471, server main 129d148): (1) the ri
 - **When**: a trip with `scheduledAt` in the stream's zone changes (created, accepted, released, cancelled, rescheduled, started), or the trip names this driver. A now-ride sends nothing. Only after commit; a rolled-back change sends nothing.
 - **App**: re-read at sign-in, on every reconnect and on the event; debounce bursts (≤ 1 re-read per 2 s); demo rides cleared at sign-in.
 - **Rule 33**: one LISTEN per server copy on `movera_trip_events`, each copy fans out to its own streams; no shared memory. `contract.json#driverReservationsLive`.
+
+## 69. Admin live updates — replay limit (v0.18.47)
+
+- **Proven cause**: every new admin stream without a cursor (page open, sign-in, reload) replayed the last 24 h (5571 events in 5 s on staging); the panel reloaded lists for each event; the database pool filled (20/20, 204 waiting) and the server answered 503 (load shed). Rules `plan/FIX-503-ADMIN-BURST-2026-11-06.md`.
+- **No cursor** (no `after`, no `Last-Event-ID`) on the SSE stream: start **from now** — no old events, no `resync`. The panel reads every list when a page opens.
+- **With a cursor**: the unseen events after it, then live. More than **`replayMax` = 500** unseen: **one `resync`** (its id = the cursor it came with), then live from the newest event. A cursor older than the kept events: one `resync` as before.
+- **JSON page** (not `text/event-stream`): unchanged, pages from `after` (default 0).
+- **Rule 33**: cursor and start are sequences of the one `admin_live_events` table; a Last-Event-ID from one server copy is valid on every copy; each copy LISTENs once; no shared memory. `contract.json#adminLiveEvents.replay` / `replayMax` / `rule33`.
+- **Apps**: admin — no change needed (a null cursor already meant "from now"; live events are batched, admin #249). Rider and driver apps — no change (they do not use this stream).
