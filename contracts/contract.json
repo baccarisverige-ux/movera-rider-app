@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.43",
+  "version": "0.18.44",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -3782,7 +3782,7 @@
       "unavailable",
       "internal"
     ],
-    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit). v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons)."
+    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit). v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.44 reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress)."
   },
   "headers": {
     "Idempotency-Key": "required on every mutation, 16–128 chars",
@@ -8149,5 +8149,26 @@
       "no_driver"
     ],
     "rule33": "State lives only in blocked_pairs (partial unique index on rider_id + driver_id where removed_at is null; inserts are ON CONFLICT DO NOTHING); every dispatch path reads it in the same query round, so any server copy gives the same answer."
+  },
+  "sameAddress": {
+    "note": "v0.18.44 §67 (Rules plan/FIX-PLAN-RERUN-2026-11-05.md 'Proof: same-address booking', proven cause; boss answers decisions/driver-g15.md 2026-11-05; boss Decisions 10 and 12; owner Q9 v0.18.30 'Warn him but can accept booking' overrides the boss 300 m default, so the refusal is OFF by default). Builds on v0.18.43 main (renumbered from 0.18.44, Decision 13). Additive; X-Api-Version stays 0.5; no migration (minTripMeters lives in the zone's pricing document JSON); stateless (rule 33).",
+    "geocode": "POST /locations/geocode: an app resolving a picked suggestion sends its placeId (and the text as query). The server resolves by placeId and answers name, the place's own name (e.g. 'Solna Centrum'), next to address (the provider's formatted street address). name is absent for a typed address with no placeId.",
+    "label": "The trip's pickup/dropoff/stop address is the label the rider chose: the suggestion's title + ', ' + subtitle (or the geocode name when the suggestion had no title). The app never replaces a chosen label by the geocode address; address only fills a label that is missing. The driver app and the admin panel show that same trip address text (no change of field).",
+    "minTripMeters": {
+      "default": 0,
+      "range": [
+        0,
+        5000
+      ],
+      "where": "pricing document (zone pricing, admin Pricing page): minTripMeters, integer metres; missing = default 0 (off, owner Q9: warn but can book); an admin turns it on per zone",
+      "measure": "straight line (haversine) pickup -> drop-off; a trip with one or more stops is not checked (a round trip through a stop is a real trip)"
+    },
+    "refuse": "POST /quotes and POST /trips refuse a drop-off closer than minTripMeters to the pickup: 400 invalid_request, reason dropoff_too_close, details ['meters=<n>', 'limitMeters=<m>']. /trips re-checks with the zone's live value (the admin may have raised it since the quote). The older samePointWarnMeters warning (v0.18.30) still applies above the limit. Off by default (owner Q9).",
+    "riderText": {
+      "en": "Drop-off is too close to pickup",
+      "sv": "Avlämningen är för nära upphämtningen",
+      "fr": "Le point de dépose est trop proche du point de prise en charge"
+    },
+    "apps": "Rider: keeps the chosen name, sends placeId, and on dropoff_too_close shows riderText and stays on the destination step. Driver: shows the trip's address (now the chosen name) on the offer and trip screens. Admin: the minTripMeters setting (0-5000 m, default 0 = off) on the zone pricing page."
   }
 }

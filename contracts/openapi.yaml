@@ -1,11 +1,11 @@
-# Movera API v0.18.43 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.44 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.43
+  version: 0.18.44
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.43 in this folder; this file must agree with them.
+    v0.18.44 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.43
+  version: 0.18.44
   source: contract.json
 paths:
   /auth/otp/request:
@@ -523,14 +523,18 @@ paths:
         currency. A rider who owes 100 kr from Stockholm is quoted in Paris without it (never +100 €); the debt waits for
         the next Swedish trip. The server sums the owed fees per currency: a quote and the fare of the next trip carry outstanding_fee
         = the owed fees in the pricing document''s currency (FareLine.sourceTripId = the oldest of them); a paid cash trip
-        settles only owed fees of its own currency, oldest first. v0.18.9: POST /quotes, POST /trips and POST /trips/{tripId}/route-quote
-        with more stops → 400 invalid_request, reason too_many_stops, details ["maxStops=N"]. v0.18.17: Q1: POST /quotes and
-        POST /trips with kind=scheduled refuse a pickup less than minAheadMin minutes ahead (400 invalid_request, reason booking_too_soon)
-        or more than maxAheadDays days ahead (reason booking_too_far), from the zone''s live driver document. RiderAppConfig.booking.minAheadMin,
-        maxAheadDays and freeChangeBeforeMin are written by the server from the same zone''s DriverAppConfig.reservations
-        when it serves the rider document (one source). A booked ride whose route is longer than maxTripKm km (default null
-        = no limit, owner BL-Q5; the demo admin''s ''Max Trip Distance (Reservations)'' setting) is refused at quote: 400
-        invalid_request, reason trip_too_long (live rides are not limited by it).'
+        settles only owed fees of its own currency, oldest first. v0.18.44 §67: POST /quotes and POST /trips refuse a drop-off
+        closer than minTripMeters to the pickup: 400 invalid_request, reason dropoff_too_close, details [''meters=<n>'', ''limitMeters=<m>''].
+        /trips re-checks with the zone''s live value (the admin may have raised it since the quote). The older samePointWarnMeters
+        warning (v0.18.30) still applies above the limit. Off by default (owner Q9). v0.18.9: POST /quotes, POST /trips and
+        POST /trips/{tripId}/route-quote with more stops → 400 invalid_request, reason too_many_stops, details ["maxStops=N"].
+        v0.18.17: Q1: POST /quotes and POST /trips with kind=scheduled refuse a pickup less than minAheadMin minutes ahead
+        (400 invalid_request, reason booking_too_soon) or more than maxAheadDays days ahead (reason booking_too_far), from
+        the zone''s live driver document. RiderAppConfig.booking.minAheadMin, maxAheadDays and freeChangeBeforeMin are written
+        by the server from the same zone''s DriverAppConfig.reservations when it serves the rider document (one source). A
+        booked ride whose route is longer than maxTripKm km (default null = no limit, owner BL-Q5; the demo admin''s ''Max
+        Trip Distance (Reservations)'' setting) is refused at quote: 400 invalid_request, reason trip_too_long (live rides
+        are not limited by it).'
       tags:
       - Rider · Booking
       x-actor:
@@ -616,22 +620,25 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
-      description: ' v0.18.9: POST /quotes, POST /trips and POST /trips/{tripId}/route-quote with more stops → 400 invalid_request,
-        reason too_many_stops, details ["maxStops=N"]. v0.18.10: POST /trips (the trip''s paymentMethod, in the quote''s zone;
-        POST /quotes only records it): a method the admin turned off in that zone → 400 invalid_request, reason payment_method_off;
-        on in admin but not taken by the server → 400 invalid_request, reason payment_method_coming_soon; anything else (google_pay,
-        wallet, unknown) → 400 invalid_request, reason payment_method_not_available. The app shows texts[reason] and goes
-        back to the payment choice, never a silent fail. Changing the method of a booked trip stays unavailable (PATCH answers
-        route_change_not_available, as before). v0.18.17: Q1: POST /quotes and POST /trips with kind=scheduled refuse a pickup
-        less than minAheadMin minutes ahead (400 invalid_request, reason booking_too_soon) or more than maxAheadDays days
-        ahead (reason booking_too_far), from the zone''s live driver document. RiderAppConfig.booking.minAheadMin, maxAheadDays
-        and freeChangeBeforeMin are written by the server from the same zone''s DriverAppConfig.reservations when it serves
-        the rider document (one source). A booked ride whose route is longer than maxTripKm km (default null = no limit, owner
-        BL-Q5; the demo admin''s ''Max Trip Distance (Reservations)'' setting) is refused at quote: 400 invalid_request, reason
-        trip_too_long (live rides are not limited by it). Q4 ''Charge at booking'': a scheduled trip paid by card or apple_pay
-        is charged the full price when it is booked (Trip.paymentStatus captured at POST /trips); a free cancel refunds it.
-        Card payments are still ''coming soon'' on live (POST /trips answers payment_method_coming_soon), so nothing is charged
-        until the payment company is connected; the rule is in place for then.'
+      description: 'v0.18.44 §67: POST /quotes and POST /trips refuse a drop-off closer than minTripMeters to the pickup:
+        400 invalid_request, reason dropoff_too_close, details [''meters=<n>'', ''limitMeters=<m>'']. /trips re-checks with
+        the zone''s live value (the admin may have raised it since the quote). The older samePointWarnMeters warning (v0.18.30)
+        still applies above the limit. Off by default (owner Q9). v0.18.9: POST /quotes, POST /trips and POST /trips/{tripId}/route-quote
+        with more stops → 400 invalid_request, reason too_many_stops, details ["maxStops=N"]. v0.18.10: POST /trips (the trip''s
+        paymentMethod, in the quote''s zone; POST /quotes only records it): a method the admin turned off in that zone → 400
+        invalid_request, reason payment_method_off; on in admin but not taken by the server → 400 invalid_request, reason
+        payment_method_coming_soon; anything else (google_pay, wallet, unknown) → 400 invalid_request, reason payment_method_not_available.
+        The app shows texts[reason] and goes back to the payment choice, never a silent fail. Changing the method of a booked
+        trip stays unavailable (PATCH answers route_change_not_available, as before). v0.18.17: Q1: POST /quotes and POST
+        /trips with kind=scheduled refuse a pickup less than minAheadMin minutes ahead (400 invalid_request, reason booking_too_soon)
+        or more than maxAheadDays days ahead (reason booking_too_far), from the zone''s live driver document. RiderAppConfig.booking.minAheadMin,
+        maxAheadDays and freeChangeBeforeMin are written by the server from the same zone''s DriverAppConfig.reservations
+        when it serves the rider document (one source). A booked ride whose route is longer than maxTripKm km (default null
+        = no limit, owner BL-Q5; the demo admin''s ''Max Trip Distance (Reservations)'' setting) is refused at quote: 400
+        invalid_request, reason trip_too_long (live rides are not limited by it). Q4 ''Charge at booking'': a scheduled trip
+        paid by card or apple_pay is charged the full price when it is booked (Trip.paymentStatus captured at POST /trips);
+        a free cancel refunds it. Card payments are still ''coming soon'' on live (POST /trips answers payment_method_coming_soon),
+        so nothing is charged until the payment company is connected; the rule is in place for then.'
   /trips/{tripId}:
     get:
       operationId: getTrip
@@ -9725,7 +9732,10 @@ paths:
     post:
       operationId: geocodeAddress
       summary: Coordinates for an address or a suggestion
-      description: No match → 200 without coordinates (never 404).
+      description: 'No match → 200 without coordinates (never 404). v0.18.44 §67: POST /locations/geocode: an app resolving
+        a picked suggestion sends its placeId (and the text as query). The server resolves by placeId and answers name, the
+        place''s own name (e.g. ''Solna Centrum''), next to address (the provider''s formatted street address). name is absent
+        for a typed address with no placeId.'
       tags:
       - Maps
       x-actor:
@@ -24210,6 +24220,18 @@ components:
         usesStandard:
           type: boolean
           description: 'v0.8.0: set by the server when it serves or uses the country standard for this zone (contract.json#configDocs.standard).'
+        minTripMeters:
+          type: integer
+          minimum: 0
+          maximum: 5000
+          description: 'v0.18.44 §67: pricing document (zone pricing, admin Pricing page): minTripMeters, integer metres;
+            missing = default 0 (off, owner Q9: warn but can book); an admin turns it on per zone; straight line (haversine)
+            pickup -> drop-off; a trip with one or more stops is not checked (a round trip through a stop is a real trip).
+            POST /quotes and POST /trips refuse a drop-off closer than minTripMeters to the pickup: 400 invalid_request, reason
+            dropoff_too_close, details [''meters=<n>'', ''limitMeters=<m>'']. /trips re-checks with the zone''s live value
+            (the admin may have raised it since the quote). The older samePointWarnMeters warning (v0.18.30) still applies
+            above the limit. Off by default (owner Q9).'
+          default: 0
       x-server-only: true
     DispatchModeRules:
       type: object
@@ -25120,6 +25142,10 @@ components:
           maxLength: 300
         placeId:
           type: string
+          description: 'v0.18.44 §67: the picked suggestion''s placeId; the server resolves by it. POST /locations/geocode:
+            an app resolving a picked suggestion sends its placeId (and the text as query). The server resolves by placeId
+            and answers name, the place''s own name (e.g. ''Solna Centrum''), next to address (the provider''s formatted street
+            address). name is absent for a typed address with no placeId.'
     GeocodeResult:
       type: object
       description: No coordinates = no match (200, never 404).
@@ -25136,6 +25162,13 @@ components:
           maximum: 180
         placeId:
           type: string
+        name:
+          type: string
+          description: 'v0.18.44 §67: the place''s own name when resolved by placeId (absent for a typed address). The trip''s
+            pickup/dropoff/stop address is the label the rider chose: the suggestion''s title + '', '' + subtitle (or the
+            geocode name when the suggestion had no title). The app never replaces a chosen label by the geocode address;
+            address only fills a label that is missing. The driver app and the admin panel show that same trip address text
+            (no change of field).'
     ReverseGeocodeRequest:
       type: object
       required:
@@ -26067,7 +26100,8 @@ components:
             driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival,
             route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now,
             pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit).
-            v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons).'
+            v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.44
+            reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress).'
         details:
           type: array
           items:

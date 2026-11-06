@@ -88,5 +88,6 @@
   "searchStepStop": "Avboka gratis",
   "searchStepAnswerFailed": "Ditt svar nådde inte Movera. Försök igen.",
   "searchStepNoDriverNearby": "Ingen förare i närheten just nu. Vi fortsätter leta.",
-  "searchStepNoDriverFound": "Ingen förare hittades till din bokade resa. Du betalar ingenting."
+  "searchStepNoDriverFound": "Ingen förare hittades till din bokade resa. Du betalar ingenting.",
+  "dropoffTooClose": "Avlämningen är för nära upphämtningen"
 }

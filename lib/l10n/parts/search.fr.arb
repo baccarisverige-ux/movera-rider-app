@@ -88,5 +88,6 @@
   "searchStepStop": "Annuler gratuitement",
   "searchStepAnswerFailed": "Votre réponse n’est pas arrivée chez Movera. Réessayez.",
   "searchStepNoDriverNearby": "Aucun chauffeur à proximité pour le moment. Nous continuons à chercher.",
-  "searchStepNoDriverFound": "Aucun chauffeur n’a été trouvé pour votre course réservée. Vous ne payez rien."
+  "searchStepNoDriverFound": "Aucun chauffeur n’a été trouvé pour votre course réservée. Vous ne payez rien.",
+  "dropoffTooClose": "Le point de dépose est trop proche du point de prise en charge"
 }

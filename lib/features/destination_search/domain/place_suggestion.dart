@@ -10,6 +10,7 @@ class PlaceSuggestion {
     this.subtitle = '',
     this.point,
     this.kind = PlaceSuggestionKind.address,
+    this.placeId,
   });
 
   /// "Klockarvägen 110"
@@ -22,6 +23,10 @@ class PlaceSuggestion {
   final GeoPoint? point;
   final PlaceSuggestionKind kind;
 
+  /// v0.18.44 §67: the server's place id, sent to /locations/geocode when the
+  /// rider picks this suggestion; null for recents and saved places.
+  final String? placeId;
+
   /// Full one-line address, as the booking stores it.
   String get address => subtitle.isEmpty ? title : '$title, $subtitle';
 
@@ -32,12 +37,14 @@ class PlaceSuggestion {
     final lat = json['latitude'];
     final lng = json['longitude'];
     final subtitle = json['subtitle'];
+    final placeId = json['placeId'];
     return PlaceSuggestion(
       title: title.trim(),
       subtitle: subtitle is String ? subtitle.trim() : '',
       point: lat is num && lng is num
           ? GeoPoint(lat.toDouble(), lng.toDouble())
           : null,
+      placeId: placeId is String && placeId.isNotEmpty ? placeId : null,
     );
   }
 
