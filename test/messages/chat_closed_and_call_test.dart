@@ -123,19 +123,21 @@ void main() {
     expect(field.enabled, isFalse);
   });
 
-  testWidgets('503 call_unavailable says to use the chat, never dials', (
-    tester,
-  ) async {
-    final chat = MessagesController.forRide('trp_1', transport: _Messages());
-    addTearDown(chat.dispose);
-    final call = _Call(_unavailable);
-    await pumpChat(tester, chat, call);
-    await tester.tap(find.byTooltip('Call'));
-    await tester.pump();
-    expect(call.calls, 1);
-    expect(find.text('Calls coming soon – use the chat'), findsOne);
-    await tester.pump(const Duration(seconds: 5));
-  });
+  testWidgets(
+    'v0.18.38 (owner G15): a refused call says only Call failed, never dials',
+    (tester) async {
+      final chat = MessagesController.forRide('trp_1', transport: _Messages());
+      addTearDown(chat.dispose);
+      final call = _Call(_unavailable);
+      await pumpChat(tester, chat, call);
+      await tester.tap(find.byTooltip('Call'));
+      await tester.pump();
+      expect(call.calls, 1);
+      // v0.18.38 §62 (owner G15 "Just 'Call failed'").
+      expect(find.text('Call failed'), findsOne);
+      await tester.pump(const Duration(seconds: 5));
+    },
+  );
 
   testWidgets('a proxy number is dialled; 409 closes the chat', (tester) async {
     late BuildContext ctx;
@@ -173,7 +175,8 @@ void main() {
     await callTripPeer(ctx, rideId: null, transport: null);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Calls coming soon – use the chat'), findsOne);
+    // v0.18.38 §62 (owner G15 "Just 'Call failed'").
+    expect(find.text('Call failed'), findsOne);
     await tester.pump(const Duration(seconds: 5));
   });
 

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:movera_rider/core/realtime/call_events.dart';
 import 'package:movera_rider/core/realtime/sos_availability.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
@@ -286,6 +287,20 @@ class ApiRideRealtime implements RideRealtime {
   /// the cached projection.
   void _onStreamEvent(_RidePoll poll, Map<String, Object?> event) {
     if (_disposed || !identical(_rides[poll.id], poll)) return;
+    // v0.18.38 §62 (fix job 8): an in-app call event goes to the calls hub;
+    // it never changes the trip.
+    final wire = event['kind'];
+    if (wire is String && wire.startsWith('call_')) {
+      final payload = event[wire == 'call_signal' ? 'signal' : 'call'];
+      if (payload is Map) {
+        RideCallEvents.sink?.call(
+          poll.id,
+          wire,
+          Map<String, dynamic>.from(payload),
+        );
+      }
+      return;
+    }
     final projection = event['projection'];
     if (projection is Map) {
       _applyProjection(poll, {
@@ -630,6 +645,7 @@ class ApiRideRealtime implements RideRealtime {
           // far, the cancel fee and kind, and the pickup (a move).
           if (eta is Map) etaKey: Map<String, Object?>.from(eta),
           if (ride['terms'] is Map) termsKey: ride['terms'],
+          if (ride['chain'] is Map) chainKey: ride['chain'],
           if (_waitingField(ride, 'chargedSoFar') case final Map charged)
             waitingChargedSoFarKey: charged,
           if (_waitingField(ride, 'chargedSecondsNow') case final num seconds)

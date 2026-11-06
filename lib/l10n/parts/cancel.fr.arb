@@ -59,5 +59,6 @@
   "cancelledFeeCharged": "Frais d’annulation {amount}",
   "cancelledNoShowFee": "Frais de client absent {amount}",
   "cancelledNoFee": "Pas de frais",
-  "freeRuleHours": "{count, plural, =1{1 heure} other{{count} heures}}"
+  "freeRuleHours": "{count, plural, =1{1 heure} other{{count} heures}}",
+  "cancelFreeChained": "Annulation gratuite : votre chauffeur termine d'abord une autre course"
 }

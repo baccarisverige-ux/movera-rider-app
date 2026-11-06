@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/auth/signed_out_notice.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
@@ -11,8 +10,6 @@ import 'package:movera_rider/features/auth/application/auth_error_message.dart';
 import 'package:movera_rider/features/auth/application/phone_country_default.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
 import 'package:movera_rider/features/auth/domain/phone_country.dart';
-import 'package:movera_rider/features/auth/domain/build_test_numbers.dart';
-import 'package:movera_rider/features/auth/domain/test_account.dart';
 import 'package:movera_rider/features/auth/presentation/add_phone.dart';
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
@@ -29,22 +26,9 @@ import 'package:movera_rider/l10n/l10n.dart';
 /// Step 1 for everyone: one phone field for new and returning riders, with
 /// Apple and Google underneath.
 class SignIn extends StatefulWidget {
-  const SignIn({
-    super.key,
-    this.controller,
-    this.showTestAccounts,
-    this.buildTestNumbers,
-  });
+  const SignIn({super.key, this.controller});
 
   final AuthController? controller;
-
-  /// Owner 2026-10-29, decision 6 ("Only in test builds"): the test
-  /// numbers with their account status under the form. Null: only a
-  /// staging build (a live server that is not production).
-  final bool? showTestAccounts;
-
-  /// Test numbers given at build time; null reads MOVERA_TEST_NUMBERS.
-  final List<String>? buildTestNumbers;
 
   @override
   State<SignIn> createState() => _SignInState();
@@ -119,16 +103,6 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
   bool _waitlistBusy = false;
   bool _waitlistSaved = false;
 
-  /// Owner decision 6: the test numbers (test builds only).
-  List<TestAccount> _testAccounts = const [];
-
-  /// Owner 2026-11-02 (as the driver app, PR #443): the test numbers sit
-  /// behind one button; closed, the picture and "Need help?" stay visible.
-  bool _testListOpen = false;
-  // v0.18.18 (owner 2026-11-03 "Close it now"): the list needs an admin, so
-  // a test build keeps the button and says where to get the numbers.
-  bool _testNumbersButton = false;
-
   /// Owner round 3: the terms box must be ticked before any sign-in path.
   bool _agreed = false;
   bool _consentNudge = false;
@@ -140,46 +114,6 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
     unawaited(_loadDefaultCountry());
     _auth = widget.controller ?? AppScope.instance.auth;
     _phone.addListener(_clearPhoneError);
-    unawaited(_loadTestAccounts());
-  }
-
-  Future<void> _loadTestAccounts() async {
-    final env = AppEnv.current;
-    // Never on a store build, whatever the caller asks.
-    final show =
-        !env.isProduction &&
-        (widget.showTestAccounts ?? !env.allowsMockTransport);
-    if (!show) return;
-    if (mounted) setState(() => _testNumbersButton = true);
-    try {
-      final accounts = await _auth.testAccounts();
-      if (accounts.isNotEmpty) {
-        if (mounted) setState(() => _testAccounts = accounts);
-        return;
-      }
-    } catch (_) {
-      // Signed out the server answers 401 (admin only since v0.18.18).
-    }
-    // Owner 2026-11-03: the numbers this test build was given (no status,
-    // no names); none -> the open button shows l10n.testNumbersAskAdmin.
-    final numbers = widget.buildTestNumbers ?? parseTestNumbers();
-    if (mounted && numbers.isNotEmpty) {
-      setState(
-        () => _testAccounts = [
-          for (final phone in numbers) TestAccount(phone: phone, status: ''),
-        ],
-      );
-    }
-  }
-
-  void _useTestNumber(String e164) {
-    final digits = e164.replaceAll('+', '');
-    final country = PhoneCountries.ofInternational(digits) ?? _country;
-    setState(() {
-      _country = country;
-      _countryPicked = true;
-    });
-    _phone.text = digits.substring(country.dial.length);
   }
 
   Future<void> _joinWaitlist() async {
@@ -473,40 +407,8 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
           if (_providerError != null) AuthErrorText(_providerError!),
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: !_testNumbersButton
-                ? const NeedHelpLink()
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const NeedHelpLink(),
-                      TextButton(
-                        key: const ValueKey('auth-test-numbers-button'),
-                        onPressed: () =>
-                            setState(() => _testListOpen = !_testListOpen),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AuthColors.muted,
-                          minimumSize: const Size(0, 36),
-                        ),
-                        child: Text(
-                          context.l10n.testNumbersButton,
-                          style: AuthText.small(),
-                        ),
-                      ),
-                    ],
-                  ),
+            child: const NeedHelpLink(),
           ),
-          if (_testNumbersButton && _testListOpen)
-            _testAccounts.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      context.l10n.testNumbersAskAdmin,
-                      key: const ValueKey('auth-test-numbers-ask-admin'),
-                      textAlign: TextAlign.center,
-                      style: AuthText.small().copyWith(color: AuthColors.muted),
-                    ),
-                  )
-                : _testAccountList(),
         ],
       ),
     );
@@ -546,55 +448,6 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
                 )
               : Text(context.l10n.joinWaitlist),
         ),
-      ),
-    );
-  }
-
-  String _statusWord(String status) => switch (status) {
-    'test' => context.l10n.testStatusNew,
-    'active' => context.l10n.testStatusActive,
-    'suspended' => context.l10n.testStatusSuspended,
-    _ => status,
-  };
-
-  Widget _testAccountList() {
-    return Padding(
-      key: const ValueKey('auth-test-accounts'),
-      padding: const EdgeInsets.only(top: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final account in _testAccounts)
-            InkWell(
-              key: ValueKey('auth-test-${account.phone}'),
-              onTap: () => _useTestNumber(account.phone),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        [
-                          displayPhoneNumber(account.phone),
-                          if (account.name != null) account.name!,
-                        ].join(' · '),
-                        style: AuthText.small().copyWith(color: AuthColors.ink),
-                      ),
-                    ),
-                    if (account.status.isNotEmpty)
-                      Text(
-                        _statusWord(account.status),
-                        style: AuthText.small().copyWith(
-                          color: account.status == 'active'
-                              ? AuthColors.green
-                              : AuthColors.muted,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }

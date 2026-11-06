@@ -133,12 +133,6 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'phoneCountryCode': l.phoneCountryCode('<country>', '<dial>'),
   'errTooManyWrongCodes': l.errTooManyWrongCodes('<button>'),
   'signInRestricted': l.signInRestricted,
-  'testNumbersTitle': l.testNumbersTitle,
-  'testNumbersButton': l.testNumbersButton,
-  'testNumbersAskAdmin': l.testNumbersAskAdmin,
-  'testStatusNew': l.testStatusNew,
-  'testStatusActive': l.testStatusActive,
-  'testStatusSuspended': l.testStatusSuspended,
   'authNeedHelp': l.authNeedHelp,
   'authHelpComingSoon': l.authHelpComingSoon,
   'authHelpCompany': l.authHelpCompany,
@@ -154,6 +148,25 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'appTitle': l.appTitle,
   'previewBanner': l.previewBanner,
   'previewNotSent': l.previewNotSent,
+  'dontMatchDriverAgain': l.dontMatchDriverAgain,
+  'accountPausedTitle': l.accountPausedTitle,
+  'accountBlockedTitle': l.accountBlockedTitle,
+  'moderationWarningTitle': l.moderationWarningTitle,
+  'accountPausedUntil': l.accountPausedUntil('<date>'),
+  'accountStatusBody': l.accountStatusBody,
+  'accountStatusContactSupport': l.accountStatusContactSupport,
+  'accountStatusSignOut': l.accountStatusSignOut,
+  'callFailed': l.callFailed,
+  'callCalling': l.callCalling,
+  'callConnecting': l.callConnecting,
+  'callConnected': l.callConnected,
+  'callIncomingFromDriver': l.callIncomingFromDriver,
+  'callAnswer': l.callAnswer,
+  'callDecline': l.callDecline,
+  'callEnd': l.callEnd,
+  'callMute': l.callMute,
+  'callSpeaker': l.callSpeaker,
+  'callEnded': l.callEnded,
   'cancelRide': l.cancelRide,
   'cancelReasonPickupIncorrect': l.cancelReasonPickupIncorrect,
   'cancelReasonWrongRideOption': l.cancelReasonWrongRideOption,
@@ -215,6 +228,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'cancelledNoShowFee': l.cancelledNoShowFee('<amount>'),
   'cancelledNoFee': l.cancelledNoFee,
   'freeRuleHours': l.freeRuleHours(37),
+  'cancelFreeChained': l.cancelFreeChained,
   'setLocation': l.setLocation,
   'choosePickup': l.choosePickup,
   'setHomeAddress': l.setHomeAddress,
@@ -822,6 +836,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'priceIncludesUnpaidFee': l.priceIncludesUnpaidFee('<amount>'),
   'receiptHeading': l.receiptHeading,
   'receiptDebtIncludedNote': l.receiptDebtIncludedNote,
+  'walletUsedFirst': l.walletUsedFirst,
   'scheduleForLater': l.scheduleForLater,
   'later': l.later,
   'scheduleARide': l.scheduleARide,
@@ -939,6 +954,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'resErrZoneOff': l.resErrZoneOff,
   'bookingFreeRule': l.bookingFreeRule('<time>'),
   'scheduleForLaterChip': l.scheduleForLaterChip,
+  'bookedDriverOnTheWay': l.bookedDriverOnTheWay,
   'findingDriver': l.findingDriver,
   'findingYourAddress': l.findingYourAddress,
   'destinationLabel': l.destinationLabel('<address>'),
@@ -1539,6 +1555,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'searchStepBusyFallback': l.searchStepBusyFallback,
   'searchStepStop': l.searchStepStop,
   'searchStepAnswerFailed': l.searchStepAnswerFailed,
+  'searchStepNoDriverNearby': l.searchStepNoDriverNearby,
+  'searchStepNoDriverFound': l.searchStepNoDriverFound,
   'swTripStatusDraft': l.swTripStatusDraft,
   'swTripStatusQuoted': l.swTripStatusQuoted,
   'swTripStatusRequested': l.swTripStatusRequested,
@@ -1707,6 +1725,7 @@ const messagePlaceholders = <String, List<String>>{
   'notifYesterday': ['clock'],
   'phoneCountryCode': ['country', 'dial'],
   'errTooManyWrongCodes': ['button'],
+  'accountPausedUntil': ['date'],
   'cancelCostsNow': ['amount'],
   'cancelFreeMinutes': ['minutes'],
   'freeWaitingLeft': ['time'],
@@ -2171,18 +2190,6 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get signInRestricted => '';
   @override
-  String get testNumbersTitle => '';
-  @override
-  String get testNumbersButton => '';
-  @override
-  String get testNumbersAskAdmin => '';
-  @override
-  String get testStatusNew => '';
-  @override
-  String get testStatusActive => '';
-  @override
-  String get testStatusSuspended => '';
-  @override
   String get authNeedHelp => '';
   @override
   String get authHelpComingSoon => '';
@@ -2212,6 +2219,44 @@ class _Exhaustive implements AppLocalizations {
   String get previewBanner => '';
   @override
   String get previewNotSent => '';
+  @override
+  String get dontMatchDriverAgain => '';
+  @override
+  String get accountPausedTitle => '';
+  @override
+  String get accountBlockedTitle => '';
+  @override
+  String get moderationWarningTitle => '';
+  @override
+  String accountPausedUntil(String date) => '';
+  @override
+  String get accountStatusBody => '';
+  @override
+  String get accountStatusContactSupport => '';
+  @override
+  String get accountStatusSignOut => '';
+  @override
+  String get callFailed => '';
+  @override
+  String get callCalling => '';
+  @override
+  String get callConnecting => '';
+  @override
+  String get callConnected => '';
+  @override
+  String get callIncomingFromDriver => '';
+  @override
+  String get callAnswer => '';
+  @override
+  String get callDecline => '';
+  @override
+  String get callEnd => '';
+  @override
+  String get callMute => '';
+  @override
+  String get callSpeaker => '';
+  @override
+  String get callEnded => '';
   @override
   String get cancelRide => '';
   @override
@@ -2334,6 +2379,8 @@ class _Exhaustive implements AppLocalizations {
   String get cancelledNoFee => '';
   @override
   String freeRuleHours(int count) => '';
+  @override
+  String get cancelFreeChained => '';
   @override
   String get setLocation => '';
   @override
@@ -3549,6 +3596,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get receiptDebtIncludedNote => '';
   @override
+  String get walletUsedFirst => '';
+  @override
   String get scheduleForLater => '';
   @override
   String get later => '';
@@ -3782,6 +3831,8 @@ class _Exhaustive implements AppLocalizations {
   String bookingFreeRule(String time) => '';
   @override
   String get scheduleForLaterChip => '';
+  @override
+  String get bookedDriverOnTheWay => '';
   @override
   String get findingDriver => '';
   @override
@@ -4982,6 +5033,10 @@ class _Exhaustive implements AppLocalizations {
   String get searchStepStop => '';
   @override
   String get searchStepAnswerFailed => '';
+  @override
+  String get searchStepNoDriverNearby => '';
+  @override
+  String get searchStepNoDriverFound => '';
   @override
   String get swTripStatusDraft => '';
   @override

@@ -6,6 +6,7 @@ import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/core/web/web_gpu.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
+import 'package:movera_rider/features/ride_booking/application/rider_trip_watch.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 
 class AppLifecycleObserver with WidgetsBindingObserver {
@@ -41,6 +42,8 @@ class AppLifecycleObserver with WidgetsBindingObserver {
           );
         });
         RideRestoreCoordinator.instance.resumeIfNeeded();
+        // v0.18.32 P21 (bookedRideSeen.pollFallback): Home polls again.
+        if (AppScope.instance.api.contractWire) RiderTripWatch.instance.start();
         // v0.18.5 legal.read: again when the app comes back (no stream
         // event carries it).
         unawaited(AppScope.instance.legal.load());
@@ -48,6 +51,7 @@ class AppLifecycleObserver with WidgetsBindingObserver {
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
+        RiderTripWatch.instance.stop();
         RideSnapshotStore.touchCurrent().catchError((Object error) {
           AppLog.error(
             'app.lifecycle.persist_failed',

@@ -112,8 +112,12 @@
   "@searchStepKeepWaitingFallback": {"description": "Deep-fix 2026-11-02"},
   "searchStepBusyFallback": "All drivers are busy right now. Please try again in a moment.",
   "@searchStepBusyFallback": {"description": "Deep-fix 2026-11-02"},
-  "searchStepStop": "Stop searching",
-  "@searchStepStop": {"description": "Deep-fix 2026-11-02"},
+  "searchStepStop": "Cancel free",
+  "@searchStepStop": {"description": "Deep-fix 2026-11-02; v0.18.39 §63 (owner N2 buttons Keep waiting / Cancel free): the stop answer is the free rider cancel"},
   "searchStepAnswerFailed": "Your answer did not reach Movera. Try again.",
-  "@searchStepAnswerFailed": {"description": "Deep-fix 2026-11-02"}
+  "@searchStepAnswerFailed": {"description": "Deep-fix 2026-11-02"},
+  "searchStepNoDriverNearby": "No driver nearby right now. We keep searching for you.",
+  "@searchStepNoDriverNearby": {"description": "v0.18.39 §63 (owner N2): the search step no_driver_nearby, shown once; the search goes on (Keep waiting / Cancel free)"},
+  "searchStepNoDriverFound": "No driver was found for your booked ride. You pay nothing.",
+  "@searchStepNoDriverFound": {"description": "v0.18.39 §63 (P17): a booked ride the server ended with no driver at pickup + 15 min; no fee"}
 }

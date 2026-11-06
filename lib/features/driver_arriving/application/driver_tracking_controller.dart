@@ -64,6 +64,18 @@ class DriverTrackingController {
   /// `waiting.noShowAt`, on the device clock; null when the server has not
   /// said (the zone's free-wait minutes from [waitingSince] apply then).
   DateTime? waitingFreeUntil;
+
+  /// Fix job 5 (v0.18.33, owner Q3 + Q5): the trip still waits behind the
+  /// driver's current one, and when a started chained trip turns free.
+  bool chainQueued = false;
+  DateTime? chainFreeCancelAt;
+
+  /// The cancel is free now because of the chain (no fee line).
+  bool chainCancelFree(DateTime now) =>
+      chainCancelFreeAt(chainQueued, chainFreeCancelAt, now);
+
+  static bool chainCancelFreeAt(bool queued, DateTime? freeAt, DateTime now) =>
+      queued || (freeAt != null && !now.isBefore(freeAt));
   DateTime? waitingNoShowAt;
 
   /// Q13: the last accepted back-to-searching came from an admin reassign,
@@ -337,6 +349,9 @@ class DriverTrackingController {
       server == null ? null : ServerClock.toDevice(server);
 
   void _takeWaitingDeadlines(RideRealtimeEvent event) {
+    // Fix job 5 (owner Q3 + Q5): a trip taken next by a driver on a trip.
+    chainQueued = event.chainQueued;
+    chainFreeCancelAt = _onDevice(event.chainFreeCancelAt);
     waitingFreeUntil = _onDevice(event.waitingFreeUntil);
     waitingNoShowAt = _onDevice(event.waitingNoShowAt);
   }

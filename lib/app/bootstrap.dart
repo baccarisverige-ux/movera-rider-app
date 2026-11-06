@@ -26,6 +26,7 @@ import 'package:movera_rider/features/notifications/application/push_coordinator
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/features/ride_booking/application/rider_trip_watch.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/web_ride_seed.dart';
 import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
@@ -214,6 +215,9 @@ Future<void> bootstrap() async {
     // content) from the same stream.
     config.eventTaps.add(AppScope.instance.content.onConfigEvent);
     config.eventTaps.add(AppScope.instance.zones.onConfigEvent);
+    // v0.18.32 P21: a trip made elsewhere reaches Home at once.
+    config.eventTaps.add(RiderTripWatch.instance.onConfigEvent);
+    RiderTripWatch.instance.start();
   }
   // v0.18.2 auth.beforeSignIn: the reads that need a session start now
   // only when one is stored; otherwise right after sign-in

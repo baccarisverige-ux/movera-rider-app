@@ -55,7 +55,7 @@ void main() {
     expect(ride.status, ReservationStatus.driverAssignmentPending);
     expect(c.isNoDriverFound(ride, now: pickupAt), isFalse);
     expect(
-      c.isNoDriverFound(ride, now: pickupAt.add(const Duration(minutes: 4))),
+      c.isNoDriverFound(ride, now: pickupAt.add(const Duration(minutes: 14))),
       isFalse,
     );
     final late = pickupAt.add(ReservationController.noDriverFoundAfter);
@@ -77,7 +77,9 @@ void main() {
     tester,
   ) async {
     final c = await seeded();
-    final late = pickupAt.add(const Duration(minutes: 6));
+    final late = pickupAt.add(
+      ReservationController.noDriverFoundAfter + const Duration(minutes: 1),
+    );
     await pumpPhone(
       tester,
       HomeReservationChrono(controller: c, now: () => late),
@@ -106,7 +108,9 @@ void main() {
     tester,
   ) async {
     final c = await seeded();
-    final late = pickupAt.add(const Duration(minutes: 6));
+    final late = pickupAt.add(
+      ReservationController.noDriverFoundAfter + const Duration(minutes: 1),
+    );
     var rebooked = 0;
     await pumpPhone(
       tester,
@@ -127,7 +131,9 @@ void main() {
     tester,
   ) async {
     final c = await seeded();
-    final late = pickupAt.add(const Duration(minutes: 6));
+    final late = pickupAt.add(
+      ReservationController.noDriverFoundAfter + const Duration(minutes: 1),
+    );
     await pumpPhone(
       tester,
       HomeReservationChrono(controller: c, now: () => late),

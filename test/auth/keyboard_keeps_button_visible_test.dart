@@ -87,7 +87,6 @@ void main() {
           controller: AuthController(
             auth: AuthRepository(api: api, tokens: tokens),
           ),
-          showTestAccounts: false,
         ),
       ),
     );

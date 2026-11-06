@@ -155,7 +155,9 @@ void main() {
     final id = ride.reservationId;
 
     // App was closed across pickup: the first tick happens at T+6.
-    final late = pickupAt.add(const Duration(minutes: 6));
+    final late = pickupAt.add(
+      ReservationController.noDriverFoundAfter + const Duration(minutes: 1),
+    );
     await c.startLiveIfDue(now: late);
     final after = c.byId(id)!;
     expect(after.driver, isNull);
@@ -330,9 +332,11 @@ void main() {
     });
 
     testWidgets('No driver found deadline still works when the app first '
-        'ticks after T+5 (red ring, prompt, no driver)', (tester) async {
+        'ticks after T+15 (red ring, prompt, no driver)', (tester) async {
       final id = (await schedule(c)).reservationId;
-      now = pickupAt.add(const Duration(minutes: 6));
+      now = pickupAt.add(
+        ReservationController.noDriverFoundAfter + const Duration(minutes: 1),
+      );
       await pumpHome(tester);
       for (var i = 0; i < 8; i++) {
         await tester.pump(const Duration(milliseconds: 100));

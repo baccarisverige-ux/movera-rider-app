@@ -27,13 +27,16 @@ void main() {
     flags: FeatureFlags(),
   );
 
-  test('rider-r4-31: Book for later shows no wallet split it never books', () {
+  test('fix job 5 (v0.18.33, owner Q6; was rider-r4-31): Book for later '
+      'shows the wallet split it now books (walletFirst)', () {
     final selection = controller()..setWalletBalance(100);
     expect(selection.walletSplitFor(31200).usesWallet, isTrue);
     selection.scheduleFor(DateTime(2026, 10, 30, 9));
     expect(selection.createsReservation, isTrue);
+    expect(selection.walletSplitFor(31200).usesWallet, isTrue);
+    expect(selection.walletAppliedKr(312), 100);
+    selection.useWalletFirst = false;
     expect(selection.walletSplitFor(31200).usesWallet, isFalse);
-    expect(selection.walletAppliedKr(312), 0);
   });
 
   group('rider-u186: a requested Movera Wallet method', () {

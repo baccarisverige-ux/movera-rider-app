@@ -238,7 +238,9 @@ void main() {
     final storage = _FlakyStorage();
     final c = await _reservations(storage);
     var rebooked = 0;
-    final late = _pickupAt.add(const Duration(minutes: 6));
+    final late = _pickupAt.add(
+      ReservationController.noDriverFoundAfter + const Duration(minutes: 1),
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(

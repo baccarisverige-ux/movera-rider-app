@@ -29,7 +29,11 @@ extension _SelectRideQuotes on _SelectRideState {
     final pending = _selection.quoteFromPin(
       stops: stops,
       rideId: ride.id,
-      distanceMeters: straightLineMeters(pin, widget.destinationPosition),
+      distanceMeters: tripStraightMeters(
+        pin,
+        stops,
+        widget.destinationPosition,
+      ),
       pickup: coordinatePickupAddress(pin),
       destination: widget.destinationAddress,
       pickupPoint: _SelectRideState._geoPoint(pin),
@@ -101,8 +105,9 @@ extension _SelectRideQuotes on _SelectRideState {
       await _selection.quoteFromPin(
         stops: stops,
         rideId: ride.id,
-        distanceMeters: straightLineMeters(
+        distanceMeters: tripStraightMeters(
           _pickupPosition,
+          stops,
           widget.destinationPosition,
         ),
         pickup: _pickupAddress,

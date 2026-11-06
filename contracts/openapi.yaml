@@ -1,11 +1,11 @@
-# Movera API v0.18.29 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.43 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.29
+  version: 0.18.43
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.29 in this folder; this file must agree with them.
+    v0.18.43 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.29
+  version: 0.18.43
   source: contract.json
 paths:
   /auth/otp/request:
@@ -806,7 +806,9 @@ paths:
         and the app keeps the built-in list as the offline backup. The server accepts every contract code of the sheet (contract.json#cancelReasons),
         so an old app that shows the built-in list keeps working; a code of another sheet → 400 invalid_request, reason invalid_reason_code.
         v0.18.17: Q6: POST /trips/{tripId}/cancel more than freeChangeBeforeMin minutes before pickup is always free; later
-        the reservation cancel fee rule of booking time applies (RiderAppConfig.cancelFees, reservation; unchanged).'
+        the reservation cancel fee rule of booking time applies (RiderAppConfig.cancelFees, reservation; unchanged). v0.18.33
+        (fix job 5, owner fix-plan Q3 + Q5): this also holds before any driver took the ride: under freeChangeBeforeMin the
+        fee is charged even with no driver, and Movera keeps all of it (no driver share). contract.json#afterTestRules.bookedCancel.'
       tags:
       - Trips
       x-actor:
@@ -1093,7 +1095,11 @@ paths:
       summary: Rate the other party (and optionally tip)
       description: 'Not a lifecycle command: allowed after completed, and for the rider also after a trip the rider ended
         early (cancelled_by_rider via end_early; a plain cancel is 409 invalid_transition). See RatingStatus x-rating-allowed.
-        Moves ratingStatus pending → submitted|skipped and emits rating_updated.'
+        Moves ratingStatus pending → submitted|skipped and emits rating_updated. v0.18.43 §64: POST /trips/{tripId}/rating
+        may carry dontMatchAgain: true (rider and driver). Allowed only with stars ≤ CountryRules.dontMatchAgain.atStars (default
+        1) while dontMatchAgain.on (default true); otherwise 400 invalid_body, reason dont_match_not_allowed, and nothing
+        is saved. With it the server writes the pair (by = the rater) in the same transaction as the rating. The answer is
+        the same Rating as without it.'
       tags:
       - Trips
       x-actor:
@@ -1192,8 +1198,10 @@ paths:
   /rider/trips/active:
     get:
       operationId: getRiderActiveTrip
-      summary: The rider's current non-terminal live trip
-      description: 204 when there is none.
+      summary: The rider's current non-terminal live trip, else a booked trip whose driver started driving
+      description: '204 when there is none. v0.18.32 (contract.json#bookedRideSeen): a booked trip (kind scheduled) is returned
+        once it reached driver_to_pickup, until it ends; a live trip wins when both are active (owner Q1, the app shows a
+        banner for the booked one).'
       tags:
       - Rider · Booking
       x-actor:
@@ -1362,8 +1370,9 @@ paths:
             text/event-stream:
               schema:
                 type: string
-                description: Server-sent events. Each SSE `data:` line is one JSON ConfigEvent; `id:` is the sequence; heartbeat
-                  comments every 15 s.
+                description: 'Server-sent events. v0.18.32: also RiderTripEvent (kind rider_trip_changed) for the signed-in
+                  rider''s trips, id = the document version already sent. Each SSE `data:` line is one JSON ConfigEvent; `id:`
+                  is the sequence; heartbeat comments every 15 s.'
               x-sse-data: '#/components/schemas/ConfigEvent'
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -2223,9 +2232,17 @@ paths:
     post:
       operationId: callTripPeer
       summary: Call the other side through a masked number
-      description: 'v0.13.0 (contract.json#chat.call): the trip''s rider or driver while the trip is open for chat. 503 unavailable,
-        reason call_unavailable, while no telephony provider is set up; 409 invalid_transition, reason chat_closed, after
-        drop-off.'
+      description: 'v0.18.38 §62: POST /trips/{tripId}/call (no body, Idempotency-Key) by the trip''s rider or driver → 200
+        TripCall { tripId, mode:''in_app'', callId, ice { servers, ttlSeconds }, ringSeconds, maxCallMin, expiresAt }. The
+        server keeps a trip_calls row (state ringing) and sends call_ringing on the trip stream; the callee''s app shows the
+        incoming-call sheet. Open from driver assignment (tripStatus.driverAssigned) until callWindowAfterTripMin (default
+        60) minutes after the trip ended as completed (trips.ended_at). Outside it: 409 invalid_transition, reason call_window_closed.
+        A cancelled trip has no window after it. The apps show the call button only inside the window. One live call (ringing
+        or answered) per trip: a second POST /trips/{tripId}/call is 409 invalid_transition, reason call_busy, details [the
+        live callId]. calls.on false → POST /trips/{tripId}/call is 403 forbidden, reason calls_off; the apps hide the call
+        button. CountryRules.calls.mode phone + a configured provider (phoneProvider, keys only in the server environment)
+        → TripCall { tripId, mode:''phone'', proxyNumber, expiresAt } as before (v0.13.0). Mode phone without a provider falls
+        back to in_app. Owner G15: in-app calls only until a phone company is chosen.'
       tags:
       - Notifications & messages
       x-actor:
@@ -2374,7 +2391,16 @@ paths:
         Slow server: contract.json#auth.slowStart covers this call. v0.18.13: Once counted time ≥ maxHoursPerDay (default
         12; 0 = no limit) the driver gets no new offers (dispatch, radar, admin sends), POST /driver/availability online answers
         409 conflict reason driving_limit_reached (details ["drivenMinutes:<n>", "maxMinutes:<n>", "canDriveAt:<RFC 3339>"];
-        the projection carries Driver.drivingTime), and a running trip is always finished.'
+        the projection carries Driver.drivingTime), and a running trip is always finished. v0.18.37 §61 (go offline after
+        trips): offline while on a trip is no longer 409 on_trip: POST /driver/availability { onlineStatus: offline } while
+        the driver has a current trip (onlineStatus on_trip) answers 200 (before v0.18.37: 409 invalid_transition on_trip).
+        onlineStatus stays on_trip; Driver.offlineAfterTrip = true, Driver.offlineAfterTripSince = the tap time; Driver.version
+        goes up. Tapping again answers the same (idempotent). POST /driver/availability { onlineStatus: online } while on_trip
+        with offlineAfterTrip true clears it (offlineAfterTrip false, version up). Without the flag it answers the Driver
+        unchanged, as before. From the tap: no new offers of any kind, the on-trip Exclusives after minRouteDonePct (contract.json#afterTestRules,
+        live and booked) included. His open offers are withdrawn at once (the withdraw_driver_offers job, as when going offline).
+        An accept that still reaches the server is refused 409 conflict reason going_offline. Admin sends skip him (he is
+        on a trip).'
       tags:
       - Driver · Session
       x-actor:
@@ -9787,8 +9813,9 @@ paths:
     post:
       operationId: routeBetween
       summary: Road route between two points (Movera OSRM)
-      description: No route → 404 not_found (reason no_route); the app then draws a straight line. lat / lng as everywhere
-        else.
+      description: 'No route → 404 not_found (reason no_route); the app then draws a straight line. lat / lng as everywhere
+        else. v0.18.41 §66: No road route: the answer is the straight line through every point, [from, ...via, to], never
+        from -> to when there are stops.'
       tags:
       - Maps
       x-actor:
@@ -10100,7 +10127,15 @@ paths:
       summary: Answer the Keep waiting? step while searching
       description: 'Owner decision 24 (CONTRACT.md §3.6). Only while the trip is searching or offered and its searchStep is
         an unanswered keep_waiting: wait → the search end moves by extraMin; stop → the normal free rider cancel (cancel →
-        cancelled_by_rider, reason wait_too_long, no fee). Otherwise 409 invalid_transition with the projection.'
+        cancelled_by_rider, reason wait_too_long, no fee). Otherwise 409 invalid_transition with the projection. v0.18.39
+        §63: The rider app shows the message with two buttons: Keep waiting (POST /trips/{tripId}/keep-waiting { answer: wait
+        }: nothing else changes, the search goes on) and Cancel free (answer stop: the normal rider cancel, free because no
+        driver has accepted). keep-waiting accepts searchStep.kind keep_waiting or no_driver_nearby, once per step. No answer:
+        the search goes on. Owner N2 ''search keeps going until the rider cancels'': a LIVE ride''s search has no end time
+        any more. radius.maxWaitMin and the busy step no longer end it (busy is shown as a message only, never after no_driver_nearby;
+        keep_waiting is not shown after no_driver_nearby, which already asks). The trip leaves the search only when a driver
+        accepts, the rider cancels, or an admin acts. A zone with no published dispatch rules still ends after 10 min (nobody
+        can be dispatched). Supersedes, for live rides, the ''search end'' and ''busy: the search ends'' rules of contract.json#dispatch.rules.'
       tags:
       - Rider · Booking
       x-actor:
@@ -10368,7 +10403,12 @@ paths:
     get:
       operationId: adminLiveDrivers
       summary: Driver positions for the admin live map
-      description: 'Limited to the zones in the admin''s scope. stale = no fix for staleAfterSeconds. v0.17.2 (contract.json#adminListFilters):
+      description: 'Limited to the zones in the admin''s scope. stale = no fix for staleAfterSeconds. v0.18.34 §65: The admin
+        Dashboard''s live card, live map and ''Drivers online now'' tile are built from GET /admin/live/drivers pages ALONE
+        (limit 500, every page). GET /admin/drivers only adds details (full name, car) when it has loaded; it never decides
+        who is shown. While the first answer is loading the tile shows ''…'' (Loading); when the live read fails it shows
+        ''Could not load, retrying'' (sv ''Kunde inte laddas, försöker igen'', fr ''Chargement impossible, nouvel essai''),
+        never 0. Calls for the country the admin left are cancelled when the country changes. v0.17.2 (contract.json#adminListFilters):
         zoneId, zoneIds and country narrow the list inside those zones; an unknown query key → 400 invalid_request (reason
         unknown_filter).'
       tags:
@@ -10380,6 +10420,22 @@ paths:
       - $ref: '#/components/parameters/ListZoneId'
       - $ref: '#/components/parameters/ListZoneIds'
       - $ref: '#/components/parameters/ListCountry'
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        description: 'v0.18.34 §65: page size; without it every driver in one answer.'
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+        description: 'v0.18.34 §65: the nextCursor of the page before.'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
       responses:
@@ -12288,6 +12344,151 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ZoneList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/trips/{tripId}/block-pair:
+    post:
+      operationId: adminBlockPair
+      summary: Never match this trip's rider and driver again
+      description: 'v0.18.43 §64: POST /admin/trips/{tripId}/block-pair { reason? } (riders.block, Idempotency-Key, audit
+        blocked_pair.add) blocks the trip''s rider and driver (by admin); 409 invalid_transition, reason no_driver, when the
+        trip has no driver. GET /admin/blocked-pairs?riderId=|driverId= (riders.read) lists the active pairs of one person,
+        newest first. Admin › Trips › trip page: Block this pair; Admin › Rider and Admin › Driver pages: Blocked pairs with
+        Undo. The other side is never told (owner ''Never told''): no event, push, notice, field or count shows a block to
+        the rider or driver who was blocked; the trip, offer and profile projections are unchanged. Only admins see pairs.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: riders.block
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlockPairCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockedPair'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/blocked-pairs/{pairId}:
+    delete:
+      operationId: adminRemoveBlockedPair
+      summary: Undo a blocked pair (Support only)
+      description: 'v0.18.43 §64: Only Support undoes a pair (owner ''No, only Support''): DELETE /admin/blocked-pairs/{pairId}
+        (riders.block, audit blocked_pair.remove). The apps have no undo and no list.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: riders.block
+      parameters:
+      - name: pairId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '204':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/blocked-pairs:
+    get:
+      operationId: adminBlockedPairs
+      summary: The active blocked pairs of one rider or one driver
+      description: 'v0.18.43 §64: POST /admin/trips/{tripId}/block-pair { reason? } (riders.block, Idempotency-Key, audit
+        blocked_pair.add) blocks the trip''s rider and driver (by admin); 409 invalid_transition, reason no_driver, when the
+        trip has no driver. GET /admin/blocked-pairs?riderId=|driverId= (riders.read) lists the active pairs of one person,
+        newest first. Admin › Trips › trip page: Block this pair; Admin › Rider and Admin › Driver pages: Blocked pairs with
+        Undo.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: riders.read
+      parameters:
+      - name: riderId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: driverId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockedPairList'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -16415,6 +16616,376 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /calls/{callId}/signal:
+    post:
+      operationId: callSignal
+      summary: Relay a WebRTC offer / answer / ICE candidate (emits call_signal)
+      description: 'v0.18.38: POST /calls/{callId}/signal { type: offer|answer|ice, sdp?, candidate? } by the call''s caller
+        or callee → 202; the server relays it as call_signal on the trip stream (from = the sender''s side). Media goes peer
+        to peer (or through the TURN server); the server never sees audio and stores none. Not live: 409 invalid_transition,
+        reason call_not_live.'
+      tags:
+      - Notifications & messages
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - name: callId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CallSignal'
+      responses:
+        '202':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /calls/{callId}/answer:
+    post:
+      operationId: callAnswer
+      summary: Answer a ringing call (emits call_answered)
+      description: 'v0.18.38: POST /calls/{callId}/answer by the callee while ringing → 200 CallView (state answered) with
+        ice { servers, ttlSeconds } (the callee''s STUN/TURN servers), event call_answered.'
+      tags:
+      - Notifications & messages
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - name: callId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /calls/{callId}/end:
+    post:
+      operationId: callEnd
+      summary: End, decline or report a failed call (emits call_ended)
+      description: 'v0.18.38: POST /calls/{callId}/end { reason: hangup|declined|failed } by either side → 200 CallView (state
+        ended), event call_ended. A second end is answered with the same CallView (idempotent).'
+      tags:
+      - Notifications & messages
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - name: callId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CallEndRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/trips/{tripId}/calls:
+    get:
+      operationId: adminTripCalls
+      summary: The trip's call log (no audio, no numbers)
+      description: 'v0.18.38: GET /admin/trips/{tripId}/calls (trips.read, trip in the admin''s zones) → { items: [CallLogItem
+        { callId, from, to, state, startedAt, answeredAt, endedAt, endedReason, seconds }] }, newest first. Shown in Admin
+        › Trip details › Calls. No audio, no numbers.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: trips.read
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallLog'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/airport-queue:
+    get:
+      operationId: driverAirportQueue
+      summary: The driver's own place in the airport queue
+      description: 'v0.18.36 §60: GET /driver/airport-queue -> AirportQueueStatus { status in_queue | not_in_area | off, areaId?,
+        airportZoneId?, position (1 = first), ahead, joinedAt, waitingMin }. The driver app reads it every 20 s while the
+        queue screen or Home is open; there is no sample data. A driver joins the queue when the server receives a position
+        of his inside an area that is on while he is online (onlineStatus online, no current trip). His place is the order
+        of joinedAt (then entryId). A driver who dropped a rider at the airport joins at once with his next position (owner
+        job 9 Q5: ''Yes, join at once''). He leaves the queue when: a position of his is outside the area for more than leaveGraceMin
+        minutes in a row; he goes offline or goes online again later (a new online session never keeps the old place); he
+        accepts any trip (queue or not); the area is turned off or removed. The others move up.'
+      tags:
+      - Driver · Session
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AirportQueueStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/zones/{zoneId}/queue-area:
+    get:
+      operationId: adminGetAirportQueueArea
+      summary: An airport zone's queue area
+      description: 'v0.18.36 §60: GET /admin/zones/{zoneId}/queue-area (zones.read) -> AirportQueueArea or 404 not_found;
+        PUT (zones.edit, audited) saves it. GET /admin/airport-queues (zones.read) -> AirportQueueFeed { items [{ areaId,
+        airportZoneId, on, waiting, longestWaitMin, pickupsLastHour }] } for the Dashboard airport card.'
+      tags:
+      - Admin · Zones
+      x-actor:
+      - admin
+      x-permission: zones.read
+      parameters:
+      - $ref: '#/components/parameters/ZoneId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AirportQueueArea'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: adminPutAirportQueueArea
+      summary: Save an airport zone's queue area
+      description: 'v0.18.36 §60: only a zone of kind airport (else 400 invalid_request, reason not_airport_zone). Audited.
+        A trip whose pickup is inside an airport zone with an area that is on: before the normal steps, the first driver in
+        the queue who may get offers (the same filter as any round: online, his zone and category, papers, no open Exclusive,
+        did not decline or miss this trip) gets an Exclusive offer (reasonCode airport-queue) for offerSeconds. A decline
+        or miss goes to the next in the queue, at most maxQueueOffers queue offers per trip; nobody left or all declined ->
+        normal nearest dispatch, unchanged. Rule 33: the queue is rows in the database (airport_queue_entries, one open row
+        per driver by a unique index); the order is joinedAt in the database, never one server copy''s memory. The queue offer
+        is sent in the round''s transaction with the trip row locked and the driver row locked NOWAIT and checked again (as
+        every round), so two server copies never send two queue offers for one trip or two Exclusives to one driver.'
+      tags:
+      - Admin · Zones
+      x-actor:
+      - admin
+      x-permission: zones.edit
+      parameters:
+      - $ref: '#/components/parameters/ZoneId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AirportQueueAreaUpdate'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AirportQueueArea'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/airport-queues:
+    get:
+      operationId: adminAirportQueues
+      summary: Airport queues for the Dashboard
+      description: 'v0.18.36 §60: GET /admin/zones/{zoneId}/queue-area (zones.read) -> AirportQueueArea or 404 not_found;
+        PUT (zones.edit, audited) saves it. GET /admin/airport-queues (zones.read) -> AirportQueueFeed { items [{ areaId,
+        airportZoneId, on, waiting, longestWaitMin, pickupsLastHour }] } for the Dashboard airport card.'
+      tags:
+      - Admin · Zones
+      x-actor:
+      - admin
+      x-permission: zones.read
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AirportQueueFeed'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -17382,10 +17953,20 @@ components:
       - rating_updated
       - message
       - pickup_moved
+      - call_ringing
+      - call_answered
+      - call_signal
+      - call_ended
+      - call_missed
       x-after-terminal:
       - payment_updated
       - rating_updated
       - message
+      - call_ringing
+      - call_answered
+      - call_signal
+      - call_ended
+      - call_missed
       description: Trip event kinds. After a terminal status only x-after-terminal kinds pass the client gate.
     FareLineCode:
       type: string
@@ -17959,6 +18540,27 @@ components:
           allOf:
           - $ref: '#/components/schemas/ReservationInfo'
           description: 'v0.18.17: kind scheduled only.'
+        walletFirst:
+          type: boolean
+          description: 'v0.18.33: TripProjection.walletFirst: boolean (rider and admin views): the switch the trip was booked
+            with.'
+        chain:
+          type: object
+          description: 'v0.18.33 (owner Q3 + Q5), all views: a trip a driver on a trip took next. Owner Q5: a late current
+            trip keeps the queued trip with this driver. From lateFreeCancelMin minutes (default 10) after accept, the rider
+            of a chained trip may cancel free also after it started (trips.chained).'
+          required:
+          - queued
+          properties:
+            queued:
+              type: boolean
+              description: Still queued behind the driver's current trip (cancel free).
+            freeCancelAt:
+              $ref: '#/components/schemas/Timestamp'
+        nextAfterTripId:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: 'v0.18.33, driver and admin views: a live trip queued behind this driver''s current trip (contract.json#afterTestRules.bookedNext.accept).'
     DriverSilentAlert:
       type: object
       description: 'v0.7.0: documents the server''s alert of 2026-10-26: no position for 30 min with the rider on board; the
@@ -18138,6 +18740,12 @@ components:
           $ref: '#/components/schemas/QuoteSurge'
         etaSeconds:
           $ref: '#/components/schemas/DurationSeconds'
+        pickupAt:
+          description: 'v0.18.30 (contract.json#smallFixes.quotePickupTime, owner Q8): the pickup time of a booked ride (kind
+            scheduled); null on a live quote.'
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
     RouteQuote:
       type: object
       description: 'Price for a route change after request; apply with PATCH /trips/{tripId}. Priced from the booking (owner
@@ -18500,6 +19108,7 @@ components:
           - account_status
           - admin
           - documents_expired
+          - after_trip
           description: 'v0.18.6 (owner ''Send the real reason''): why the server set the driver offline; only while onlineStatus
             is offline, cleared on going online. v0.18.6 (owner 2026-10-31 ''Send the real reason'', Rules decisions/driver-g3.md):
             every time the SERVER sets a driver offline it stores why: Driver.offlineReason (no_position | missed_offers |
@@ -18530,6 +19139,23 @@ components:
           allOf:
           - $ref: '#/components/schemas/PayoutHold'
           description: 'v0.18.29: admin view only; absent = payouts not held.'
+        offlineAfterTrip:
+          type: boolean
+          description: 'v0.18.37 §61: he tapped Go offline during a trip; he goes offline when his last trip ends. POST /driver/availability
+            { onlineStatus: offline } while the driver has a current trip (onlineStatus on_trip) answers 200 (before v0.18.37:
+            409 invalid_transition on_trip). onlineStatus stays on_trip; Driver.offlineAfterTrip = true, Driver.offlineAfterTripSince
+            = the tap time; Driver.version goes up. Tapping again answers the same (idempotent). When a trip of his ends (completed,
+            cancelled by anyone, no-show), in the SAME transaction as the trip release with the driver row locked (rule 33,
+            safe with several server copies): a queued live trip (accepted while on the trip, nextAfterTripId) starts and
+            he stays on_trip with the flag; else a held booked ride whose leaveAt has come starts and he stays on_trip with
+            the flag (the server treats a queued live trip like a held booked ride); else he goes offline: onlineStatus offline,
+            offlineReason after_trip, the set_offline notice (data.reason after_trip), offlineAfterTrip false.'
+          default: false
+        offlineAfterTripSince:
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+          description: 'v0.18.37 §61: when he tapped Go offline during the trip (null without offlineAfterTrip).'
     DriverScheduledRides:
       type: object
       description: 'Owner decision 2 (v0.4.2): an admin''s reservations on/off for this one driver (CONTRACT.md §6.1). Missing
@@ -19318,10 +19944,15 @@ components:
           $ref: '#/components/schemas/Timestamp'
     TripCall:
       type: object
-      description: 'v0.13.0: a masked call between the trip''s rider and driver (contract.json#chat.call).'
+      description: 'v0.13.0: a masked call between the trip''s rider and driver (contract.json#chat.call). v0.18.38 §62: POST
+        /trips/{tripId}/call (no body, Idempotency-Key) by the trip''s rider or driver → 200 TripCall { tripId, mode:''in_app'',
+        callId, ice { servers, ttlSeconds }, ringSeconds, maxCallMin, expiresAt }. The server keeps a trip_calls row (state
+        ringing) and sends call_ringing on the trip stream; the callee''s app shows the incoming-call sheet. CountryRules.calls.mode
+        phone + a configured provider (phoneProvider, keys only in the server environment) → TripCall { tripId, mode:''phone'',
+        proxyNumber, expiresAt } as before (v0.13.0). Mode phone without a provider falls back to in_app. Owner G15: in-app
+        calls only until a phone company is chosen.'
       required:
       - tripId
-      - proxyNumber
       - expiresAt
       properties:
         tripId:
@@ -19329,9 +19960,45 @@ components:
         proxyNumber:
           type: string
           pattern: ^\+[1-9][0-9]{6,14}$
-          description: 'v0.13.0: the masked number to dial (E.164); the provider bridges to the other side.'
+          description: 'v0.13.0: the masked number to dial (E.164); the provider bridges to the other side. v0.18.38: mode
+            phone only.'
         expiresAt:
           $ref: '#/components/schemas/Timestamp'
+        mode:
+          type: string
+          enum:
+          - in_app
+          - phone
+          description: 'v0.18.38: in_app (WebRTC, default) or phone (proxyNumber).'
+        callId:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: v0.18.38, mode in_app.
+        ice:
+          type: object
+          description: 'v0.18.38, mode in_app: ice.servers come from the server environment (STUN/TURN URLs; TURN gets time-limited
+            credentials from a shared secret, valid ttlSeconds). No server state: any copy answers (rule 33).'
+          required:
+          - servers
+          - ttlSeconds
+          properties:
+            servers:
+              type: array
+              items:
+                $ref: '#/components/schemas/IceServer'
+            ttlSeconds:
+              type: integer
+              minimum: 0
+        ringSeconds:
+          type: integer
+          minimum: 10
+          maximum: 120
+          description: v0.18.38, mode in_app.
+        maxCallMin:
+          type: integer
+          minimum: 1
+          maximum: 60
+          description: v0.18.38, mode in_app.
     SavedPlace:
       type: object
       description: 'v0.18.26: one of the rider''s saved places. Each list is read and changed only by its owner (the signed-in
@@ -21239,6 +21906,8 @@ components:
             $ref: '#/components/schemas/AmountOption'
         driverBonus:
           $ref: '#/components/schemas/DriverBonusLimits'
+        dontMatchAgain:
+          $ref: '#/components/schemas/DontMatchAgainSettings'
         driverPayChangeMax:
           allOf:
           - $ref: '#/components/schemas/Money'
@@ -21274,6 +21943,88 @@ components:
             payout cannot be marked paid (409 run_not_approved). The driver app shows pending_approval as pending (GET /driver/payouts
             never returns pending_approval). Changing the mode changes only later runs. One admin is enough (Q1); a single
             driver can still be held (payoutHold).'
+        onTripOffers:
+          type: object
+          description: 'v0.18.33: Owner Q7 + answer 2026-11-05 (''Driver on trip can receive exclusive (can be exclusive trip
+            or reservation but it''s exclusive! Any kind of exclusive) but driver receives trip when he soon arrives to drop
+            off! Maybe 70% of the route to drop''): a driver on a trip gets only Exclusive offers (never Radar, never a list),
+            for a live ride or a booked ride alike, and only once the rider is on board and he has driven at least CountryRules.onTripOffers.minRouteDonePct
+            (default 70) % of his current trip''s route: done = 1 − (dispatchKm from his position to its drop-off) / (its
+            booked km). A booked ride also needs its pickup at most bookedNext.withinMin minutes away and his current trip
+            (+ the drive from its drop-off) to end by the booked time. km and the score are counted from the current trip''s
+            drop-off. CountryRules.onTripOffers { minRouteDonePct (default 70, 0–100), lateFreeCancelMin (default 10, 0–120)
+            } — Admin › Pricing › Tips & limits per country: ''Offers on a trip from (% of the route to the drop-off)'' and
+            ''Rider of a next trip may cancel free after (min)''. A zone''s own country_rules may set them; else the country''s
+            Standard; else the defaults.'
+          required:
+          - minRouteDonePct
+          properties:
+            minRouteDonePct:
+              type: integer
+              minimum: 0
+              maximum: 100
+              default: 70
+            lateFreeCancelMin:
+              type: integer
+              minimum: 0
+              maximum: 120
+              description: 'Owner Q5: a late current trip keeps the queued trip with this driver. From lateFreeCancelMin minutes
+                (default 10) after accept, the rider of a chained trip may cancel free also after it started (trips.chained).'
+              default: 10
+        calls:
+          type: object
+          description: 'v0.18.38 §62: Admin › Pricing › Tips & limits per country › Calls (CountryRules.calls of the country
+            standard; a zone''s own country_rules may set them), saved with Save tips & limits: Calls on, Mode (In the app
+            / Phone — phone needs a phone company), Call window after the trip (min), Ring time (s), Longest call (min). adminCallRoles
+            stays empty: Admin Call is ''coming soon'' until a phone provider is set (G9 Q6).'
+          properties:
+            'on':
+              type: boolean
+              description: calls.on false → POST /trips/{tripId}/call is 403 forbidden, reason calls_off; the apps hide the
+                call button.
+              default: true
+            mode:
+              type: string
+              enum:
+              - in_app
+              - phone
+              description: 'CountryRules.calls.mode phone + a configured provider (phoneProvider, keys only in the server
+                environment) → TripCall { tripId, mode:''phone'', proxyNumber, expiresAt } as before (v0.13.0). Mode phone
+                without a provider falls back to in_app. Owner G15: in-app calls only until a phone company is chosen.'
+              default: in_app
+            callWindowAfterTripMin:
+              type: integer
+              minimum: 0
+              maximum: 240
+              description: 'Open from driver assignment (tripStatus.driverAssigned) until callWindowAfterTripMin (default
+                60) minutes after the trip ended as completed (trips.ended_at). Outside it: 409 invalid_transition, reason
+                call_window_closed. A cancelled trip has no window after it. The apps show the call button only inside the
+                window.'
+              default: 60
+            ringSeconds:
+              type: integer
+              minimum: 10
+              maximum: 120
+              description: 'A ringing call not answered after ringSeconds is ended by the server (timer in the database, any
+                server copy runs it): state missed, event call_missed. An answered call is ended at maxCallMin with reason
+                max_length.'
+              default: 30
+            maxCallMin:
+              type: integer
+              minimum: 1
+              maximum: 60
+              default: 15
+            adminCallRoles:
+              type: array
+              items:
+                type: string
+              default: []
+            phoneProvider:
+              type: string
+              enum:
+              - none
+              - twilio
+              default: none
       x-server-only: true
     FeeRule:
       type: object
@@ -21354,7 +22105,8 @@ components:
           - $ref: '#/components/schemas/EarlyEndSettings'
           description: 'DriverAppConfig only. v0.18.10 (owner G8 Q2, 2026-11-01): DriverAppConfig.cancelFees.earlyEnd { repriceOverKm
             (default 2, 0–50), repriceOverMin (default 8, 0–120) }, Admin › Cancellation, per zone (or the country standard).
-            See finish.earlyEnd.driver.'
+            See finish.earlyEnd.driver. v0.18.33 (fix job 5, owner fix-plan Q1): repriceOverMin default 10 and the rule is
+            BOTH (more than repriceOverKm km AND more than repriceOverMin minutes shorter), contract.json#afterTestRules.earlyEnd.'
     LocalizedLine:
       type: object
       description: 'v0.7.1: a short text in each app language.'
@@ -21766,6 +22518,21 @@ components:
               $ref: '#/components/schemas/ReservationRideType'
         lateEta:
           $ref: '#/components/schemas/LateEta'
+        noDriverStopAfterMin:
+          type: integer
+          minimum: 1
+          maximum: 240
+          description: 'v0.18.39 §63 (P17): P17 (owner ''Q-P17 15 min after pickup past''): a booked ride with no driver (requested,
+            searching or offered) noDriverStopAfterMin minutes after its pickup time (DriverAppConfig.reservations.noDriverStopAfterMin,
+            default 15, 1-240, per zone, Admin › Dispatch › Book later) is ended by the server: open offers withdrawn, system
+            expire (status expired, ended_by_command expire), TripProjection.reservation.noDriverFound true, searchStep {
+            kind no_driver_found, message ''No driver was found for your booked ride. You pay nothing.'' }. No fee. Nothing
+            is charged at booking today: the server takes cash only (server src/trips/finish.ts SERVER_PAYMENT_METHODS = [cash];
+            POST /trips refuses card with payment_method_coming_soon), and a wallet part is only reserved until boarding,
+            so there is nothing to refund. When card payments start, the free-cancel refund of contract.json#bookLater.card
+            applies to this end too. The rider gets push reservation_no_driver_found. Replaces ''the ride never expires by
+            itself'' of contract.json#bookLater.noDriver (BL-Q7) after noDriverStopAfterMin.'
+          default: 15
         minAheadMin:
           type: integer
           minimum: 5
@@ -22663,7 +23430,10 @@ components:
           properties:
             usedFirst:
               type: boolean
-              description: The balance (one per currency, no conversion) pays first.
+              description: 'The balance (one per currency, no conversion) pays first. v0.18.33: RiderAppConfig.wallet.usedFirst
+                (Admin › Payments ''Use wallet first'', per zone, default true): false = the wallet never pays a trip in that
+                zone, whatever walletFirst says. features.wallet false = the same.'
+              default: true
         tips:
           type: array
           items:
@@ -22696,6 +23466,13 @@ components:
               minimum: 0
               description: 'How far the rider may move the pickup after accept; further = cancel and rebook. v0.18.7: default
                 200, range 0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}.'
+            samePointWarnMeters:
+              type: integer
+              minimum: 0
+              maximum: 1000
+              description: 'v0.18.30 (owner Q9, contract.json#smallFixes.samePoint): pickup ≈ drop-off warning under this
+                many metres (straight line, no stops); a warning only, the rider can still book. Default 100, 0 = never warn.
+                Admin Dispatch › Rides ''Shortest ride (m)''.'
             minAheadMin:
               type: integer
               minimum: 5
@@ -22760,6 +23537,13 @@ components:
                 writes it there from the zone''s dispatch document and also sets it when it serves GET /rider/config) and
                 hides every raise button whose amount would take the fare above maxFactor × the booked fare (booked fare =
                 Trip fare minus its rider_raise lines). The same in SE and FR.'
+        dontMatchAgain:
+          allOf:
+          - $ref: '#/components/schemas/DontMatchAgainSettings'
+          description: 'v0.18.43 §64: written by the server from the zone''s CountryRules. Both rating screens show one tick
+            under the stars only while the chosen stars ≤ atStars and on: rider ''Don''t match me with this driver again'',
+            driver ''Don''t match me with this rider again''. Unticked by default; raising the stars above atStars clears
+            it. After sending nothing else changes on screen.'
         routeChange:
           allOf:
           - $ref: '#/components/schemas/RouteChangeSettings'
@@ -22847,6 +23631,13 @@ components:
               minimum: 0
               description: 'Pickup move limit after accept; the driver is notified of a move. v0.18.7: default 200, range
                 0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}.'
+            samePointWarnMeters:
+              type: integer
+              minimum: 0
+              maximum: 1000
+              description: 'v0.18.30 (owner Q9, contract.json#smallFixes.samePoint): pickup ≈ drop-off warning under this
+                many metres (straight line, no stops); a warning only, the rider can still book. Default 100, 0 = never warn.
+                Admin Dispatch › Rides ''Shortest ride (m)''.'
         offers:
           type: object
           properties:
@@ -23049,6 +23840,13 @@ components:
           type: object
         appUpdate:
           $ref: '#/components/schemas/AppUpdate'
+        dontMatchAgain:
+          allOf:
+          - $ref: '#/components/schemas/DontMatchAgainSettings'
+          description: 'v0.18.43 §64: written by the server from the zone''s CountryRules. Both rating screens show one tick
+            under the stars only while the chosen stars ≤ atStars and on: rider ''Don''t match me with this driver again'',
+            driver ''Don''t match me with this rider again''. Unticked by default; raising the stars above atStars clears
+            it. After sending nothing else changes on screen.'
         pickupPin:
           $ref: '#/components/schemas/PickupPinSettings'
         routeChange:
@@ -23741,6 +24539,18 @@ components:
               maximum: 60
               description: No offer to a driver whose pickup ETA (minutes, contract.json#dispatch.eta) is above this. 0 or
                 missing = off.
+            farReachKm:
+              type: number
+              exclusiveMinimum: 0
+              maximum: 50
+              description: 'v0.18.39 §63: DispatchDocument.limits.farReachKm (default 12, > 0 and <= 50, road km like every
+                step, roadFactor 1.25), per zone (Admin › Dispatch). Used only once the steps are used up (repeat rounds)
+                and NOBODY NEW is inside the widest step: no free driver in reach, or every one in reach already declined
+                or let an offer of this trip run out. Then the search adds ONE extra step at farReachKm (radius.steps, radar.steps
+                and exclusive.steps each get farReachKm as their widest value; limits.maxPickupKm does not cap it; maxPickupEtaMin
+                still does) and its repeat rounds go on at that reach until the end of the search. farReachKm at or below
+                the widest step (or limits.maxPickupKm) = off. Neighbour zones are unchanged (neighbours.on).'
+              default: 12
         neighbours:
           type: object
           description: 'v0.18.11: optional DispatchDocument.neighbours { on, zoneIds, afterStep }. on: from search step afterStep
@@ -23766,6 +24576,69 @@ components:
         usesStandard:
           type: boolean
           description: 'v0.8.0: set by the server when it serves or uses the country standard for this zone (contract.json#configDocs.standard).'
+        noDriverNearby:
+          type: object
+          description: 'v0.18.39 §63: DispatchDocument.noDriverNearby { on (default true), afterSec (default 300, 60-1800),
+            message (default ''No driver nearby right now. We keep searching for you.'') }, per zone (Admin › Dispatch). A
+            live ride still without a driver afterSec seconds after its search started shows the rider TripProjection.searchStep
+            { kind no_driver_nearby, message } ONCE (one search step, id nd, fired once per search). The search keeps going.
+            Booked rides never get it (they have P17). Owner N2 ''search keeps going until the rider cancels'': a LIVE ride''s
+            search has no end time any more. radius.maxWaitMin and the busy step no longer end it (busy is shown as a message
+            only, never after no_driver_nearby; keep_waiting is not shown after no_driver_nearby, which already asks). The
+            trip leaves the search only when a driver accepts, the rider cancels, or an admin acts. A zone with no published
+            dispatch rules still ends after 10 min (nobody can be dispatched). Supersedes, for live rides, the ''search end''
+            and ''busy: the search ends'' rules of contract.json#dispatch.rules.'
+          required:
+          - 'on'
+          - afterSec
+          properties:
+            'on':
+              type: boolean
+              default: true
+            afterSec:
+              type: integer
+              minimum: 60
+              maximum: 1800
+              description: Seconds from search start (live rides).
+              default: 300
+            message:
+              type: string
+              minLength: 1
+              maxLength: 300
+              default: No driver nearby right now. We keep searching for you.
+        reaskLimit:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: 'v0.18.39 §63: Stop re-asking one busy driver forever: DispatchDocument.reaskLimit (default 2, 1-5,
+            per zone, Admin › Dispatch; boss 1 for the owner 2026-11-05): a driver who declined or let run out that many offers
+            of this trip in this search (Radar or Exclusive) is not asked again in this search; withdrawn offers do not count;
+            a new search (driver cancel, rider raise) starts the count again. Owner decisions 23 / Q1 (a decliner may see
+            the trip again) still hold: once more, not forever.'
+          default: 2
+        bookedNext:
+          type: object
+          description: 'v0.18.33: Owner Q7 + answer 2026-11-05 (''Driver on trip can receive exclusive (can be exclusive trip
+            or reservation but it''s exclusive! Any kind of exclusive) but driver receives trip when he soon arrives to drop
+            off! Maybe 70% of the route to drop''): a driver on a trip gets only Exclusive offers (never Radar, never a list),
+            for a live ride or a booked ride alike, and only once the rider is on board and he has driven at least CountryRules.onTripOffers.minRouteDonePct
+            (default 70) % of his current trip''s route: done = 1 − (dispatchKm from his position to its drop-off) / (its
+            booked km). A booked ride also needs its pickup at most bookedNext.withinMin minutes away and his current trip
+            (+ the drive from its drop-off) to end by the booked time. km and the score are counted from the current trip''s
+            drop-off. DispatchDocument.bookedNext { on (default true), withinMin (default 60, 0-240) } — Admin › Dispatch,
+            per zone: ''Driver on a trip can get a booked ride starting within (min)'' + on/off. Missing = the defaults.'
+          required:
+          - 'on'
+          - withinMin
+          properties:
+            'on':
+              type: boolean
+              default: true
+            withinMin:
+              type: integer
+              minimum: 0
+              maximum: 240
+              default: 60
       x-server-only: true
       x-ranges:
         radar.drivers:
@@ -23861,7 +24734,20 @@ components:
     SearchStep:
       type: object
       description: 'The latest rider-waiting step of the search (v0.5.1, contract.json#dispatch.searchStep). keep_waiting:
-        the app asks Keep waiting / Stop (POST /trips/{tripId}/keep-waiting); busy: the search ended.'
+        the app asks Keep waiting / Stop (POST /trips/{tripId}/keep-waiting); busy: the search ended. v0.18.39 §63: no_driver_nearby
+        (The rider app shows the message with two buttons: Keep waiting (POST /trips/{tripId}/keep-waiting { answer: wait
+        }: nothing else changes, the search goes on) and Cancel free (answer stop: the normal rider cancel, free because no
+        driver has accepted). keep-waiting accepts searchStep.kind keep_waiting or no_driver_nearby, once per step. No answer:
+        the search goes on.) and no_driver_found (P17 (owner ''Q-P17 15 min after pickup past''): a booked ride with no driver
+        (requested, searching or offered) noDriverStopAfterMin minutes after its pickup time (DriverAppConfig.reservations.noDriverStopAfterMin,
+        default 15, 1-240, per zone, Admin › Dispatch › Book later) is ended by the server: open offers withdrawn, system
+        expire (status expired, ended_by_command expire), TripProjection.reservation.noDriverFound true, searchStep { kind
+        no_driver_found, message ''No driver was found for your booked ride. You pay nothing.'' }. No fee. Nothing is charged
+        at booking today: the server takes cash only (server src/trips/finish.ts SERVER_PAYMENT_METHODS = [cash]; POST /trips
+        refuses card with payment_method_coming_soon), and a wallet part is only reserved until boarding, so there is nothing
+        to refund. When card payments start, the free-cancel refund of contract.json#bookLater.card applies to this end too.
+        The rider gets push reservation_no_driver_found. Replaces ''the ride never expires by itself'' of contract.json#bookLater.noDriver
+        (BL-Q7) after noDriverStopAfterMin.).'
       required:
       - id
       - kind
@@ -23878,6 +24764,8 @@ components:
           - alert_admin
           - keep_waiting
           - busy
+          - no_driver_nearby
+          - no_driver_found
         message:
           type: string
         extraMin:
@@ -24399,13 +25287,13 @@ components:
           description: 'v0.18.10: Owner G8 Q2: the driver completes farther than pricing.completeNearDropoffMeters (300 m)
             from the drop-off. Paid stop waiting (fee and minutes) is always kept. The price is worked out again only when
             the trip is shorter than booked by MORE than DriverAppConfig.cancelFees.earlyEnd.repriceOverKm km (default 2)
-            OR MORE than repriceOverMin minutes (default 8): then the rider pays what was driven (never more than booked)
-            plus the stop waiting; otherwise the booked price stands (plus the stop waiting) and the trip is still marked
-            ended early. Distance short = booked distance − km on board (trip trace); time short = booked minutes − minutes
-            on board. The numbers are kept on the trip at booking (bookingSnapshot earlyEnd), read from the zone''s live driver
-            document (or the country standard), out of range = default. The same rule applies when the driver cancels with
-            the rider on board (builder question 4, one rule): re-priced only over the limits, else the booked price (+ stop
-            waiting).'
+            AND MORE than repriceOverMin minutes (default 10) (v0.18.33, owner fix-plan Q1: BOTH; before v0.18.33 either one
+            was enough and the minutes default was 8): then the rider pays what was driven (never more than booked) plus the
+            stop waiting; otherwise the booked price stands (plus the stop waiting) and the trip is still marked ended early.
+            Distance short = booked distance − km on board (trip trace); time short = booked minutes − minutes on board. The
+            numbers are kept on the trip at booking (bookingSnapshot earlyEnd), read from the zone''s live driver document
+            (or the country standard), out of range = default. The same rule applies when the driver cancels with the rider
+            on board (builder question 4, one rule): re-priced only over the limits, else the booked price (+ stop waiting).'
         shortKm:
           type: number
           description: 'v0.18.10: booked km − km on board (early end only).'
@@ -24428,6 +25316,15 @@ components:
           $ref: '#/components/schemas/LatLng'
         to:
           $ref: '#/components/schemas/LatLng'
+        via:
+          type: array
+          items:
+            $ref: '#/components/schemas/LatLng'
+          maxItems: 10
+          description: 'v0.18.41 §66: POST /routes takes optional via: up to 10 LatLng (the trip''s stops, in order; the zone''s
+            maxStops is 0-10). The server routes [from, ...via, to] with the same router as POST /quotes, so the drawn line
+            and the price follow the same route. RoadRoute then covers every leg; distanceMeters and durationSeconds are the
+            whole route.'
     RoadRoute:
       type: object
       description: Road route for drawing. ETA shown to the rider stays TripProjection.etaSeconds.
@@ -24782,6 +25679,11 @@ components:
           type: string
         zoneId:
           $ref: '#/components/schemas/Id'
+        offlineAfterTrip:
+          type: boolean
+          description: 'v0.18.37 §61: on a trip and going offline when his trips end (admin label ''Going offline after trips'').
+            No setting. The admin driver view and the live drivers list carry offlineAfterTrip; the admin shows ''Going offline
+            after trips'' on an on-trip driver.'
     ZoneRidersOnline:
       type: object
       description: 'v0.18.4 (G3-R4): G3-R4 (owner ''Real numbers only''): riders online per zone = distinct riders who in
@@ -24871,6 +25773,19 @@ components:
           type: integer
           minimum: 1
           default: 120
+        total:
+          type: integer
+          minimum: 0
+          description: 'v0.18.34 §65: LiveDriverList.total: how many drivers not offline match the filters (zones, country,
+            map box) over ALL pages, so the panel can show the number before every page has arrived.'
+        nextCursor:
+          oneOf:
+          - type: string
+          - type: 'null'
+          description: 'v0.18.34 §65: GET /admin/live/drivers takes optional limit (1..1000) and cursor (the nextCursor of
+            the page before). Items are then in driverId order, at most limit, and the answer carries nextCursor (null on
+            the last page). Without limit every matching driver comes back in one answer (older panels), also with nextCursor
+            null. Keyset paging, no server state: any server copy answers any page (rule 33).'
     TripTrace:
       type: object
       description: The trip's GPS trace; deleted 30 days after the trip (owner decision 11).
@@ -24973,7 +25888,9 @@ components:
         like trip_projection (the pickup changed, version + 1); a location event may carry eta (TripEta) as well as etaSeconds;
         v0.18.9: a server ride check and its answers (TripProjection.rideCheck) go out as trip_projection events WITHOUT a
         version change, like the waiting alerts; a route change request and its answer (TripProjection.routeChange) are trip_projection
-        events with version + 1. No new event kinds..'
+        events with version + 1. No new event kinds.; v0.18.38 §62: call_ringing, call_answered, call_signal, call_ended and
+        call_missed carry no projection and no version change; they pass the gate also after a terminal status (the call window
+        runs callWindowAfterTripMin after drop-off)..'
       required:
       - eventId
       - tripId
@@ -25022,6 +25939,14 @@ components:
           allOf:
           - $ref: '#/components/schemas/TripEta'
           description: 'v0.18.7: on a kind=location event sent by the ETA tick (every 30 s).'
+        call:
+          allOf:
+          - $ref: '#/components/schemas/CallView'
+          description: 'v0.18.38: on call_ringing, call_answered, call_ended, call_missed.'
+        signal:
+          allOf:
+          - $ref: '#/components/schemas/CallSignalEvent'
+          description: 'v0.18.38: on call_signal.'
       x-optional:
       - projection
       - location
@@ -25095,6 +26020,28 @@ components:
           $ref: '#/components/schemas/Timestamp'
         serverTime:
           $ref: '#/components/schemas/Timestamp'
+    RiderTripEvent:
+      type: object
+      description: 'v0.18.32 (contract.json#bookedRideSeen.riderTripEvent, P21): a trip of this rider changed (made, accepted,
+        any status), also when made elsewhere. The rider app reads GET /rider/trips/active again.'
+      required:
+      - eventId
+      - kind
+      - tripId
+      - occurredAt
+      - serverTime
+      properties:
+        eventId:
+          $ref: '#/components/schemas/Id'
+        kind:
+          type: string
+          const: rider_trip_changed
+        tripId:
+          $ref: '#/components/schemas/Id'
+        occurredAt:
+          $ref: '#/components/schemas/Timestamp'
+        serverTime:
+          $ref: '#/components/schemas/Timestamp'
     Error:
       type: object
       required:
@@ -25119,7 +26066,8 @@ components:
             auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far,
             driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival,
             route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now,
-            pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit).'
+            pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit).
+            v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons).'
         details:
           type: array
           items:
@@ -25579,6 +26527,24 @@ components:
           - $ref: '#/components/schemas/Id'
           description: 'v0.6.0: one of the zone''s fixed routes; for a route of the quoted category the fixed_route line replaces
             the ride part, otherwise the category is priced normally.'
+    QuoteWarning:
+      type: object
+      description: 'v0.18.30 (contract.json#smallFixes.samePoint, owner Q9): a warning only; the quote can still be booked.'
+      required:
+      - reason
+      - meters
+      - limitMeters
+      properties:
+        reason:
+          type: string
+          enum:
+          - same_pickup_dropoff
+        meters:
+          type: integer
+          minimum: 0
+        limitMeters:
+          type: integer
+          minimum: 0
     QuoteList:
       type: object
       required:
@@ -25593,6 +26559,11 @@ components:
           $ref: '#/components/schemas/Id'
         serverTime:
           $ref: '#/components/schemas/Timestamp'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuoteWarning'
+          description: 'v0.18.30: warnings for the rider (may be absent or empty).'
     CreateTripRequest:
       type: object
       description: 'Request a quoted trip. No expectedVersion: the trip does not exist yet; Idempotency-Key dedupes. v0.6.0:
@@ -25628,7 +26599,12 @@ components:
           $ref: '#/components/schemas/Id'
         walletFirst:
           type: boolean
-          description: Use wallet balance before the method.
+          description: 'v0.18.33: Owner Q6 (''Switch per ride, starts ON''): CreateTripRequest.walletFirst (default true when
+            missing). true = the rider''s wallet balance in the trip''s currency pays first: POST /trips reserves walletApplied
+            = min(balance in that currency, fare) and TripProjection.walletApplied / cashToCollect show it from booking on;
+            it is worked out again at boarding (never more than the balance). false = this trip pays nothing from the wallet
+            (walletApplied 0). Another currency''s balance is never used (contract.json#walletCurrency).'
+          default: true
         notes:
           type: string
           maxLength: 500
@@ -25735,6 +26711,14 @@ components:
           description: 'v0.18.10: rider only; POST /trips/{tripId}/tip { amount: Money, method: cash | card | apple_pay }
             (rider; Idempotency-Key) → 201 TripTip { amount, method, driverShare, at }. Also accepted as RatingRequest.tip
             (+ tipMethod, default cash) with the rating: the same rules.'
+        dontMatchAgain:
+          type: boolean
+          description: 'v0.18.43 §64: POST /trips/{tripId}/rating may carry dontMatchAgain: true (rider and driver). Allowed
+            only with stars ≤ CountryRules.dontMatchAgain.atStars (default 1) while dontMatchAgain.on (default true); otherwise
+            400 invalid_body, reason dont_match_not_allowed, and nothing is saved. With it the server writes the pair (by
+            = the rater) in the same transaction as the rating. The answer is the same Rating as without it. The other side
+            is never told (owner ''Never told''): no event, push, notice, field or count shows a block to the rider or driver
+            who was blocked; the trip, offer and profile projections are unchanged. Only admins see pairs.'
         tipMethod:
           allOf:
           - $ref: '#/components/schemas/TipMethod'
@@ -28869,6 +29853,86 @@ components:
         note:
           type: string
           maxLength: 1000
+    BlockedPair:
+      type: object
+      description: 'v0.18.43 §64: BlockedPair { pairId, riderId, driverId, by: admin|rider|driver, reason?, tripId?, at, adminId?
+        }: this rider and this driver are never matched again. One active pair per rider + driver (a second block of the same
+        pair answers the pair that exists). A blocked pair is never offered: no Exclusive, no Radar, no airport-queue offer,
+        no admin money offer, no on-trip next trip, and the booked ride is not listed to that driver in Scheduled rides nor
+        claimable by him. The search goes on with the other drivers exactly as if that driver were not there; with nobody
+        else it goes on as ''no driver'' (no special step, no message). The other side is never told (owner ''Never told''):
+        no event, push, notice, field or count shows a block to the rider or driver who was blocked; the trip, offer and profile
+        projections are unchanged. Only admins see pairs.'
+      required:
+      - pairId
+      - riderId
+      - driverId
+      - by
+      - at
+      properties:
+        pairId:
+          $ref: '#/components/schemas/Id'
+        riderId:
+          $ref: '#/components/schemas/Id'
+        driverId:
+          $ref: '#/components/schemas/Id'
+        by:
+          type: string
+          enum:
+          - admin
+          - rider
+          - driver
+        reason:
+          type: string
+          maxLength: 300
+        tripId:
+          $ref: '#/components/schemas/Id'
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        adminId:
+          $ref: '#/components/schemas/Id'
+    BlockedPairList:
+      type: object
+      description: 'v0.18.43 §64: POST /admin/trips/{tripId}/block-pair { reason? } (riders.block, Idempotency-Key, audit
+        blocked_pair.add) blocks the trip''s rider and driver (by admin); 409 invalid_transition, reason no_driver, when the
+        trip has no driver. GET /admin/blocked-pairs?riderId=|driverId= (riders.read) lists the active pairs of one person,
+        newest first. Admin › Trips › trip page: Block this pair; Admin › Rider and Admin › Driver pages: Blocked pairs with
+        Undo.'
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlockedPair'
+    BlockPairCommand:
+      type: object
+      description: 'v0.18.43 §64: POST /admin/trips/{tripId}/block-pair { reason? } (riders.block, Idempotency-Key, audit
+        blocked_pair.add) blocks the trip''s rider and driver (by admin); 409 invalid_transition, reason no_driver, when the
+        trip has no driver. GET /admin/blocked-pairs?riderId=|driverId= (riders.read) lists the active pairs of one person,
+        newest first. Admin › Trips › trip page: Block this pair; Admin › Rider and Admin › Driver pages: Blocked pairs with
+        Undo.'
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
+      additionalProperties: false
+    DontMatchAgainSettings:
+      type: object
+      description: 'v0.18.43 §64: CountryRules.dontMatchAgain { on, atStars } per country (Admin › Pricing › Tips & limits
+        › Don''t match again). The server serves the same block as RiderAppConfig.dontMatchAgain and DriverAppConfig.dontMatchAgain
+        (GET /rider/config, /driver/config) so both apps show the tick only when it is allowed.'
+      properties:
+        'on':
+          type: boolean
+          default: true
+        atStars:
+          type: integer
+          minimum: 1
+          maximum: 2
+          description: The tick shows at this many stars or fewer.
+          default: 1
     LegalDocument:
       type: object
       description: 'v0.18.5: one legal text (terms or privacy) in sv / fr / en.'
@@ -30460,19 +31524,19 @@ components:
           description: 'v0.18.10: Owner G8 Q2: the driver completes farther than pricing.completeNearDropoffMeters (300 m)
             from the drop-off. Paid stop waiting (fee and minutes) is always kept. The price is worked out again only when
             the trip is shorter than booked by MORE than DriverAppConfig.cancelFees.earlyEnd.repriceOverKm km (default 2)
-            OR MORE than repriceOverMin minutes (default 8): then the rider pays what was driven (never more than booked)
-            plus the stop waiting; otherwise the booked price stands (plus the stop waiting) and the trip is still marked
-            ended early. Distance short = booked distance − km on board (trip trace); time short = booked minutes − minutes
-            on board. The numbers are kept on the trip at booking (bookingSnapshot earlyEnd), read from the zone''s live driver
-            document (or the country standard), out of range = default. The same rule applies when the driver cancels with
-            the rider on board (builder question 4, one rule): re-priced only over the limits, else the booked price (+ stop
-            waiting).'
+            AND MORE than repriceOverMin minutes (default 10) (v0.18.33, owner fix-plan Q1: BOTH; before v0.18.33 either one
+            was enough and the minutes default was 8): then the rider pays what was driven (never more than booked) plus the
+            stop waiting; otherwise the booked price stands (plus the stop waiting) and the trip is still marked ended early.
+            Distance short = booked distance − km on board (trip trace); time short = booked minutes − minutes on board. The
+            numbers are kept on the trip at booking (bookingSnapshot earlyEnd), read from the zone''s live driver document
+            (or the country standard), out of range = default. The same rule applies when the driver cancels with the rider
+            on board (builder question 4, one rule): re-priced only over the limits, else the booked price (+ stop waiting).'
           default: 2
         repriceOverMin:
           type: number
           minimum: 0
           maximum: 120
-          default: 8
+          default: 10
     TipRules:
       type: object
       description: 'v0.18.10: RiderAppConfig.tipRules { cashAfterTrip (default false), cashInCarMinutes (default 5, 0–60),
@@ -30792,7 +31856,8 @@ components:
         It runs with the server ETA, every pickupWaiting.eta.everySeconds (30 s), from accept until arrived, for the whole
         wait, not only once. DriverAppConfig.headingCheck { on, headingPct, notHeadingMinutes, reassign } per zone (or the
         country standard); defaults configDefaults.headingCheck (on, 80 %, 2 min, reassign on). The admin''s ''Smart cancel
-        check'' / ''Came closer by'' controls map to on / headingPct.'
+        check'' / ''Came closer by'' controls map to on / headingPct. v0.18.35: + notice (default true) and noticeEveryMin
+        (default 1, range 1-10); reassign default false and read-only (live rides are never taken back).'
       properties:
         'on':
           type: boolean
@@ -30812,11 +31877,12 @@ components:
           default: 2
         reassign:
           type: boolean
-          description: 'With reassign on, a driver not heading for notHeadingMinutes in a row loses the trip: it goes back
-            to dispatch without him (TripProjection.status searching, like an admin reassign; Exclusive offers first as dispatch
-            does), the cancel counts against him (driver_cancels reason not_heading_to_pickup, in his cancel rate) and the
-            rider gets the driver_changed push.'
-          default: true
+          description: 'v0.18.35 (owner Q-A 2026-11-04, contract.json#bookedTakeBack.live): LIVE rides are NEVER taken back
+            by the server. reassign stays in DriverAppConfig.headingCheck (read-only, default false, never deleted) and the
+            server ignores it for live trips. Not heading for notHeadingMinutes in a row only makes the rider''s cancel free
+            and sends the driver the notHeadingNotice. (Before v0.18.35: with reassign on the trip went back to dispatch,
+            reason not_heading_to_pickup.)'
+          default: false
     TripHeadingCheck:
       type: object
       description: 'v0.18.13: TripProjection.headingCheck { heading, checkedAt, notHeadingSince?, freeCancel } from accept
@@ -31285,6 +32351,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/Timestamp'
           description: Driver and admin views of an accepted ride.
+        noDriverFound:
+          type: boolean
+          description: 'v0.18.39 §63 (P17, contract.json#noDriverNearby.bookedStop): the server ended this booked ride, no
+            driver was found (no fee).'
     DriverReservation:
       type: object
       description: 'v0.18.17: one booked ride in the driver''s lists.'
@@ -31345,6 +32415,10 @@ components:
         popup:
           type: boolean
           description: The Home popup step was reached (reservation_popup sent).
+        riderFirstName:
+          type: string
+          description: 'v0.18.32 (contract.json#bookedRideSeen.leaveNowName): scope=accepted only, the rider''s first name
+            for the leave-now popup.'
         reservation:
           allOf:
           - $ref: '#/components/schemas/ReservationInfo'
@@ -31981,3 +33055,355 @@ components:
           oneOf:
           - $ref: '#/components/schemas/Timestamp'
           - type: 'null'
+    IceServer:
+      type: object
+      description: 'v0.18.38: ice.servers come from the server environment (STUN/TURN URLs; TURN gets time-limited credentials
+        from a shared secret, valid ttlSeconds). No server state: any copy answers (rule 33).'
+      required:
+      - urls
+      properties:
+        urls:
+          type: array
+          items:
+            type: string
+          minItems: 1
+        username:
+          type: string
+        credential:
+          type: string
+    CallState:
+      type: string
+      enum:
+      - ringing
+      - answered
+      - ended
+      - missed
+      description: v0.18.38.
+    CallView:
+      type: object
+      description: 'v0.18.38: No call payload (TripCall in_app, CallView, call_* events, admin call log) ever carries a phone
+        number. In mode in_app no number is used at all.'
+      required:
+      - callId
+      - tripId
+      - from
+      - to
+      - state
+      - startedAt
+      - answeredAt
+      - endedAt
+      - endedReason
+      - seconds
+      properties:
+        callId:
+          $ref: '#/components/schemas/Id'
+        tripId:
+          $ref: '#/components/schemas/Id'
+        from:
+          type: string
+          enum:
+          - rider
+          - driver
+        to:
+          type: string
+          enum:
+          - rider
+          - driver
+        state:
+          $ref: '#/components/schemas/CallState'
+        startedAt:
+          $ref: '#/components/schemas/Timestamp'
+        answeredAt:
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        endedAt:
+          oneOf:
+          - $ref: '#/components/schemas/Timestamp'
+          - type: 'null'
+        endedReason:
+          oneOf:
+          - type: string
+            enum:
+            - hangup
+            - declined
+            - failed
+            - missed
+            - max_length
+            - trip_cancelled
+          - type: 'null'
+        seconds:
+          type: integer
+          minimum: 0
+          description: Talk time (answered → ended); 0 when never answered.
+        ice:
+          allOf:
+          - type: object
+            description: 'v0.18.38, mode in_app: ice.servers come from the server environment (STUN/TURN URLs; TURN gets time-limited
+              credentials from a shared secret, valid ttlSeconds). No server state: any copy answers (rule 33).'
+            required:
+            - servers
+            - ttlSeconds
+            properties:
+              servers:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IceServer'
+              ttlSeconds:
+                type: integer
+                minimum: 0
+          description: 'v0.18.38: on the answer of POST /calls/{callId}/answer only: the callee''s ICE servers.'
+    CallSignal:
+      type: object
+      description: 'v0.18.38: POST /calls/{callId}/signal { type: offer|answer|ice, sdp?, candidate? } by the call''s caller
+        or callee → 202; the server relays it as call_signal on the trip stream (from = the sender''s side). Media goes peer
+        to peer (or through the TURN server); the server never sees audio and stores none.'
+      required:
+      - type
+      properties:
+        type:
+          type: string
+          enum:
+          - offer
+          - answer
+          - ice
+        sdp:
+          type: string
+          maxLength: 20000
+        candidate:
+          type: object
+          required:
+          - candidate
+          properties:
+            candidate:
+              type: string
+              maxLength: 2000
+            sdpMid:
+              oneOf:
+              - type: string
+              - type: 'null'
+            sdpMLineIndex:
+              oneOf:
+              - type: integer
+                minimum: 0
+              - type: 'null'
+    CallSignalEvent:
+      type: object
+      required:
+      - callId
+      - from
+      - type
+      properties:
+        callId:
+          $ref: '#/components/schemas/Id'
+        from:
+          type: string
+          enum:
+          - rider
+          - driver
+        type:
+          type: string
+          enum:
+          - offer
+          - answer
+          - ice
+        sdp:
+          type: string
+        candidate:
+          type: object
+          required:
+          - candidate
+          properties:
+            candidate:
+              type: string
+              maxLength: 2000
+            sdpMid:
+              oneOf:
+              - type: string
+              - type: 'null'
+            sdpMLineIndex:
+              oneOf:
+              - type: integer
+                minimum: 0
+              - type: 'null'
+    CallEndRequest:
+      type: object
+      description: 'v0.18.38: POST /calls/{callId}/end { reason: hangup|declined|failed } by either side → 200 CallView (state
+        ended), event call_ended. A second end is answered with the same CallView (idempotent).'
+      required:
+      - reason
+      properties:
+        reason:
+          type: string
+          enum:
+          - hangup
+          - declined
+          - failed
+    CallLog:
+      type: object
+      description: 'v0.18.38: GET /admin/trips/{tripId}/calls (trips.read, trip in the admin''s zones) → { items: [CallLogItem
+        { callId, from, to, state, startedAt, answeredAt, endedAt, endedReason, seconds }] }, newest first. Shown in Admin
+        › Trip details › Calls. No audio, no numbers.'
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CallView'
+    AirportQueueArea:
+      type: object
+      description: 'v0.18.36 §60: AirportQueueArea { areaId, airportZoneId, polygon [[lat, lng], ...] (3-500 points, inside
+        or around the airport), on, leaveGraceMin, offerSeconds, maxQueueOffers, keepPlaceAfterDecline, updatedAt }. One area
+        per airport zone (Zone.kind airport). Off until an admin draws the area and turns it on.'
+      required:
+      - areaId
+      - airportZoneId
+      - polygon
+      - 'on'
+      - leaveGraceMin
+      - offerSeconds
+      - maxQueueOffers
+      - keepPlaceAfterDecline
+      properties:
+        areaId:
+          $ref: '#/components/schemas/Id'
+        airportZoneId:
+          $ref: '#/components/schemas/Id'
+        polygon:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+            minItems: 2
+            maxItems: 2
+          minItems: 3
+          maxItems: 500
+        'on':
+          type: boolean
+          default: false
+        leaveGraceMin:
+          type: integer
+          minimum: 0
+          maximum: 30
+          default: 3
+        offerSeconds:
+          type: integer
+          minimum: 5
+          maximum: 120
+          default: 30
+        maxQueueOffers:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 3
+        keepPlaceAfterDecline:
+          type: boolean
+          description: 'Owner job 9 Q4 (2026-11-05): ''Keeps his place''. keepPlaceAfterDecline (default true): a driver who
+            declines or misses a queue offer keeps his place. false = he goes to the back (joinedAt = now).'
+          default: true
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+    AirportQueueAreaUpdate:
+      type: object
+      description: 'v0.18.36 §60: what the admin saves (the whole area); a number left out takes its default.'
+      required:
+      - polygon
+      - 'on'
+      properties:
+        polygon:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+            minItems: 2
+            maxItems: 2
+          minItems: 3
+          maxItems: 500
+        'on':
+          type: boolean
+        leaveGraceMin:
+          type: integer
+          minimum: 0
+          maximum: 30
+        offerSeconds:
+          type: integer
+          minimum: 5
+          maximum: 120
+        maxQueueOffers:
+          type: integer
+          minimum: 1
+          maximum: 10
+        keepPlaceAfterDecline:
+          type: boolean
+      additionalProperties: false
+    AirportQueueStatus:
+      type: object
+      description: 'v0.18.36 §60: GET /driver/airport-queue -> AirportQueueStatus { status in_queue | not_in_area | off, areaId?,
+        airportZoneId?, position (1 = first), ahead, joinedAt, waitingMin }. The driver app reads it every 20 s while the
+        queue screen or Home is open; there is no sample data. The driver app shows ''You left the airport queue'' when status
+        goes from in_queue to anything else.'
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - in_queue
+          - not_in_area
+          - 'off'
+        areaId:
+          $ref: '#/components/schemas/Id'
+        airportZoneId:
+          $ref: '#/components/schemas/Id'
+        position:
+          type: integer
+          minimum: 1
+          description: 1 = first in line.
+        ahead:
+          type: integer
+          minimum: 0
+        joinedAt:
+          $ref: '#/components/schemas/Timestamp'
+        waitingMin:
+          type: integer
+          minimum: 0
+    AirportQueueFeedItem:
+      type: object
+      required:
+      - areaId
+      - airportZoneId
+      - 'on'
+      - waiting
+      - longestWaitMin
+      - pickupsLastHour
+      properties:
+        areaId:
+          $ref: '#/components/schemas/Id'
+        airportZoneId:
+          $ref: '#/components/schemas/Id'
+        'on':
+          type: boolean
+        waiting:
+          type: integer
+          minimum: 0
+        longestWaitMin:
+          type: integer
+          minimum: 0
+        pickupsLastHour:
+          type: integer
+          minimum: 0
+    AirportQueueFeed:
+      type: object
+      description: 'v0.18.36 §60: GET /admin/zones/{zoneId}/queue-area (zones.read) -> AirportQueueArea or 404 not_found;
+        PUT (zones.edit, audited) saves it. GET /admin/airport-queues (zones.read) -> AirportQueueFeed { items [{ areaId,
+        airportZoneId, on, waiting, longestWaitMin, pickupsLastHour }] } for the Dashboard airport card.'
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AirportQueueFeedItem'

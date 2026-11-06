@@ -1,3 +1,5 @@
+import 'package:movera_rider/core/realtime/call_events.dart';
+import 'package:movera_rider/features/calls/application/rider_trip_calls.dart';
 import 'package:movera_rider/core/config/api_rider_config_repository.dart';
 import 'package:movera_rider/core/config/rider_zones_controller.dart';
 import 'package:movera_rider/app/legal_country.dart';
@@ -75,6 +77,7 @@ import 'package:movera_rider/features/profile/data/synced_profile_repository.dar
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/api_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/data/api_scheduled_ride_rules_source.dart';
+import 'package:movera_rider/features/reservations/data/config_scheduled_ride_rules_source.dart';
 import 'package:movera_rider/features/reservations/data/disabled_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/data/mock_reservation_dispatch.dart';
@@ -230,8 +233,13 @@ class AppScope {
           : null,
       // Admin-set cancel window, late fee and driver reveal. Only asked for
       // where Book for later is on.
+      // v0.18.32 (bookedRideSeen.rulesSource): on the live wire the rules
+      // come from the rider config; the demo's mock still answers the old
+      // route.
       rulesSource: flags.scheduledRides || flags.bookingLater
-          ? ApiScheduledRideRulesSource(api)
+          ? (api.contractWire
+                ? ConfigScheduledRideRulesSource(() => riderConfig.current())
+                : ApiScheduledRideRulesSource(api))
           : null,
       // X3: reservation cancel fees per category from the rider config.
       config: SeedRiderConfigRepository.seed,
@@ -412,7 +420,7 @@ class AppScope {
   );
   late final SavedPlacesController savedPlaces = SavedPlacesController();
 
-  /// BASE B13 (contract v0.18.26 §47): saved places on the server; null on
+  /// BASE B13 (contract v0.18.32 §47): saved places on the server; null on
   /// the demo / mock transport, where the phone copy is all there is.
   late final ServerSavedPlaces? savedPlacesServer = api.contractWire
       ? ServerSavedPlaces(api: api)
@@ -495,8 +503,17 @@ class AppScope {
   /// Contract v0.13.0 §22: masked calls (`POST /trips/{tripId}/call`) on
   /// the live wire; the demo has none and says calls are not available.
   late final TripCallTransport? tripCall = api.contractWire
-      ? ApiTripCall(api: api)
+      ? _withCalls(ApiTripCall(api: api))
       : null;
+
+  /// v0.18.38 §62 (fix job 8): the in-app calls hub on the live wire.
+  static ApiTripCall _withCalls(ApiTripCall transport) {
+    // The trip stream's call events go to the hub; app.dart opens the call
+    // screen for a driver's call (owner G15: both sides call).
+    final hub = RiderTripCalls.instance ??= RiderTripCalls(api: transport);
+    RideCallEvents.sink = hub.receive;
+    return transport;
+  }
 
   /// The in-app explanation in front of the OS notification prompt.
   late final PushPermissionGate pushPermission = PushPermissionGate(
