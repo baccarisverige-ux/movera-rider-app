@@ -1,4 +1,6 @@
-# Movera shared contract v0.18.44
+# Movera shared contract v0.18.45
+
+v0.18.45 (L-a driver booked rides live, Rules `plan/LA-BUILD-PLAN-2026-11-06.md` §1, owner Q7 "Live push" in `decisions/driver-g15.md`; X-Api-Version stays `0.5`, additive, no migration): **`GET /driver/config/stream` also carries `driver_reservations_changed`** `{ eventId, kind, tripId, occurredAt, serverTime }`, a hint only: the driver app re-reads `GET /driver/reservations` (open + accepted) at sign-in, on every reconnect and on this event (debounce: at most 1 re-read per 2 s). Also fixes the §67 note typo ("renumbered from 0.18.42"). See §68 and `contract.json#driverReservationsLive`.
 
 v0.18.44 (same-address fix, proven cause, Rules `plan/FIX-PLAN-RERUN-2026-11-05.md` "Proof: same-address booking", boss answers `decisions/driver-g15.md` and Decisions 10 / 12; builds on v0.18.43 main, renumbered from 0.18.42 (Decision 13); X-Api-Version stays `0.5`, additive, no migration): **geocode by `placeId` answers the place `name`** and the rider keeps the name it chose ("Solna Centrum" never becomes "Solnavägen 13"); new zone pricing setting **`minTripMeters`** (0–5000 m, **default 0 = off**: owner Q9 "Warn him but can accept booking" overrides the boss 300 m default; an admin turns it on per zone): `POST /quotes` and `POST /trips` refuse a drop-off closer than that to the pickup with `400 invalid_request` reason **`dropoff_too_close`**; rider text "Drop-off is too close to pickup". See §67 and `contract.json#sameAddress`.
 
@@ -1307,3 +1309,11 @@ Proven cause (rule 36, rider-app main 10f17471, server main 129d148): (1) the ri
 - **`minTripMeters`** (zone pricing document, admin Pricing page, integer metres 0–5000, **default 0 = off** (owner Q9 v0.18.30 "Warn him but can accept booking" overrides the boss 300 m default; an admin turns it on per zone); no migration, it lives in the pricing JSON): straight line pickup → drop-off; a trip with stops is not checked.
 - **Refusal**: `POST /quotes` and `POST /trips` answer `400 invalid_request`, reason **`dropoff_too_close`**, `details: ["meters=<n>", "limitMeters=<m>"]`. `/trips` re-checks with the zone's live value. The v0.18.30 `samePointWarnMeters` warning still applies above the limit.
 - **Rider**: shows "Drop-off is too close to pickup" (sv "Avlämningen är för nära upphämtningen", fr "Le point de dépose est trop proche du point de prise en charge") and stays on the destination step. `contract.json#sameAddress`.
+
+## 68. Driver booked rides live — driver_reservations_changed (v0.18.45)
+
+- **`GET /driver/config/stream`** also carries **`driver_reservations_changed`** `{ eventId, kind, tripId, occurredAt, serverTime }`. Its SSE `id:` stays the config version already sent (as `rider_trip_changed`).
+- **Hint only**: no reservation data; the app re-reads `GET /driver/reservations?scope=open` and `?scope=accepted`, which alone decides what the driver sees.
+- **When**: a trip with `scheduledAt` in the stream's zone changes (created, accepted, released, cancelled, rescheduled, started), or the trip names this driver. A now-ride sends nothing. Only after commit; a rolled-back change sends nothing.
+- **App**: re-read at sign-in, on every reconnect and on the event; debounce bursts (≤ 1 re-read per 2 s); demo rides cleared at sign-in.
+- **Rule 33**: one LISTEN per server copy on `movera_trip_events`, each copy fans out to its own streams; no shared memory. `contract.json#driverReservationsLive`.

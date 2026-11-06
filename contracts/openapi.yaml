@@ -1,11 +1,11 @@
-# Movera API v0.18.44 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.45 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.44
+  version: 0.18.45
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.44 in this folder; this file must agree with them.
+    v0.18.45 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.44
+  version: 0.18.45
   source: contract.json
 paths:
   /auth/otp/request:
@@ -3210,6 +3210,14 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: 'v0.18.45 §68: also carries driver_reservations_changed { eventId, kind, tripId, occurredAt, serverTime
+        }. The event is a hint only: it carries no reservation data. The app re-reads GET /driver/reservations?scope=open
+        and ?scope=accepted; that GET alone decides which rides the driver sees. The SSE id stays the config version already
+        sent (same pattern as rider_trip_changed), so Last-Event-ID stays that version. Sent to every driver stream of the
+        zone when a trip with scheduledAt in that zone changes (created, accepted, released, cancelled, rescheduled, started),
+        and to the stream of the driver the trip names. A trip without scheduledAt (a now-ride) sends nothing. Sent only after
+        the change commits; a rolled-back change sends nothing. The driver app re-reads at sign-in, on every stream reconnect
+        and on this event, and debounces bursts (at most 1 re-read per 2 s). Demo rides are cleared at sign-in.'
   /driver/earnings:
     get:
       operationId: getDriverEarnings
@@ -31136,6 +31144,27 @@ components:
           type: string
           minLength: 1
           maxLength: 1000
+    DriverReservationsChangedEvent:
+      type: object
+      description: 'v0.18.45 §68: hint only; the driver app re-reads GET /driver/reservations on it.'
+      required:
+      - eventId
+      - kind
+      - tripId
+      - occurredAt
+      - serverTime
+      properties:
+        eventId:
+          $ref: '#/components/schemas/Id'
+        kind:
+          type: string
+          const: driver_reservations_changed
+        tripId:
+          $ref: '#/components/schemas/Id'
+        occurredAt:
+          $ref: '#/components/schemas/Timestamp'
+        serverTime:
+          $ref: '#/components/schemas/Timestamp'
     RouteChangeSettings:
       type: object
       description: 'v0.18.9: DriverAppConfig.routeChange (Admin › Dispatch › Stops: ''Change stops during trip'', ''Driver
