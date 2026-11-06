@@ -1,11 +1,11 @@
-# Movera API v0.18.39 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.41 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.39
+  version: 0.18.41
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.39 in this folder; this file must agree with them.
+    v0.18.41 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.39
+  version: 0.18.41
   source: contract.json
 paths:
   /auth/otp/request:
@@ -9809,8 +9809,9 @@ paths:
     post:
       operationId: routeBetween
       summary: Road route between two points (Movera OSRM)
-      description: No route → 404 not_found (reason no_route); the app then draws a straight line. lat / lng as everywhere
-        else.
+      description: 'No route → 404 not_found (reason no_route); the app then draws a straight line. lat / lng as everywhere
+        else. v0.18.41 §66: No road route: the answer is the straight line through every point, [from, ...via, to], never
+        from -> to when there are stops.'
       tags:
       - Maps
       x-actor:
@@ -25150,6 +25151,15 @@ components:
           $ref: '#/components/schemas/LatLng'
         to:
           $ref: '#/components/schemas/LatLng'
+        via:
+          type: array
+          items:
+            $ref: '#/components/schemas/LatLng'
+          maxItems: 10
+          description: 'v0.18.41 §66: POST /routes takes optional via: up to 10 LatLng (the trip''s stops, in order; the zone''s
+            maxStops is 0-10). The server routes [from, ...via, to] with the same router as POST /quotes, so the drawn line
+            and the price follow the same route. RoadRoute then covers every leg; distanceMeters and durationSeconds are the
+            whole route.'
     RoadRoute:
       type: object
       description: Road route for drawing. ETA shown to the rider stays TripProjection.etaSeconds.

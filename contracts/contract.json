@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.39",
+  "version": "0.18.41",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -8097,5 +8097,11 @@
         240
       ]
     }
+  },
+  "routeVia": {
+    "note": "v0.18.41 §66 (Rules plan/FIX-PLAN-RERUN-2026-11-05.md A14, proven cause; boss Decision 8). Builds on v0.18.39 main. Additive; X-Api-Version stays 0.5; no migration; stateless (rule 33).",
+    "request": "POST /routes takes optional via: up to 10 LatLng (the trip's stops, in order; the zone's maxStops is 0-10). The server routes [from, ...via, to] with the same router as POST /quotes, so the drawn line and the price follow the same route. RoadRoute then covers every leg; distanceMeters and durationSeconds are the whole route.",
+    "fallback": "No road route: the answer is the straight line through every point, [from, ...via, to], never from -> to when there are stops.",
+    "apps": "Rider: Select ride and Finding drivers draw the road line through every stop (one road leg per pair via the routing seam); a leg without road is drawn straight through the stop and the map shows 'Approximate route'. The quote's distanceMeters hint is the straight distance via the stops. Driver app and admin panel: their maps already draw through the stops (checked, no change)."
   }
 }
