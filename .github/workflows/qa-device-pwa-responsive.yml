@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   device-pwa-responsive:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # C6b: ubuntu-latest is 26.04: Playwright 1.55 --with-deps cannot install there
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -33,29 +33,55 @@ jobs:
           npm install --save-dev playwright@1.55.0 >/dev/null 2>&1
           npx playwright install --with-deps chromium webkit >/dev/null
 
-      - name: Wait for this exact Pages build
+      # B20 (2026-11-06): since #504 (2026-11-05) Pages publishes only the
+      # sign-in-required live build at /live/ and the root is a redirect, so
+      # the old "wait for flutter_bootstrap.<sha>.js at the root" could never
+      # match (8 min, then fail). This robot tests the demo flavor (no sign-in),
+      # so it builds that flavor of this exact commit here and serves it locally.
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.7'
+          cache: true
+
+      - name: Build and serve the demo web of this commit
         env:
-          TARGET_LIVE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.sha }}
+          RIDER_MAP_ID: ${{ vars.RIDER_MAP_ID || '9fdc5d9e56d4a0916c77a424' }}
+          MAPS_WEB_API_KEY: ${{ secrets.MAPS1 || secrets.MAPS || secrets.GOOGLE_MAPS_WEB_API_KEY || secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS_API_KEY }}
         run: |
-          SHORT="${TARGET_LIVE_SHA::8}"
-          for i in $(seq 1 48); do
-            HTML=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/movera-rider-app/?qa_wait=$RANDOM" || true)
-            if printf '%s' "$HTML" | grep -q "flutter_bootstrap.${SHORT}.js"; then
-              # index.html alone is not enough: right after a deploy the
-              # versioned bootstrap or main bundle can still be missing from
-              # the CDN edge, and the page then never starts.
-              BOOT=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/movera-rider-app/flutter_bootstrap.${SHORT}.js?qa_wait=$RANDOM" || true)
-              if printf '%s' "$BOOT" | grep -q "main.${SHORT}.dart.js" &&
-                curl -fsSI -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/movera-rider-app/main.${SHORT}.dart.js?qa_wait=$RANDOM" >/dev/null; then
-                echo "LIVE_BUILD=$SHORT" >> "$GITHUB_ENV"
-                echo "Testing exact Pages build $SHORT"
-                exit 0
-              fi
-            fi
-            sleep 10
-          done
-          echo "Exact deployed bundle for $SHORT was not found" >&2
-          exit 1
+          if ! printf '%s' "$RIDER_MAP_ID" | grep -Eq '^[A-Za-z0-9]+$'; then
+            echo "::error::Invalid RIDER_MAP_ID (letters and digits only)."
+            exit 1
+          fi
+          if [ -z "$MAPS_WEB_API_KEY" ]; then
+            echo "::error::Missing Google Maps API key. Add the MAPS1 repository secret."
+            exit 1
+          fi
+          flutter pub get
+          app_version="$(sed -n 's/^version: *//p' pubspec.yaml)"
+          flutter build web --release \
+            -t lib/main_demo.dart \
+            --dart-define=MOVERA_FLAVOR=demo \
+            --dart-define=MOVERA_API_BASE_URL=https://api.demo.movera.invalid \
+            --dart-define=MOVERA_APP_VERSION="$app_version" \
+            --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID"
+          printf '%s\n' '{"flavor":"demo","production":false}' > build/web/movera-environment.json
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path('build/web/index.html')
+          s = p.read_text()
+          bootstrap = '  <script src="flutter_bootstrap.js" defer onerror="window.moveraBootFailed && window.moveraBootFailed()"></script>'
+          if bootstrap not in s:
+              raise SystemExit('Flutter bootstrap tag not found')
+          if 'maps.googleapis.com/maps/api/js' not in s:
+              s = s.replace(bootstrap, f'  <script>window.moveraMapsSrc = "https://maps.googleapis.com/maps/api/js?key={os.environ["MAPS_WEB_API_KEY"]}";</script>\n' + bootstrap)
+          p.write_text(s)
+          PY
+          nohup python3 -m http.server 8080 --bind 127.0.0.1 --directory build/web >/tmp/qa-http.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/ >/dev/null && break; sleep 1; done
+          curl -fsS http://127.0.0.1:8080/flutter_bootstrap.js >/dev/null
+          echo "QA_BASE=http://127.0.0.1:8080/" >> "$GITHUB_ENV"
 
       - name: Certify responsive, keyboard, touch, standalone, resume and WebKit
         run: |
