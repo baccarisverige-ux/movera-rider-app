@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.44",
+  "version": "0.18.45",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -8151,7 +8151,7 @@
     "rule33": "State lives only in blocked_pairs (partial unique index on rider_id + driver_id where removed_at is null; inserts are ON CONFLICT DO NOTHING); every dispatch path reads it in the same query round, so any server copy gives the same answer."
   },
   "sameAddress": {
-    "note": "v0.18.44 §67 (Rules plan/FIX-PLAN-RERUN-2026-11-05.md 'Proof: same-address booking', proven cause; boss answers decisions/driver-g15.md 2026-11-05; boss Decisions 10 and 12; owner Q9 v0.18.30 'Warn him but can accept booking' overrides the boss 300 m default, so the refusal is OFF by default). Builds on v0.18.43 main (renumbered from 0.18.44, Decision 13). Additive; X-Api-Version stays 0.5; no migration (minTripMeters lives in the zone's pricing document JSON); stateless (rule 33).",
+    "note": "v0.18.44 §67 (Rules plan/FIX-PLAN-RERUN-2026-11-05.md 'Proof: same-address booking', proven cause; boss answers decisions/driver-g15.md 2026-11-05; boss Decisions 10 and 12; owner Q9 v0.18.30 'Warn him but can accept booking' overrides the boss 300 m default, so the refusal is OFF by default). Builds on v0.18.43 main (renumbered from 0.18.42, Decision 13). Additive; X-Api-Version stays 0.5; no migration (minTripMeters lives in the zone's pricing document JSON); stateless (rule 33).",
     "geocode": "POST /locations/geocode: an app resolving a picked suggestion sends its placeId (and the text as query). The server resolves by placeId and answers name, the place's own name (e.g. 'Solna Centrum'), next to address (the provider's formatted street address). name is absent for a typed address with no placeId.",
     "label": "The trip's pickup/dropoff/stop address is the label the rider chose: the suggestion's title + ', ' + subtitle (or the geocode name when the suggestion had no title). The app never replaces a chosen label by the geocode address; address only fills a label that is missing. The driver app and the admin panel show that same trip address text (no change of field).",
     "minTripMeters": {
@@ -8170,5 +8170,21 @@
       "fr": "Le point de dépose est trop proche du point de prise en charge"
     },
     "apps": "Rider: keeps the chosen name, sends placeId, and on dropoff_too_close shows riderText and stays on the destination step. Driver: shows the trip's address (now the chosen name) on the offer and trip screens. Admin: the minTripMeters setting (0-5000 m, default 0 = off) on the zone pricing page."
+  },
+  "driverReservationsLive": {
+    "note": "v0.18.45 §68 (Rules plan/LA-BUILD-PLAN-2026-11-06.md §1, owner Q7 'Live push' in decisions/driver-g15.md). Additive; X-Api-Version stays 0.5; no migration (built from the existing movera_trip_events NOTIFY); stateless (rule 33).",
+    "stream": "GET /driver/config/stream",
+    "kind": "driver_reservations_changed",
+    "payload": {
+      "eventId": "string, unique per event",
+      "kind": "'driver_reservations_changed'",
+      "tripId": "the trip that changed",
+      "occurredAt": "timestamp of the trip event",
+      "serverTime": "server clock when sent"
+    },
+    "hintOnly": "The event is a hint only: it carries no reservation data. The app re-reads GET /driver/reservations?scope=open and ?scope=accepted; that GET alone decides which rides the driver sees. The SSE id stays the config version already sent (same pattern as rider_trip_changed), so Last-Event-ID stays that version.",
+    "when": "Sent to every driver stream of the zone when a trip with scheduledAt in that zone changes (created, accepted, released, cancelled, rescheduled, started), and to the stream of the driver the trip names. A trip without scheduledAt (a now-ride) sends nothing. Sent only after the change commits; a rolled-back change sends nothing.",
+    "app": "The driver app re-reads at sign-in, on every stream reconnect and on this event, and debounces bursts (at most 1 re-read per 2 s). Demo rides are cleared at sign-in.",
+    "rule33": "Each server copy LISTENs once on movera_trip_events and fans out to its own streams; no shared in-memory state; the GET reads the database, so any copy can answer."
   }
 }
