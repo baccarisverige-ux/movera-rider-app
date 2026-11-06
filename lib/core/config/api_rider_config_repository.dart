@@ -1,4 +1,4 @@
-import 'package:movera_rider/features/ratings/domain/dont_match_again.dart';
+import 'package:movera_rider/core/config/dont_match_again.dart';
 
 import 'dart:async';
 import 'dart:convert';

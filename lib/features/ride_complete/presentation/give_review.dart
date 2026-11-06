@@ -5,7 +5,7 @@ import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import 'package:movera_rider/features/ratings/domain/dont_match_again.dart';
+import 'package:movera_rider/core/config/dont_match_again.dart';
 import 'package:movera_rider/features/ratings/domain/rating_tags.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
@@ -151,21 +151,25 @@ class _RideCompletedGiveReviewState extends State<RideCompletedGiveReview> {
         // Fix job 10 (owner "Never told"): the driver never learns of it.
         if (DontMatchAgain.current.offeredAt(_rating)) ...[
           8.height,
-          CheckboxListTile(
-            key: const ValueKey('dont-match-again'),
-            value: _dontMatch,
-            controlAffinity: ListTileControlAffinity.leading,
-            contentPadding: EdgeInsets.zero,
-            title: TextWidget(
-              text: context.l10n.dontMatchDriverAgain,
-              color: AppColor.title,
-              fontSize: 14,
-              fontWeight: fwNormal,
+          // Own Material: the card behind has a colour (ListTile ink).
+          Material(
+            type: MaterialType.transparency,
+            child: CheckboxListTile(
+              key: const ValueKey('dont-match-again'),
+              value: _dontMatch,
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+              title: TextWidget(
+                text: context.l10n.dontMatchDriverAgain,
+                color: AppColor.title,
+                fontSize: 14,
+                fontWeight: fwNormal,
+              ),
+              onChanged: (value) {
+                setState(() => _dontMatch = value ?? false);
+                _report();
+              },
             ),
-            onChanged: (value) {
-              setState(() => _dontMatch = value ?? false);
-              _report();
-            },
           ),
         ],
         // Tags and a comment only once the rider gave stars: both optional.

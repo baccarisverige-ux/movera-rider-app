@@ -10,7 +10,7 @@ import 'package:movera_rider/app/screen_scale.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/features/account_status/domain/rider_moderation.dart';
 import 'package:movera_rider/features/account_status/presentation/account_status_screens.dart';
-import 'package:movera_rider/features/ratings/domain/dont_match_again.dart';
+import 'package:movera_rider/core/config/dont_match_again.dart';
 import 'package:movera_rider/features/ratings/domain/rating_tags.dart';
 import 'package:movera_rider/features/ride_complete/data/ride_feedback_repository.dart';
 import 'package:movera_rider/features/ride_complete/presentation/give_review.dart';
