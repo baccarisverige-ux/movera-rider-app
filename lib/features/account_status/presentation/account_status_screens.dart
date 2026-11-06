@@ -6,7 +6,7 @@ import 'package:movera_rider/features/auth/presentation/sign_out_flow.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
-/// v0.18.40 §64 (fix job 10, owner G16 Q16-1, `contract.json#blockedPairs.
+/// v0.18.43 §64 (fix job 10, owner G16 Q16-1, `contract.json#blockedPairs.
 /// riderLevels`): the rider's level screens. Paused: title, reason, end
 /// date, Contact support, Sign out. Banned: the same without a date.
 class AccountStatusScreen extends StatelessWidget {

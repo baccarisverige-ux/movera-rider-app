@@ -63,7 +63,7 @@ class RideFeedbackRepository {
             'stars': rating.round(),
             if (tags.isNotEmpty) 'tags': tags,
             if (note != null && note.isNotEmpty) 'comment': note,
-            // Fix job 10 (v0.18.40 §64): only when ticked.
+            // Fix job 10 (v0.18.43 §64): only when ticked.
             if (dontMatchAgain) 'dontMatchAgain': true,
           },
           idempotencyKey: idempotencyKey,

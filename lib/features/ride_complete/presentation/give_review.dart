@@ -33,7 +33,7 @@ class _RideCompletedGiveReviewState extends State<RideCompletedGiveReview> {
   double _rating = 0;
   final Set<String> _tags = <String>{};
 
-  /// Fix job 10 (v0.18.40 §64): only offered at a low rating.
+  /// Fix job 10 (v0.18.43 §64): only offered at a low rating.
   bool _dontMatch = false;
   final TextEditingController _comment = TextEditingController();
 

@@ -40,7 +40,7 @@ class RatingFeedback {
     this.dontMatchAgain = false,
   });
 
-  /// Fix job 10 (v0.18.40 §64): "Don't match me with this driver again".
+  /// Fix job 10 (v0.18.43 §64): "Don't match me with this driver again".
   final bool dontMatchAgain;
 
   final double stars;

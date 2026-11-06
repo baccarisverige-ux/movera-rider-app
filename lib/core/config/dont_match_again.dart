@@ -1,4 +1,4 @@
-/// Fix job 10 (contract v0.18.40 §64, `contract.json#blockedPairs`; owner
+/// Fix job 10 (contract v0.18.43 §64, `contract.json#blockedPairs`; owner
 /// G16 Q16-4, G15 2026-11-05 "Never told", "No, only Support"): the served
 /// RiderAppConfig.dontMatchAgain `{ on, atStars }` (written by the server
 /// from the zone's CountryRules). The rating shows the tick "Don't match me

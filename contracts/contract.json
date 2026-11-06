@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.40",
+  "version": "0.18.43",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -8102,8 +8102,14 @@
       ]
     }
   },
+  "routeVia": {
+    "note": "v0.18.41 §66 (Rules plan/FIX-PLAN-RERUN-2026-11-05.md A14, proven cause; boss Decision 8). Builds on v0.18.39 main. Additive; X-Api-Version stays 0.5; no migration; stateless (rule 33).",
+    "request": "POST /routes takes optional via: up to 10 LatLng (the trip's stops, in order; the zone's maxStops is 0-10). The server routes [from, ...via, to] with the same router as POST /quotes, so the drawn line and the price follow the same route. RoadRoute then covers every leg; distanceMeters and durationSeconds are the whole route.",
+    "fallback": "No road route: the answer is the straight line through every point, [from, ...via, to], never from -> to when there are stops.",
+    "apps": "Rider: Select ride and Finding drivers draw the road line through every stop (one road leg per pair via the routing seam); a leg without road is drawn straight through the stop and the map shows 'Approximate route'. The quote's distanceMeters hint is the straight distance via the stops. Driver app and admin panel: their maps already draw through the stops (checked, no change)."
+  },
   "blockedPairs": {
-    "note": "v0.18.40 §64 (fix job 10, Rules plan/FIX-JOBS-8-9-10-PLAN-2026-11-05.md; owner G16 Q16-4 and G15 2026-11-05: block told → 'Never told', undo own block → 'No, only Support'). Builds on v0.18.39 main. X-Api-Version stays 0.5; additive; server migration 0087 (blocked_pairs).",
+    "note": "v0.18.43 §64 (fix job 10, Rules plan/FIX-JOBS-8-9-10-PLAN-2026-11-05.md; owner G16 Q16-4 and G15 2026-11-05: block told → 'Never told', undo own block → 'No, only Support'). Builds on v0.18.41 main. X-Api-Version stays 0.5; additive; server migration 0087 (blocked_pairs).",
     "pair": "BlockedPair { pairId, riderId, driverId, by: admin|rider|driver, reason?, tripId?, at, adminId? }: this rider and this driver are never matched again. One active pair per rider + driver (a second block of the same pair answers the pair that exists).",
     "by": [
       "admin",

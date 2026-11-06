@@ -255,7 +255,7 @@ class SyncedProfileRepository
     if (server is Map) {
       // v0.18.7 (Q3): what the rider owes, per currency.
       RiderOutstanding.current.value = RiderOutstanding.fromRider(server);
-      // v0.18.40 §64 (fix job 10): the rider's level (warning / paused /
+      // v0.18.43 §64 (fix job 10): the rider's level (warning / paused /
       // banned) from Rider.moderation.
       RiderModeration.current.value = RiderModeration.fromRider(server);
       _version = _versionOf(server) ?? _version;

@@ -1,23 +1,23 @@
 {
   "dontMatchDriverAgain": "Don't match me with this driver again",
   "@dontMatchDriverAgain": {
-    "description": "v0.18.40 §64 (fix job 10): tick on the rating at a low rating. The driver is never told."
+    "description": "v0.18.43 §64 (fix job 10): tick on the rating at a low rating. The driver is never told."
   },
   "accountPausedTitle": "Your account is paused",
   "@accountPausedTitle": {
-    "description": "v0.18.40 §64: contract.json#riderModeration.riderText.pausedTitle"
+    "description": "v0.18.43 §64: contract.json#riderModeration.riderText.pausedTitle"
   },
   "accountBlockedTitle": "Your account is blocked",
   "@accountBlockedTitle": {
-    "description": "v0.18.40 §64: contract.json#riderModeration.riderText.bannedTitle"
+    "description": "v0.18.43 §64: contract.json#riderModeration.riderText.bannedTitle"
   },
   "moderationWarningTitle": "Warning from Movera",
   "@moderationWarningTitle": {
-    "description": "v0.18.40 §64: contract.json#riderModeration.riderText.warningTitle"
+    "description": "v0.18.43 §64: contract.json#riderModeration.riderText.warningTitle"
   },
   "accountPausedUntil": "Paused until {date}",
   "@accountPausedUntil": {
-    "description": "v0.18.40 §64: the end of the pause",
+    "description": "v0.18.43 §64: the end of the pause",
     "placeholders": {
       "date": {
         "type": "String"
@@ -26,14 +26,14 @@
   },
   "accountStatusBody": "You cannot book rides right now. Contact support if you have questions.",
   "@accountStatusBody": {
-    "description": "v0.18.40 §64: paused / blocked screen"
+    "description": "v0.18.43 §64: paused / blocked screen"
   },
   "accountStatusContactSupport": "Contact support",
   "@accountStatusContactSupport": {
-    "description": "v0.18.40 §64: contract.json#riderModeration.riderText.contactSupport"
+    "description": "v0.18.43 §64: contract.json#riderModeration.riderText.contactSupport"
   },
   "accountStatusSignOut": "Sign out",
   "@accountStatusSignOut": {
-    "description": "v0.18.40 §64: contract.json#riderModeration.riderText.signOut"
+    "description": "v0.18.43 §64: contract.json#riderModeration.riderText.signOut"
   }
 }

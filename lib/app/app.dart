@@ -66,7 +66,7 @@ class MoveraApp extends StatelessWidget {
                 child: ContentGate(
                   controller: AppScope.instance.content,
                   legal: AppScope.instance.legal,
-                  // v0.18.40 §64 (fix job 10): the rider's level (warning
+                  // v0.18.43 §64 (fix job 10): the rider's level (warning
                   // banner, paused / blocked screen) over every screen.
                   // Contract v0.18.25: an admin preview shows a "Preview" strip.
                   child: PreviewMode.current.active

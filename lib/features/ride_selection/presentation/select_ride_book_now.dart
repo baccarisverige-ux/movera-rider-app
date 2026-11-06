@@ -160,7 +160,7 @@ extension _SelectRideBookNow on _SelectRideState {
           // never a silent return to Select Ride.
           // G16-1: a paused account cannot book; it is said plainly.
           if (error is ApiError && error.detail == 'account_suspended') {
-            // v0.18.40 §64: the projection is Rider.moderation; a paused or
+            // v0.18.43 §64: the projection is Rider.moderation; a paused or
             // banned rider gets the level screen.
             final level = RiderModeration.fromRider(error.projection);
             if (level.blocksRiding) RiderModeration.current.value = level;

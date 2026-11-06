@@ -1,11 +1,11 @@
-# Movera API v0.18.40 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.43 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.40
+  version: 0.18.43
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.40 in this folder; this file must agree with them.
+    v0.18.43 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.40
+  version: 0.18.43
   source: contract.json
 paths:
   /auth/otp/request:
@@ -1095,7 +1095,7 @@ paths:
       summary: Rate the other party (and optionally tip)
       description: 'Not a lifecycle command: allowed after completed, and for the rider also after a trip the rider ended
         early (cancelled_by_rider via end_early; a plain cancel is 409 invalid_transition). See RatingStatus x-rating-allowed.
-        Moves ratingStatus pending → submitted|skipped and emits rating_updated. v0.18.40 §64: POST /trips/{tripId}/rating
+        Moves ratingStatus pending → submitted|skipped and emits rating_updated. v0.18.43 §64: POST /trips/{tripId}/rating
         may carry dontMatchAgain: true (rider and driver). Allowed only with stars ≤ CountryRules.dontMatchAgain.atStars (default
         1) while dontMatchAgain.on (default true); otherwise 400 invalid_body, reason dont_match_not_allowed, and nothing
         is saved. With it the server writes the pair (by = the rater) in the same transaction as the rating. The answer is
@@ -9813,8 +9813,9 @@ paths:
     post:
       operationId: routeBetween
       summary: Road route between two points (Movera OSRM)
-      description: No route → 404 not_found (reason no_route); the app then draws a straight line. lat / lng as everywhere
-        else.
+      description: 'No route → 404 not_found (reason no_route); the app then draws a straight line. lat / lng as everywhere
+        else. v0.18.41 §66: No road route: the answer is the straight line through every point, [from, ...via, to], never
+        from -> to when there are stops.'
       tags:
       - Maps
       x-actor:
@@ -12359,7 +12360,7 @@ paths:
     post:
       operationId: adminBlockPair
       summary: Never match this trip's rider and driver again
-      description: 'v0.18.40 §64: POST /admin/trips/{tripId}/block-pair { reason? } (riders.block, Idempotency-Key, audit
+      description: 'v0.18.43 §64: POST /admin/trips/{tripId}/block-pair { reason? } (riders.block, Idempotency-Key, audit
         blocked_pair.add) blocks the trip''s rider and driver (by admin); 409 invalid_transition, reason no_driver, when the
         trip has no driver. GET /admin/blocked-pairs?riderId=|driverId= (riders.read) lists the active pairs of one person,
         newest first. Admin › Trips › trip page: Block this pair; Admin › Rider and Admin › Driver pages: Blocked pairs with
@@ -12411,7 +12412,7 @@ paths:
     delete:
       operationId: adminRemoveBlockedPair
       summary: Undo a blocked pair (Support only)
-      description: 'v0.18.40 §64: Only Support undoes a pair (owner ''No, only Support''): DELETE /admin/blocked-pairs/{pairId}
+      description: 'v0.18.43 §64: Only Support undoes a pair (owner ''No, only Support''): DELETE /admin/blocked-pairs/{pairId}
         (riders.block, audit blocked_pair.remove). The apps have no undo and no list.'
       tags:
       - Admin · Trips
@@ -12453,7 +12454,7 @@ paths:
     get:
       operationId: adminBlockedPairs
       summary: The active blocked pairs of one rider or one driver
-      description: 'v0.18.40 §64: POST /admin/trips/{tripId}/block-pair { reason? } (riders.block, Idempotency-Key, audit
+      description: 'v0.18.43 §64: POST /admin/trips/{tripId}/block-pair { reason? } (riders.block, Idempotency-Key, audit
         blocked_pair.add) blocks the trip''s rider and driver (by admin); 409 invalid_transition, reason no_driver, when the
         trip has no driver. GET /admin/blocked-pairs?riderId=|driverId= (riders.read) lists the active pairs of one person,
         newest first. Admin › Trips › trip page: Block this pair; Admin › Rider and Admin › Driver pages: Blocked pairs with
@@ -23539,7 +23540,7 @@ components:
         dontMatchAgain:
           allOf:
           - $ref: '#/components/schemas/DontMatchAgainSettings'
-          description: 'v0.18.40 §64: written by the server from the zone''s CountryRules. Both rating screens show one tick
+          description: 'v0.18.43 §64: written by the server from the zone''s CountryRules. Both rating screens show one tick
             under the stars only while the chosen stars ≤ atStars and on: rider ''Don''t match me with this driver again'',
             driver ''Don''t match me with this rider again''. Unticked by default; raising the stars above atStars clears
             it. After sending nothing else changes on screen.'
@@ -23842,7 +23843,7 @@ components:
         dontMatchAgain:
           allOf:
           - $ref: '#/components/schemas/DontMatchAgainSettings'
-          description: 'v0.18.40 §64: written by the server from the zone''s CountryRules. Both rating screens show one tick
+          description: 'v0.18.43 §64: written by the server from the zone''s CountryRules. Both rating screens show one tick
             under the stars only while the chosen stars ≤ atStars and on: rider ''Don''t match me with this driver again'',
             driver ''Don''t match me with this rider again''. Unticked by default; raising the stars above atStars clears
             it. After sending nothing else changes on screen.'
@@ -25315,6 +25316,15 @@ components:
           $ref: '#/components/schemas/LatLng'
         to:
           $ref: '#/components/schemas/LatLng'
+        via:
+          type: array
+          items:
+            $ref: '#/components/schemas/LatLng'
+          maxItems: 10
+          description: 'v0.18.41 §66: POST /routes takes optional via: up to 10 LatLng (the trip''s stops, in order; the zone''s
+            maxStops is 0-10). The server routes [from, ...via, to] with the same router as POST /quotes, so the drawn line
+            and the price follow the same route. RoadRoute then covers every leg; distanceMeters and durationSeconds are the
+            whole route.'
     RoadRoute:
       type: object
       description: Road route for drawing. ETA shown to the rider stays TripProjection.etaSeconds.
@@ -26703,7 +26713,7 @@ components:
             (+ tipMethod, default cash) with the rating: the same rules.'
         dontMatchAgain:
           type: boolean
-          description: 'v0.18.40 §64: POST /trips/{tripId}/rating may carry dontMatchAgain: true (rider and driver). Allowed
+          description: 'v0.18.43 §64: POST /trips/{tripId}/rating may carry dontMatchAgain: true (rider and driver). Allowed
             only with stars ≤ CountryRules.dontMatchAgain.atStars (default 1) while dontMatchAgain.on (default true); otherwise
             400 invalid_body, reason dont_match_not_allowed, and nothing is saved. With it the server writes the pair (by
             = the rater) in the same transaction as the rating. The answer is the same Rating as without it. The other side
@@ -29845,7 +29855,7 @@ components:
           maxLength: 1000
     BlockedPair:
       type: object
-      description: 'v0.18.40 §64: BlockedPair { pairId, riderId, driverId, by: admin|rider|driver, reason?, tripId?, at, adminId?
+      description: 'v0.18.43 §64: BlockedPair { pairId, riderId, driverId, by: admin|rider|driver, reason?, tripId?, at, adminId?
         }: this rider and this driver are never matched again. One active pair per rider + driver (a second block of the same
         pair answers the pair that exists). A blocked pair is never offered: no Exclusive, no Radar, no airport-queue offer,
         no admin money offer, no on-trip next trip, and the booked ride is not listed to that driver in Scheduled rides nor
@@ -29883,7 +29893,7 @@ components:
           $ref: '#/components/schemas/Id'
     BlockedPairList:
       type: object
-      description: 'v0.18.40 §64: POST /admin/trips/{tripId}/block-pair { reason? } (riders.block, Idempotency-Key, audit
+      description: 'v0.18.43 §64: POST /admin/trips/{tripId}/block-pair { reason? } (riders.block, Idempotency-Key, audit
         blocked_pair.add) blocks the trip''s rider and driver (by admin); 409 invalid_transition, reason no_driver, when the
         trip has no driver. GET /admin/blocked-pairs?riderId=|driverId= (riders.read) lists the active pairs of one person,
         newest first. Admin › Trips › trip page: Block this pair; Admin › Rider and Admin › Driver pages: Blocked pairs with
@@ -29897,7 +29907,7 @@ components:
             $ref: '#/components/schemas/BlockedPair'
     BlockPairCommand:
       type: object
-      description: 'v0.18.40 §64: POST /admin/trips/{tripId}/block-pair { reason? } (riders.block, Idempotency-Key, audit
+      description: 'v0.18.43 §64: POST /admin/trips/{tripId}/block-pair { reason? } (riders.block, Idempotency-Key, audit
         blocked_pair.add) blocks the trip''s rider and driver (by admin); 409 invalid_transition, reason no_driver, when the
         trip has no driver. GET /admin/blocked-pairs?riderId=|driverId= (riders.read) lists the active pairs of one person,
         newest first. Admin › Trips › trip page: Block this pair; Admin › Rider and Admin › Driver pages: Blocked pairs with
@@ -29910,7 +29920,7 @@ components:
       additionalProperties: false
     DontMatchAgainSettings:
       type: object
-      description: 'v0.18.40 §64: CountryRules.dontMatchAgain { on, atStars } per country (Admin › Pricing › Tips & limits
+      description: 'v0.18.43 §64: CountryRules.dontMatchAgain { on, atStars } per country (Admin › Pricing › Tips & limits
         › Don''t match again). The server serves the same block as RiderAppConfig.dontMatchAgain and DriverAppConfig.dontMatchAgain
         (GET /rider/config, /driver/config) so both apps show the tick only when it is allowed.'
       properties:

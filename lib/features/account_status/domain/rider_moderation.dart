@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 /// Contract v0.18.29 `riderModeration` (A2) shown by the rider app from
-/// v0.18.40 §64 (fix job 10, owner G16 Q16-1): warning = the rider rides and
+/// v0.18.43 §64 (fix job 10, owner G16 Q16-1): warning = the rider rides and
 /// sees a banner; paused = a full screen with the end date; banned = the
 /// same screen without a date. Read from `GET /rider/profile`
 /// (`Rider.moderation`) and from any 403 `account_suspended` (its

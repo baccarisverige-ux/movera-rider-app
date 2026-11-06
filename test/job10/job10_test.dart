@@ -16,7 +16,7 @@ import 'package:movera_rider/features/ride_complete/data/ride_feedback_repositor
 import 'package:movera_rider/features/ride_complete/presentation/give_review.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
-/// Fix job 10 (contract v0.18.40 §64, owner G16 Q16-1/Q16-4; G15 "Never
+/// Fix job 10 (contract v0.18.43 §64, owner G16 Q16-1/Q16-4; G15 "Never
 /// told", "No, only Support"): the 1-star "Don't match me with this driver
 /// again" tick, and the rider level screens of v0.18.29 (warning banner,
 /// paused screen with date, blocked screen with Support + Sign out).
