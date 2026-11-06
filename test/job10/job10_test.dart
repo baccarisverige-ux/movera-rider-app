@@ -215,4 +215,37 @@ void main() {
     expect(find.text('Warning from Movera'), findsOneWidget);
     expect(find.text('Repeated cancellations'), findsOneWidget);
   });
+
+  testWidgets('the gate works where app.dart puts it (above the Navigator): '
+      'warning banner and paused screen, no tooltip / HeroController error', (
+    tester,
+  ) async {
+    Widget app() => MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) => ModerationGate(child: child!),
+      home: const Scaffold(body: Text('Home')),
+    );
+    addTearDown(() => RiderModeration.current.value = RiderModeration.none);
+    RiderModeration.current.value = RiderModeration.fromJson({
+      'level': 'warning',
+      'reason': 'Be kind',
+    });
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Warning from Movera'), findsOneWidget);
+    expect(find.text('Home'), findsOneWidget);
+    RiderModeration.current.value = RiderModeration.fromJson({
+      'level': 'paused',
+      'reason': 'Unpaid fees',
+      'until': '2026-11-13T10:00:00Z',
+    });
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Your account is paused'), findsOneWidget);
+    await tester.tap(find.text('Contact support'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -155,11 +155,20 @@ class ModerationWarningBanner extends StatelessWidget {
                 ],
               ),
             ),
+            // No tooltip: the banner sits above the app's Navigator, where
+            // there is no Overlay for one (found by the job 10 Home shot).
             if (onClose != null)
-              IconButton(
-                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                icon: const Icon(Icons.close),
-                onPressed: onClose,
+              Semantics(
+                button: true,
+                label: MaterialLocalizations.of(context).closeButtonLabel,
+                child: InkResponse(
+                  onTap: onClose,
+                  radius: 22,
+                  child: const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Icon(Icons.close),
+                  ),
+                ),
               ),
           ],
         ),
@@ -199,17 +208,20 @@ class _ModerationGateState extends State<ModerationGate> {
               child!,
               // Its own navigator, so Contact support opens above it.
               Positioned.fill(
-                child: Navigator(
-                  key: ValueKey(moderation),
-                  onGenerateRoute: (_) => MaterialPageRoute<void>(
-                    builder: (inner) => AccountStatusScreen(
-                      moderation: moderation,
-                      onContactSupport: () => Navigator.of(inner).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const SupportMessages(),
+                child: HeroControllerScope.none(
+                  // Own navigator under MaterialApp's: no shared HeroController.
+                  child: Navigator(
+                    key: ValueKey(moderation),
+                    onGenerateRoute: (_) => MaterialPageRoute<void>(
+                      builder: (inner) => AccountStatusScreen(
+                        moderation: moderation,
+                        onContactSupport: () => Navigator.of(inner).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const SupportMessages(),
+                          ),
                         ),
+                        onSignOut: () => _signOut(),
                       ),
-                      onSignOut: () => _signOut(),
                     ),
                   ),
                 ),
