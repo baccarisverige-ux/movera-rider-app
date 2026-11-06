@@ -1547,6 +1547,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'searchStepBusyFallback': l.searchStepBusyFallback,
   'searchStepStop': l.searchStepStop,
   'searchStepAnswerFailed': l.searchStepAnswerFailed,
+  'searchStepNoDriverNearby': l.searchStepNoDriverNearby,
+  'searchStepNoDriverFound': l.searchStepNoDriverFound,
   'swTripStatusDraft': l.swTripStatusDraft,
   'swTripStatusQuoted': l.swTripStatusQuoted,
   'swTripStatusRequested': l.swTripStatusRequested,
@@ -5006,6 +5008,10 @@ class _Exhaustive implements AppLocalizations {
   String get searchStepStop => '';
   @override
   String get searchStepAnswerFailed => '';
+  @override
+  String get searchStepNoDriverNearby => '';
+  @override
+  String get searchStepNoDriverFound => '';
   @override
   String get swTripStatusDraft => '';
   @override

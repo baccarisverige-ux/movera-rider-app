@@ -1,4 +1,6 @@
-# Movera shared contract v0.18.38
+# Movera shared contract v0.18.39
+
+v0.18.39 (FIX JOB N2 + P17 + far rider, fix plan A2 / A11-FR "Proof: far rider", owner N2 / P17 answers 2026-11-05 and boss supervisor night answers, Rules `decisions/driver-g15.md`; builds on v0.18.38 main; X-Api-Version stays `0.5`, additive, no migration; driver app: no change): a live ride with no driver after `noDriverNearby.afterSec` (300 s, per zone) shows the rider **"No driver nearby"** once, with **Keep waiting** / **Cancel free**, and the admin gets alert `no_driver_nearby`; a **live search never ends by itself** any more (no end at `maxWaitMin` or the busy step); when nobody new is inside the widest step the search tries **one extra step** at `limits.farReachKm` (12 km), and one driver is asked at most `reaskLimit` (**2**, admin setting 1–5) times per search. **P17:** a booked ride with no driver ends `noDriverStopAfterMin` (15) minutes after its pickup time: expired, no fee, rider told (push `reservation_no_driver_found`, searchStep `no_driver_found`), admin alert `booked_no_driver_ended`. §63, `contract.json#noDriverNearby`.
 
 v0.18.38 (fix job 8 "in-app calling", Rules `plan/FIX-JOBS-8-9-10-PLAN-2026-11-05.md`, owner G15 2026-11-05: "In-app calls only", "Both rider and driver", "Just 'Call failed'"; builds on v0.18.34 main; X-Api-Version stays `0.5`, additive; server migration 0085): **the trip's rider and driver call each other inside the apps (WebRTC, the server relays the signalling)** from driver assignment until **60 min after drop-off** (`CountryRules.calls.callWindowAfterTripMin`); outside it 409 `call_window_closed`; ring 30 s then `call_missed`; never a phone number. Admin › Pricing › Tips & limits per country › Calls; Admin › Trip details › Calls (call log). See §62 and `contract.json#inAppCalls`.
 
@@ -1254,6 +1256,17 @@ Owner G15 (2026-11-05): calls before a phone company → "In-app calls only"; wh
 - **Admin**: Pricing › Tips & limits per country › Calls (on, mode, window, ring time, longest call); Trip details › Calls (`GET /admin/trips/{tripId}/calls`, `trips.read`): who called whom, when, how long, how it ended. Admin Call stays "coming soon" (G9 Q6).
 - **Apps** (driver + rider): the call button opens the call screen (Calling…, Mute, Speaker, End), hidden outside the window; a failed start or connection shows only "Call failed" (sv "Samtalet misslyckades", fr "L'appel a échoué").
 - **Rule 33**: call state lives only in `trip_calls` (row locked on every change); ring and length limits are database timers; signals are trip events. Any server copy serves any request.
+
+## 63. No driver nearby, far rider, booked ride stop — fix job N2 + P17 (v0.18.39)
+
+Owner N2 (2026-11-05): "'No driver nearby' after 5 min" — an admin setting per zone, the search continues until the rider cancels. Owner P17: "15 min after pickup past" + admin alert "Yes". Proof: Rules `plan/FIX-PLAN-RERUN-2026-11-05.md` "Proof: far rider" (reach capped at the widest step, one busy driver re-asked, no message). Full rules: `contract.json#noDriverNearby`.
+
+- **No driver nearby** (`DispatchDocument.noDriverNearby { on, afterSec 300, message }`): a live ride still without a driver at `afterSec` shows `searchStep.kind = no_driver_nearby` once; the rider app shows the message with **Keep waiting** (`POST /trips/{tripId}/keep-waiting` `wait`, nothing else changes) and **Cancel free** (`stop`, free rider cancel). Admin alert `no_driver_nearby` at the same moment; Admin › Trips marks the trip "No driver in reach".
+- **Live search has no end**: `radius.maxWaitMin` and the busy step end booked rides' search rounds only; for live rides busy is a message (never after no_driver_nearby) and the search goes on until a driver accepts, the rider cancels or an admin acts.
+- **Far reach** (`DispatchDocument.limits.farReachKm`, default 12): once the steps are used up and nobody new is inside the widest step, one more step at farReachKm (not capped by maxPickupKm; maxPickupEtaMin still applies). At or below the widest step = off.
+- **Re-ask limit** (`DispatchDocument.reaskLimit`, default 2, 1–5, Admin › Dispatch): a driver who declined or let run out that many offers of the trip in this search is not asked again in it (withdrawn offers do not count).
+- **P17** (`DriverAppConfig.reservations.noDriverStopAfterMin`, default 15): a booked ride with no driver at pickup + 15 min is expired by the server, no fee (nothing is charged at booking today: cash only, a wallet part is only reserved), `reservation.noDriverFound` true, searchStep `no_driver_found`, rider push `reservation_no_driver_found`, admin alert `booked_no_driver_ended`.
+- **Driver app**: no change. **Several server copies (rule 33)**: durable timers in the database, handled with the trip row locked; state in the searches row; counts from the offers table.
 
 ## 65. Admin live drivers, paged — fix plan A8/A10 (v0.18.34)
 

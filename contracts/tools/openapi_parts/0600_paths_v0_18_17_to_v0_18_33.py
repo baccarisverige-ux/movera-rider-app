@@ -31,6 +31,7 @@ S["ReservationInfo"] = obj({"mode": s(enum=["now", "list"]), "dispatchAt": ref("
                             "mustBeOnlineAt": {"allOf": [ref("Timestamp")], "description": "Driver and admin views of an accepted ride."}},
                            ["mode", "dispatchAt", "freeChangeUntil", "noDriver"], "v0.18.17: " + BL["rider"]["projection"])
 S["TripProjection"]["properties"]["reservation"] = {"allOf": [ref("ReservationInfo")], "description": "v0.18.17: kind scheduled only."}
+S["ReservationInfo"]["properties"]["noDriverFound"] = b("v0.18.39 §63 (P17, contract.json#noDriverNearby.bookedStop): the server ended this booked ride, no driver was found (no fee).")
 S["DriverReservation"] = obj(OrderedDict([("tripId", ref("Id")), ("version", i(minimum=1)), ("scheduledAt", ref("Timestamp")), ("categoryId", ref("CategoryId")),
                               ("rideType", s(BL["driver"]["rideType"], enum=["normal", "airport", "longTrip", "comfortPremium", "event"])),
                               ("pickup", ref("Place")), ("dropoff", ref("Place")), ("stops", i(minimum=0)), ("distanceMeters", i(minimum=0)), ("durationSeconds", i(minimum=0)),

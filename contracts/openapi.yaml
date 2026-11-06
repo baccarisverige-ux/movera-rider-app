@@ -1,11 +1,11 @@
-# Movera API v0.18.38 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.39 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.38
+  version: 0.18.39
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.38 in this folder; this file must agree with them.
+    v0.18.39 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.38
+  version: 0.18.39
   source: contract.json
 paths:
   /auth/otp/request:
@@ -10122,7 +10122,15 @@ paths:
       summary: Answer the Keep waiting? step while searching
       description: 'Owner decision 24 (CONTRACT.md §3.6). Only while the trip is searching or offered and its searchStep is
         an unanswered keep_waiting: wait → the search end moves by extraMin; stop → the normal free rider cancel (cancel →
-        cancelled_by_rider, reason wait_too_long, no fee). Otherwise 409 invalid_transition with the projection.'
+        cancelled_by_rider, reason wait_too_long, no fee). Otherwise 409 invalid_transition with the projection. v0.18.39
+        §63: The rider app shows the message with two buttons: Keep waiting (POST /trips/{tripId}/keep-waiting { answer: wait
+        }: nothing else changes, the search goes on) and Cancel free (answer stop: the normal rider cancel, free because no
+        driver has accepted). keep-waiting accepts searchStep.kind keep_waiting or no_driver_nearby, once per step. No answer:
+        the search goes on. Owner N2 ''search keeps going until the rider cancels'': a LIVE ride''s search has no end time
+        any more. radius.maxWaitMin and the busy step no longer end it (busy is shown as a message only, never after no_driver_nearby;
+        keep_waiting is not shown after no_driver_nearby, which already asks). The trip leaves the search only when a driver
+        accepts, the rider cancels, or an admin acts. A zone with no published dispatch rules still ends after 10 min (nobody
+        can be dispatched). Supersedes, for live rides, the ''search end'' and ''busy: the search ends'' rules of contract.json#dispatch.rules.'
       tags:
       - Rider · Booking
       x-actor:
@@ -22358,6 +22366,21 @@ components:
               $ref: '#/components/schemas/ReservationRideType'
         lateEta:
           $ref: '#/components/schemas/LateEta'
+        noDriverStopAfterMin:
+          type: integer
+          minimum: 1
+          maximum: 240
+          description: 'v0.18.39 §63 (P17): P17 (owner ''Q-P17 15 min after pickup past''): a booked ride with no driver (requested,
+            searching or offered) noDriverStopAfterMin minutes after its pickup time (DriverAppConfig.reservations.noDriverStopAfterMin,
+            default 15, 1-240, per zone, Admin › Dispatch › Book later) is ended by the server: open offers withdrawn, system
+            expire (status expired, ended_by_command expire), TripProjection.reservation.noDriverFound true, searchStep {
+            kind no_driver_found, message ''No driver was found for your booked ride. You pay nothing.'' }. No fee. Nothing
+            is charged at booking today: the server takes cash only (server src/trips/finish.ts SERVER_PAYMENT_METHODS = [cash];
+            POST /trips refuses card with payment_method_coming_soon), and a wallet part is only reserved until boarding,
+            so there is nothing to refund. When card payments start, the free-cancel refund of contract.json#bookLater.card
+            applies to this end too. The rider gets push reservation_no_driver_found. Replaces ''the ride never expires by
+            itself'' of contract.json#bookLater.noDriver (BL-Q7) after noDriverStopAfterMin.'
+          default: 15
         minAheadMin:
           type: integer
           minimum: 5
@@ -24350,6 +24373,18 @@ components:
               maximum: 60
               description: No offer to a driver whose pickup ETA (minutes, contract.json#dispatch.eta) is above this. 0 or
                 missing = off.
+            farReachKm:
+              type: number
+              exclusiveMinimum: 0
+              maximum: 50
+              description: 'v0.18.39 §63: DispatchDocument.limits.farReachKm (default 12, > 0 and <= 50, road km like every
+                step, roadFactor 1.25), per zone (Admin › Dispatch). Used only once the steps are used up (repeat rounds)
+                and NOBODY NEW is inside the widest step: no free driver in reach, or every one in reach already declined
+                or let an offer of this trip run out. Then the search adds ONE extra step at farReachKm (radius.steps, radar.steps
+                and exclusive.steps each get farReachKm as their widest value; limits.maxPickupKm does not cap it; maxPickupEtaMin
+                still does) and its repeat rounds go on at that reach until the end of the search. farReachKm at or below
+                the widest step (or limits.maxPickupKm) = off. Neighbour zones are unchanged (neighbours.on).'
+              default: 12
         neighbours:
           type: object
           description: 'v0.18.11: optional DispatchDocument.neighbours { on, zoneIds, afterStep }. on: from search step afterStep
@@ -24375,6 +24410,46 @@ components:
         usesStandard:
           type: boolean
           description: 'v0.8.0: set by the server when it serves or uses the country standard for this zone (contract.json#configDocs.standard).'
+        noDriverNearby:
+          type: object
+          description: 'v0.18.39 §63: DispatchDocument.noDriverNearby { on (default true), afterSec (default 300, 60-1800),
+            message (default ''No driver nearby right now. We keep searching for you.'') }, per zone (Admin › Dispatch). A
+            live ride still without a driver afterSec seconds after its search started shows the rider TripProjection.searchStep
+            { kind no_driver_nearby, message } ONCE (one search step, id nd, fired once per search). The search keeps going.
+            Booked rides never get it (they have P17). Owner N2 ''search keeps going until the rider cancels'': a LIVE ride''s
+            search has no end time any more. radius.maxWaitMin and the busy step no longer end it (busy is shown as a message
+            only, never after no_driver_nearby; keep_waiting is not shown after no_driver_nearby, which already asks). The
+            trip leaves the search only when a driver accepts, the rider cancels, or an admin acts. A zone with no published
+            dispatch rules still ends after 10 min (nobody can be dispatched). Supersedes, for live rides, the ''search end''
+            and ''busy: the search ends'' rules of contract.json#dispatch.rules.'
+          required:
+          - 'on'
+          - afterSec
+          properties:
+            'on':
+              type: boolean
+              default: true
+            afterSec:
+              type: integer
+              minimum: 60
+              maximum: 1800
+              description: Seconds from search start (live rides).
+              default: 300
+            message:
+              type: string
+              minLength: 1
+              maxLength: 300
+              default: No driver nearby right now. We keep searching for you.
+        reaskLimit:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: 'v0.18.39 §63: Stop re-asking one busy driver forever: DispatchDocument.reaskLimit (default 2, 1-5,
+            per zone, Admin › Dispatch; boss 1 for the owner 2026-11-05): a driver who declined or let run out that many offers
+            of this trip in this search (Radar or Exclusive) is not asked again in this search; withdrawn offers do not count;
+            a new search (driver cancel, rider raise) starts the count again. Owner decisions 23 / Q1 (a decliner may see
+            the trip again) still hold: once more, not forever.'
+          default: 2
         bookedNext:
           type: object
           description: 'v0.18.33: Owner Q7 + answer 2026-11-05 (''Driver on trip can receive exclusive (can be exclusive trip
@@ -24493,7 +24568,20 @@ components:
     SearchStep:
       type: object
       description: 'The latest rider-waiting step of the search (v0.5.1, contract.json#dispatch.searchStep). keep_waiting:
-        the app asks Keep waiting / Stop (POST /trips/{tripId}/keep-waiting); busy: the search ended.'
+        the app asks Keep waiting / Stop (POST /trips/{tripId}/keep-waiting); busy: the search ended. v0.18.39 §63: no_driver_nearby
+        (The rider app shows the message with two buttons: Keep waiting (POST /trips/{tripId}/keep-waiting { answer: wait
+        }: nothing else changes, the search goes on) and Cancel free (answer stop: the normal rider cancel, free because no
+        driver has accepted). keep-waiting accepts searchStep.kind keep_waiting or no_driver_nearby, once per step. No answer:
+        the search goes on.) and no_driver_found (P17 (owner ''Q-P17 15 min after pickup past''): a booked ride with no driver
+        (requested, searching or offered) noDriverStopAfterMin minutes after its pickup time (DriverAppConfig.reservations.noDriverStopAfterMin,
+        default 15, 1-240, per zone, Admin › Dispatch › Book later) is ended by the server: open offers withdrawn, system
+        expire (status expired, ended_by_command expire), TripProjection.reservation.noDriverFound true, searchStep { kind
+        no_driver_found, message ''No driver was found for your booked ride. You pay nothing.'' }. No fee. Nothing is charged
+        at booking today: the server takes cash only (server src/trips/finish.ts SERVER_PAYMENT_METHODS = [cash]; POST /trips
+        refuses card with payment_method_coming_soon), and a wallet part is only reserved until boarding, so there is nothing
+        to refund. When card payments start, the free-cancel refund of contract.json#bookLater.card applies to this end too.
+        The rider gets push reservation_no_driver_found. Replaces ''the ride never expires by itself'' of contract.json#bookLater.noDriver
+        (BL-Q7) after noDriverStopAfterMin.).'
       required:
       - id
       - kind
@@ -24510,6 +24598,8 @@ components:
           - alert_admin
           - keep_waiting
           - busy
+          - no_driver_nearby
+          - no_driver_found
         message:
           type: string
         extraMin:
@@ -31998,6 +32088,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/Timestamp'
           description: Driver and admin views of an accepted ride.
+        noDriverFound:
+          type: boolean
+          description: 'v0.18.39 §63 (P17, contract.json#noDriverNearby.bookedStop): the server ended this booked ride, no
+            driver was found (no fee).'
     DriverReservation:
       type: object
       description: 'v0.18.17: one booked ride in the driver''s lists.'

@@ -138,5 +138,10 @@
   ],
   "raisePrice": {
     "maxFactor": 2
+  },
+  "noDriverNearby": {
+    "on": true,
+    "afterSec": 300,
+    "message": "No driver nearby right now. We keep searching for you."
   }
 }

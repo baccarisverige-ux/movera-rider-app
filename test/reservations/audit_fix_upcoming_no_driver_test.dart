@@ -18,7 +18,10 @@ void main() {
     tester,
   ) async {
     final pickup = DateTime.utc(2026, 10, 21, 8);
-    final now = pickup.add(const Duration(minutes: 6));
+    // v0.18.39 §63 (P17): after the server's stop time (pickup + 15 min).
+    final now = pickup.add(
+      ReservationController.noDriverFoundAfter + const Duration(minutes: 1),
+    );
     final c = ReservationController(
       store: LocalReservationRepository(
         storage: MemoryReservationStorage(),
@@ -55,6 +58,7 @@ void main() {
     );
 
     expect(find.text('Reservation confirmed'), findsNothing);
-    expect(find.text('No driver found'), findsOneWidget);
+    // v0.18.39 §63: the banner title and the page subtitle both say it.
+    expect(find.text('No driver found'), findsNWidgets(2));
   });
 }

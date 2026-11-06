@@ -144,14 +144,14 @@ void main() {
         nextId: () => 'rsv_keep',
       ),
     );
-    await c.create(draft(DateTime(2026, 9, 23, 6, 55)));
+    await c.create(draft(DateTime(2027, 9, 23, 6, 55)));
     storage.failWith = _offline;
 
     await expectLater(c.cancel('rsv_keep'), throwsA(same(_offline)));
     expect(c.byId('rsv_keep')!.status, ReservationStatus.scheduled);
 
     await expectLater(
-      c.create(draft(DateTime(2026, 9, 24, 6, 55))),
+      c.create(draft(DateTime(2027, 9, 24, 6, 55))),
       throwsA(same(_offline)),
     );
     expect(c.all, hasLength(1), reason: 'an unsaved booking never appears');
@@ -164,10 +164,10 @@ void main() {
       storage: storage,
       nextId: () => 'rsv_${++n}',
     );
-    await repo.createReservation(draft(DateTime(2026, 9, 23, 6, 55)));
+    await repo.createReservation(draft(DateTime(2027, 9, 23, 6, 55)));
 
     await Future.wait([
-      repo.createReservation(draft(DateTime(2026, 9, 24, 6, 55))),
+      repo.createReservation(draft(DateTime(2027, 9, 24, 6, 55))),
       repo.cancelReservation('rsv_1'),
     ]);
 
@@ -197,7 +197,7 @@ void main() {
         nextId: () => 'rsv_cancel',
       ),
     );
-    await c.create(draft(DateTime(2026, 9, 23, 6, 55)));
+    await c.create(draft(DateTime(2027, 9, 23, 6, 55)));
     await pumpPhone(
       tester,
       UpcomingReservationPage(reservationId: 'rsv_cancel', controller: c),
