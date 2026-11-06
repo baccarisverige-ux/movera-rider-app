@@ -2,6 +2,7 @@ name: Batch 7 Phase 81 UX Reliability Route Cleanup
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'lib/features/scheduled_rides/**'
       - 'lib/features/finding_driver/**'
@@ -16,8 +17,16 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # A newer push cancels the older run of the same workflow on the same ref
+  # (pull request refs and branch refs are different groups).
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   phase81:
+    # CI cost cut (owner 2026-11-06): drafts skip this check.
+    if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
