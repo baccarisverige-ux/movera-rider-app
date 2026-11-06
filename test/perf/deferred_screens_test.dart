@@ -171,4 +171,34 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 1));
   });
+  // B9 "Fast app start" (owner 2026-11-04).
+  testWidgets('Help still opens, through its loader', (tester) async {
+    await open(tester, () => supportHomeScreen());
+    expect(screenNamed('SupportHome'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Help article still opens, through its loader', (tester) async {
+    await open(tester, () => helpArticleScreen(title: 'About', body: 'Body'));
+    expect(screenNamed('HelpArticle'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Security still opens, through its loader', (tester) async {
+    await open(tester, () => securityScreen());
+    expect(screenNamed('SecurityPage'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Privacy still opens, through its loader', (tester) async {
+    await open(tester, () => privacyScreen());
+    expect(screenNamed('PrivacyPage'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Personal info still opens, through its loader', (tester) async {
+    await open(tester, () => personalInfoScreen());
+    expect(screenNamed('PersonalInfoPage'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }

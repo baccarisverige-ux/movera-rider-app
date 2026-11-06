@@ -42,7 +42,9 @@ void main() {
       File('assets/images/advance_booking_driver.webp').existsSync(),
       isTrue,
     );
-    expect(File('assets/images/pin_verification.webp').existsSync(), isTrue);
+    // B9 (owner "Remove", 2026-11-04): pin_verification.webp was never shown
+    // and is removed (copy in Rules/archive/old-files/movera-rider-app).
+    expect(File('assets/images/pin_verification.webp').existsSync(), isFalse);
     expect(File('assets/images/wallet_rider_3d.webp').existsSync(), isTrue);
     expect(File('assets/images/rides/movera.webp').existsSync(), isTrue);
     expect(

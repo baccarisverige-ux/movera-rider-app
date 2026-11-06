@@ -45,7 +45,10 @@ class SecureTokenStore implements TokenStore {
     return NativeSecureTokenStore(
       const _FlutterSecureKeyValue(
         FlutterSecureStorage(
-          aOptions: AndroidOptions(encryptedSharedPreferences: true),
+          aOptions: // B9 (v10): data kept by the old EncryptedSharedPreferences
+              // setting is moved to v10 storage on first read, so a signed-in
+              // rider stays signed in.
+              AndroidOptions(migrateOnAlgorithmChange: true),
         ),
       ),
     );

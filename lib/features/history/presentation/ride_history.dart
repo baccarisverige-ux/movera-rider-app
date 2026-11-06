@@ -1,6 +1,7 @@
 import 'package:movera_rider/features/ride_complete/application/server_receipt.dart';
 import 'package:movera_rider/features/history/presentation/ride_history_result.dart';
 import 'package:movera_rider/features/ride_complete/presentation/server_receipt_lines.dart';
+import 'package:movera_rider/app/deferred_screens.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,7 +22,6 @@ import 'package:movera_rider/shared/design_system/movera_loader.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/features/support/application/support_controller.dart';
-import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 class RideHistory extends StatefulWidget {
@@ -632,7 +632,7 @@ class _RideHistoryState extends State<RideHistory> {
                 guardedPush(
                   this.context,
                   RightToLeftTransition(
-                    SelectIssue(ride: SupportController.rideFor(ride)),
+                    selectIssueScreen(ride: SupportController.rideFor(ride)),
                   ),
                 );
               },
