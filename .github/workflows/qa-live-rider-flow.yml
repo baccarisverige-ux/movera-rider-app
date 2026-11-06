@@ -439,7 +439,9 @@ jobs:
           if(ownersSeen.has('finding'))throw new Error('Book later opened Finding Driver');
           await tapNamed(laterPage,'Done','Book later: scheduled');
           await waitOwner(laterPage,'home','Book later: back Home');
-          if(!(await hasButton(laterPage,/^Reservation in\b/)))throw new Error("Book later: Home shows no 'Reservation in' chip");
+          // B20: Home's map owner is set while the Ride scheduled page is still closing
+          // (only 'Close' on screen); the chip comes a few ms later (run 42166555533).
+          await laterPage.getByRole('button',{name:/^Reservation in\b/}).first().waitFor({state:'visible',timeout:15000}).catch(async()=>{throw new Error("Book later: Home shows no 'Reservation in' chip; buttons: "+JSON.stringify(await buttonNames(laterPage)));});
           await laterPage.screenshot({path:'qa-book-later-home.png',fullPage:true});
           fs.writeFileSync('qa-book-later.json', JSON.stringify({ownersSeen:[...ownersSeen],pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
           if(fatalErrors().length) throw new Error('Book later fatal: '+fatalErrors().join(' | '));
