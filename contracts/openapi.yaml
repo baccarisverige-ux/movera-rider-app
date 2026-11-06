@@ -1,11 +1,11 @@
-# Movera API v0.18.42 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.44 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.42
+  version: 0.18.44
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.42 in this folder; this file must agree with them.
+    v0.18.44 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.42
+  version: 0.18.44
   source: contract.json
 paths:
   /auth/otp/request:
@@ -523,7 +523,7 @@ paths:
         currency. A rider who owes 100 kr from Stockholm is quoted in Paris without it (never +100 €); the debt waits for
         the next Swedish trip. The server sums the owed fees per currency: a quote and the fare of the next trip carry outstanding_fee
         = the owed fees in the pricing document''s currency (FareLine.sourceTripId = the oldest of them); a paid cash trip
-        settles only owed fees of its own currency, oldest first. v0.18.42 §67: POST /quotes and POST /trips refuse a drop-off
+        settles only owed fees of its own currency, oldest first. v0.18.44 §67: POST /quotes and POST /trips refuse a drop-off
         closer than minTripMeters to the pickup: 400 invalid_request, reason dropoff_too_close, details [''meters=<n>'', ''limitMeters=<m>''].
         /trips re-checks with the zone''s live value (the admin may have raised it since the quote). The older samePointWarnMeters
         warning (v0.18.30) still applies above the limit. Off by default (owner Q9). v0.18.9: POST /quotes, POST /trips and
@@ -620,7 +620,7 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
-      description: 'v0.18.42 §67: POST /quotes and POST /trips refuse a drop-off closer than minTripMeters to the pickup:
+      description: 'v0.18.44 §67: POST /quotes and POST /trips refuse a drop-off closer than minTripMeters to the pickup:
         400 invalid_request, reason dropoff_too_close, details [''meters=<n>'', ''limitMeters=<m>'']. /trips re-checks with
         the zone''s live value (the admin may have raised it since the quote). The older samePointWarnMeters warning (v0.18.30)
         still applies above the limit. Off by default (owner Q9). v0.18.9: POST /quotes, POST /trips and POST /trips/{tripId}/route-quote
@@ -1102,7 +1102,11 @@ paths:
       summary: Rate the other party (and optionally tip)
       description: 'Not a lifecycle command: allowed after completed, and for the rider also after a trip the rider ended
         early (cancelled_by_rider via end_early; a plain cancel is 409 invalid_transition). See RatingStatus x-rating-allowed.
-        Moves ratingStatus pending → submitted|skipped and emits rating_updated.'
+        Moves ratingStatus pending → submitted|skipped and emits rating_updated. v0.18.43 §64: POST /trips/{tripId}/rating
+        may carry dontMatchAgain: true (rider and driver). Allowed only with stars ≤ CountryRules.dontMatchAgain.atStars (default
+        1) while dontMatchAgain.on (default true); otherwise 400 invalid_body, reason dont_match_not_allowed, and nothing
+        is saved. With it the server writes the pair (by = the rater) in the same transaction as the rating. The answer is
+        the same Rating as without it.'
       tags:
       - Trips
       x-actor:
@@ -9728,7 +9732,7 @@ paths:
     post:
       operationId: geocodeAddress
       summary: Coordinates for an address or a suggestion
-      description: 'No match → 200 without coordinates (never 404). v0.18.42 §67: POST /locations/geocode: an app resolving
+      description: 'No match → 200 without coordinates (never 404). v0.18.44 §67: POST /locations/geocode: an app resolving
         a picked suggestion sends its placeId (and the text as query). The server resolves by placeId and answers name, the
         place''s own name (e.g. ''Solna Centrum''), next to address (the provider''s formatted street address). name is absent
         for a typed address with no placeId.'
@@ -12350,6 +12354,151 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ZoneList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/trips/{tripId}/block-pair:
+    post:
+      operationId: adminBlockPair
+      summary: Never match this trip's rider and driver again
+      description: 'v0.18.43 §64: POST /admin/trips/{tripId}/block-pair { reason? } (riders.block, Idempotency-Key, audit
+        blocked_pair.add) blocks the trip''s rider and driver (by admin); 409 invalid_transition, reason no_driver, when the
+        trip has no driver. GET /admin/blocked-pairs?riderId=|driverId= (riders.read) lists the active pairs of one person,
+        newest first. Admin › Trips › trip page: Block this pair; Admin › Rider and Admin › Driver pages: Blocked pairs with
+        Undo. The other side is never told (owner ''Never told''): no event, push, notice, field or count shows a block to
+        the rider or driver who was blocked; the trip, offer and profile projections are unchanged. Only admins see pairs.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: riders.block
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlockPairCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockedPair'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/blocked-pairs/{pairId}:
+    delete:
+      operationId: adminRemoveBlockedPair
+      summary: Undo a blocked pair (Support only)
+      description: 'v0.18.43 §64: Only Support undoes a pair (owner ''No, only Support''): DELETE /admin/blocked-pairs/{pairId}
+        (riders.block, audit blocked_pair.remove). The apps have no undo and no list.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: riders.block
+      parameters:
+      - name: pairId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '204':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/blocked-pairs:
+    get:
+      operationId: adminBlockedPairs
+      summary: The active blocked pairs of one rider or one driver
+      description: 'v0.18.43 §64: POST /admin/trips/{tripId}/block-pair { reason? } (riders.block, Idempotency-Key, audit
+        blocked_pair.add) blocks the trip''s rider and driver (by admin); 409 invalid_transition, reason no_driver, when the
+        trip has no driver. GET /admin/blocked-pairs?riderId=|driverId= (riders.read) lists the active pairs of one person,
+        newest first. Admin › Trips › trip page: Block this pair; Admin › Rider and Admin › Driver pages: Blocked pairs with
+        Undo.'
+      tags:
+      - Admin · Trips
+      x-actor:
+      - admin
+      x-permission: riders.read
+      parameters:
+      - name: riderId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: driverId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockedPairList'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -21767,6 +21916,8 @@ components:
             $ref: '#/components/schemas/AmountOption'
         driverBonus:
           $ref: '#/components/schemas/DriverBonusLimits'
+        dontMatchAgain:
+          $ref: '#/components/schemas/DontMatchAgainSettings'
         driverPayChangeMax:
           allOf:
           - $ref: '#/components/schemas/Money'
@@ -23396,6 +23547,13 @@ components:
                 writes it there from the zone''s dispatch document and also sets it when it serves GET /rider/config) and
                 hides every raise button whose amount would take the fare above maxFactor × the booked fare (booked fare =
                 Trip fare minus its rider_raise lines). The same in SE and FR.'
+        dontMatchAgain:
+          allOf:
+          - $ref: '#/components/schemas/DontMatchAgainSettings'
+          description: 'v0.18.43 §64: written by the server from the zone''s CountryRules. Both rating screens show one tick
+            under the stars only while the chosen stars ≤ atStars and on: rider ''Don''t match me with this driver again'',
+            driver ''Don''t match me with this rider again''. Unticked by default; raising the stars above atStars clears
+            it. After sending nothing else changes on screen.'
         routeChange:
           allOf:
           - $ref: '#/components/schemas/RouteChangeSettings'
@@ -23692,6 +23850,13 @@ components:
           type: object
         appUpdate:
           $ref: '#/components/schemas/AppUpdate'
+        dontMatchAgain:
+          allOf:
+          - $ref: '#/components/schemas/DontMatchAgainSettings'
+          description: 'v0.18.43 §64: written by the server from the zone''s CountryRules. Both rating screens show one tick
+            under the stars only while the chosen stars ≤ atStars and on: rider ''Don''t match me with this driver again'',
+            driver ''Don''t match me with this rider again''. Unticked by default; raising the stars above atStars clears
+            it. After sending nothing else changes on screen.'
         pickupPin:
           $ref: '#/components/schemas/PickupPinSettings'
         routeChange:
@@ -24059,7 +24224,7 @@ components:
           type: integer
           minimum: 0
           maximum: 5000
-          description: 'v0.18.42 §67: pricing document (zone pricing, admin Pricing page): minTripMeters, integer metres;
+          description: 'v0.18.44 §67: pricing document (zone pricing, admin Pricing page): minTripMeters, integer metres;
             missing = default 0 (off, owner Q9: warn but can book); an admin turns it on per zone; straight line (haversine)
             pickup -> drop-off; a trip with one or more stops is not checked (a round trip through a stop is a real trip).
             POST /quotes and POST /trips refuse a drop-off closer than minTripMeters to the pickup: 400 invalid_request, reason
@@ -24977,7 +25142,7 @@ components:
           maxLength: 300
         placeId:
           type: string
-          description: 'v0.18.42 §67: the picked suggestion''s placeId; the server resolves by it. POST /locations/geocode:
+          description: 'v0.18.44 §67: the picked suggestion''s placeId; the server resolves by it. POST /locations/geocode:
             an app resolving a picked suggestion sends its placeId (and the text as query). The server resolves by placeId
             and answers name, the place''s own name (e.g. ''Solna Centrum''), next to address (the provider''s formatted street
             address). name is absent for a typed address with no placeId.'
@@ -24999,7 +25164,7 @@ components:
           type: string
         name:
           type: string
-          description: 'v0.18.42 §67: the place''s own name when resolved by placeId (absent for a typed address). The trip''s
+          description: 'v0.18.44 §67: the place''s own name when resolved by placeId (absent for a typed address). The trip''s
             pickup/dropoff/stop address is the label the rider chose: the suggestion''s title + '', '' + subtitle (or the
             geocode name when the suggestion had no title). The app never replaces a chosen label by the geocode address;
             address only fills a label that is missing. The driver app and the admin panel show that same trip address text
@@ -25935,7 +26100,7 @@ components:
             driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival,
             route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now,
             pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit).
-            v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.42
+            v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.44
             reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress).'
         details:
           type: array
@@ -26580,6 +26745,14 @@ components:
           description: 'v0.18.10: rider only; POST /trips/{tripId}/tip { amount: Money, method: cash | card | apple_pay }
             (rider; Idempotency-Key) → 201 TripTip { amount, method, driverShare, at }. Also accepted as RatingRequest.tip
             (+ tipMethod, default cash) with the rating: the same rules.'
+        dontMatchAgain:
+          type: boolean
+          description: 'v0.18.43 §64: POST /trips/{tripId}/rating may carry dontMatchAgain: true (rider and driver). Allowed
+            only with stars ≤ CountryRules.dontMatchAgain.atStars (default 1) while dontMatchAgain.on (default true); otherwise
+            400 invalid_body, reason dont_match_not_allowed, and nothing is saved. With it the server writes the pair (by
+            = the rater) in the same transaction as the rating. The answer is the same Rating as without it. The other side
+            is never told (owner ''Never told''): no event, push, notice, field or count shows a block to the rider or driver
+            who was blocked; the trip, offer and profile projections are unchanged. Only admins see pairs.'
         tipMethod:
           allOf:
           - $ref: '#/components/schemas/TipMethod'
@@ -29714,6 +29887,86 @@ components:
         note:
           type: string
           maxLength: 1000
+    BlockedPair:
+      type: object
+      description: 'v0.18.43 §64: BlockedPair { pairId, riderId, driverId, by: admin|rider|driver, reason?, tripId?, at, adminId?
+        }: this rider and this driver are never matched again. One active pair per rider + driver (a second block of the same
+        pair answers the pair that exists). A blocked pair is never offered: no Exclusive, no Radar, no airport-queue offer,
+        no admin money offer, no on-trip next trip, and the booked ride is not listed to that driver in Scheduled rides nor
+        claimable by him. The search goes on with the other drivers exactly as if that driver were not there; with nobody
+        else it goes on as ''no driver'' (no special step, no message). The other side is never told (owner ''Never told''):
+        no event, push, notice, field or count shows a block to the rider or driver who was blocked; the trip, offer and profile
+        projections are unchanged. Only admins see pairs.'
+      required:
+      - pairId
+      - riderId
+      - driverId
+      - by
+      - at
+      properties:
+        pairId:
+          $ref: '#/components/schemas/Id'
+        riderId:
+          $ref: '#/components/schemas/Id'
+        driverId:
+          $ref: '#/components/schemas/Id'
+        by:
+          type: string
+          enum:
+          - admin
+          - rider
+          - driver
+        reason:
+          type: string
+          maxLength: 300
+        tripId:
+          $ref: '#/components/schemas/Id'
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        adminId:
+          $ref: '#/components/schemas/Id'
+    BlockedPairList:
+      type: object
+      description: 'v0.18.43 §64: POST /admin/trips/{tripId}/block-pair { reason? } (riders.block, Idempotency-Key, audit
+        blocked_pair.add) blocks the trip''s rider and driver (by admin); 409 invalid_transition, reason no_driver, when the
+        trip has no driver. GET /admin/blocked-pairs?riderId=|driverId= (riders.read) lists the active pairs of one person,
+        newest first. Admin › Trips › trip page: Block this pair; Admin › Rider and Admin › Driver pages: Blocked pairs with
+        Undo.'
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlockedPair'
+    BlockPairCommand:
+      type: object
+      description: 'v0.18.43 §64: POST /admin/trips/{tripId}/block-pair { reason? } (riders.block, Idempotency-Key, audit
+        blocked_pair.add) blocks the trip''s rider and driver (by admin); 409 invalid_transition, reason no_driver, when the
+        trip has no driver. GET /admin/blocked-pairs?riderId=|driverId= (riders.read) lists the active pairs of one person,
+        newest first. Admin › Trips › trip page: Block this pair; Admin › Rider and Admin › Driver pages: Blocked pairs with
+        Undo.'
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
+      additionalProperties: false
+    DontMatchAgainSettings:
+      type: object
+      description: 'v0.18.43 §64: CountryRules.dontMatchAgain { on, atStars } per country (Admin › Pricing › Tips & limits
+        › Don''t match again). The server serves the same block as RiderAppConfig.dontMatchAgain and DriverAppConfig.dontMatchAgain
+        (GET /rider/config, /driver/config) so both apps show the tick only when it is allowed.'
+      properties:
+        'on':
+          type: boolean
+          default: true
+        atStars:
+          type: integer
+          minimum: 1
+          maximum: 2
+          description: The tick shows at this many stars or fewer.
+          default: 1
     LegalDocument:
       type: object
       description: 'v0.18.5: one legal text (terms or privacy) in sv / fr / en.'

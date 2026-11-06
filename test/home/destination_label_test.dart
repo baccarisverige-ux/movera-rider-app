@@ -9,7 +9,7 @@ import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/core/location/app_geocoding.dart';
 import 'package:movera_rider/features/destination_search/data/place_suggestion_repository.dart';
 
-/// Same-address fix (contract v0.18.42 §67). Proven case (Rules
+/// Same-address fix (contract v0.18.44 §67). Proven case (Rules
 /// plan/FIX-PLAN-RERUN-2026-11-05.md "Proof: same-address booking"): the
 /// rider picked "Solna Centrum" / "Solnavägen, Solna, Sverige"; the app sent
 /// only the text to /locations/geocode and replaced the chosen label with

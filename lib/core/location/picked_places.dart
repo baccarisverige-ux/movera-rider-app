@@ -1,6 +1,6 @@
 import 'dart:collection';
 
-/// v0.18.42 §67 (same-address fix, proven cause): the labels of the address
+/// v0.18.44 §67 (same-address fix, proven cause): the labels of the address
 /// suggestions the server offered, with their place ids. When the rider picks
 /// one, its label is what the flows geocode; [placeIdFor] lets that geocode
 /// ask by place id (the server then answers the place itself, with its name)

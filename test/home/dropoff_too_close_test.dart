@@ -20,7 +20,7 @@ import 'package:movera_rider/features/ride_selection/data/ride_catalog_cache.dar
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Same-address fix (contract v0.18.42 §67): the server refuses the quote
+/// Same-address fix (contract v0.18.44 §67): the server refuses the quote
 /// with 400 invalid_request reason dropoff_too_close; the rider reads "Drop-off
 /// is too close to pickup" and is back on the destination step (Select ride
 /// closes with no result: Home reopens the address screen on the destination).

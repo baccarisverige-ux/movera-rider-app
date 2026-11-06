@@ -525,7 +525,7 @@ class _SelectRideState extends State<SelectRide>
       destinationPoint: _geoPoint(widget.destinationPosition),
     );
     if (!mounted) return;
-    // v0.18.42 §67: a drop-off too close to the pickup is not a ride; the
+    // v0.18.44 §67: a drop-off too close to the pickup is not a ride; the
     // rider is told and goes back to the destination step (a plain Back:
     // Home reopens the address screen on the destination with this route).
     if (_selection.dropoffTooClose) {

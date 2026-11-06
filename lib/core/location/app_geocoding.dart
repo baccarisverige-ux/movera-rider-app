@@ -151,7 +151,7 @@ class AppGeocoding implements GeocodingRepository {
     if (latitude is! num || longitude is! num) return null;
     final address = data['address'];
     return PlaceResult(
-      // v0.18.42 §67 (proven same-address cause): a picked suggestion keeps
+      // v0.18.44 §67 (proven same-address cause): a picked suggestion keeps
       // the label the rider chose ("Solna Centrum, Solnavägen, …"); the
       // server's address is that place's street address and only names a
       // typed query.

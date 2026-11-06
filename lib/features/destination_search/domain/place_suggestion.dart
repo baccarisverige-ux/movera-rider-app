@@ -23,7 +23,7 @@ class PlaceSuggestion {
   final GeoPoint? point;
   final PlaceSuggestionKind kind;
 
-  /// v0.18.42 §67: the server's place id, sent to /locations/geocode when the
+  /// v0.18.44 §67: the server's place id, sent to /locations/geocode when the
   /// rider picks this suggestion; null for recents and saved places.
   final String? placeId;
 

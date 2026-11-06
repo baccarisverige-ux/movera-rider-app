@@ -40,7 +40,7 @@ class PlaceSuggestionRepository {
           .map(PlaceSuggestion.fromJson)
           .whereType<PlaceSuggestion>()
           .toList();
-      // v0.18.42 §67: the label the rider may pick, with its place id, so
+      // v0.18.44 §67: the label the rider may pick, with its place id, so
       // the geocode of that label is asked by place id and keeps the name.
       for (final s in suggestions) {
         if (s.placeId case final id?) {

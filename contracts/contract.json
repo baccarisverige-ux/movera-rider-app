@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.42",
+  "version": "0.18.44",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -3674,6 +3674,10 @@
       "maxCallMin": 15,
       "adminCallRoles": [],
       "phoneProvider": "none"
+    },
+    "dontMatchAgain": {
+      "on": true,
+      "atStars": 1
     }
   },
   "realtime": {
@@ -3778,7 +3782,7 @@
       "unavailable",
       "internal"
     ],
-    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit). v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.42 reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress)."
+    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit). v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.44 reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress)."
   },
   "headers": {
     "Idempotency-Key": "required on every mutation, 16–128 chars",
@@ -8104,8 +8108,50 @@
     "fallback": "No road route: the answer is the straight line through every point, [from, ...via, to], never from -> to when there are stops.",
     "apps": "Rider: Select ride and Finding drivers draw the road line through every stop (one road leg per pair via the routing seam); a leg without road is drawn straight through the stop and the map shows 'Approximate route'. The quote's distanceMeters hint is the straight distance via the stops. Driver app and admin panel: their maps already draw through the stops (checked, no change)."
   },
+  "blockedPairs": {
+    "note": "v0.18.43 §64 (fix job 10, Rules plan/FIX-JOBS-8-9-10-PLAN-2026-11-05.md; owner G16 Q16-4 and G15 2026-11-05: block told → 'Never told', undo own block → 'No, only Support'). Builds on v0.18.41 main. X-Api-Version stays 0.5; additive; server migration 0087 (blocked_pairs).",
+    "pair": "BlockedPair { pairId, riderId, driverId, by: admin|rider|driver, reason?, tripId?, at, adminId? }: this rider and this driver are never matched again. One active pair per rider + driver (a second block of the same pair answers the pair that exists).",
+    "by": [
+      "admin",
+      "rider",
+      "driver"
+    ],
+    "dispatch": "A blocked pair is never offered: no Exclusive, no Radar, no airport-queue offer, no admin money offer, no on-trip next trip, and the booked ride is not listed to that driver in Scheduled rides nor claimable by him. The search goes on with the other drivers exactly as if that driver were not there; with nobody else it goes on as 'no driver' (no special step, no message).",
+    "rating": "POST /trips/{tripId}/rating may carry dontMatchAgain: true (rider and driver). Allowed only with stars ≤ CountryRules.dontMatchAgain.atStars (default 1) while dontMatchAgain.on (default true); otherwise 400 invalid_body, reason dont_match_not_allowed, and nothing is saved. With it the server writes the pair (by = the rater) in the same transaction as the rating. The answer is the same Rating as without it.",
+    "neverTold": "The other side is never told (owner 'Never told'): no event, push, notice, field or count shows a block to the rider or driver who was blocked; the trip, offer and profile projections are unchanged. Only admins see pairs.",
+    "undo": "Only Support undoes a pair (owner 'No, only Support'): DELETE /admin/blocked-pairs/{pairId} (riders.block, audit blocked_pair.remove). The apps have no undo and no list.",
+    "admin": "POST /admin/trips/{tripId}/block-pair { reason? } (riders.block, Idempotency-Key, audit blocked_pair.add) blocks the trip's rider and driver (by admin); 409 invalid_transition, reason no_driver, when the trip has no driver. GET /admin/blocked-pairs?riderId=|driverId= (riders.read) lists the active pairs of one person, newest first. Admin › Trips › trip page: Block this pair; Admin › Rider and Admin › Driver pages: Blocked pairs with Undo.",
+    "settings": {
+      "where": "CountryRules.dontMatchAgain { on, atStars } per country (Admin › Pricing › Tips & limits › Don't match again). The server serves the same block as RiderAppConfig.dontMatchAgain and DriverAppConfig.dontMatchAgain (GET /rider/config, /driver/config) so both apps show the tick only when it is allowed.",
+      "ranges": {
+        "atStars": [
+          1,
+          2
+        ]
+      }
+    },
+    "apps": {
+      "tick": "Both rating screens show one tick under the stars only while the chosen stars ≤ atStars and on: rider 'Don't match me with this driver again', driver 'Don't match me with this rider again'. Unticked by default; raising the stars above atStars clears it. After sending nothing else changes on screen.",
+      "riderText": {
+        "sv": "Matcha mig inte med den här föraren igen",
+        "fr": "Ne plus me proposer ce chauffeur",
+        "en": "Don't match me with this driver again"
+      },
+      "driverText": {
+        "sv": "Matcha mig inte med den här kunden igen",
+        "fr": "Ne plus me proposer ce client",
+        "en": "Don't match me with this rider again"
+      }
+    },
+    "riderLevels": "The rider app shows the riderModeration levels (v0.18.29): warning = a banner 'Warning from Movera' with the reason on Home (GET /rider/profile Rider.moderation); paused = a full screen 'Your account is paused' with the reason and the end date (moderation.until), Contact support and Sign out; banned = the same screen 'Your account is blocked' without a date. The screen opens from Rider.moderation and from any 403 account_suspended (its projection). The driver app shows nothing new.",
+    "reasons": [
+      "dont_match_not_allowed",
+      "no_driver"
+    ],
+    "rule33": "State lives only in blocked_pairs (partial unique index on rider_id + driver_id where removed_at is null; inserts are ON CONFLICT DO NOTHING); every dispatch path reads it in the same query round, so any server copy gives the same answer."
+  },
   "sameAddress": {
-    "note": "v0.18.42 §67 (Rules plan/FIX-PLAN-RERUN-2026-11-05.md 'Proof: same-address booking', proven cause; boss answers decisions/driver-g15.md 2026-11-05; boss Decisions 10 and 12; owner Q9 v0.18.30 'Warn him but can accept booking' overrides the boss 300 m default, so the refusal is OFF by default). Builds on v0.18.41 main. Additive; X-Api-Version stays 0.5; no migration (minTripMeters lives in the zone's pricing document JSON); stateless (rule 33).",
+    "note": "v0.18.44 §67 (Rules plan/FIX-PLAN-RERUN-2026-11-05.md 'Proof: same-address booking', proven cause; boss answers decisions/driver-g15.md 2026-11-05; boss Decisions 10 and 12; owner Q9 v0.18.30 'Warn him but can accept booking' overrides the boss 300 m default, so the refusal is OFF by default). Builds on v0.18.43 main (renumbered from 0.18.44, Decision 13). Additive; X-Api-Version stays 0.5; no migration (minTripMeters lives in the zone's pricing document JSON); stateless (rule 33).",
     "geocode": "POST /locations/geocode: an app resolving a picked suggestion sends its placeId (and the text as query). The server resolves by placeId and answers name, the place's own name (e.g. 'Solna Centrum'), next to address (the provider's formatted street address). name is absent for a typed address with no placeId.",
     "label": "The trip's pickup/dropoff/stop address is the label the rider chose: the suggestion's title + ', ' + subtitle (or the geocode name when the suggestion had no title). The app never replaces a chosen label by the geocode address; address only fills a label that is missing. The driver app and the admin panel show that same trip address text (no change of field).",
     "minTripMeters": {
