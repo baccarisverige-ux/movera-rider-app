@@ -439,7 +439,10 @@ jobs:
           if(ownersSeen.has('finding'))throw new Error('Book later opened Finding Driver');
           await tapNamed(laterPage,'Done','Book later: scheduled');
           await waitOwner(laterPage,'home','Book later: back Home');
-          if(!(await hasButton(laterPage,/^Reservation in\b/)))throw new Error("Book later: Home shows no 'Reservation in' chip");
+          {const t0=Date.now();const b0=await buttonNames(laterPage);let found=null;for(let k=0;k<30&&!found;k++){if(await hasButton(laterPage,/^Reservation in\b/))found=Date.now()-t0;else await laterPage.waitForTimeout(500);}
+          const ls=await laterPage.evaluate(()=>Object.fromEntries(Object.entries(localStorage).filter(([k])=>/reserv|schedul/i.test(k)).map(([k,v])=>[k,String(v).slice(0,600)])));
+          console.log('B20DIAG '+JSON.stringify({clock:new Date().toISOString(),tz:Intl.DateTimeFormat().resolvedOptions().timeZone,url:laterPage.url(),buttonsAtHome:b0,chipAfterMs:found,buttonsNow:await buttonNames(laterPage),storage:ls}));
+          if(found===null)throw new Error("Book later: Home shows no 'Reservation in' chip");}
           await laterPage.screenshot({path:'qa-book-later-home.png',fullPage:true});
           fs.writeFileSync('qa-book-later.json', JSON.stringify({ownersSeen:[...ownersSeen],pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
           if(fatalErrors().length) throw new Error('Book later fatal: '+fatalErrors().join(' | '));
