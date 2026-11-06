@@ -118,9 +118,9 @@ void main() {
           opensNoDriverSheet: false,
         ),
         (
-          name: 'no driver found (T+6, no driver)',
+          name: 'no driver found (T+16, no driver; v0.18.39 P17 stop at +15)',
           arrange: (c) async {},
-          offset: const Duration(minutes: 6),
+          offset: const Duration(minutes: 16),
           badgeKey: 'reservation-chrono-badge-no-driver',
           badgeIcon: Icons.priority_high_rounded,
           badgeColor: HomeReservationChrono.noDriver,

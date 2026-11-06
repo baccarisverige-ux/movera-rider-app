@@ -81,16 +81,16 @@ void main() {
     // PR that changes a text updates these to the values the failure prints.
     const before = {
       'en': (
-        'e93e5b1526b8f0ff29d8001c6c965781e3d87fbee8f30a6ae4c0ef605eb7380f',
-        2036,
+        '7840fd1dac1e55a18bfd3cd7abb601897d6adf63a15c4ee7a3cf544a0acb17d4',
+        2040,
       ),
       'fr': (
-        '9d5f95f234caf9518e0cd60f3a96bc0f7e742414ca4f2e608eeba4d5c84083aa',
-        1671,
+        'a99445d9eafce2f887b9dc2873d3305fedf512ae689b524e27e4cf8e51160254',
+        1673,
       ),
       'sv': (
-        '6350a9021c8daa7e55b4f86b32d9f54ff737e76c39fd57a1e3f57dd16ad99ae0',
-        1671,
+        'cfd1e4a5ae27c0283b7afdb92bac36e4d7f5e05617a546d4b3894e80a86c02a2',
+        1673,
       ),
     };
     for (final lang in _langs) {
