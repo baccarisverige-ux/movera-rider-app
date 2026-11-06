@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   device-pwa-responsive:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # C6b: ubuntu-latest is 26.04: Playwright 1.55 --with-deps cannot install there
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
