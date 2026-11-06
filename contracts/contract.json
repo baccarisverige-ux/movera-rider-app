@@ -8105,24 +8105,24 @@
     "apps": "Rider: Select ride and Finding drivers draw the road line through every stop (one road leg per pair via the routing seam); a leg without road is drawn straight through the stop and the map shows 'Approximate route'. The quote's distanceMeters hint is the straight distance via the stops. Driver app and admin panel: their maps already draw through the stops (checked, no change)."
   },
   "sameAddress": {
-    "note": "v0.18.42 §67 (Rules plan/FIX-PLAN-RERUN-2026-11-05.md 'Proof: same-address booking', proven cause; boss answers decisions/driver-g15.md 2026-11-05; boss Decisions 10 and 12). Builds on v0.18.41 main. Additive; X-Api-Version stays 0.5; no migration (minTripMeters lives in the zone's pricing document JSON); stateless (rule 33).",
+    "note": "v0.18.42 §67 (Rules plan/FIX-PLAN-RERUN-2026-11-05.md 'Proof: same-address booking', proven cause; boss answers decisions/driver-g15.md 2026-11-05; boss Decisions 10 and 12; owner Q9 v0.18.30 'Warn him but can accept booking' overrides the boss 300 m default, so the refusal is OFF by default). Builds on v0.18.41 main. Additive; X-Api-Version stays 0.5; no migration (minTripMeters lives in the zone's pricing document JSON); stateless (rule 33).",
     "geocode": "POST /locations/geocode: an app resolving a picked suggestion sends its placeId (and the text as query). The server resolves by placeId and answers name, the place's own name (e.g. 'Solna Centrum'), next to address (the provider's formatted street address). name is absent for a typed address with no placeId.",
     "label": "The trip's pickup/dropoff/stop address is the label the rider chose: the suggestion's title + ', ' + subtitle (or the geocode name when the suggestion had no title). The app never replaces a chosen label by the geocode address; address only fills a label that is missing. The driver app and the admin panel show that same trip address text (no change of field).",
     "minTripMeters": {
-      "default": 300,
+      "default": 0,
       "range": [
         0,
         5000
       ],
-      "where": "pricing document (zone pricing, admin Pricing page): minTripMeters, integer metres; missing = default 300; 0 = off",
+      "where": "pricing document (zone pricing, admin Pricing page): minTripMeters, integer metres; missing = default 0 (off, owner Q9: warn but can book); an admin turns it on per zone",
       "measure": "straight line (haversine) pickup -> drop-off; a trip with one or more stops is not checked (a round trip through a stop is a real trip)"
     },
-    "refuse": "POST /quotes and POST /trips refuse a drop-off closer than minTripMeters to the pickup: 400 invalid_request, reason dropoff_too_close, details ['meters=<n>', 'limitMeters=<m>']. /trips re-checks with the zone's live value (the admin may have raised it since the quote). The older samePointWarnMeters warning (v0.18.30) still applies above the limit.",
+    "refuse": "POST /quotes and POST /trips refuse a drop-off closer than minTripMeters to the pickup: 400 invalid_request, reason dropoff_too_close, details ['meters=<n>', 'limitMeters=<m>']. /trips re-checks with the zone's live value (the admin may have raised it since the quote). The older samePointWarnMeters warning (v0.18.30) still applies above the limit. Off by default (owner Q9).",
     "riderText": {
       "en": "Drop-off is too close to pickup",
       "sv": "Avlämningen är för nära upphämtningen",
       "fr": "Le point de dépose est trop proche du point de prise en charge"
     },
-    "apps": "Rider: keeps the chosen name, sends placeId, and on dropoff_too_close shows riderText and stays on the destination step. Driver: shows the trip's address (now the chosen name) on the offer and trip screens. Admin: the minTripMeters setting (0-5000 m, default 300) on the zone pricing page."
+    "apps": "Rider: keeps the chosen name, sends placeId, and on dropoff_too_close shows riderText and stays on the destination step. Driver: shows the trip's address (now the chosen name) on the offer and trip screens. Admin: the minTripMeters setting (0-5000 m, default 0 = off) on the zone pricing page."
   }
 }

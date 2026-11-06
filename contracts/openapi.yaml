@@ -526,14 +526,15 @@ paths:
         settles only owed fees of its own currency, oldest first. v0.18.42 §67: POST /quotes and POST /trips refuse a drop-off
         closer than minTripMeters to the pickup: 400 invalid_request, reason dropoff_too_close, details [''meters=<n>'', ''limitMeters=<m>''].
         /trips re-checks with the zone''s live value (the admin may have raised it since the quote). The older samePointWarnMeters
-        warning (v0.18.30) still applies above the limit. v0.18.9: POST /quotes, POST /trips and POST /trips/{tripId}/route-quote
-        with more stops → 400 invalid_request, reason too_many_stops, details ["maxStops=N"]. v0.18.17: Q1: POST /quotes and
-        POST /trips with kind=scheduled refuse a pickup less than minAheadMin minutes ahead (400 invalid_request, reason booking_too_soon)
-        or more than maxAheadDays days ahead (reason booking_too_far), from the zone''s live driver document. RiderAppConfig.booking.minAheadMin,
-        maxAheadDays and freeChangeBeforeMin are written by the server from the same zone''s DriverAppConfig.reservations
-        when it serves the rider document (one source). A booked ride whose route is longer than maxTripKm km (default null
-        = no limit, owner BL-Q5; the demo admin''s ''Max Trip Distance (Reservations)'' setting) is refused at quote: 400
-        invalid_request, reason trip_too_long (live rides are not limited by it).'
+        warning (v0.18.30) still applies above the limit. Off by default (owner Q9). v0.18.9: POST /quotes, POST /trips and
+        POST /trips/{tripId}/route-quote with more stops → 400 invalid_request, reason too_many_stops, details ["maxStops=N"].
+        v0.18.17: Q1: POST /quotes and POST /trips with kind=scheduled refuse a pickup less than minAheadMin minutes ahead
+        (400 invalid_request, reason booking_too_soon) or more than maxAheadDays days ahead (reason booking_too_far), from
+        the zone''s live driver document. RiderAppConfig.booking.minAheadMin, maxAheadDays and freeChangeBeforeMin are written
+        by the server from the same zone''s DriverAppConfig.reservations when it serves the rider document (one source). A
+        booked ride whose route is longer than maxTripKm km (default null = no limit, owner BL-Q5; the demo admin''s ''Max
+        Trip Distance (Reservations)'' setting) is refused at quote: 400 invalid_request, reason trip_too_long (live rides
+        are not limited by it).'
       tags:
       - Rider · Booking
       x-actor:
@@ -622,14 +623,14 @@ paths:
       description: 'v0.18.42 §67: POST /quotes and POST /trips refuse a drop-off closer than minTripMeters to the pickup:
         400 invalid_request, reason dropoff_too_close, details [''meters=<n>'', ''limitMeters=<m>'']. /trips re-checks with
         the zone''s live value (the admin may have raised it since the quote). The older samePointWarnMeters warning (v0.18.30)
-        still applies above the limit. v0.18.9: POST /quotes, POST /trips and POST /trips/{tripId}/route-quote with more stops
-        → 400 invalid_request, reason too_many_stops, details ["maxStops=N"]. v0.18.10: POST /trips (the trip''s paymentMethod,
-        in the quote''s zone; POST /quotes only records it): a method the admin turned off in that zone → 400 invalid_request,
-        reason payment_method_off; on in admin but not taken by the server → 400 invalid_request, reason payment_method_coming_soon;
-        anything else (google_pay, wallet, unknown) → 400 invalid_request, reason payment_method_not_available. The app shows
-        texts[reason] and goes back to the payment choice, never a silent fail. Changing the method of a booked trip stays
-        unavailable (PATCH answers route_change_not_available, as before). v0.18.17: Q1: POST /quotes and POST /trips with
-        kind=scheduled refuse a pickup less than minAheadMin minutes ahead (400 invalid_request, reason booking_too_soon)
+        still applies above the limit. Off by default (owner Q9). v0.18.9: POST /quotes, POST /trips and POST /trips/{tripId}/route-quote
+        with more stops → 400 invalid_request, reason too_many_stops, details ["maxStops=N"]. v0.18.10: POST /trips (the trip''s
+        paymentMethod, in the quote''s zone; POST /quotes only records it): a method the admin turned off in that zone → 400
+        invalid_request, reason payment_method_off; on in admin but not taken by the server → 400 invalid_request, reason
+        payment_method_coming_soon; anything else (google_pay, wallet, unknown) → 400 invalid_request, reason payment_method_not_available.
+        The app shows texts[reason] and goes back to the payment choice, never a silent fail. Changing the method of a booked
+        trip stays unavailable (PATCH answers route_change_not_available, as before). v0.18.17: Q1: POST /quotes and POST
+        /trips with kind=scheduled refuse a pickup less than minAheadMin minutes ahead (400 invalid_request, reason booking_too_soon)
         or more than maxAheadDays days ahead (reason booking_too_far), from the zone''s live driver document. RiderAppConfig.booking.minAheadMin,
         maxAheadDays and freeChangeBeforeMin are written by the server from the same zone''s DriverAppConfig.reservations
         when it serves the rider document (one source). A booked ride whose route is longer than maxTripKm km (default null
@@ -24059,12 +24060,13 @@ components:
           minimum: 0
           maximum: 5000
           description: 'v0.18.42 §67: pricing document (zone pricing, admin Pricing page): minTripMeters, integer metres;
-            missing = default 300; 0 = off; straight line (haversine) pickup -> drop-off; a trip with one or more stops is
-            not checked (a round trip through a stop is a real trip). POST /quotes and POST /trips refuse a drop-off closer
-            than minTripMeters to the pickup: 400 invalid_request, reason dropoff_too_close, details [''meters=<n>'', ''limitMeters=<m>''].
-            /trips re-checks with the zone''s live value (the admin may have raised it since the quote). The older samePointWarnMeters
-            warning (v0.18.30) still applies above the limit.'
-          default: 300
+            missing = default 0 (off, owner Q9: warn but can book); an admin turns it on per zone; straight line (haversine)
+            pickup -> drop-off; a trip with one or more stops is not checked (a round trip through a stop is a real trip).
+            POST /quotes and POST /trips refuse a drop-off closer than minTripMeters to the pickup: 400 invalid_request, reason
+            dropoff_too_close, details [''meters=<n>'', ''limitMeters=<m>'']. /trips re-checks with the zone''s live value
+            (the admin may have raised it since the quote). The older samePointWarnMeters warning (v0.18.30) still applies
+            above the limit. Off by default (owner Q9).'
+          default: 0
       x-server-only: true
     DispatchModeRules:
       type: object
