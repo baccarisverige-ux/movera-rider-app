@@ -1,6 +1,6 @@
 {
   "menu": "Menu",
-  "menuAppVersion": "Movera Passager v{version}",
+  "menuAppVersion": "Movera v{version}",
   "menuHiName": "Bonjour {name}",
   "menuWalletWithAmount": "Portefeuille, {amount}",
   "menuWallet": "Portefeuille",
@@ -37,7 +37,7 @@
   "accountPrivacyNoticeBody": "Quelles données sont conservées et pourquoi",
   "menuAboutMovera": "À propos de Movera",
   "menuAboutBody": "Informations sur l’entreprise",
-  "menuAboutArticle": "Movera est une application de réservation de VTC en Suède. Les modes de réservation et de paiement disponibles sont présentés lors de la demande de course.\n\nIcônes : Solar Icons par 480 Design (CC BY 4.0). Illustrations : unDraw.",
+  "menuAboutArticle": "Movera est une application de réservation de VTC en Suède. Les modes de réservation et de paiement disponibles sont présentés lors de la demande de course.\n\nIcônes : Solar Icons par 480 Design (CC BY 4.0). Illustrations : unDraw.",
   "accountSignOut": "Se déconnecter",
   "accountSignOutBody": "Déconnecter ce compte de cet appareil",
   "nameIsHere": "{name} est là",

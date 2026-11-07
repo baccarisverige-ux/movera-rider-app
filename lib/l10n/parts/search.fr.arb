@@ -1,5 +1,5 @@
 {
-  "whereTo": "Où souhaitez-vous aller ?",
+  "whereTo": "Où souhaitez-vous aller ?",
   "currentLocation": "Ma position actuelle",
   "homeSearchInterrupted": "La recherche d’un chauffeur a été interrompue. Vous pouvez relancer votre demande quand vous le souhaitez.",
   "homeFindingLocation": "Localisation en cours…",
@@ -8,7 +8,7 @@
   "searchOrEnterAddress": "Rechercher ou saisir une adresse",
   "recentAddresses": "Adresses récentes",
   "homeMaxCustomPlaces": "Vous pouvez enregistrer jusqu’à 8 lieux personnalisés.",
-  "homeWhatPlaceToSave": "Quel lieu souhaitez-vous enregistrer ?",
+  "homeWhatPlaceToSave": "Quel lieu souhaitez-vous enregistrer ?",
   "homeRecenterMap": "Centrer la carte sur ma position",
   "homeTogglePanel": "Afficher ou masquer le panneau d’accueil",
   "recent": "Récents",
