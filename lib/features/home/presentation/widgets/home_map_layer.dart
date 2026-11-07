@@ -37,11 +37,15 @@ class HomeMapLayer extends StatefulWidget {
   @visibleForTesting
   static int debugRedrawRequests = 0;
 
+  /// Times the "map is ready" path scheduled its redraw (tests).
+  @visibleForTesting
+  static int debugMapReadyRedraws = 0;
+
   @override
-  State<HomeMapLayer> createState() => _HomeMapLayerState();
+  State<HomeMapLayer> createState() => HomeMapLayerState();
 }
 
-class _HomeMapLayerState extends State<HomeMapLayer> {
+class HomeMapLayerState extends State<HomeMapLayer> {
   Widget? _cached;
   Set<Marker>? _markers;
   Set<Circle>? _circles;
@@ -52,6 +56,10 @@ class _HomeMapLayerState extends State<HomeMapLayer> {
   CameraPosition? _camera;
   Size? _size;
   Timer? _redrawTimer;
+
+  /// A redraw asked while the map was not created yet (or parked). 2026-11-07
+  /// (owner's iPhone, grey band after a trip): it used to be dropped.
+  bool _redrawPending = false;
 
   @override
   void initState() {
@@ -90,10 +98,21 @@ class _HomeMapLayerState extends State<HomeMapLayer> {
   }
 
   void _redraw() {
-    if (!mounted || widget.parked.value) return;
+    if (!mounted) return;
+    if (widget.parked.value) {
+      _redrawPending = true;
+      return;
+    }
     HomeMapLayer.debugRedrawRequests++;
     final controller = _controller;
-    if (controller == null) return;
+    if (controller == null) {
+      // 2026-11-07: after a trip Home builds the map again while the panel
+      // shrinks; the box can grow before Google Maps is ready. Keep the
+      // request and send it once the map exists (see _mapReady).
+      _redrawPending = true;
+      return;
+    }
+    _redrawPending = false;
     RiderMapBridge.redraw(controller.mapId);
     final camera = _camera ?? widget.initialPosition;
     controller
@@ -104,7 +123,26 @@ class _HomeMapLayerState extends State<HomeMapLayer> {
   void _onMapCreated(GoogleMapController controller) {
     _controller = controller;
     widget.onMapCreated(controller);
+    _mapReady();
   }
+
+  /// 2026-11-07 (owner decision "Oui, corriger"): once the map exists it is
+  /// redrawn one time after the size settles, so a box that grew while the
+  /// map was being created (or a kept request) is drawn in full on Safari.
+  void _mapReady() {
+    HomeMapLayer.debugMapReadyRedraws++;
+    _redrawPending = false;
+    _redrawTimer?.cancel();
+    _redrawTimer = Timer(HomeMapLayer.redrawSettle, _redraw);
+  }
+
+  /// Runs the "map is ready" path without a platform map (tests).
+  @visibleForTesting
+  void debugMapReady() => _mapReady();
+
+  /// True while a redraw waits for the map (tests).
+  @visibleForTesting
+  bool get debugRedrawPending => _redrawPending;
 
   void _onCameraMove(CameraPosition camera) {
     _camera = camera;

@@ -159,5 +159,66 @@ void main() {
         expect(HomeMapLayer.debugRedrawRequests, 1);
       },
     );
+
+    // 2026-11-07, owner's iPhone (Rules plan/SUMMARY / decisions session-2026-11-06): grey band on
+    // Home after a trip. The box grew while the map was being created; on main the redraw was
+    // dropped (`_redraw` returned at `controller == null` with no retry).
+    testWidgets(
+      'a redraw asked before the map exists is kept and sent once the map is ready',
+      (tester) async {
+        HomeMapLayer.debugRedrawRequests = 0;
+        HomeMapLayer.debugMapReadyRedraws = 0;
+        Widget sized(double height) => Directionality(
+          textDirection: TextDirection.ltr,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(width: 402, height: height, child: layer()),
+          ),
+        );
+        await tester.pumpWidget(sized(420));
+        await tester.pump(const Duration(seconds: 1));
+        final state = tester.state<HomeMapLayerState>(
+          find.byType(HomeMapLayer),
+        );
+
+        // The panel shrinks after the trip: a taller box before the map is ready.
+        await tester.pumpWidget(sized(495));
+        await tester.pump(HomeMapLayer.redrawSettle);
+        await tester.pump();
+        expect(HomeMapLayer.debugRedrawRequests, 1);
+        expect(state.debugRedrawPending, isTrue, reason: 'kept, not dropped');
+
+        // The map becomes ready: it is redrawn once more, after the settle time.
+        state.debugMapReady();
+        expect(state.debugRedrawPending, isFalse);
+        expect(HomeMapLayer.debugMapReadyRedraws, 1);
+        await tester.pump(HomeMapLayer.redrawSettle);
+        await tester.pump();
+        expect(HomeMapLayer.debugRedrawRequests, 2);
+      },
+    );
+
+    testWidgets('a parked map keeps the redraw for when it comes back', (
+      tester,
+    ) async {
+      HomeMapLayer.debugRedrawRequests = 0;
+      Widget sized(double height) => Directionality(
+        textDirection: TextDirection.ltr,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(width: 402, height: height, child: layer()),
+        ),
+      );
+      await tester.pumpWidget(sized(420));
+      await tester.pump(const Duration(seconds: 1));
+      final state = tester.state<HomeMapLayerState>(find.byType(HomeMapLayer));
+      parked.value = true;
+      await tester.pump();
+      await tester.pumpWidget(sized(495));
+      await tester.pump(HomeMapLayer.redrawSettle);
+      await tester.pump();
+      expect(HomeMapLayer.debugRedrawRequests, 0);
+      expect(state.debugRedrawPending, isTrue);
+    });
   });
 }
