@@ -335,7 +335,7 @@ void main() {
         'The driver may now end the ride as a no-show',
       ]);
       expect(seen['sv']![0], 'Den fria väntetiden är slut');
-      expect(seen['fr']![0], 'L’attente gratuite est terminée');
+      expect(seen['fr']![0], 'Le délai d’attente gratuit est écoulé');
       for (final texts in seen.values) {
         for (final text in texts) {
           expect(text, isNot(matches(RegExp(r'\d|kr|€'))));

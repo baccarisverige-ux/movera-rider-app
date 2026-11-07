@@ -82,7 +82,10 @@ void main() {
     L10n.use('fr');
     await pumpSelectRide(tester);
 
-    expect(find.text('Des courses abordables et pratiques'), findsOneWidget);
+    expect(
+      find.text('Des trajets pratiques à prix accessible'),
+      findsOneWidget,
+    );
     expect(find.text('RECOMMANDÉ'), findsOneWidget);
     expect(find.text('Affordable and convenient rides'), findsNothing);
     await close(tester);
