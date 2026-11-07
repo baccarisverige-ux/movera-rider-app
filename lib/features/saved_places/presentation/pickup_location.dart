@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/location/geocoding_repository.dart';
+import 'package:movera_rider/features/destination_search/domain/place_suggestion.dart';
+import 'package:movera_rider/features/home/application/home_places_controller.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
@@ -26,6 +28,8 @@ class RiderSearchPickupLocation extends StatefulWidget {
     this.allowCreateShortcut = true,
     this.geocode,
     this.currentAddress,
+    this.suggest,
+    this.recentAddresses,
   });
 
   final SavedPlacesController? places;
@@ -38,6 +42,16 @@ class RiderSearchPickupLocation extends StatefulWidget {
   /// Resolves "Current location" to a real address; defaults to the device
   /// position plus the app's reverse geocoder.
   final CurrentAddressResolver? currentAddress;
+
+  /// B9: address suggestions while typing (the app's autocomplete, as
+  /// Plan your ride); throws when the lookup failed.
+  final Future<List<PlaceSuggestion>> Function(String query)? suggest;
+
+  /// B9: the rider's recent addresses (Home's list, newest first).
+  final Future<List<String>> Function()? recentAddresses;
+
+  /// rider-u86: how long typing must pause before suggestions are asked.
+  static const suggestDebounce = Duration(milliseconds: 300);
 
   @override
   State<RiderSearchPickupLocation> createState() =>
@@ -54,6 +68,13 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
   /// rider-u222: an address was returned; a second lookup never pops too.
   bool _done = false;
 
+  /// B9: what the field suggests for [_resultsQuery], and the recents.
+  List<PlaceSuggestion> _results = const [];
+  String _resultsQuery = '';
+  bool _suggesting = false;
+  Timer? _suggestTimer;
+  List<String> _recent = const [];
+
   void _finish(String address) => _leave(address);
 
   /// rider-r5-35: every way out (an address, a saved chip, Close) leaves
@@ -68,8 +89,60 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
 
   @override
   void dispose() {
+    _suggestTimer?.cancel();
     _query.dispose();
     super.dispose();
+  }
+
+  Future<List<PlaceSuggestion>> _defaultSuggest(String query) {
+    final done = Completer<List<PlaceSuggestion>>();
+    unawaited(
+      AppScope.instance.destinationSearch.suggest(
+        query,
+        onReady: (_, results) {
+          if (!done.isCompleted) done.complete(results);
+        },
+        onFailed: (_) {
+          if (!done.isCompleted) done.completeError(StateError('suggest'));
+        },
+      ),
+    );
+    return done.future;
+  }
+
+  static Future<List<String>> _defaultRecent() async {
+    final places = HomePlacesController();
+    await places.load();
+    return places.recentAddresses;
+  }
+
+  /// B9: suggestions once typing pauses, one request at a time.
+  void _onQueryChanged(String value) {
+    _suggestTimer?.cancel();
+    final query = value.trim();
+    if (query.isEmpty) {
+      setState(() {
+        _results = const [];
+        _resultsQuery = '';
+        _suggesting = false;
+      });
+      return;
+    }
+    setState(() => _suggesting = true);
+    _suggestTimer = Timer(RiderSearchPickupLocation.suggestDebounce, () async {
+      List<PlaceSuggestion> results;
+      try {
+        results = await (widget.suggest ?? _defaultSuggest)(query);
+      } catch (_) {
+        results = const [];
+      }
+      if (!mounted || _query.text.trim() != query) return;
+      setState(() {
+        _results = results.where((r) => r.address.trim().isNotEmpty).toList();
+        _resultsQuery = query;
+        _suggesting = false;
+      });
+    });
   }
 
   /// D-023: the field had no submit handler, so a typed address went
@@ -140,6 +213,14 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
     _places.hydrate().then((_) {
       if (mounted) setState(() {});
     });
+    (widget.recentAddresses ?? _defaultRecent)()
+        .then((recent) {
+          if (!mounted) return;
+          setState(() {
+            _recent = recent.where((a) => a.trim().isNotEmpty).take(3).toList();
+          });
+        })
+        .catchError((Object _) {});
   }
 
   @override
@@ -200,11 +281,14 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                       controller: _query,
                       textInputAction: TextInputAction.search,
                       onFieldSubmitted: (_) => unawaited(_submitQuery()),
+                      onChanged: _onQueryChanged,
+                      onChangedbool: true,
                       borderColor: Colors.transparent,
                       borderWidth: 0,
                       borderRadius: 0,
                       contentHorizPadding: 10,
-                      hint: context.l10n.spPickupLocation,
+                      // B9: the rider is saving a place, not a pickup.
+                      hint: context.l10n.spSearchAddress,
                       contentVertPadding: 0,
                       fontSize: 16,
                       textColor: AppColor.black,
@@ -316,11 +400,19 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                       fontWeight: fwSemiBold,
                     ),
                     10.height,
-                    _buildEmptyState(
-                      icon: Icons.history_rounded,
-                      title: context.l10n.spNoRecentTrips,
-                      subtitle: context.l10n.spNoRecentTripsBody,
-                    ),
+                    if (_recent.isEmpty)
+                      _buildEmptyState(
+                        icon: Icons.history_rounded,
+                        title: context.l10n.spNoRecentTrips,
+                        subtitle: context.l10n.spNoRecentTripsBody,
+                      )
+                    else
+                      for (final address in _recent)
+                        _addressRow(
+                          address,
+                          icon: Icons.history_rounded,
+                          key: ValueKey('saved-place-recent-$address'),
+                        ),
                   ],
                 ),
               ),
@@ -344,13 +436,72 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                 ),
                 10.height,
               ],
-              _buildEmptyState(
-                icon: Icons.search_off_rounded,
-                title: context.l10n.spNoSearchResults,
-                subtitle: context.l10n.spNoSuggestionsBody,
-                backgroundColor: const Color(0xffF5F4F1),
-              ),
+              // B9: suggestions as the rider types; the empty box only when
+              // a finished lookup found nothing.
+              if (_results.isNotEmpty)
+                for (final result in _results)
+                  _addressRow(
+                    result.address,
+                    title: result.title,
+                    subtitle: result.subtitle,
+                    icon: Icons.place_outlined,
+                    key: ValueKey('saved-place-suggestion-${result.address}'),
+                  )
+              else if (_resultsQuery.isNotEmpty && !_suggesting)
+                _buildEmptyState(
+                  icon: Icons.search_off_rounded,
+                  title: context.l10n.spNoSearchResults,
+                  subtitle: context.l10n.spNoSuggestionsBody,
+                  backgroundColor: const Color(0xffF5F4F1),
+                ),
               20.height,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// B9: one tappable address (a recent or a suggestion).
+  Widget _addressRow(
+    String address, {
+    required IconData icon,
+    String? title,
+    String? subtitle,
+    Key? key,
+  }) {
+    return Material(
+      key: key,
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _searching || _locating ? null : () => _finish(address),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: ResSize.h * 8),
+          child: Row(
+            children: [
+              Icon(icon, size: ResSize.h * 18, color: AppColor.subtitle),
+              8.width,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextWidget(
+                      text: title ?? address,
+                      color: AppColor.black,
+                      fontSize: 13,
+                      fontWeight: fwSemiBold,
+                    ),
+                    if (subtitle != null && subtitle.isNotEmpty)
+                      TextWidget(
+                        text: subtitle,
+                        color: const Color(0xff5E5E5E),
+                        fontSize: 11,
+                        fontWeight: fwNormal,
+                      ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
