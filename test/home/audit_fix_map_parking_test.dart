@@ -132,6 +132,9 @@ void main() {
     for (var i = 0; i < 8; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
+    // Owner decision "Home map start": no GPS answers in tests, so the
+    // map opens at the zone default once the start wait is over.
+    await tester.pump(homeStartWaitLimit);
     final homeMap = find.byKey(const ValueKey('home-map'), skipOffstage: false);
     expect(homeMap, findsOneWidget);
 
@@ -189,6 +192,9 @@ void main() {
     for (var i = 0; i < 8; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
+    // Owner decision "Home map start": no GPS answers in tests, so the
+    // map opens at the zone default once the start wait is over.
+    await tester.pump(homeStartWaitLimit);
     final homeMap = find.byKey(const ValueKey('home-map'), skipOffstage: false);
     expect(homeMap, findsOneWidget);
 

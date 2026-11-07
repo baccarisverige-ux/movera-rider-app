@@ -9,7 +9,10 @@ extension _HomeLocation on _HomeState {
   /// fix still moves the camera when it lands.
   Future<void> _centerCameraOnQuickFix() async {
     final hint = await _locationCtl.quickCameraFix();
-    if (!mounted || hint == null || _currentLatLng != null) return;
+    if (!mounted) return;
+    // Owner decision "Home map start": the map opens right here.
+    if (hint != null) _openMapAt(_currentLatLng ?? hint);
+    if (hint == null || _currentLatLng != null) return;
     _cameraHint = hint;
     final maps = AppScope.instance.maps;
     // Map not created yet: onMapCreated picks the hint up.

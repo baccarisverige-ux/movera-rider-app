@@ -48,6 +48,9 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 800));
+    // Owner decision "Home map start": no GPS answers in tests, so the
+    // map opens at the zone default once the start wait is over.
+    await tester.pump(homeStartWaitLimit);
 
     expect(find.byKey(const ValueKey('home-map')), findsOneWidget);
 
