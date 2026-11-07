@@ -55,7 +55,9 @@ class RestartWatch {
   static void touch() {
     try {
       instance?.beat();
-    } catch (_) {}
+    } catch (_) {
+      // Diagnostic only: storage or the browser may refuse; never break the app.
+    }
   }
 
   /// A trip stage change: kept and written at once.
@@ -101,7 +103,9 @@ class RestartWatch {
     String? previous;
     try {
       previous = store.read();
-    } catch (_) {}
+    } catch (_) {
+      // Diagnostic only: storage or the browser may refuse; never break the app.
+    }
     final message = unexpectedRestart(previous, _startedAt, recent: recent);
     if (message != null) _send(message);
     beat();
@@ -123,10 +127,14 @@ class RestartWatch {
     };
     try {
       store.write(jsonEncode(marker));
-    } catch (_) {}
+    } catch (_) {
+      // Diagnostic only: storage or the browser may refuse; never break the app.
+    }
     try {
       onBeat?.call();
-    } catch (_) {}
+    } catch (_) {
+      // Diagnostic only: storage or the browser may refuse; never break the app.
+    }
   }
 
   /// `visibilitychange`.
@@ -168,7 +176,9 @@ class RestartWatch {
   void _send(String message) {
     try {
       report(message);
-    } catch (_) {}
+    } catch (_) {
+      // Diagnostic only: storage or the browser may refuse; never break the app.
+    }
   }
 
   static String _describe(String? screen, String? stage) {
