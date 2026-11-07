@@ -86,11 +86,15 @@ class RideRestoreCoordinator {
   /// ARCH-12: when this device holds no live ride, asks the server for the
   /// rider's active trip (contract C-5) and, if there is one, saves it as
   /// the snapshot so restore and push taps can open it. [expectedRideId]
-  /// limits it to that ride. Never replaces a snapshot this device has, and
-  /// returns null on any failure: restore then behaves as before.
+  /// limits it to that ride. Never replaces a live ride (a search or a trip)
+  /// this device has, and returns null on any failure: restore then behaves
+  /// as before.
   Future<RideSnapshot?> adoptServerActiveTrip({String? expectedRideId}) async {
     try {
-      if (await _reader() != null) return null;
+      // Owner 2026-11-07 (S5): only a live ride stored here wins. A leftover
+      // receipt or a non-ride snapshot of another trip kept the booked trip
+      // the server reports off screen.
+      if (_holdsLiveRide(await _reader())) return null;
       final trip = await _serverActiveTrip();
       final id = trip?.rideId?.trim();
       if (trip == null || id == null || id.isEmpty || trip.status.isTerminal) {
@@ -113,7 +117,9 @@ class RideRestoreCoordinator {
       if (await _pendingCancel(id) != null) return null;
       // The lookup may have been slow: a ride this device started meanwhile
       // keeps its own snapshot.
-      if (await _reader() != null) return null;
+      final leftover = await _reader();
+      if (_holdsLiveRide(leftover)) return null;
+      await _setAsideLeftover(leftover, id);
       await RideSnapshotStore.save(trip);
       AppLog.info(
         'ride.restore.server_active_trip',
@@ -124,6 +130,38 @@ class RideRestoreCoordinator {
       AppLog.warning('restore.active_trip_failed', extra: {'error': '$error'});
       return null;
     }
+  }
+
+  /// Before the server's trip [tripId] takes the snapshot slot: a finished
+  /// ride of another trip left here (its receipt / rating) is kept in History
+  /// when History has no record of it yet, then the slot is cleared.
+  Future<void> _setAsideLeftover(RideSnapshot? leftover, String tripId) async {
+    final oldId = leftover?.rideId?.trim();
+    if (leftover == null || oldId == null || oldId.isEmpty || oldId == tripId) {
+      return;
+    }
+    if (surfaceFor(leftover) == RestoredSurface.complete) {
+      try {
+        final history = await OnDemandRideHistoryStore.read();
+        if (!history.any((r) => r.reservationId == 'ondemand-$oldId')) {
+          await OnDemandRideHistoryStore.archive(
+            leftover,
+            terminalStatus: leftover.status,
+            endedAt: leftover.completedAt,
+          );
+        }
+      } catch (error) {
+        AppLog.warning(
+          'ride.restore.leftover_archive_failed',
+          extra: {'rideId': oldId, 'error': '$error'},
+        );
+      }
+    }
+    AppLog.info(
+      'ride.restore.leftover_replaced',
+      extra: {'rideId': oldId, 'status': leftover.status.name, 'by': tripId},
+    );
+    await RideSnapshotStore.clear();
   }
 
   /// A stored ride this device still shows: a search or a trip.
@@ -698,7 +736,17 @@ class RideRestoreCoordinator {
     return true;
   }
 
-  Future<Widget?> resumeIfNeeded() async {
+  /// The resume in flight, if any.
+  Future<Widget?>? _resuming;
+
+  /// Owner 2026-11-07 ("Yes, build it"): the lifecycle resume and the
+  /// RiderTripWatch check fired at the same moment; the second run, holding
+  /// its old empty snapshot, put Home over the booked ride the first had
+  /// just opened. One resume at a time: a call made while one runs joins it.
+  Future<Widget?> resumeIfNeeded() =>
+      _resuming ??= _resumeIfNeeded().whenComplete(() => _resuming = null);
+
+  Future<Widget?> _resumeIfNeeded() async {
     if (_skipRestore()) {
       unawaited(RideSnapshotStore.clear());
       if (showing == RestoredSurface.finding ||
@@ -742,6 +790,17 @@ class RideRestoreCoordinator {
       if (live != null) return _showLiveRide(live);
     }
     if (!atRoot) return null;
+    // The lookups above may have taken a while: a ride saved meanwhile (the
+    // server's active trip, a push tap) is what decides the screen, not the
+    // snapshot read before.
+    try {
+      snapshot = await _reader();
+    } catch (error) {
+      AppLog.warning(
+        'restore.snapshot_read_failed',
+        extra: {'error': '$error'},
+      );
+    }
     // rider-67: the flag belongs to the ride that ended on this device. A
     // snapshot of another ride (one a push tap just adopted from the
     // server) is not that ride and is opened.
@@ -753,9 +812,16 @@ class RideRestoreCoordinator {
     }
     final next = surfaceFor(snapshot);
     if (next == showing) return null;
-    final page = next == RestoredSurface.home
-        ? _gatedHome()
-        : pageFor(snapshot);
+    final Widget page;
+    if (next == RestoredSurface.home) {
+      // Home goes on screen, so [showing] says home: state and screen never
+      // disagree, and the next watch tick can still open a ride.
+      showing = RestoredSurface.home;
+      reportRestoreSurface(RestoredSurface.home.name);
+      page = _gatedHome();
+    } else {
+      page = pageFor(snapshot);
+    }
     onReplaceRoot?.call(page);
     return page;
   }
