@@ -184,6 +184,7 @@ class HomeLocationController extends ChangeNotifier {
     Future<bool> Function()? startCompass,
     double? Function()? readCompass,
     void Function()? stopCompass,
+    void Function()? armCompassPrompt,
     bool? compassSupported,
     DateTime Function()? clock,
     bool? pulseAnimates,
@@ -192,6 +193,7 @@ class HomeLocationController extends ChangeNotifier {
        _startCompass = startCompass ?? heading_service.startHeadingTracking,
        _readCompass = readCompass ?? heading_service.currentHeading,
        _stopCompass = stopCompass ?? heading_service.stopHeadingTracking,
+       _armCompassPrompt = armCompassPrompt ?? heading_service.armHeadingPrompt,
        _compassSupported =
            compassSupported ??
            (startCompass != null || heading_service.headingTrackingSupported);
@@ -202,6 +204,9 @@ class HomeLocationController extends ChangeNotifier {
   final Future<bool> Function() _startCompass;
   final double? Function() _readCompass;
   final void Function() _stopCompass;
+
+  /// Item 10: lets the web ask the motion permission on this tap.
+  final void Function() _armCompassPrompt;
   final DateTime Function() _now;
 
   /// rider-u116: false on the web. Each pulse swaps the puck between two
@@ -827,11 +832,15 @@ class HomeLocationController extends ChangeNotifier {
 
   /// Requests compass permission, then polls heading. Returns whether the
   /// compass actually started. GPS course remains the fallback if this fails.
+  /// [fromTap]: the rider tapped "my position", the only tap that may ask
+  /// for the motion permission (owner 2026-11-07, item 10).
   Future<bool> startHeading({
     required bool Function() isMounted,
     required void Function(double heading) onHeading,
+    bool fromTap = false,
   }) async {
     if (_disposed) return false;
+    if (fromTap && !_compassStarted) _armCompassPrompt();
     _headingMounted = isMounted;
     _onHeading = onHeading;
     final granted = await _ensureCompassStarted();

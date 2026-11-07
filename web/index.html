@@ -588,27 +588,35 @@
       return started;
     };
 
+    // Owner 2026-11-07 (item 10): the Motion & Orientation prompt is asked
+    // only when the rider taps "my position" (Home calls this from that
+    // tap), never on the first tap after every start. The rest of that same
+    // tap (touchend / click, trusted events) asks once; then it disarms.
     window.moveraArmHeadingFromGesture = function() {
+      if (window.moveraHeadingStarted && window.moveraHeadingPermission === 'granted') {
+        return;
+      }
       if (window._moveraHeadingArmed) return;
       window._moveraHeadingArmed = true;
+      var disarm = function() {
+        window._moveraHeadingArmed = false;
+        window.removeEventListener('pointerdown', arm, true);
+        window.removeEventListener('touchstart', arm, true);
+        window.removeEventListener('touchend', arm, true);
+        window.removeEventListener('click', arm, true);
+      };
       var arm = function() {
         var now = Date.now();
         if (now - window._moveraLastAskAt < 350) return;
         window._moveraLastAskAt = now;
+        disarm();
         window.moveraRequestHeadingFromGesture();
-        if (window.moveraHeadingStarted && window.moveraHeadingPermission === 'granted') {
-          window.removeEventListener('pointerdown', arm, true);
-          window.removeEventListener('touchstart', arm, true);
-          window.removeEventListener('touchend', arm, true);
-          window.removeEventListener('click', arm, true);
-        }
       };
       window.addEventListener('pointerdown', arm, true);
       window.addEventListener('touchstart', arm, true);
       window.addEventListener('touchend', arm, true);
       window.addEventListener('click', arm, true);
     };
-    window.moveraArmHeadingFromGesture();
     // Do not stop heading on pagehide — iOS fires it for the motion prompt
     // and for backgrounding, which previously killed listeners after grant.
   </script>

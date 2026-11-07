@@ -527,7 +527,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   }
 
   Future<void> _recenterOnUser() async {
-    unawaited(_startHeadingTracking());
+    unawaited(_startHeadingTracking(fromTap: true));
     AppScope.instance.maps.mode = CameraMode.followUser;
     final known = _currentLatLng;
     // Like the driver app: the camera leaves at once, a smooth glide to
