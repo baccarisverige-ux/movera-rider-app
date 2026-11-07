@@ -332,8 +332,13 @@ void main() {
     await _openSetPickupAndMovePin(tester);
     await _confirmPickup(tester);
     // Select Ride waits for the pin's price; the rider taps Comfort.
-    expect(find.byType(SetPickupPage), findsNothing);
-    await tester.tap(find.text('Comfort').first);
+    // Owner decision "Confirm and search" (2026-11-07): Set pickup stays
+    // over Choose your ride, its button spinning, so the tap cannot land.
+    expect(find.byType(SetPickupPage), findsOneWidget);
+    await tester.tap(
+      find.text('Comfort', skipOffstage: false).first,
+      warnIfMissed: false,
+    );
     await tester.pump();
     expect(selection.selectedRideId, 'economy');
     quotes.pin!.complete();
