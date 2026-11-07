@@ -581,6 +581,10 @@
       }
     }
   },
+  "waitingBeforePickup": "Before the pickup time",
+  "@waitingBeforePickup": {
+    "description": "v0.18.51 §73 bookedRide0_18_51.texts.beforePickup: a booked driver arrived before the pickup time; the timer counts down to it."
+  },
   "waitingChargedAfterFree": "Waiting time is charged after the free minutes",
   "tripPinTellDriver": "Tell your driver this code",
   "@tripPinTellDriver": {"description": "G6 (contract v0.18.8 arrivedWaiting.pin)"},

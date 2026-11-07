@@ -32,6 +32,11 @@ const String waitingFreeUntilKey = 'waitingFreeUntil';
 const String chainKey = 'chain';
 const String waitingNoShowAtKey = 'waitingNoShowAt';
 
+/// v0.18.51 §73: `TripProjection.waiting.waitFrom`, and a booked ride's
+/// `scheduledAt` (the fallback when the server does not send waitFrom).
+const String waitingWaitFromKey = 'waitingWaitFrom';
+const String bookedPickupAtKey = 'bookedPickupAt';
+
 /// v0.18.7 (`pickupWaiting`): the server ETA (`TripProjection.eta` or a
 /// `location` event's `eta`), the trip's `terms`, the waiting cost so far
 /// while the driver waits, the `cancellation` (fee + feeKind) and the
@@ -153,6 +158,14 @@ class RideRealtimeEvent {
   /// From when the driver may report the rider as a no-show (Q41).
   DateTime? get waitingNoShowAt =>
       WireTime.tryParse(payload[waitingNoShowAtKey]);
+
+  /// v0.18.51 §73: when the waiting clock runs from (a booked ride: the
+  /// later of the driver's Arrived and the pickup time).
+  DateTime? get waitingWaitFrom =>
+      WireTime.tryParse(payload[waitingWaitFromKey]);
+
+  /// A booked ride's pickup time (`scheduledAt`); null for a live ride.
+  DateTime? get bookedPickupAt => WireTime.tryParse(payload[bookedPickupAtKey]);
 
   /// v0.18.7 (Q4): the server's road-route ETA, when the event carries one.
   TripEta? get eta => TripEta.fromWire(payload[etaKey]);

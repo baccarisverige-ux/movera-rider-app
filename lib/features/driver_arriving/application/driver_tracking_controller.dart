@@ -78,6 +78,11 @@ class DriverTrackingController {
       queued || (freeAt != null && !now.isBefore(freeAt));
   DateTime? waitingNoShowAt;
 
+  /// v0.18.51 §73: from when the waiting clock runs (device clock):
+  /// `waiting.waitFrom`, else for a booked ride the later of Arrived and
+  /// the pickup time; null for a live ride without it (Arrived applies).
+  DateTime? waitingWaitFrom;
+
   /// Q13: the last accepted back-to-searching came from an admin reassign,
   /// so the rider is not told their driver cancelled.
   bool reassignedByAdmin = false;
@@ -354,11 +359,33 @@ class DriverTrackingController {
     chainFreeCancelAt = _onDevice(event.chainFreeCancelAt);
     waitingFreeUntil = _onDevice(event.waitingFreeUntil);
     waitingNoShowAt = _onDevice(event.waitingNoShowAt);
+    waitingWaitFrom = waitFromOf(
+      waitFrom: _onDevice(event.waitingWaitFrom),
+      arrivedAt: _onDevice(event.waitingArrivedAt),
+      bookedPickupAt: _onDevice(event.bookedPickupAt),
+    );
+  }
+
+  /// contract.json#bookedRide0_18_51.waitFrom.field: the server's waitFrom;
+  /// from an older server the later of Arrived and a booked ride's pickup
+  /// time; null for a live ride (its clock is Arrived).
+  static DateTime? waitFromOf({
+    DateTime? waitFrom,
+    DateTime? arrivedAt,
+    DateTime? bookedPickupAt,
+  }) {
+    if (waitFrom != null) return waitFrom;
+    if (bookedPickupAt == null) return null;
+    if (arrivedAt == null || arrivedAt.isBefore(bookedPickupAt)) {
+      return bookedPickupAt;
+    }
+    return arrivedAt;
   }
 
   void _clearWaitingDeadlines() {
     waitingFreeUntil = null;
     waitingNoShowAt = null;
+    waitingWaitFrom = null;
     // A new arrival (another driver) may send its alerts again.
     _alertsSeen.clear();
     _newAlerts.clear();

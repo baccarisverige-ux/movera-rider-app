@@ -1172,6 +1172,7 @@
   "pickupMoveTooFar": "Du kan flytta upphämtningen högst {meters} m. Avboka och boka om för en annan plats.",
   "pickupMoveFixedAfterArrival": "Föraren är redan framme – upphämtningen kan inte flyttas",
   "waitingTimeOverFree": "Väntetid {time} efter de {minutes} fria minuterna",
+  "waitingBeforePickup": "Före upphämtningstiden",
   "waitingChargedAfterFree": "Väntetid debiteras efter de fria minuterna",
   "tripPinTellDriver": "Säg den här koden till föraren",
   "waitingAlertPaid": "Den fria väntetiden är slut",
