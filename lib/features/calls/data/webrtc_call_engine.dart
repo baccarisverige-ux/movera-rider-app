@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:movera_rider/features/calls/domain/call_engine.dart';
 
@@ -5,6 +6,19 @@ import 'package:movera_rider/features/calls/domain/call_engine.dart';
 /// Remote ICE candidates that come before the remote description are
 /// kept and added once it is set.
 class WebRtcCallEngine implements CallEngine {
+  WebRtcCallEngine({
+    bool isWeb = kIsWeb,
+    Future<void> Function(bool on)? setSpeakerphone,
+  }) : _isWeb = isWeb,
+       _setSpeakerphone = setSpeakerphone ?? Helper.setSpeakerphoneOn;
+
+  /// proof5 (3): the speaker switch is a phone (native) call only; on the
+  /// web it threw MissingPluginException into the error reports. The
+  /// browser plays the call on its own output, so the web build keeps the
+  /// button and does nothing. Native store builds switch the speaker.
+  final bool _isWeb;
+  final Future<void> Function(bool on) _setSpeakerphone;
+
   RTCPeerConnection? _pc;
   MediaStream? _local;
   bool _remoteSet = false;
@@ -99,7 +113,8 @@ class WebRtcCallEngine implements CallEngine {
   }
 
   @override
-  Future<void> setSpeaker(bool on) => Helper.setSpeakerphoneOn(on);
+  Future<void> setSpeaker(bool on) =>
+      _isWeb ? Future<void>.value() : _setSpeakerphone(on);
 
   @override
   Future<void> close() async {

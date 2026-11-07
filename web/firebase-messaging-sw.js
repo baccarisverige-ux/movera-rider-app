@@ -83,14 +83,19 @@ self.addEventListener('push', function(event) {
       }
     }).catch(function() {}).then(function() {
       // Always, whatever happened above (a rejected promise is silent too).
+      // One notice per trip: a newer push (moment) for the same trip
+      // replaces it. tripId is the trip; rideId is only its legacy alias
+      // (contract 0.18.48, "Ids").
+      var tag = trip ? 'movera-ride-' + trip : (data.notificationId || undefined);
       return self.registration.showNotification(String(shown.title || 'Movera'), {
         body: shown.body ? String(shown.body) : '',
         icon: 'icons/Icon-192.png',
         data: data,
-        // One notice per trip: a newer push (moment) for the same trip
-        // replaces it. tripId is the trip; rideId is only its legacy alias
-        // (contract 0.18.48, "Ids").
-        tag: trip ? 'movera-ride-' + trip : (data.notificationId || undefined)
+        tag: tag,
+        // Owner Q1 (banner + sound every time): a notice that replaces one
+        // with the same tag is otherwise shown silently. renotify needs a tag
+        // (the browser throws without one).
+        renotify: !!tag
       });
     })
   );

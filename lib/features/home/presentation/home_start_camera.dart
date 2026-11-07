@@ -1,13 +1,20 @@
 part of 'home.dart';
 
 // Owner decision "Home map start" (2026-11-07, "like the driver app"): Home's
-// map opens at once on the last known position and never flies in from
-// central Stockholm. With no known position yet (first use), a quiet
-// "locating" surface shows for at most [homeStartWaitLimit]; the map is then
-// born on the first fix, or at the zone default when there is still none.
+// map opens at once on the last known position (this session's, else the
+// saved last good fix) and never flies in from central Stockholm. Very
+// first use, nothing known: the quiet "locating" surface stays until a
+// position comes (owner 2026-11-07 item 9: no 3 s fallback to Stockholm).
+// Location refused or turned off: the map opens at the zone's city
+// (Stockholm for Swedish zones, Paris for French ones), without a flight.
 
-/// Longest wait for a first position before Home's map opens anyway.
+/// Tests: how long a Home without any position waited before item 9. Home
+/// no longer opens its map when it runs out.
 const Duration homeStartWaitLimit = Duration(seconds: 3);
+
+/// Item 9: the city a refused-location map opens at, per zone country.
+const LatLng homeStockholm = LatLng(59.3293, 18.0686);
+const LatLng homeParis = LatLng(48.8566, 2.3522);
 
 extension _HomeStartCamera on _HomeState {
   /// The position this app session already knows (a Home built again after
@@ -17,20 +24,24 @@ extension _HomeStartCamera on _HomeState {
     final known = LocationRepository.sessionFix;
     if (known != null) {
       _startCamera = _homeCameraAt(LatLng(known.latitude, known.longitude));
-      return;
     }
-    _startWait = Timer(homeStartWaitLimit, () {
-      _startWait = null;
-      _openMapAt(null);
-    });
+    // Otherwise the saved fix (_centerCameraOnQuickFix), the first fix, or
+    // a refusal ([_openMapAtZoneCity]) opens it.
+  }
+
+  /// Item 9: location refused or off. The zone the rider was last in (kept
+  /// on the device), else the home zone; its city, born there (no flight).
+  Future<void> _openMapAtZoneCity() async {
+    if (!mounted || _startCamera != null) return;
+    final zone = await LocationRepository.readLastZone() ?? RiderZones.home;
+    if (!mounted || _startCamera != null) return;
+    _openMapAt(homeZoneCity(zone));
   }
 
   /// Opens the map at [point], or at the zone default when null. Only the
   /// first call counts: later positions move the camera of the map itself.
   void _openMapAt(LatLng? point) {
     if (!mounted || _startCamera != null) return;
-    _startWait?.cancel();
-    _startWait = null;
     // ignore: invalid_use_of_protected_member
     setState(() {
       _startCamera = point == null
@@ -109,3 +120,11 @@ extension _HomeStartCamera on _HomeState {
     ),
   );
 }
+
+/// Item 9: Stockholm for a Swedish zone, Paris for a French one, else the
+/// middle of the zone's box.
+LatLng homeZoneCity(RiderZone zone) => switch (zone.country?.toUpperCase()) {
+  'SE' => homeStockholm,
+  'FR' => homeParis,
+  _ => LatLng((zone.south + zone.north) / 2, (zone.west + zone.east) / 2),
+};

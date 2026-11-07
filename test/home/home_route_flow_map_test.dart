@@ -13,6 +13,8 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:movera_rider/core/location/location_repository.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 
 /// Web lifecycle: on the web every Google map a screen mounts is a map the
 /// page keeps (google_maps_flutter_web registers each one for the life of
@@ -50,6 +52,9 @@ void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    // Item 9: Home no longer opens a made-up Stockholm map when no GPS
+    // answers; these map tests start from a position this session knows.
+    LocationRepository.noteSessionFix(const GeoPoint(59.3293, 18.0686));
     RideSnapshotStore.epoch = 0;
     CustomGoogleMap.debugMounted.clear();
   });

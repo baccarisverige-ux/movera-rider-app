@@ -66,7 +66,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('less than a minute'), findsOneWidget);
     offset = const Duration(seconds: 150);
-    await tester.tap(find.text('Cancel request'));
+    await tester.tap(find.text('Cancel ride'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Driver/ride details are not suitable'));
     await tester.pump();
