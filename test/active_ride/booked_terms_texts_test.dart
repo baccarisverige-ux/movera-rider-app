@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/core/contracts/trip_terms.dart';
 import 'package:movera_rider/features/active_ride/presentation/trip_terms_note.dart';
@@ -34,7 +35,7 @@ void main() {
     expect(
       l.termsBookedIncludedWaiting('15'),
       '15 min free waiting, counted from the pickup time, or from the '
-      'driver’s arrival if that is later',
+      "driver's arrival if that is later",
     );
   });
 
@@ -44,4 +45,37 @@ void main() {
     expect(lines, contains(l.termsCancelAfterArrived));
     expect(lines, isNot(contains(l.termsBookedCancelAfterArrived)));
   });
+
+  // Contract d19a8a8 (0.18.51) words, verbatim (a straight ' in English).
+  for (final (lang, included, noShow, cancel, before) in [
+    (
+      'sv',
+      "{minutes} min gratis väntan räknas från upphämtningstiden, eller från när föraren kommer fram om det är senare",
+      "Bokad resa: om du inte kommer inom {noShowAfter} min efter förarens ankomst eller upphämtningstiden (det som är senast) tas en avgift på {noShowFee} ut",
+      "Bokad resa: avbokning efter att föraren kommit fram kostar avbokningsavgiften för bokade resor",
+      "Före upphämtningstiden",
+    ),
+    (
+      'fr',
+      "{minutes} min d’attente gratuite comptées à partir de l’heure de prise en charge, ou de l’arrivée du chauffeur si elle est plus tardive",
+      "Course programmée : si vous n’êtes pas là {noShowAfter} min après l’arrivée du chauffeur ou l’heure de prise en charge (la plus tardive des deux), des frais de {noShowFee} s’appliquent",
+      "Course programmée : une annulation après l’arrivée du chauffeur coûte les frais d’annulation de la réservation",
+      "Avant l’heure de prise en charge",
+    ),
+    (
+      'en',
+      "{minutes} min free waiting, counted from the pickup time, or from the driver's arrival if that is later",
+      "Booked ride: if you do not show up within {noShowAfter} min after the later of the driver's arrival and the pickup time, a {noShowFee} fee applies",
+      "Booked ride: cancelling after the driver has arrived costs the booked-ride cancel fee",
+      "Before the pickup time",
+    ),
+  ]) {
+    test('$lang texts are the contract words, character for character', () {
+      final l = lookupAppLocalizations(Locale(lang));
+      expect(l.termsBookedIncludedWaiting('{minutes}'), included);
+      expect(l.termsBookedNoShow('{noShowAfter}', '{noShowFee}'), noShow);
+      expect(l.termsBookedCancelAfterArrived, cancel);
+      expect(l.waitingBeforePickup, before);
+    });
+  }
 }

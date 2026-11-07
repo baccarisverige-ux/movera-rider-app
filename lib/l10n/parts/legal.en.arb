@@ -168,7 +168,7 @@
     }
   },
   "termsCancelAfterArrived": "Cancelling after the driver has arrived and the free waiting is over counts as a no-show",
-  "termsBookedIncludedWaiting": "{minutes} min free waiting, counted from the pickup time, or from the driver’s arrival if that is later",
+  "termsBookedIncludedWaiting": "{minutes} min free waiting, counted from the pickup time, or from the driver's arrival if that is later",
   "@termsBookedIncludedWaiting": {
     "description": "v0.18.51 §73 bookLater.texts.includedWaiting (booked ride).",
     "placeholders": {
@@ -177,7 +177,7 @@
       }
     }
   },
-  "termsBookedNoShow": "Booked ride: if you do not show up within {noShowAfter} min after the later of the driver’s arrival and the pickup time, a {noShowFee} fee applies",
+  "termsBookedNoShow": "Booked ride: if you do not show up within {noShowAfter} min after the later of the driver's arrival and the pickup time, a {noShowFee} fee applies",
   "@termsBookedNoShow": {
     "description": "v0.18.51 §73 bookedRide0_18_51.texts.noShow.",
     "placeholders": {
