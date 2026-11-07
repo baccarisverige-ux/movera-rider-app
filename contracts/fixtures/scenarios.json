@@ -949,7 +949,7 @@
    ],
    "rating": {
     "rider": "allowed",
-    "driver": "invalid_transition"
+    "driver": "allowed"
    }
   },
   {

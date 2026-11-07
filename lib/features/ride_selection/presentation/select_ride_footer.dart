@@ -1,6 +1,17 @@
 part of 'select_ride.dart';
 
 extension _SelectRideFooter on _SelectRideState {
+  /// The price the rider books at: the server quote when it is in, else
+  /// the list price. Null in another currency than the zone's rules.
+  Money? _bookingFare(_RideOption ride) {
+    final quote = _selection.authoritativeQuotes[ride.id];
+    final fare = quote != null
+        ? Money(quote.totalMinor, quote.currency)
+        : Money.fromLegacyMajor(ride.price, ride.currency);
+    final zone = _zoneConfig;
+    return zone == null || zone.currency == fare.currency ? fare : null;
+  }
+
   /// The fixed bottom block: one thin payment line, then Book.
   Widget _footer(double bottomInset) {
     final selected = _selectedRideOrNull;
@@ -29,6 +40,11 @@ extension _SelectRideFooter on _SelectRideState {
                 ReservationFormat.freeRule(
                   _zoneConfig?.freeChangeBeforeMin ??
                       RiderAppConfig.defaultFreeChangeBeforeMin,
+                  // v0.18.49 Q10: the selected category's cancel rule.
+                  rule: selected == null
+                      ? null
+                      : _zoneConfig?.reservationFeeFor(selected.id),
+                  fare: selected == null ? null : _bookingFare(selected),
                 ),
                 key: const ValueKey<String>('select-ride-free-rule'),
                 textAlign: TextAlign.center,

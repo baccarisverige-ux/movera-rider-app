@@ -3,7 +3,8 @@
  * tilt follows zoom on every frame of a pinch or wheel zoom, tilt never
  * blocks zoom, and a programmatic camera step is instant (no panTo glide
  * between the frames of an ease). App flights and follow glides run here on
- * the browser's frame clock. Uses public Maps JS APIs only.
+ * the browser's frame clock. Uses public Maps JS APIs only, except the size
+ * watch below (Google's own hidden size frame, see remeasure()).
  */
 (() => {
   'use strict';
@@ -106,6 +107,7 @@
     overlay.setMap(map);
     state.overlay = overlay;
     states.set(id, state);
+    watchSize(state);
     const nativeMove = map.moveCamera.bind(map);
     const nativePanTo = typeof map.panTo === 'function'
       ? map.panTo.bind(map)
@@ -581,7 +583,67 @@
       }, ms);
     }
   }
-  let created = 0, recycled = 0, pooledTotal = 0;
+  let created = 0, recycled = 0, pooledTotal = 0, remeasured = 0;
+  // Grey band (owner, 2026-11-07 23:00, rider Home: a flat grey band above
+  // the sheet that goes away when the rider zooms). Maps JS (3.66) has no
+  // 'resize' listener on the map and no ResizeObserver: it measures its
+  // element only when a hidden <iframe> it keeps in .gm-style fires 'load'
+  // (when it enters the page) or that frame's window fires 'resize'. When
+  // the browser does not deliver one (a pooled map moved into a taller
+  // element, a box that grew), Google keeps drawing its old height and the
+  // rest of the element shows its plain background. A zoom gesture reads
+  // the element again, which is why a zoom hides the band. So each map's
+  // element is watched here, and when its size changes (not to 0: a pooled
+  // map is out of the page) Google's own measuring runs once on the next
+  // frame. Google compares the size first (no change, no work) and keeps
+  // the camera's center: no flight, no network call of ours.
+  const measuredWindows = new WeakSet();
+  function sizeFrame(container) {
+    const gm = container?.querySelector?.('.gm-style');
+    for (const child of gm?.children || []) {
+      if (child.tagName === 'IFRAME' && child.getAttribute?.('aria-hidden') === 'true') return child;
+    }
+    return null;
+  }
+  function remeasure(state) {
+    try {
+      const frame = sizeFrame(state.container);
+      const win = frame?.contentWindow;
+      if (!win) return false;
+      if (!measuredWindows.has(win)) {
+        // A frame window Google may never have heard from: its 'load'
+        // handler measures and starts listening to this window's 'resize'.
+        measuredWindows.add(win);
+        frame.dispatchEvent(new Event('load'));
+      } else {
+        win.dispatchEvent(new Event('resize'));
+      }
+      remeasured += 1;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+  function watchSize(state) {
+    const Observer = globalThis.ResizeObserver;
+    const {container} = state;
+    if (typeof Observer !== 'function' || !container) return;
+    let pending = false;
+    const run = () => { pending = false; remeasure(state); };
+    const observer = new Observer(entries => {
+      const box = entries[entries.length - 1]?.contentRect;
+      if (!box || !(box.width > 0) || !(box.height > 0)) return;
+      if (pending) return;
+      pending = true;
+      if (typeof globalThis.requestAnimationFrame === 'function') {
+        globalThis.requestAnimationFrame(run);
+      } else {
+        setTimeout(run, 16);
+      }
+    });
+    observer.observe(container);
+    container.__moveraSizeWatch = observer;
+  }
   const overlaysOf = map => (map.__moveraOverlays ||= new Set());
   function clearMapForReuse(state) {
     const {map, container} = state;
@@ -625,12 +687,15 @@
     // this constructor returns, so the event is replayed on the next task.
     // The camera is set again then too, now that the map's new element is
     // laid out, so the screen opens on its own target, not the last view.
-    // Google measures its element only on 'resize': a reused map otherwise
-    // keeps the size of its old box and leaves a flat grey band below its
-    // tiles (Set pickup, Confirm pickup, Select ride, Finding, Waiting). It
-    // is told to measure again before the camera is set, and once more on
-    // the next frame, once the new container is laid out.
+    // A reused map otherwise keeps the size of its old box and leaves a
+    // flat grey band below its tiles (Set pickup, Confirm pickup, Select
+    // ride, Finding, Waiting, Home). It is told to measure again before the
+    // camera is set, and once more on the next frame, once the new
+    // container is laid out (see remeasure(); the size watch also runs
+    // when Flutter puts the element in the page). The 'resize' trigger is
+    // kept for older Maps versions; 3.66 has no listener for it.
     setTimeout(() => {
+      remeasure(state);
       try { sdk.event.trigger(map, 'resize'); } catch (_) { /* best effort */ }
       try {
         const camera = {heading: rest.heading || 0, tilt: rest.tilt || 0};
@@ -642,6 +707,7 @@
       try {
         if (typeof globalThis.requestAnimationFrame !== 'function') return;
         globalThis.requestAnimationFrame(() => {
+          remeasure(state);
           try { sdk.event.trigger(map, 'resize'); } catch (_) { /* best effort */ }
           try {
             const center = map.getCenter?.();
@@ -720,6 +786,7 @@
   // empty <div> and the Map object the registry keeps are small.
   let released = 0, contextsReleased = 0;
   function releaseMapResources(map, div) {
+    try { div.__moveraSizeWatch?.disconnect(); } catch (_) { /* best effort */ }
     try { sdk.event.clearInstanceListeners(map); } catch (_) { /* best effort */ }
     try {
       div.querySelectorAll('canvas').forEach(canvas => {
@@ -817,6 +884,7 @@
     redraw(id) {
       const state = states.get(id); if (!state) return;
       const map = state.map;
+      remeasure(state);
       try { sdk.event.trigger(map, 'resize'); } catch (_) { /* best effort */ }
       try {
         const center = map.getCenter?.();
@@ -843,7 +911,7 @@
       const ids = [...states.entries()].map(([key, state]) =>
         `${key}${div_isConnected(state.div) ? '' : ':detached'}`);
       return {live: states.size, created, recycled, pooled: pool.length,
-        pooledTotal, released, contextsReleased, ids, poolMax: POOL_MAX};
+        pooledTotal, released, contextsReleased, remeasured, ids, poolMax: POOL_MAX};
     },
     claim(id) {
       const state = states.get(id); if (state) state.claim = true;
