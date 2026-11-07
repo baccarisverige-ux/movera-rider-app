@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.48",
+  "version": "0.18.50",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -618,6 +618,16 @@
         "approaching_dropoff"
       ],
       "to": "failed"
+    },
+    {
+      "command": "release",
+      "actor": "system",
+      "from": [
+        "accepted"
+      ],
+      "to": "searching",
+      "when": "live",
+      "note": "v0.18.50 §72 (L12): a live trip queued after the driver's current trip (next_after_trip_id) whose current trip failed for silence (driverSilence, 3 h) goes back to dispatch without him; the rider gets driver_changed."
     }
   ],
   "paymentTransitions": [
@@ -671,7 +681,7 @@
     }
   ],
   "ratingAllowed": {
-    "note": "Who may rate a trip once it is over, and after what. A rating is allowed when the rater, the trip's terminal status and (if given) the command that ended the trip all match one row; anything else is 409 invalid_transition. A plain rider cancel (command cancel) is never rated.",
+    "note": "Who may rate a trip once it is over, and after what. A rating is allowed when the rater, the trip's terminal status and (if given) the command that ended the trip all match one row; anything else is 409 invalid_transition. A plain rider cancel (command cancel) is never rated. v0.18.50 §72 (L5): the driver rates a trip the rider ended early (owner G8 Q1, finish.earlyEnd.rider); the older text that said he does not is withdrawn.",
     "rules": [
       {
         "rater": "rider",
@@ -686,6 +696,12 @@
         "status": "cancelled_by_rider",
         "command": "end_early",
         "note": "the rider ended the trip early (POST /trips/{tripId}/end-early) and gets the normal rating screen"
+      },
+      {
+        "rater": "driver",
+        "status": "cancelled_by_rider",
+        "command": "end_early",
+        "note": "v0.18.50 §72 (L5, owner G8 Q1): the rider ended the trip early; the driver gets the normal finish and rates the rider"
       }
     ]
   },
@@ -885,7 +901,14 @@
       "accessExpiresSeconds": 900,
       "refreshExpiresDays": 30,
       "refreshRetryWindowSeconds": 60,
-      "refreshRetry": "v0.18.5 (G1-B6): an answer to POST /auth/refresh lost on a bad connection: the app may send the same refresh token again within refreshRetryWindowSeconds (60 s) of its first use, as long as the new token it was given has not been used; the server then answers a fresh pair and drops the lost one. After 60 s, or once the new token was used, the old token is treated as stolen: the whole session ends (401 unauthenticated, reason refresh_token_reused). Apps send one refresh at a time and retry a lost one at once."
+      "refreshRetry": "v0.18.5 (G1-B6), v0.18.49 §71 (owner Q6 'Accept lost answer'): an answer to POST /auth/refresh lost on a bad connection. The app sends the same (old) refresh token again. (1) Within refreshRetryWindowSeconds (60 s) of its last use, while the new token it was given has never been used: a retry, the server answers a fresh pair and drops the lost one (as often as the app retries inside the window). (2) Later than that, still while that new token has never been used: a lost answer, accepted ONCE (lostAnswer); the server answers a fresh pair, drops the lost one, and the 60 s window starts again from this answer. (3) The old token again after that, or the old token at any time once the new token was used: theft, the whole session ends (401 unauthenticated, reason refresh_token_reused). The same rule for the admin (POST /admin/auth/refresh). Apps send one refresh at a time and retry a lost one at once; no app change is needed.",
+      "lostAnswer": {
+        "rule": "v0.18.49 §71 (owner Q6, Rules plan/finders-2026-11-07/D.md D9 + D8): a refresh token already used, whose replacement was never used, sent again more than refreshRetryWindowSeconds after its last use, is a lost answer (a dead zone, a tunnel, a lift), not theft: answered once with a fresh pair; the never-used replacement is dropped. A second late use of the same old token ends the session (refresh_token_reused). A replacement that WAS used means two holders of the session: the session ends at once, as before.",
+        "once": "Each old refresh token is accepted at most once outside the 60 s window (the server keeps the time it accepted it: refresh_tokens.late_retry_at). Inside the 60 s window after that answer, retries still work.",
+        "ttl": "Only within the refresh token's own life (refreshExpiresDays); an expired one is session_expired as before.",
+        "rule33": "Decided inside one database transaction with the session row locked (SELECT … FOR UPDATE), so two server copies answering the same old token at once give one pair and one refusal, never two pairs.",
+        "apps": "Driver and rider apps: no change (they already keep the old token when the answer is lost and send it again). Admin: no change (a duplicated admin tab, D8, profits from it too; two tabs refreshing on their own can still end the session at a later refresh, see CONTRACT.md §71)."
+      }
     },
     "testSignIn": {
       "note": "Outside production the server seed lists test phone numbers; an OTP request for one of them sends no SMS and the fixed code signs it in. Production has no test numbers. The code below is the placeholder until the owner sets one.",
@@ -1111,6 +1134,24 @@
         "fr": "Connecté sur un autre téléphone",
         "en": "Signed in on another phone"
       }
+    },
+    "signOutOnTrip": {
+      "rule": "v0.18.49 §71 (owner Q8 'Server refuses too', Rules plan/finders-2026-11-07/A.md A3): POST /auth/sign-out by a driver whose session is still active while he has a current trip (a trip of his in a tripStatus.driverAssigned status — the trip GET /driver/profile names as activeTripId; a booked ride held for later and a live trip queued after the current one do not count) answers 409 conflict, reason sign_out_on_trip, with message texts.finishTripFirst in the driver's language. The session, the push devices and the trip stay as they are. The rider app is not refused. A session already ended is still 204 (signing out twice is fine); an expired access token of an active session is checked like any other.",
+      "status": 409,
+      "code": "conflict",
+      "reason": "sign_out_on_trip",
+      "actors": [
+        "driver"
+      ],
+      "texts": {
+        "finishTripFirst": {
+          "sv": "Avsluta resan först.",
+          "fr": "Terminez d’abord la course.",
+          "en": "Finish the trip first."
+        }
+      },
+      "driverApp": "The driver app shows texts.finishTripFirst (the same words as its own fleetOnTrip text) and stays signed in; it calls POST /auth/sign-out BEFORE it unregisters push or clears local data, so a refused sign-out changes nothing on the phone.",
+      "rule33": "The check and the sign-out run in one transaction with the driver row locked; any server copy answers the same."
     }
   },
   "configVersion": {
@@ -3782,12 +3823,13 @@
       "unavailable",
       "internal"
     ],
-    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit). v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.44 reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress)."
+    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit). v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.44 reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress). v0.18.49 reason: sign_out_on_trip (409 conflict, contract.json#auth.signOutOnTrip)."
   },
   "headers": {
     "Idempotency-Key": "required on every mutation, 16–128 chars",
     "X-Request-Id": "sent by clients, echoed by the server",
-    "X-Api-Version": "0.5"
+    "X-Api-Version": "0.5",
+    "Date": "v0.18.50 §72 (L9): every answer carries Date (the server clock); it is listed in Access-Control-Expose-Headers with X-Request-Id, X-Api-Version and Retry-After, so the web apps can read it (the rider's server-clock correction)."
   },
   "cancelFees": {
     "note": "v0.8.0 (owner 2026-10-27): DriverAppConfig.cancelFees.driverSharePct, set in Admin › Dispatch per zone: the driver's share of a rider's cancel fee, 0–100, default 100. Movera keeps the rest.",
@@ -5399,7 +5441,7 @@
           },
           "text": {
             "sv": "Utkast – granskas av jurist före lansering.\n\n1. Tjänsten. Movera förmedlar resor mellan resenärer och förare med taxitrafiktillstånd i Sverige. Resan utförs av föraren och dess åkeri.\n\n2. Konto. Du registrerar dig med ditt mobilnummer och ansvarar för att uppgifterna är riktiga. Du måste vara minst 18 år.\n\n3. Pris och betalning. Priset visas innan du bokar. Avgifter för avbokning, väntetid och extra stopp följer reglerna som visas i appen. Betalning sker med de sätt som erbjuds i din zon.\n\n3.1 Väntetid vid upphämtning. När föraren har kommit fram är de första minuternas väntan gratis. Därefter läggs varje minuts väntan till priset, räknat per sekund. Väntepengarna går till föraren.\n\n3.2 Utebliven kund. Om du inte har kommit till bilen när den fria väntetiden är slut får föraren avsluta resan som utebliven kund och en avgift för utebliven kund tas ut. Avbokar du efter att föraren kommit fram och den fria väntetiden är slut räknas det som utebliven kund där områdets regler säger så.\n\n3.3 Avbokning. Du kan avboka gratis de första minuterna efter att en förare har accepterat (en bokad resa: fram till tiden som visas före upphämtningen). Därefter kan en avbokningsavgift tas ut, bara om föraren verkligen var på väg.\n\n3.4 Särskilda upphämtningar. Annan fri väntetid kan gälla på flygplatser, vid evenemang, för bokade resor och när föraren kommer långt ifrån; vid stopp under resan kan några fria minuter gälla innan väntan kostar. Resan visar vilka regler den följer, och det är de siffrorna den debiteras efter.\n\n3.5 Reglerna i ditt område just nu:\n{waitingRules}\n\n4. Uppträdande. Var vänlig och säker. Våld, hot, diskriminering och skadegörelse leder till att kontot stängs.\n\n5. Säkerhet. Vid fara: ring 112. SOS-knappen under resan larmar också Movera.\n\n6. Förare. Förare måste ha giltiga dokument (körkort, taxiförarlegitimation, fordon med taxitrafiktillstånd och försäkring) och följa svensk lag.\n\n7. Ansvar. Movera ansvarar för förmedlingen. För själva resan gäller lagen om taxitrafik och åkeriets ansvar.\n\n8. Ändringar. Vi kan ändra villkoren. Vid viktiga ändringar ber appen dig godkänna de nya villkoren.\n\n9. Lag och tvist. Svensk lag gäller. Du kan vända dig till Allmänna reklamationsnämnden (ARN) som konsument.\n\nMovera drivs av {companyName}.\n\nOrganisationsnummer: {orgNumber}.\n\nAdress: {address}.\n\nE-post: {supportEmail}.\n\nTelefon: {supportPhone}.",
-            "fr": "Projet – à relire par un avocat avant le lancement.\n\n1. Le service. Movera met en relation passagers et chauffeurs titulaires d’une autorisation de taxi en Suède. La course est réalisée par le chauffeur et sa société.\n\n2. Compte. Vous vous inscrivez avec votre numéro de mobile et vos informations doivent être exactes. Vous devez avoir au moins 18 ans.\n\n3. Prix et paiement. Le prix est affiché avant la réservation. Les frais d’annulation, d’attente et d’arrêts suivent les règles affichées dans l’application.\n\n3.1 Attente à la prise en charge. Quand le chauffeur est arrivé, les premières minutes d’attente sont gratuites. Ensuite, chaque minute d’attente s’ajoute au prix, comptée à la seconde. L’argent de l’attente revient au chauffeur.\n\n3.2 Absence du passager. Si vous n’êtes pas venu à la voiture à la fin de l’attente gratuite, le chauffeur peut clôturer la course pour absence et des frais de non-présentation du passager sont facturés. Annuler après l’arrivée du chauffeur et la fin de l’attente gratuite compte comme une absence lorsque les règles de la zone le prévoient.\n\n3.3 Annulation. Vous pouvez annuler gratuitement pendant les premières minutes après l’acceptation d’un chauffeur (course réservée : jusqu’à l’heure indiquée avant la prise en charge). Ensuite, des frais d’annulation peuvent s’appliquer, seulement si le chauffeur était vraiment en route.\n\n3.4 Prises en charge particulières. Une autre attente gratuite peut s’appliquer dans les aéroports, lors d’événements, pour les courses réservées et quand le chauffeur vient de loin ; aux arrêts pendant la course, quelques minutes gratuites peuvent s’appliquer avant que l’attente soit facturée. La course affiche les règles qu’elle suit, et ce sont ces chiffres qui sont facturés.\n\n3.5 Les règles de votre zone en ce moment :\n{waitingRules}\n\n4. Comportement. Restez courtois et prudent. Violence, menaces, discrimination ou dégradations entraînent la fermeture du compte.\n\n5. Sécurité. En cas de danger : appelez le 112. Le bouton SOS pendant la course alerte aussi Movera.\n\n6. Chauffeurs. Les chauffeurs doivent avoir des documents valides (permis, carte de chauffeur de taxi, véhicule autorisé et assuré) et respecter la loi suédoise.\n\n7. Responsabilité. Movera est responsable de la mise en relation. La course relève de la loi suédoise sur le taxi et de la société de transport.\n\n8. Modifications. Nous pouvons modifier ces conditions. En cas de changement important, l’application vous demandera de les accepter.\n\n9. Droit applicable. Le droit suédois s’applique. Les consommateurs peuvent saisir l’Allmänna reklamationsnämnden (ARN).\n\nMovera est exploité par {companyName}.\n\nNuméro d’immatriculation : {orgNumber}.\n\nAdresse : {address}.\n\nE-mail : {supportEmail}.\n\nTéléphone : {supportPhone}.",
+            "fr": "Projet – à relire par un avocat avant le lancement.\n\n1. Le service. Movera met en relation passagers et chauffeurs titulaires d’une autorisation de taxi en Suède. La course est réalisée par le chauffeur et sa société.\n\n2. Compte. Vous vous inscrivez avec votre numéro de mobile et vos informations doivent être exactes. Vous devez avoir au moins 18 ans.\n\n3. Prix et paiement. Le prix est affiché avant la réservation. Les frais d’annulation, d’attente et d’arrêts suivent les règles affichées dans l’application.\n\n3.1 Attente à la prise en charge. Quand le chauffeur est arrivé, les premières minutes d’attente sont gratuites. Ensuite, chaque minute d’attente s’ajoute au prix, comptée à la seconde. L’argent de l’attente revient au chauffeur.\n\n3.2 Absence du passager. Si vous n’êtes pas venu à la voiture à la fin de l’attente gratuite, le chauffeur peut clôturer la course pour absence et des frais de non-présentation du passager sont facturés. Annuler après l’arrivée du chauffeur et la fin de l’attente gratuite compte comme une absence lorsque les règles de la zone le prévoient.\n\n3.3 Annulation. Vous pouvez annuler gratuitement pendant les premières minutes après l’acceptation d’un chauffeur (course programmée : jusqu’à l’heure indiquée avant la prise en charge). Ensuite, des frais d’annulation peuvent s’appliquer, seulement si le chauffeur était vraiment en route.\n\n3.4 Prises en charge particulières. Une autre attente gratuite peut s’appliquer dans les aéroports, lors d’événements, pour les courses programmées et quand le chauffeur vient de loin ; aux arrêts pendant la course, quelques minutes gratuites peuvent s’appliquer avant que l’attente soit facturée. La course affiche les règles qu’elle suit, et ce sont ces chiffres qui sont facturés.\n\n3.5 Les règles de votre zone en ce moment :\n{waitingRules}\n\n4. Comportement. Restez courtois et prudent. Violence, menaces, discrimination ou dégradations entraînent la fermeture du compte.\n\n5. Sécurité. En cas de danger : appelez le 112. Le bouton SOS pendant la course alerte aussi Movera.\n\n6. Chauffeurs. Les chauffeurs doivent avoir des documents valides (permis, carte de chauffeur de taxi, véhicule autorisé et assuré) et respecter la loi suédoise.\n\n7. Responsabilité. Movera est responsable de la mise en relation. La course relève de la loi suédoise sur le taxi et de la société de transport.\n\n8. Modifications. Nous pouvons modifier ces conditions. En cas de changement important, l’application vous demandera de les accepter.\n\n9. Droit applicable. Le droit suédois s’applique. Les consommateurs peuvent saisir l’Allmänna reklamationsnämnden (ARN).\n\nMovera est exploité par {companyName}.\n\nNuméro d’immatriculation : {orgNumber}.\n\nAdresse : {address}.\n\nE-mail : {supportEmail}.\n\nTéléphone : {supportPhone}.",
             "en": "Draft – to be reviewed by a lawyer before launch.\n\n1. The service. Movera connects riders with drivers who hold a taxi permit in Sweden. The ride is carried out by the driver and the driver's company.\n\n2. Account. You sign up with your mobile number and must keep your details correct. You must be at least 18.\n\n3. Price and payment. The price is shown before you book. Cancellation, waiting and extra-stop fees follow the rules shown in the app.\n\n3.1 Waiting at pickup. When the driver has arrived, the first minutes of waiting are free. After that, every minute of waiting is added to the price, counted by the second. The waiting money goes to the driver.\n\n3.2 No-show. If you have not come to the car when the free waiting is over, the driver may end the ride as a no-show and a no-show fee is charged. Cancelling after the driver arrived and the free waiting is over counts as a no-show where the area’s rules say so.\n\n3.3 Cancelling. You can cancel for free during the first minutes after a driver accepted (a booked ride: until the time shown before pickup). After that a cancellation fee may be charged, only when the driver was really on the way.\n\n3.4 Special pickups. Other free waiting can apply at airports, at events, for booked rides and when the driver comes from far away; at stops on the way a few free minutes can apply before waiting is charged. The ride shows the rules it follows, and these are the numbers it is charged by.\n\n3.5 The rules in your area now:\n{waitingRules}\n\n4. Behaviour. Be kind and safe. Violence, threats, discrimination or damage close the account.\n\n5. Safety. In danger: call 112. The SOS button during a ride also alerts Movera.\n\n6. Drivers. Drivers must hold valid documents (licence, taxi driver licence, a permitted and insured car) and follow Swedish law.\n\n7. Liability. Movera is responsible for connecting you. The ride itself falls under the Swedish Taxi Act and the transport company.\n\n8. Changes. We may change these terms. For important changes the app asks you to accept the new terms.\n\n9. Law and disputes. Swedish law applies. Consumers can turn to the National Board for Consumer Disputes (ARN).\n\nMovera is run by {companyName}.\n\nCompany number: {orgNumber}.\n\nAddress: {address}.\n\nE-mail: {supportEmail}.\n\nPhone: {supportPhone}."
           }
         },
@@ -5425,7 +5467,7 @@
           },
           "text": {
             "sv": "Utkast – granskas av jurist före lansering.\n\n1. Tjänsten. Movera förmedlar resor mellan resenärer och VTC-förare i Frankrike. Resan utförs av föraren och dess företag.\n\n2. Konto. Du registrerar dig med ditt mobilnummer och ansvarar för att uppgifterna är riktiga. Du måste vara minst 18 år.\n\n3. Pris och betalning. Priset visas innan du bokar. Avgifter för avbokning, väntetid och extra stopp följer reglerna i appen.\n\n3.1 Väntetid vid upphämtning. När föraren har kommit fram är de första minuternas väntan gratis. Därefter läggs varje minuts väntan till priset, räknat per sekund. Väntepengarna går till föraren.\n\n3.2 Utebliven kund. Om du inte har kommit till bilen när den fria väntetiden är slut får föraren avsluta resan som utebliven kund och en avgift för utebliven kund tas ut. Avbokar du efter att föraren kommit fram och den fria väntetiden är slut räknas det som utebliven kund där områdets regler säger så.\n\n3.3 Avbokning. Du kan avboka gratis de första minuterna efter att en förare har accepterat (en bokad resa: fram till tiden som visas före upphämtningen). Därefter kan en avbokningsavgift tas ut, bara om föraren verkligen var på väg.\n\n3.4 Särskilda upphämtningar. Annan fri väntetid kan gälla på flygplatser, vid evenemang, för bokade resor och när föraren kommer långt ifrån; vid stopp under resan kan några fria minuter gälla innan väntan kostar. Resan visar vilka regler den följer, och det är de siffrorna den debiteras efter.\n\n3.5 Reglerna i ditt område just nu:\n{waitingRules}\n\n4. Uppträdande. Var vänlig och säker. Våld, hot, diskriminering och skadegörelse leder till att kontot stängs.\n\n5. Säkerhet. Vid fara: ring 112. SOS-knappen under resan larmar också Movera.\n\n6. Förare. Förare måste ha giltiga dokument (körkort, VTC-kort, registrering i VTC-registret, fordon med försäkring och RC Pro) och följa fransk lag.\n\n7. Ansvar. Movera ansvarar för förmedlingen enligt fransk transportlag (Code des transports).\n\n8. Ändringar. Vi kan ändra villkoren. Vid viktiga ändringar ber appen dig godkänna de nya villkoren.\n\n9. Lag och tvist. Fransk lag gäller. Som konsument kan du vända dig till en konsumentmedlare.\n\nMovera drivs av {companyName}.\n\nOrganisationsnummer: {orgNumber}.\n\nAdress: {address}.\n\nE-post: {supportEmail}.\n\nTelefon: {supportPhone}.",
-            "fr": "Projet – à relire par un avocat avant le lancement.\n\n1. Le service. Movera met en relation passagers et chauffeurs VTC en France. La course est réalisée par le chauffeur et sa société.\n\n2. Compte. Vous vous inscrivez avec votre numéro de mobile et vos informations doivent être exactes. Vous devez avoir au moins 18 ans.\n\n3. Prix et paiement. Le prix est affiché avant la réservation. Les frais d’annulation, d’attente et d’arrêts suivent les règles affichées dans l’application.\n\n3.1 Attente à la prise en charge. Quand le chauffeur est arrivé, les premières minutes d’attente sont gratuites. Ensuite, chaque minute d’attente s’ajoute au prix, comptée à la seconde. L’argent de l’attente revient au chauffeur.\n\n3.2 Absence du passager. Si vous n’êtes pas venu à la voiture à la fin de l’attente gratuite, le chauffeur peut clôturer la course pour absence et des frais de non-présentation du passager sont facturés. Annuler après l’arrivée du chauffeur et la fin de l’attente gratuite compte comme une absence lorsque les règles de la zone le prévoient.\n\n3.3 Annulation. Vous pouvez annuler gratuitement pendant les premières minutes après l’acceptation d’un chauffeur (course réservée : jusqu’à l’heure indiquée avant la prise en charge). Ensuite, des frais d’annulation peuvent s’appliquer, seulement si le chauffeur était vraiment en route.\n\n3.4 Prises en charge particulières. Une autre attente gratuite peut s’appliquer dans les aéroports, lors d’événements, pour les courses réservées et quand le chauffeur vient de loin ; aux arrêts pendant la course, quelques minutes gratuites peuvent s’appliquer avant que l’attente soit facturée. La course affiche les règles qu’elle suit, et ce sont ces chiffres qui sont facturés.\n\n3.5 Les règles de votre zone en ce moment :\n{waitingRules}\n\n4. Comportement. Restez courtois et prudent. Violence, menaces, discrimination ou dégradations entraînent la fermeture du compte.\n\n5. Sécurité. En cas de danger : appelez le 112. Le bouton SOS pendant la course alerte aussi Movera.\n\n6. Chauffeurs. Les chauffeurs doivent avoir des documents valides (permis, carte VTC, inscription au registre VTC, véhicule assuré et RC Pro) et respecter la loi française.\n\n7. Responsabilité. Movera est responsable de la mise en relation selon le Code des transports.\n\n8. Modifications. Nous pouvons modifier ces conditions. En cas de changement important, l’application vous demandera de les accepter.\n\n9. Droit applicable. Le droit français s’applique. Les consommateurs peuvent saisir gratuitement un médiateur de la consommation.\n\nMovera est exploité par {companyName}.\n\nNuméro d’immatriculation : {orgNumber}.\n\nAdresse : {address}.\n\nE-mail : {supportEmail}.\n\nTéléphone : {supportPhone}.",
+            "fr": "Projet – à relire par un avocat avant le lancement.\n\n1. Le service. Movera met en relation passagers et chauffeurs VTC en France. La course est réalisée par le chauffeur et sa société.\n\n2. Compte. Vous vous inscrivez avec votre numéro de mobile et vos informations doivent être exactes. Vous devez avoir au moins 18 ans.\n\n3. Prix et paiement. Le prix est affiché avant la réservation. Les frais d’annulation, d’attente et d’arrêts suivent les règles affichées dans l’application.\n\n3.1 Attente à la prise en charge. Quand le chauffeur est arrivé, les premières minutes d’attente sont gratuites. Ensuite, chaque minute d’attente s’ajoute au prix, comptée à la seconde. L’argent de l’attente revient au chauffeur.\n\n3.2 Absence du passager. Si vous n’êtes pas venu à la voiture à la fin de l’attente gratuite, le chauffeur peut clôturer la course pour absence et des frais de non-présentation du passager sont facturés. Annuler après l’arrivée du chauffeur et la fin de l’attente gratuite compte comme une absence lorsque les règles de la zone le prévoient.\n\n3.3 Annulation. Vous pouvez annuler gratuitement pendant les premières minutes après l’acceptation d’un chauffeur (course programmée : jusqu’à l’heure indiquée avant la prise en charge). Ensuite, des frais d’annulation peuvent s’appliquer, seulement si le chauffeur était vraiment en route.\n\n3.4 Prises en charge particulières. Une autre attente gratuite peut s’appliquer dans les aéroports, lors d’événements, pour les courses programmées et quand le chauffeur vient de loin ; aux arrêts pendant la course, quelques minutes gratuites peuvent s’appliquer avant que l’attente soit facturée. La course affiche les règles qu’elle suit, et ce sont ces chiffres qui sont facturés.\n\n3.5 Les règles de votre zone en ce moment :\n{waitingRules}\n\n4. Comportement. Restez courtois et prudent. Violence, menaces, discrimination ou dégradations entraînent la fermeture du compte.\n\n5. Sécurité. En cas de danger : appelez le 112. Le bouton SOS pendant la course alerte aussi Movera.\n\n6. Chauffeurs. Les chauffeurs doivent avoir des documents valides (permis, carte VTC, inscription au registre VTC, véhicule assuré et RC Pro) et respecter la loi française.\n\n7. Responsabilité. Movera est responsable de la mise en relation selon le Code des transports.\n\n8. Modifications. Nous pouvons modifier ces conditions. En cas de changement important, l’application vous demandera de les accepter.\n\n9. Droit applicable. Le droit français s’applique. Les consommateurs peuvent saisir gratuitement un médiateur de la consommation.\n\nMovera est exploité par {companyName}.\n\nNuméro d’immatriculation : {orgNumber}.\n\nAdresse : {address}.\n\nE-mail : {supportEmail}.\n\nTéléphone : {supportPhone}.",
             "en": "Draft – to be reviewed by a lawyer before launch.\n\n1. The service. Movera connects riders with VTC drivers in France. The ride is carried out by the driver and the driver's company.\n\n2. Account. You sign up with your mobile number and must keep your details correct. You must be at least 18.\n\n3. Price and payment. The price is shown before you book. Cancellation, waiting and extra-stop fees follow the rules shown in the app.\n\n3.1 Waiting at pickup. When the driver has arrived, the first minutes of waiting are free. After that, every minute of waiting is added to the price, counted by the second. The waiting money goes to the driver.\n\n3.2 No-show. If you have not come to the car when the free waiting is over, the driver may end the ride as a no-show and a no-show fee is charged. Cancelling after the driver arrived and the free waiting is over counts as a no-show where the area’s rules say so.\n\n3.3 Cancelling. You can cancel for free during the first minutes after a driver accepted (a booked ride: until the time shown before pickup). After that a cancellation fee may be charged, only when the driver was really on the way.\n\n3.4 Special pickups. Other free waiting can apply at airports, at events, for booked rides and when the driver comes from far away; at stops on the way a few free minutes can apply before waiting is charged. The ride shows the rules it follows, and these are the numbers it is charged by.\n\n3.5 The rules in your area now:\n{waitingRules}\n\n4. Behaviour. Be kind and safe. Violence, threats, discrimination or damage close the account.\n\n5. Safety. In danger: call 112. The SOS button during a ride also alerts Movera.\n\n6. Drivers. Drivers must hold valid documents (licence, VTC card, VTC register entry, insured car and RC Pro) and follow French law.\n\n7. Liability. Movera is responsible for connecting you under the French Transport Code.\n\n8. Changes. We may change these terms. For important changes the app asks you to accept the new terms.\n\n9. Law and disputes. French law applies. Consumers can turn to a consumer mediator free of charge.\n\nMovera is run by {companyName}.\n\nCompany number: {orgNumber}.\n\nAddress: {address}.\n\nE-mail: {supportEmail}.\n\nPhone: {supportPhone}."
           }
         },
@@ -5879,7 +5921,7 @@
       "reasonCode": "not_heading_to_pickup (driver_cancels only; never a CancelReasonCode on the wire)",
       "notHeadingNotice": {
         "kind": "heading_not_to_rider",
-        "deepLink": "movera-driver://trip/{tripId}",
+        "deepLink": "movera-driver://trips/{tripId}",
         "note": "v0.18.35 (owner Q-A + job 4 Q4 'On every minutes'): while the driver has not been heading to the pickup for notHeadingMinutes in a row (live and booked trips, accepted / driver_to_pickup), he gets this bell notice + push in his language every noticeEveryMin minutes (DriverAppConfig.headingCheck.noticeEveryMin, default 1) until he heads to the pickup again or arrives. headingCheck.notice false = no notice (admin switch, default on). The last send time is kept on the trip (trips.heading_check.noticeAt), so several server copies never send it twice for the same minute. data { tripId, reason not_heading_to_rider }.",
         "title": {
           "sv": "Du kör inte mot kunden",
@@ -5966,7 +6008,7 @@
         },
         "scheduled": {
           "sv": "Bokad resa",
-          "fr": "Course réservée",
+          "fr": "Course programmée",
           "en": "Booked ride"
         },
         "event": {
@@ -6243,8 +6285,8 @@
         "rule": "Owner rule 16 (2026-11-01, G7 open question 3): every server ride check is ALSO sent as a push to the rider and the driver (safety), so a phone in the background or locked still asks; the app card shows as before when the app is open. Push only (not a bell notice), sent even when the rider turned ride-update notifications off (safety), not sent after answerBy, never to a side that already answered. Title = texts.title, body = texts.<trigger>, in the person's language, else the trip's country language (SE sv, FR fr), else English.",
         "kind": "ride_check",
         "deepLink": {
-          "rider": "movera-rider://trip/{tripId}",
-          "driver": "movera-driver://trip/{tripId}"
+          "rider": "movera-rider://trips/{tripId}",
+          "driver": "movera-driver://trips/{tripId}"
         },
         "data": "{ tripId, checkId, trigger, answerBy, sound: \"default\", vibrate: \"true\" }",
         "sound": "default",
@@ -6480,12 +6522,12 @@
       "texts": {
         "cash": {
           "sv": "Betala i bilen",
-          "fr": "Payer en espèces à bord",
+          "fr": "Payer à bord",
           "en": "Pay in car"
         },
         "cashHint": {
           "sv": "Betala föraren i bilen när resan är klar.",
-          "fr": "Payez le chauffeur dans la voiture à la fin de la course.",
+          "fr": "Payez le chauffeur à bord à la fin de la course.",
           "en": "Pay the driver in the car when the trip ends."
         },
         "card": {
@@ -6510,7 +6552,7 @@
         },
         "payment_method_coming_soon": {
           "sv": "Det här betalsättet kommer snart. Välj Betala i bilen.",
-          "fr": "Ce moyen de paiement arrive bientôt. Choisissez Payer dans la voiture.",
+          "fr": "Ce moyen de paiement arrive bientôt. Choisissez Payer à bord.",
           "en": "This payment method is coming soon. Choose Pay in car."
         },
         "payment_method_not_available": {
@@ -6594,7 +6636,7 @@
         },
         "tip_cash_after_trip_off": {
           "sv": "Kontant dricks går bara i bilen. Välj kort när det finns.",
-          "fr": "Le pourboire en espèces se donne seulement dans la voiture.",
+          "fr": "Le pourboire en espèces se donne seulement à bord.",
           "en": "A cash tip can only be given in the car."
         },
         "tip_above_max": {
@@ -6686,7 +6728,7 @@
       "rider": "GET /trips/{tripId}/receipt (rider, own trip) → Receipt; the driver reads GET /driver/trips/{tripId}/receipt (own trip, without the rider's wallet), the admin GET /admin/trips/{tripId}/receipt (trips.read). Only for an ended trip that was paid (payment_status captured / partially_refunded / refunded) or a fee trip; else 409 invalid_transition, reason receipt_not_ready.",
       "fields": "Receipt { tripId, issuedAt, zoneId, country, currency, categoryId, pickup, dropoff, stops, paymentMethod, fareLines (the rider's lines), total, walletPaid, cashPaid, debtIncluded? (an old unpaid fee paid with this trip), tip?, refunds [{ refundId, amount, at }], refunded, endedEarly, endedBy?, endedEarlyReason? (reasonCode), distanceMeters? }.",
       "endedEarly": "endedEarly true when the rider ended early or the driver ended before the drop-off (finish.endedEarly); endedBy rider | driver and the reason code. Apps print texts.endedEarly + finish.earlyEnd.texts.riderEnded / driverEnded.",
-      "resend": "POST /admin/trips/{tripId}/receipt/resend { reason } (trips.intervene) → 200 { tripId, notificationId, sentAt }: the rider gets a bell notice + push kind receipt (texts.resendTitle / resendBody in the rider's language, deep link movera-rider://trip/{tripId}/receipt); audit trip.receipt_resend with the reason. receipt_not_ready as above. E-mail receipts wait for the owner's choice of an e-mail company.",
+      "resend": "POST /admin/trips/{tripId}/receipt/resend { reason } (trips.intervene) → 200 { tripId, notificationId, sentAt }: the rider gets a bell notice + push kind receipt (texts.resendTitle / resendBody in the rider's language, deep link movera-rider://trips/{tripId}/receipt); audit trip.receipt_resend with the reason. receipt_not_ready as above. E-mail receipts wait for the owner's choice of an e-mail company.",
       "errors": [
         "receipt_not_ready"
       ],
@@ -6718,7 +6760,7 @@
         },
         "paidInCar": {
           "sv": "Betalt i bilen",
-          "fr": "Payé dans la voiture",
+          "fr": "Payé à bord",
           "en": "Paid in car"
         },
         "paidWallet": {
@@ -6826,22 +6868,26 @@
     "paymentsAdmin": "Payments › refund policy, reconcile, disputes, retry and rules stay 'Not connected yet' on live until a payment company is chosen (cash only today)."
   },
   "riderTripPush": {
-    "note": "v0.18.13 (G13 recheck, audit 2026-11-02 H5): the rider gets a push (bell false: push only, not in GET /notifications) at the key moments of a trip, in the rider's language (else the trip country's: SE sv, FR fr, else en). kind trip_update, data { tripId, moment }, deepLink movera://trip/{tripId}. Respects the rider's notification setting: Rider.consents.rideUpdates false → no trip pushes (default on).",
+    "note": "v0.18.13 (G13 recheck, audit 2026-11-02 H5): the rider gets a push (bell false: push only, not in GET /notifications) at the key moments of a trip, in the rider's language (else the trip country's: SE sv, FR fr, else en). kind trip_update, data { tripId, moment }, deepLink movera://trips/{tripId}. Respects the rider's notification setting: Rider.consents.rideUpdates false → no trip pushes (default on).",
     "kind": "trip_update",
-    "deepLink": "movera://trip/{tripId}",
+    "deepLink": "movera://trips/{tripId}",
     "moments": [
       "driver_found",
       "driver_arriving",
       "driver_arrived",
       "driver_changed",
-      "trip_cancelled"
+      "trip_cancelled",
+      "no_driver_found",
+      "trip_failed"
     ],
     "rules": {
       "driver_found": "A driver accepted (status accepted).",
       "driver_arriving": "Once per driver: the server ETA to the pickup is at most arrivingSeconds.",
       "driver_arrived": "Status arrived.",
       "driver_changed": "The trip went back to dispatch after accept (driver cancel, admin reassign, not heading to pickup): a new driver is being found.",
-      "trip_cancelled": "The trip was cancelled by the driver, an admin or the system (never pushed for the rider's own cancel)."
+      "trip_cancelled": "The trip was cancelled by the driver, an admin or the system (cancelled_by_driver, cancelled_by_admin, cancelled_by_system; never pushed for the rider's own cancel). v0.18.50 §72 L11: no longer for expired or failed.",
+      "no_driver_found": "v0.18.50 §72 (owner L11): the search ended with no driver (status expired).",
+      "trip_failed": "v0.18.50 §72 (owner L11): the trip could not go on because of a system problem (status failed)."
     },
     "arrivingSeconds": 120,
     "texts": {
@@ -6860,19 +6906,19 @@
       "driver_arriving": {
         "title": {
           "sv": "Föraren är nästan framme",
-          "fr": "Le chauffeur arrive",
+          "fr": "Votre chauffeur arrive bientôt",
           "en": "Your driver is almost there"
         },
         "body": {
-          "sv": "Gör dig redo, föraren är strax där.",
-          "fr": "Préparez-vous, le chauffeur arrive bientôt.",
-          "en": "Get ready, your driver is about to arrive."
+          "sv": "Gör dig redo att möta din förare.",
+          "fr": "Préparez-vous à le rejoindre.",
+          "en": "Get ready to meet your driver."
         }
       },
       "driver_arrived": {
         "title": {
           "sv": "Föraren är framme",
-          "fr": "Le chauffeur est arrivé",
+          "fr": "Votre chauffeur est arrivé",
           "en": "Your driver has arrived"
         },
         "body": {
@@ -6903,6 +6949,30 @@
           "sv": "Din resa har avbokats. Öppna appen för detaljer.",
           "fr": "Votre course a été annulée. Ouvrez l'application pour les détails.",
           "en": "Your trip was cancelled. Open the app for details."
+        }
+      },
+      "no_driver_found": {
+        "title": {
+          "sv": "Ingen förare tillgänglig just nu",
+          "fr": "Aucun chauffeur disponible pour le moment",
+          "en": "No driver available right now"
+        },
+        "body": {
+          "sv": "Du betalar ingenting. Försök igen om en stund.",
+          "fr": "Vous ne payez rien. Réessayez dans un moment.",
+          "en": "You pay nothing. Try again in a moment."
+        }
+      },
+      "trip_failed": {
+        "title": {
+          "sv": "Något gick fel, din resa kunde inte bokas",
+          "fr": "Un problème est survenu, votre course n’a pas pu être réservée",
+          "en": "Something went wrong, your trip could not be booked"
+        },
+        "body": {
+          "sv": "Öppna appen för att boka igen.",
+          "fr": "Ouvrez l’application pour réserver à nouveau.",
+          "en": "Open the app to book again."
         }
       }
     },
@@ -7037,7 +7107,7 @@
     "rider": {
       "reminder": "Q5 rider: push kind reservation_reminder at scheduledAt − riderReminderMin (default 60; 0 = off), and reservation_driver_found when a driver takes the ride.",
       "change": "Q6: more than freeChangeBeforeMin minutes (default 60) before pickup the rider may change the booking: POST /trips/{tripId}/reschedule { quoteId, expectedVersion } with a new kind=scheduled quote (the app shows its new price first) → TripProjection with the new places, time and price; a driver who held it is asked 'Keep it at the new time?' (push kind reservation_change_ask, TripProjection.reservation.changeAsk { until, previousAt }; POST /driver/reservations/{tripId}/keep { keep }); Yes keeps it (rider told reservation_driver_found), No or no answer within changeAnswerMin (default 15) puts it back on the list (transition release, push reservation_changed) and the ride is planned again (bookLater.plan). Later → 409 conflict, reason change_too_late. Not a scheduled trip, or not before pickup → 409 not_a_reservation.",
-      "cancel": "Q6: POST /trips/{tripId}/cancel more than freeChangeBeforeMin minutes before pickup is always free; later the reservation cancel fee rule of booking time applies (RiderAppConfig.cancelFees, reservation; unchanged). v0.18.33 (fix job 5, owner fix-plan Q3 + Q5): this also holds before any driver took the ride: under freeChangeBeforeMin the fee is charged even with no driver, and Movera keeps all of it (no driver share). contract.json#afterTestRules.bookedCancel.",
+      "cancel": "v0.18.49 §71 (owner Q10 'Category rule B only'): POST /trips/{tripId}/cancel of a booked ride is free during the first afterTestRules.bookedCancel.graceAfterBookingMin (5) minutes after booking (owner Q10 update), else only inside the free minutes of the reservation cancel fee rule of booking time (RiderAppConfig.cancelFees.reservation[category].freeMin: free while minutesBeforePickup >= freeMin); later that rule's fee applies. freeChangeBeforeMin is the free-CHANGE window only (POST /trips/{tripId}/reschedule) and no longer makes a cancel free (before v0.18.49: more than freeChangeBeforeMin before pickup was always free). No rule for the category = free. This also holds before any driver took the ride: after the free minutes the fee is charged even with no driver, and Movera keeps all of it (no driver share). A booked ride past its pickup time with no driver is always free. contract.json#afterTestRules.bookedCancel.",
       "projection": "TripProjection.reservation (kind scheduled only) = { mode: now | list, dispatchAt, freeChangeUntil, noDriver, overdue, changeAsk? { until, previousAt }, mustBeOnlineAt? (driver views) }.",
       "favourites": "GET /rider/favourite-drivers → { items: [{ driverId, firstName }] }; PUT /rider/favourite-drivers/{driverId} (only a driver of one of the rider's completed trips, else 404 driver_not_found) and DELETE (owner BL-Q4: marked after a ride)."
     },
@@ -7071,36 +7141,36 @@
         "reservation_new": {
           "title": {
             "sv": "Ny bokad resa",
-            "fr": "Nouvelle course réservée",
+            "fr": "Nouvelle course programmée",
             "en": "New booked ride"
           },
           "body": {
             "sv": "Hämtning kl. {time}. Öppna Bokade resor för att ta den.",
-            "fr": "Prise en charge à {time}. Ouvrez Courses réservées pour la prendre.",
+            "fr": "Prise en charge à {time}. Ouvrez Courses programmées pour la prendre.",
             "en": "Pickup at {time}. Open Booked rides to take it."
           }
         },
         "reservation_popup": {
           "title": {
             "sv": "Bokad resa behöver en förare",
-            "fr": "Une course réservée cherche un chauffeur",
+            "fr": "Une course programmée cherche un chauffeur",
             "en": "A booked ride needs a driver"
           },
           "body": {
             "sv": "Hämtning kl. {time}. Ta den i Bokade resor.",
-            "fr": "Prise en charge à {time}. Prenez-la dans Courses réservées.",
+            "fr": "Prise en charge à {time}. Prenez-la dans Courses programmées.",
             "en": "Pickup at {time}. Take it in Booked rides."
           }
         },
         "reservation_reminder": {
           "title": {
             "sv": "Påminnelse om bokad resa",
-            "fr": "Rappel de course réservée",
+            "fr": "Rappel de course programmée",
             "en": "Booked ride reminder"
           },
           "body": {
             "sv": "Din bokade resa är kl. {time}.",
-            "fr": "Votre course réservée est à {time}.",
+            "fr": "Votre course programmée est à {time}.",
             "en": "Your booked ride is at {time}."
           }
         },
@@ -7112,14 +7182,14 @@
           },
           "body": {
             "sv": "Din bokade resa kl. {time} börjar snart. Gå online nu.",
-            "fr": "Votre course réservée de {time} commence bientôt. Passez en ligne maintenant.",
+            "fr": "Votre course programmée de {time} commence bientôt. Passez en ligne maintenant.",
             "en": "Your booked ride at {time} starts soon. Go online now."
           }
         },
         "reservation_lost": {
           "title": {
             "sv": "Bokad resa borttagen",
-            "fr": "Course réservée retirée",
+            "fr": "Course programmée retirée",
             "en": "Booked ride removed"
           },
           "body": {
@@ -7179,7 +7249,7 @@
         "reservation_unassigned": {
           "title": {
             "sv": "Bokad resa borttagen av Movera",
-            "fr": "Course réservée retirée par Movera",
+            "fr": "Course programmée retirée par Movera",
             "en": "Booked ride removed by Movera"
           },
           "body": {
@@ -7191,7 +7261,7 @@
         "reservation_not_started": {
           "title": {
             "sv": "Din bokade resa börjar nu",
-            "fr": "Votre course réservée commence",
+            "fr": "Votre course programmée commence",
             "en": "Your booked ride starts now"
           },
           "body": {
@@ -7203,19 +7273,19 @@
         "reservation_assigned": {
           "title": {
             "sv": "Bokad resa är din",
-            "fr": "Course réservée attribuée",
+            "fr": "Course programmée attribuée",
             "en": "Booked ride is yours"
           },
           "body": {
             "sv": "Hämtning kl. {time}. Den finns under Bokade resor.",
-            "fr": "Prise en charge à {time}. Elle est dans Courses réservées.",
+            "fr": "Prise en charge à {time}. Elle est dans Courses programmées.",
             "en": "Pickup at {time}. It is in Booked rides."
           }
         },
         "reservation_offered": {
           "title": {
             "sv": "Movera erbjuder dig en bokad resa",
-            "fr": "Movera vous propose une course réservée",
+            "fr": "Movera vous propose une course programmée",
             "en": "Movera offers you a booked ride"
           },
           "body": {
@@ -7239,7 +7309,7 @@
         "reservation_late_risk": {
           "title": {
             "sv": "Du hinner kanske inte till den bokade resan",
-            "fr": "Vous risquez d’être en retard pour la course réservée",
+            "fr": "Vous risquez d’être en retard pour la course programmée",
             "en": "You may be late for the booked ride"
           },
           "body": {
@@ -7251,7 +7321,7 @@
         "reservation_taken_back": {
           "title": {
             "sv": "Bokad resa gick till en annan förare",
-            "fr": "Course réservée confiée à un autre chauffeur",
+            "fr": "Course programmée confiée à un autre chauffeur",
             "en": "Booked ride given to another driver"
           },
           "body": {
@@ -7350,7 +7420,7 @@
       },
       "badge": {
         "sv": "Bokad resa · {time}",
-        "fr": "Course réservée · {time}",
+        "fr": "Course programmée · {time}",
         "en": "Booked ride · {time}"
       }
     },
@@ -7810,15 +7880,17 @@
       "admin": "Admin › Cancellation, per zone or country standard: 'New price only when BOTH shorter by more than (km)' default 2 'and (minutes)' default 10."
     },
     "bookedCancel": {
-      "rule": "Owner fix-plan Q3: a rider who cancels a booked ride less than freeChangeBeforeMin minutes (default 60) before pickup always pays the reservation cancel fee of booking time (RiderAppConfig.cancelFees, reservation), also when no driver has taken the ride yet. More than freeChangeBeforeMin before pickup stays free.",
+      "rule": "Owner fix-plan Q3, v0.18.49 §71 owner Q10 ('Category rule B only'): a rider who cancels a booked ride after the free minutes of the reservation cancel fee rule of booking time (RiderAppConfig.cancelFees.reservation[category].freeMin; free while minutesBeforePickup >= freeMin) pays that rule's fee, also when no driver has taken the ride yet. Inside those minutes it is free. freeChangeBeforeMin (the free-change window) does not decide the cancel any more.",
+      "graceAfterBookingMin": 5,
+      "grace": "v0.18.49 §71 (owner Q10 update 2026-11-07): for graceAfterBookingMin (5) minutes after the booking (TripProjection.createdAt, the server's booking time) a booked ride's cancel is always free, so a short-notice booking does not owe the fee at once; after that the category rule (freeMin) decides. A fixed contract value (not an admin setting).",
       "noDriver": "Owner Q5 ('Movera keeps it'): with no driver yet the whole fee is Movera's (cancellation.driverShare 0, no driver earnings). TripProjection.cancellation { fee, feeStatus owed, feeKind cancel } as for any rider cancel fee; the fee is owed by the rider (outstandingFee). A booked ride whose pickup time has passed with still no driver is always free to cancel (Movera did not deliver it): owner Q-P17 (Rules decisions/driver-g15.md, 'booked ride past pickup with no driver … rider told, no fee').",
-      "apps": "Rider: the cancel sheet shows the fee under freeChangeBeforeMin minutes before pickup even with no driver (sv 'Avbokning mindre än {min} min före hämtning kostar {fee}', fr 'Annuler moins de {min} min avant la prise en charge coûte {fee}', en 'Cancelling less than {min} min before pickup costs {fee}'). Admin › Book later: freeChangeBeforeMin help text 'Cancel under (min) costs the fee, even before a driver takes it'."
+      "apps": "Rider: the cancel sheet and the Upcoming ride terms show the fee from the category's freeMin minutes before pickup on, even with no driver ({min} = cancelFees.reservation[category].freeMin; sv 'Avbokning mindre än {min} min före hämtning kostar {fee}', fr 'Annuler moins de {min} min avant la prise en charge coûte {fee}', en 'Cancelling less than {min} min before pickup costs {fee}'); freeChangeBeforeMin is only the change window. Admin › Book later: the freeChangeBeforeMin help text speaks of changes only (no longer of cancel fees); the cancel minutes are set per category in the reservation cancel fees."
     },
     "bookedNext": {
       "rule": "Owner Q7 + answer 2026-11-05 ('Driver on trip can receive exclusive (can be exclusive trip or reservation but it's exclusive! Any kind of exclusive) but driver receives trip when he soon arrives to drop off! Maybe 70% of the route to drop'): a driver on a trip gets only Exclusive offers (never Radar, never a list), for a live ride or a booked ride alike, and only once the rider is on board and he has driven at least CountryRules.onTripOffers.minRouteDonePct (default 70) % of his current trip's route: done = 1 − (dispatchKm from his position to its drop-off) / (its booked km). A booked ride also needs its pickup at most bookedNext.withinMin minutes away and his current trip (+ the drive from its drop-off) to end by the booked time. km and the score are counted from the current trip's drop-off.",
       "settings": "DispatchDocument.bookedNext { on (default true), withinMin (default 60, 0-240) } — Admin › Dispatch, per zone: 'Driver on a trip can get a booked ride starting within (min)' + on/off. Missing = the defaults.",
       "accept": "POST /offers/{offerId}/accept of such an Exclusive while his current trip runs: a booked ride is a held accept (reservation.held true, as a list accept); a live ride is queued as his next trip (TripProjection status accepted, trips.next_after_trip_id = his current trip; no ETA, heading check or waiting until it starts). He stays on his current trip; when it ends (complete, end early, any cancel) the queued trip starts at once (driver_to_pickup clock, ETA). The leave-now check and the late rule still apply to a booked ride. Any other offer while on a trip is still 409 driver_on_trip.",
-      "driverApp": "Driver app (owner 2026-11-05 'Add on sheet when on trip after accept second trip or if its time to drive to reservation! Notification popup after finish current trip'): during the current trip a next-trip card on the trip sheet: a queued live trip 'Next: {rider} · after this trip' (sv 'Nästa: {rider} · efter den här resan', fr 'Suivante : {rider} · après cette course'), or a held booked ride whose time to drive is near (leaveAt within 30 min, else pickup within 60 min) 'Next: booked ride at {time}' (sv 'Nästa: bokad resa kl. {time}', fr 'Suivante : course réservée à {time}'), with its pickup and 'After this trip, drive to the pickup'. The card goes away when that trip is cancelled. After the current trip ends, the next trip the server started (queued live, or a booked ride whose leave time came) opens on screen automatically with an information popup: title 'Your next trip' (sv 'Din nästa resa', fr 'Votre prochaine course'), body '{rider} is waiting at {pickup}. Drive there now.' / 'Booked ride at {time} · {pickup}. Drive to the pickup now.', and ONE button OK (sv/fr 'OK') that only closes it — it accepts or declines nothing.",
+      "driverApp": "Driver app (owner 2026-11-05 'Add on sheet when on trip after accept second trip or if its time to drive to reservation! Notification popup after finish current trip'): during the current trip a next-trip card on the trip sheet: a queued live trip 'Next: {rider} · after this trip' (sv 'Nästa: {rider} · efter den här resan', fr 'Suivante : {rider} · après cette course'), or a held booked ride whose time to drive is near (leaveAt within 30 min, else pickup within 60 min) 'Next: booked ride at {time}' (sv 'Nästa: bokad resa kl. {time}', fr 'Suivante : course programmée à {time}'), with its pickup and 'After this trip, drive to the pickup'. The card goes away when that trip is cancelled. After the current trip ends, the next trip the server started (queued live, or a booked ride whose leave time came) opens on screen automatically with an information popup: title 'Your next trip' (sv 'Din nästa resa', fr 'Votre prochaine course'), body '{rider} is waiting at {pickup}. Drive there now.' / 'Booked ride at {time} · {pickup}. Drive to the pickup now.', and ONE button OK (sv/fr 'OK') that only closes it — it accepts or declines nothing.",
       "liveRides": "Live rides: offered as Exclusive under the same 70 % rule in every zone — no zone switch (owner answer 2026-11-05 'any kind of exclusive'; the zone's exclusiveWhileDriving does not gate it). Before v0.18.33 a driver on a trip got no offers at all (owner decision 10)."
     },
     "walletFirst": {
@@ -8049,7 +8121,7 @@
       },
       "no_driver_found": {
         "sv": "Ingen förare hittades till din bokade resa. Du betalar ingenting.",
-        "fr": "Aucun chauffeur n’a été trouvé pour votre course réservée. Vous ne payez rien.",
+        "fr": "Aucun chauffeur n’a été trouvé pour votre course programmée. Vous ne payez rien.",
         "en": "No driver was found for your booked ride. You pay nothing."
       },
       "keepWaiting": {
@@ -8189,5 +8261,100 @@
     "when": "Sent to every driver stream of the zone when a trip with scheduledAt in that zone changes (created, accepted, released, cancelled, rescheduled, started), and to the stream of the driver the trip names. A trip without scheduledAt (a now-ride) sends nothing. Sent only after the change commits; a rolled-back change sends nothing.",
     "app": "The driver app re-reads at sign-in, on every stream reconnect and on this event, and debounces bursts (at most 1 re-read per 2 s). Demo rides are cleared at sign-in.",
     "rule33": "Each server copy LISTENs once on movera_trip_events and fans out to its own streams; no shared in-memory state; the GET reads the database, so any copy can answer."
+  },
+  "ownerDecisions0_18_49": {
+    "note": "v0.18.49 §71: owner answers of 2026-11-07 (Rules decisions/session-2026-11-06.md Q6–Q13). X-Api-Version stays 0.5. Server: migration 0089 (refresh_tokens.late_retry_at, Q6).",
+    "q6": "auth.tokens.lostAnswer + auth.tokens.refreshRetry: a lost refresh answer is accepted once, also after 60 s, while its replacement was never used.",
+    "q8": "auth.signOutOnTrip: the server refuses a driver's sign-out during a current trip (409 conflict sign_out_on_trip, « Terminez d’abord la course. »).",
+    "q9": "Every trip link the contract and the server send is trips/{tripId} (movera-driver://trips/{tripId}, movera-rider://trips/{tripId}, movera://trips/{tripId}, …/trips/{tripId}/receipt); the apps keep accepting trip/{id} and trips/{id}.",
+    "q10": "bookLater.rider.cancel + afterTestRules.bookedCancel: a booked ride's cancel is free only inside the category's reservation freeMin, plus 5 minutes after booking (graceAfterBookingMin); freeChangeBeforeMin no longer makes it free.",
+    "q11": "French « Course programmée » / « Courses programmées » everywhere; the word « réservée » for a booked ride is gone (sv unchanged).",
+    "q12": "riderTripPush fr titles: driver_arrived « Votre chauffeur est arrivé », driver_arriving « Votre chauffeur arrive bientôt »; driver_arriving body « Préparez-vous à le rejoindre. » (sv 'Gör dig redo att möta din förare.', en 'Get ready to meet your driver.').",
+    "q13": "Cash payment label fr « Payer à bord » (finish.paymentMethods.texts.cash) and every contract French that said « dans la voiture »: payment_method_coming_soon, cashHint « Payez le chauffeur à bord … », receipt paidInCar « Payé à bord », tip_cash_after_trip_off « … seulement à bord. »."
+  },
+  "driverTripPush": {
+    "note": "v0.18.50 §72 (owner, lifecycle supervisor 2026-11-07, Rules plan/finders-2026-11-07/LIFECYCLE.md L1): the driver gets a push AND a Notifications-list entry (bell true) when his current trip ends or leaves him because of someone else: the rider cancels or ends early, or an admin cancels, reassigns or marks a no-show. In the driver's language (else the trip country's: SE sv, FR fr, else English). Written in the same transaction as the command (sent after commit; rule 33: one notice per change, any server copy). Not sent for his own steps, nor for the rider's cancel of a queued next trip (afterTestRules.onTripOffers.queuedCancelNotice already tells him), nor for a booked ride he holds that is unassigned or reassigned (bookLater push reservation_unassigned).",
+    "kind": "driver_trip_update",
+    "deepLink": "movera-driver://trips/{tripId}",
+    "bell": true,
+    "moments": [
+      "rider_cancelled",
+      "rider_ended_early",
+      "admin_cancelled",
+      "admin_reassigned",
+      "admin_no_show"
+    ],
+    "data": "{ tripId, moment, fee?: Money (his share of a cancel or no-show fee, when there is one) }",
+    "title": {
+      "sv": "Resan är avbokad",
+      "fr": "Course annulée",
+      "en": "Trip cancelled"
+    },
+    "texts": {
+      "rider_cancelled": {
+        "sv": "Resenären avbokade resan.",
+        "fr": "Le passager a annulé la course.",
+        "en": "The rider cancelled the trip."
+      },
+      "rider_ended_early": {
+        "sv": "Resenären avslutade resan i förtid.",
+        "fr": "Le passager a terminé la course plus tôt.",
+        "en": "The rider ended the trip early."
+      },
+      "admin_cancelled": {
+        "sv": "Movera avbokade resan.",
+        "fr": "Movera a annulé la course.",
+        "en": "Movera cancelled the trip."
+      },
+      "admin_reassigned": {
+        "sv": "Movera gav resan till en annan förare.",
+        "fr": "Movera a confié la course à un autre chauffeur.",
+        "en": "Movera gave the trip to another driver."
+      },
+      "admin_no_show": {
+        "sv": "Movera markerade resenären som utebliven.",
+        "fr": "Movera a marqué une absence du passager.",
+        "en": "Movera marked the rider as a no-show."
+      },
+      "fee": {
+        "sv": "Du får {amount}.",
+        "fr": "Vous recevez {amount}.",
+        "en": "You get {amount}."
+      }
+    },
+    "body": "body = texts.<moment>, then ' ' + texts.fee with {amount} = his share (cancellation.driverShare) when it is above 0.",
+    "driverApp": "Shows the push even in the foreground (owner Q1); a tap opens the trip link: the trip screen closes to Home with the ended trip's outcome; the Notifications list shows the entry."
+  },
+  "lifecycle0_18_50": {
+    "note": "v0.18.50 §72 (owner, lifecycle supervisor 2026-11-07, Rules plan/finders-2026-11-07/LIFECYCLE.md). X-Api-Version stays 0.5; no migration. Not L3 (owner: no push for the no-show fee); L8 is a driver-app fix (no contract change).",
+    "l1": "driverTripPush: the driver's push + bell when the rider cancels or ends early, or an admin cancels, reassigns or marks a no-show.",
+    "l4": {
+      "rule": "A driver may cancel a live trip queued after his current trip (status accepted with a next trip link, the Next-trip card) with a cancelReasons.driverNextTrip code (also a driverBeforeTrip code from an older app): POST /trips/{tripId}/cancel { expectedVersion, reasonCode }. The trip goes back to dispatch without him (searching, the rider gets driver_changed and keeps searching), no rider fee, his current trip is not touched, and it counts on his cancel record (driver_cancels) like every give-back. Any other code → 400 invalid_reason_code.",
+      "driverApp": "The Next-trip card gets Cancel with the driverNextTrip reasons (DriverAppConfig.cancelReasons.driverNextTrip, else the contract list)."
+    },
+    "l6": {
+      "rule": "Admin Reassign (POST /admin/trips/{tripId}/reassign) on a BOOKED ride (kind scheduled) a driver holds (status accepted, not started) does what Reservations › Unassign does: back to the Scheduled rides list (status requested; searched at once if its dispatch time has passed), the driver gets reservation_unassigned; as with Unassign he is NOT barred from it (owner 2026-11-07: re-offer allowed, no cancelled_driver_ids). Audit trip.reassign.",
+      "admin": "Trips page: Reassign on such a ride says 'Back to the Scheduled rides list' (same words as Unassign)."
+    },
+    "l7": {
+      "rule": "A trip a driver gives back before boarding (his cancel, and the server's take-backs counted as his cancel: not heading, booked late) is told to the rider's stream with the event kind driver_cancelled (with the projection, as trip_projection); an admin reassign stays trip_projection. realtime.kinds already lists it.",
+      "riderApp": "driver_cancelled → the 'Your driver cancelled, we are finding you another one' notice; trip_projection to searching → silent (admin reassign).",
+      "driverApp": "driver_cancelled on his own former trip is his own echo: ignore it like trip_projection."
+    },
+    "l10": {
+      "rule": "After the driver ends the trip with the rider on board (endedEarly, endedBy driver), the rider's sheet shows ONLY the amount to pay, from the server: TripProjection.fare (cashToCollect when paid in the car), with texts.youPay. No explanation line (owner 2026-11-07). finish.earlyEnd texts are unchanged.",
+      "texts": {
+        "youPay": {
+          "sv": "Du betalar {amount}.",
+          "fr": "Vous payez {amount}.",
+          "en": "You pay {amount}."
+        }
+      },
+      "server": "No new field: the rider projection already carries fare, cashToCollect and endedEarly / endedBy."
+    },
+    "l11": "riderTripPush moments no_driver_found (expired) and trip_failed (failed) with their own words; trip_cancelled is only for a real cancel.",
+    "l12": "A live trip queued behind a trip that failed for silence goes back to dispatch without that driver (transitions: release, system, accepted → searching, live).",
+    "l5": "ratingAllowed: the driver rates a rider-ended-early trip (owner G8 Q1).",
+    "l9": "headers.Date: exposed to browsers."
   }
 }
