@@ -38,7 +38,9 @@ const _allowed = <String, Set<String>>{
       'names (lib/core/*/restart_watch*.dart)': {
     'flutter-view, flt-glass-pane',
     'webgl context lost: last screen , uptime s',
-    'unexpected restart: last screen , s after last beat, uptime s',
+    'unexpected restart (on screen): last screen , , uptime s',
+    'unexpected restart (background): last screen , away s, , uptime s',
+    's after last beat',
   },
   'names: brands, payment brands, languages in their own name, a place, '
       'the legacy demo profile seed it removes': {
