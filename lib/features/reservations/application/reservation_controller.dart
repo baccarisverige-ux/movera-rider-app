@@ -207,6 +207,33 @@ class ReservationController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Whether the booked rides are the server's (a server build).
+  bool get serverBacked => _store is ServerBackedRepository;
+
+  Future<void>? _refreshing;
+
+  /// SUP3-R1 (contract bookedRideSeen.riderTripEvent: "reads ... (and its
+  /// Upcoming list) again on it"): reads the server's booked rides again
+  /// (Upcoming and the Home chrono). Called on rider_trip_changed, on
+  /// resume, after sign-in and when Home shows the chrono (never on Home's
+  /// 8 s check, Rule 33). A call while one is out joins it. Never throws; the list kept
+  /// stays when the read fails. Nothing to do on a device-only build.
+  Future<void> refresh() {
+    if (!serverBacked) return Future<void>.value();
+    return _refreshing ??= _refreshNow().whenComplete(() => _refreshing = null);
+  }
+
+  Future<void> _refreshNow() async {
+    try {
+      await hydrate();
+    } catch (error) {
+      AppLog.warning(
+        'reservation.refresh_failed',
+        extra: {'error': error.runtimeType.toString()},
+      );
+    }
+  }
+
   /// Forgets the signed-out rider's reservations in memory. A simulated trip
   /// still running stops at its next step, since its ride is gone.
   void clearLocal() {

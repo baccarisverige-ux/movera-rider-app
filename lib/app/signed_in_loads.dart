@@ -88,6 +88,9 @@ Future<void> startServerReads() async {
   unawaited(AppScope.instance.catalog.load());
   // Scheduled-ride rules (cancel window, fee); defaults until they land.
   unawaited(AppScope.instance.reservations.refreshRules());
+  // SUP3-R1: the booked rides of the rider who just signed in (the start
+  // read ran before the session, or for the previous rider).
+  unawaited(AppScope.instance.reservations.refresh());
   unawaited(FindingDriverController.flushPendingCancels());
   // BASE B13 (contract v0.18.26 §47): saved places from the server; the
   // phone's older places are uploaded once.

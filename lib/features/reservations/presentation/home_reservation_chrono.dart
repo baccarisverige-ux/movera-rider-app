@@ -13,6 +13,7 @@ import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_live_ride.dart';
 import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
+import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -69,6 +70,9 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_onTick());
     });
+    // SUP3-R1: Home is shown again (after Done, a sign-in, a restart):
+    // the booked rides are read again, not trusted from the start read.
+    unawaited(_reservations.refresh());
   }
 
   Future<void> _onTick() async {
@@ -186,6 +190,10 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
     // The snapshot can be a frame old (post-frame callback, stale tap). Only
     // open a ride that is still genuinely upcoming and still reveals its
     // driver — never one that has completed or been cancelled meanwhile.
+    if (_reservations.serverBacked) {
+      await _openServerLiveRide(snapshot.reservationId);
+      return;
+    }
     final ride = _reservations.byId(snapshot.reservationId);
     if (ride == null || !ride.status.isUpcoming || !ride.revealsDriver) return;
     _openedLiveId = ride.reservationId;
@@ -195,6 +203,32 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
     if (!mounted || _openedLiveId != ride.reservationId) return;
     _openedLiveId = null;
     _openLiveIfNeeded();
+  }
+
+  /// SUP3-R1: on a server build a started booked ride is the server's
+  /// active trip. The list is read again first (the kept one can be from
+  /// before the trip ended), and a ride still live opens through the
+  /// restore (the real Waiting / trip screens with their stream), never the
+  /// device-local ReservationLiveRide.
+  Future<void> _openServerLiveRide(String reservationId) async {
+    _openedLiveId = reservationId;
+    try {
+      await _reservations.refresh();
+      if (!mounted || !_routeIsCurrent) return;
+      final ride = _reservations.byId(reservationId);
+      if (ride == null || !ride.status.isUpcoming || !ride.revealsDriver) {
+        return;
+      }
+      await RideRestoreCoordinator.instance.resumeIfNeeded();
+    } catch (error, stack) {
+      AppScope.instance.crashes.record(
+        error,
+        stack,
+        operation: 'reservation.open_server_live',
+      );
+    } finally {
+      if (_openedLiveId == reservationId) _openedLiveId = null;
+    }
   }
 
   void _openRide(Reservation ride) {

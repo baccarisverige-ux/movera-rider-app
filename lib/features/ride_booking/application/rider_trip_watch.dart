@@ -20,10 +20,12 @@ class RiderTripWatch {
     bool Function()? showsHome,
     Future<void> Function()? adopt,
     Future<bool> Function()? bookedOnTheWay,
+    Future<void> Function()? refreshBooked,
     this.pollEvery = const Duration(seconds: 8),
   }) : _showsHome = showsHome ?? _defaultShowsHome,
        _adopt = adopt ?? _defaultAdopt,
-       _bookedOnTheWay = bookedOnTheWay ?? _defaultBookedOnTheWay;
+       _bookedOnTheWay = bookedOnTheWay ?? _defaultBookedOnTheWay,
+       _refreshBooked = refreshBooked ?? _defaultRefreshBooked;
 
   static RiderTripWatch instance = RiderTripWatch();
 
@@ -33,6 +35,9 @@ class RiderTripWatch {
   final bool Function() _showsHome;
   final Future<void> Function() _adopt;
   final Future<bool> Function() _bookedOnTheWay;
+
+  /// SUP3-R1: reads the booked rides (Upcoming, the Home chrono) again.
+  final Future<void> Function() _refreshBooked;
 
   /// Owner Q1: the banner "Your booked driver is on the way".
   final ValueNotifier<bool> bookedDriverOnTheWay = ValueNotifier(false);
@@ -54,6 +59,9 @@ class RiderTripWatch {
     await RideRestoreCoordinator.instance.resumeIfNeeded();
   }
 
+  static Future<void> _defaultRefreshBooked() =>
+      AppScope.instance.reservations.refresh();
+
   static Future<bool> _defaultBookedOnTheWay() async {
     final scope = AppScope.instance;
     if (!scope.api.contractWire) return false;
@@ -69,12 +77,30 @@ class RiderTripWatch {
 
   /// A server-sent event of `/rider/config/stream`.
   void onConfigEvent(Map<String, Object?> event) {
-    if (event['kind'] == 'rider_trip_changed') unawaited(check());
+    if (event['kind'] != 'rider_trip_changed') return;
+    // A booked ride changed: Upcoming and the chrono read it again, also
+    // while a ride is on screen.
+    unawaited(_refreshList());
+    unawaited(check());
   }
 
-  /// The app is in front: poll until [stop].
+  /// The app is in front (start, resume): poll until [stop]. Coming to the
+  /// front also reads the booked rides again.
   void start() {
-    _poll ??= Timer.periodic(pollEvery, (_) => unawaited(check()));
+    if (_poll != null) return;
+    _poll = Timer.periodic(pollEvery, (_) => unawaited(check()));
+    unawaited(_refreshList());
+  }
+
+  Future<void> _refreshList() async {
+    try {
+      await _refreshBooked();
+    } catch (error) {
+      AppLog.warning(
+        'ride.trip_watch.booked_refresh_failed',
+        extra: {'error': error.runtimeType.toString()},
+      );
+    }
   }
 
   /// The app went to the background.
@@ -93,6 +119,10 @@ class RiderTripWatch {
     try {
       if (_showsHome()) {
         bookedDriverOnTheWay.value = false;
+        // Rule 33 (load): the 8 s check reads only the active trip
+        // (contract pollFallback); the booked list is read again on
+        // rider_trip_changed, on resume, after sign-in and when Home or the
+        // chrono opens.
         await _adopt();
       } else {
         bookedDriverOnTheWay.value = await _bookedOnTheWay();
