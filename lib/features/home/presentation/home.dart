@@ -20,6 +20,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/core/maps/camera_mode.dart';
+import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
@@ -236,7 +237,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// Where Home's map opens; null while the first position is found
   /// (see home_start_camera.dart).
   CameraPosition? _startCamera;
-  Timer? _startWait;
 
   /// The target of the camera the current map was born with.
   LatLng? _mapBornAt;
@@ -421,7 +421,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     AppScope.instance.promotion.removeListener(_onPromotionChanged);
     _settleTimer?.cancel();
-    _startWait?.cancel();
     _routeFlowResumeTimer?.cancel();
     _detectRetryTimer?.cancel();
     _savedPlacesSubscription?.cancel();
