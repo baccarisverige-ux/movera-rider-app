@@ -29,6 +29,20 @@ void main() {
     expect(camera['zoom'], 16);
   });
 
+  test('rider map: a reused pooled map is told to measure its new element '
+      "('resize') before its camera is set, and again after layout "
+      '(no grey band)', () async {
+    final run = await Process.run('node', [
+      'test/web/rider_map_reuse_harness.js',
+      'web/rider_map_camera.js',
+    ]);
+    expect(run.exitCode, 0, reason: '${run.stderr}');
+    final out = jsonDecode(run.stdout as String) as Map<String, dynamic>;
+    expect(out['reused'], isTrue, reason: 'the pooled map is reused');
+    expect(out['reuseResized'], 2);
+    expect(out['resizeBeforeCamera'], isTrue);
+  });
+
   test('rider map: redraw(id) makes Google measure the grown element '
       'again and redraw on the same camera', () async {
     final run = await Process.run('node', [
