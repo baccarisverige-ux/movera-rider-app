@@ -1,5 +1,7 @@
 import 'package:movera_rider/features/active_ride/presentation/trip_pin_card.dart';
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
@@ -56,6 +58,31 @@ class DriverArrivedSheet extends StatelessWidget {
   /// G6: the trip PIN to tell the driver (null = no PIN on this trip).
   final String? pin;
   final Future<void> Function()? onWay;
+
+  /// B5 (finder 2026-11-07): the tap always closes the sheet. Before, a
+  /// failing POST /on-the-way (offline, or 409 because the trip already
+  /// moved on) threw out of the button and left the sheet open with no
+  /// message. A 409 closes quietly (the trip stream shows where the ride
+  /// is now); any other failure says Movera could not be reached.
+  Future<void> _sendOnWayAndClose(BuildContext context) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final unreachable = context.l10n.apiUnreachable;
+    var failed = false;
+    try {
+      await onWay?.call();
+    } catch (error, stackTrace) {
+      AppLog.error(
+        'ride.on_the_way_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      failed = !(error is ApiError && error.statusCode == 409);
+    }
+    if (context.mounted) Navigator.of(context).pop();
+    if (failed) {
+      messenger?.showSnackBar(SnackBar(content: Text(unreachable)));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -147,10 +174,7 @@ class DriverArrivedSheet extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: () async {
-                  await onWay?.call();
-                  if (context.mounted) Navigator.of(context).pop();
-                },
+                onPressed: () => _sendOnWayAndClose(context),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF11181D),
                   minimumSize: const Size.fromHeight(52),
