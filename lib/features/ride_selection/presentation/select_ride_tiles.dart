@@ -642,11 +642,13 @@ extension _SelectRideTiles on _SelectRideState {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Fix job 5 (v0.18.33, owner Q6): the per-ride switch is on.
+                // B1 (finder 2026-11-07): both wallet lines wrap instead of
+                // ending in "…": at 320-390 px in fr/sv the amount the rider
+                // pays was cut off. The tile grows only when it is selected
+                // and uses the wallet.
                 Text(
                   context.l10n.walletUsedFirst,
                   key: const ValueKey('select-ride-wallet-used-first'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                   style: _text(12, weight: FontWeight.w600, color: green),
                 ),
                 split.paidByWallet
@@ -659,8 +661,7 @@ extension _SelectRideTiles on _SelectRideState {
                           split.walletLabel,
                           split.remainderLabel,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        key: const ValueKey('select-ride-wallet-split'),
                         style: _text(12, weight: FontWeight.w500, color: green),
                       ),
               ],
