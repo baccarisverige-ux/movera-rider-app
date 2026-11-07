@@ -82,4 +82,26 @@ void main() {
       'Free change and cancel more than 1 hour before pickup',
     );
   });
+
+  test('v0.18.51 L6: admin reassign of a held booked ride goes back to '
+      'the list; a live one searches again', () {
+    expect(
+      TripStateMachine.apply(
+        TripStatus.accepted,
+        'reassign',
+        TripActor.admin,
+        kind: TripKind.scheduled,
+      ),
+      TripStatus.requested,
+    );
+    expect(
+      TripStateMachine.apply(
+        TripStatus.accepted,
+        'reassign',
+        TripActor.admin,
+        kind: TripKind.live,
+      ),
+      TripStatus.searching,
+    );
+  });
 }

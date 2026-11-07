@@ -1,11 +1,11 @@
-# Movera API v0.18.50 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.51 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.50
+  version: 0.18.51
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.50 in this folder; this file must agree with them.
+    v0.18.51 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.50
+  version: 0.18.51
   source: contract.json
 paths:
   /auth/otp/request:
@@ -821,9 +821,11 @@ paths:
         rule before it) → the fee is the trip''s no-show fee (terms.noShowFee, driver share terms.noShowDriverSharePct, rider_fees
         kind no_show, cancellation.feeKind no_show); otherwise the normal cancel fee (cancelFees, the heading-to-pickup check
         (v0.18.13 pickupWaiting.headingCheck), cancellation.feeKind cancel). The status stays cancelled_by_rider (the transition
-        table is unchanged). Closes the gap where cancelling after arrival (35 kr) was cheaper than a no-show (65 kr). v0.18.13:
-        Inside the cancel rule''s free minutes (default 2) the rider always cancels free. After them (live trip, driver not
-        yet arrived): the fee is charged unless the latest check says the driver has NOT been heading for notHeadingMinutes
+        table is unchanged). Closes the gap where cancelling after arrival (35 kr) was cheaper than a no-show (65 kr). v0.18.51
+        §73 (owner 2026-11-07 ''Booked fees''): not for a booked ride (kind scheduled): its rider''s cancel after the driver
+        arrived is the booked-ride late-cancel fee (feeKind cancel, cancel share), never the no-show fee (contract.json#bookedRide0_18_51.fees).
+        v0.18.13: Inside the cancel rule''s free minutes (default 2) the rider always cancels free. After them (live trip,
+        driver not yet arrived): the fee is charged unless the latest check says the driver has NOT been heading for notHeadingMinutes
         in a row (then the cancel is free, cancellation.fee null). No check yet (a trip accepted before v0.18.13, no position
         so far) = the normal fee rules. A check without a position changes nothing (the previous state and its clock stay).
         A driver within the arrive radius counts as heading. v0.18.13 (owner G5-9 ''Load from admin''): DriverAppConfig.cancelReasons
@@ -843,7 +845,21 @@ paths:
         { expectedVersion, reasonCode }. The trip goes back to dispatch without him (searching, the rider gets driver_changed
         and keeps searching), no rider fee, his current trip is not touched, and it counts on his cancel record (driver_cancels)
         like every give-back. Any other code → 400 invalid_reason_code. (L1) The driver of a trip the rider cancels gets driverTripPush
-        rider_cancelled.'
+        rider_cancelled. v0.18.51 §73 (booked fees): Owner 2026-11-07 (''If rider cancel do booking fee and if driver cancel
+        for no show its also booking fee (for only reservation)''), booked rides only: (1) a rider cancel after the driver
+        arrived (status arrived) costs the booked-ride late-cancel fee — the trip''s reservation cancel rule (terms.cancelRule,
+        afterTestRules.bookedCancel, with its free minutes and booking grace) — as cancellation.feeKind cancel with the cancel
+        share (terms.cancelDriverSharePct); it is never turned into the no-show fee (cancelAfterArrivedIsNoShow does not apply
+        to a booked ride); (2) a no-show (driver or admin) costs the SAME booking fee — the reservation cancel rule''s fee
+        on the booked fare, as charged after its free minutes — instead of the no-show fee: status no_show, cancellation.feeKind
+        no_show, driver share terms.noShowDriverSharePct. Waiting.noShowFee / noShowDriverShare (set at arrive) and terms.noShowFee
+        from arrive carry that booking fee, so the driver''s no-show confirm and the rider''s terms show it. Owner answers
+        2026-11-07: (Q1) the driver''s part of a booked no-show is the no-show share (terms.noShowDriverSharePct, default
+        80 %), not the cancel share; (Q2) a category with no reservation cancel rule (RiderAppConfig.cancelFees.reservation[category]
+        not set) charges the NORMAL no-show fee (the category''s waiting.noShowFee) on a booked no-show, also shown in waiting.noShowFee
+        / terms.noShowFee; a rule the admin sets for the category (Admin › Cancel fees › Reservation) is used instead; (Q3)
+        no special rule for a driver who arrives very early: the reservation rule''s free minutes and booking grace stay as
+        they are (a driver cannot see the booked trip that early). Live rides keep their rules.'
       tags:
       - Trips
       x-actor:
@@ -3039,6 +3055,24 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: 'v0.18.51 §73: A booked ride: the driver (POST /trips/{tripId}/no-show) and an admin (POST /admin/trips/{tripId}/no-show)
+        may mark a no-show only from Waiting.noShowAt, i.e. noShowAfterMin minutes after the later of arrival and pickup time;
+        before → 409 reason no_show_too_early. An admin no-show while the driver has not arrived: from scheduledAt + noShowAfterMin
+        (as v0.18.19). Fee: Owner 2026-11-07 (''If rider cancel do booking fee and if driver cancel for no show its also booking
+        fee (for only reservation)''), booked rides only: (1) a rider cancel after the driver arrived (status arrived) costs
+        the booked-ride late-cancel fee — the trip''s reservation cancel rule (terms.cancelRule, afterTestRules.bookedCancel,
+        with its free minutes and booking grace) — as cancellation.feeKind cancel with the cancel share (terms.cancelDriverSharePct);
+        it is never turned into the no-show fee (cancelAfterArrivedIsNoShow does not apply to a booked ride); (2) a no-show
+        (driver or admin) costs the SAME booking fee — the reservation cancel rule''s fee on the booked fare, as charged after
+        its free minutes — instead of the no-show fee: status no_show, cancellation.feeKind no_show, driver share terms.noShowDriverSharePct.
+        Waiting.noShowFee / noShowDriverShare (set at arrive) and terms.noShowFee from arrive carry that booking fee, so the
+        driver''s no-show confirm and the rider''s terms show it. Owner answers 2026-11-07: (Q1) the driver''s part of a booked
+        no-show is the no-show share (terms.noShowDriverSharePct, default 80 %), not the cancel share; (Q2) a category with
+        no reservation cancel rule (RiderAppConfig.cancelFees.reservation[category] not set) charges the NORMAL no-show fee
+        (the category''s waiting.noShowFee) on a booked no-show, also shown in waiting.noShowFee / terms.noShowFee; a rule
+        the admin sets for the category (Admin › Cancel fees › Reservation) is used instead; (Q3) no special rule for a driver
+        who arrives very early: the reservation rule''s free minutes and booking grace stay as they are (a driver cannot see
+        the booked trip that early). Live rides keep their rules.'
   /trips/{tripId}/pin/verify:
     post:
       operationId: verifyTripPin
@@ -5181,7 +5215,11 @@ paths:
         a driver holds (status accepted, not started) does what Reservations › Unassign does: back to the Scheduled rides
         list (status requested; searched at once if its dispatch time has passed), the driver gets reservation_unassigned;
         as with Unassign he is NOT barred from it (owner 2026-11-07: re-offer allowed, no cancelled_driver_ids). Audit trip.reassign.
-        (L1) The driver taken off gets driverTripPush admin_reassigned (a held booked ride: reservation_unassigned).'
+        (L1) The driver taken off gets driverTripPush admin_reassigned (a held booked ride: reservation_unassigned). v0.18.51
+        §73: contract.json#transitions: admin reassign from accepted is split by trip kind — { reassign, admin, [accepted]
+        → searching, when live } (as before) and { reassign, admin, [accepted] → requested, when scheduled } (new) — and the
+        general reassign row keeps offered, driver_to_pickup and arrived; no two rows match the same input. The scheduled
+        row is the transition the server makes since v0.18.50 §72 L6 (lifecycle0_18_50.l6).'
   /admin/trips/{tripId}/assign:
     post:
       operationId: adminAssignTrip
@@ -5326,6 +5364,24 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: 'v0.18.51 §73: A booked ride: the driver (POST /trips/{tripId}/no-show) and an admin (POST /admin/trips/{tripId}/no-show)
+        may mark a no-show only from Waiting.noShowAt, i.e. noShowAfterMin minutes after the later of arrival and pickup time;
+        before → 409 reason no_show_too_early. An admin no-show while the driver has not arrived: from scheduledAt + noShowAfterMin
+        (as v0.18.19). Fee: Owner 2026-11-07 (''If rider cancel do booking fee and if driver cancel for no show its also booking
+        fee (for only reservation)''), booked rides only: (1) a rider cancel after the driver arrived (status arrived) costs
+        the booked-ride late-cancel fee — the trip''s reservation cancel rule (terms.cancelRule, afterTestRules.bookedCancel,
+        with its free minutes and booking grace) — as cancellation.feeKind cancel with the cancel share (terms.cancelDriverSharePct);
+        it is never turned into the no-show fee (cancelAfterArrivedIsNoShow does not apply to a booked ride); (2) a no-show
+        (driver or admin) costs the SAME booking fee — the reservation cancel rule''s fee on the booked fare, as charged after
+        its free minutes — instead of the no-show fee: status no_show, cancellation.feeKind no_show, driver share terms.noShowDriverSharePct.
+        Waiting.noShowFee / noShowDriverShare (set at arrive) and terms.noShowFee from arrive carry that booking fee, so the
+        driver''s no-show confirm and the rider''s terms show it. Owner answers 2026-11-07: (Q1) the driver''s part of a booked
+        no-show is the no-show share (terms.noShowDriverSharePct, default 80 %), not the cancel share; (Q2) a category with
+        no reservation cancel rule (RiderAppConfig.cancelFees.reservation[category] not set) charges the NORMAL no-show fee
+        (the category''s waiting.noShowFee) on a booked no-show, also shown in waiting.noShowFee / terms.noShowFee; a rule
+        the admin sets for the category (Admin › Cancel fees › Reservation) is used instead; (Q3) no special rule for a driver
+        who arrives very early: the reservation rule''s free minutes and booking grace stay as they are (a driver cannot see
+        the booked trip that early). Live rides keep their rules.'
   /admin/trips/{tripId}/complete:
     post:
       operationId: adminCompleteTrip
@@ -15377,7 +15433,7 @@ paths:
         policy), saved on the server: GET /admin/reservations/policy (trips.read) → ReservationPolicy { includedWaitingMinutes,
         rev, updatedAt }; PUT /admin/reservations/policy { expectedRev, includedWaitingMinutes 0–60 } (trips.intervene; 409
         version_mismatch when another admin saved first). A kind scheduled trip''s free waiting is this many minutes, counted
-        from the pickup time; the no-show time is never before its end.'
+        from the later of the driver''s arrival and the pickup time (v0.18.51 §73); the no-show time is never before its end.'
       tags:
       - Admin · Trips
       x-actor:
@@ -15417,7 +15473,7 @@ paths:
         policy), saved on the server: GET /admin/reservations/policy (trips.read) → ReservationPolicy { includedWaitingMinutes,
         rev, updatedAt }; PUT /admin/reservations/policy { expectedRev, includedWaitingMinutes 0–60 } (trips.intervene; 409
         version_mismatch when another admin saved first). A kind scheduled trip''s free waiting is this many minutes, counted
-        from the pickup time; the no-show time is never before its end.'
+        from the later of the driver''s arrival and the pickup time (v0.18.51 §73); the no-show time is never before its end.'
       tags:
       - Admin · Trips
       x-actor:
@@ -18174,12 +18230,26 @@ components:
           description: 'v0.18.8: TripProjection.waiting gains (from arrive) rules: string[] (the applied rule ids, [] = the
             category''s own terms), freeWaitMin, perMin: Money, noShowAfterMin (the effective numbers), paidMinutes (whole
             minutes of paid waiting, rounded up: from chargedSeconds once boarded, from chargedSecondsNow while arrived; for
-            the admin waiting box — money is still counted by the second) and alerts (see alerts).'
+            the admin waiting box — money is still counted by the second) and alerts (see alerts). v0.18.51 §73: waitFrom
+            (Timestamp): the moment the free waiting starts (live: arrivedAt; booked: the later of arrivedAt and scheduledAt).'
         alerts:
           type: array
           items:
             $ref: '#/components/schemas/WaitingAlert'
           description: 'v0.18.8: island messages sent so far (contract.json#arrivedWaiting.alerts).'
+        waitFrom:
+          allOf:
+          - $ref: '#/components/schemas/Timestamp'
+          description: 'v0.18.51 §73: A booked ride''s free waiting starts at waitFrom = the later of the driver''s Arrived
+            (Waiting.arrivedAt) and the booked pickup time (scheduledAt): Waiting.freeUntil = waitFrom + freeWaitMin, Waiting.noShowAt
+            = waitFrom + noShowAfterMin, and the paid waiting is the seconds after freeUntil. An early driver (Arrived at
+            T−12) waits for nothing to run before T; a late driver (Arrived at T+7) gets the full free minutes from his Arrived,
+            so the rider is never charged or marked a no-show at once. Replaces Owner B 2026-11-03 (''from the pickup time,
+            also when the driver arrives late''). A live ride: waitFrom = arrivedAt (unchanged). TripProjection.waiting.waitFrom
+            (Timestamp, optional): set by the server at arrive for every trip from v0.18.51. The server fills it on every
+            read; for a trip that arrived before v0.18.51 it is the clock that trip is charged by (freeUntil − freeWaitMin,
+            else arrivedAt). Apps reading an older server without it: arrivedAt for a live ride, the later of arrivedAt and
+            scheduledAt for a booked ride.'
     Cancellation:
       type: object
       required:
@@ -30955,7 +31025,8 @@ components:
         freeWaitMin:
           type: number
           minimum: 0
-          description: 'free waiting minutes after the driver arrived (reservation: after the booked time)'
+          description: 'free waiting minutes after the driver arrived (reservation: after the later of arrival and pickup
+            time, v0.18.51 §73)'
         waitPerMin:
           allOf:
           - $ref: '#/components/schemas/Money'
@@ -30963,11 +31034,12 @@ components:
         noShowAfterMin:
           type: number
           minimum: 0
-          description: minutes after arrival when the driver may mark a no-show
+          description: 'minutes after arrival when the driver may mark a no-show (reservation: after the later of arrival
+            and pickup time, v0.18.51 §73)'
         noShowFee:
           allOf:
           - $ref: '#/components/schemas/Money'
-          description: Money, the no-show fee
+          description: 'Money, the no-show fee (reservation, from arrive: the booking late-cancel fee, v0.18.51 §73)'
         noShowDriverSharePct:
           type: number
           minimum: 0
@@ -32670,7 +32742,7 @@ components:
         policy), saved on the server: GET /admin/reservations/policy (trips.read) → ReservationPolicy { includedWaitingMinutes,
         rev, updatedAt }; PUT /admin/reservations/policy { expectedRev, includedWaitingMinutes 0–60 } (trips.intervene; 409
         version_mismatch when another admin saved first). A kind scheduled trip''s free waiting is this many minutes, counted
-        from the pickup time; the no-show time is never before its end.'
+        from the later of the driver''s arrival and the pickup time (v0.18.51 §73); the no-show time is never before its end.'
       required:
       - includedWaitingMinutes
       - rev
