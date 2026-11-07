@@ -65,9 +65,14 @@ void main() {
   test('Q9: with no tab open a trip push tap puts the tripId in the '
       'address', () async {
     final run = await _tap('none', tripPush);
-    expect(run['opened'], [
-      'https://rider.test/?movera_push=ntf_2&movera_kind=trip_update'
-          '&movera_link=movera%3A%2F%2Ftrips%2Ftrp_2&movera_trip=trp_2',
-    ]);
+    final opened = (run['opened'] as List).single as String;
+    // The app's address (the harness's scope) with the notice in the query.
+    expect(
+      opened,
+      endsWith(
+        '/?movera_push=ntf_2&movera_kind=trip_update'
+        '&movera_link=movera%3A%2F%2Ftrips%2Ftrp_2&movera_trip=trp_2',
+      ),
+    );
   }, skip: _hasNode() ? false : 'node is not installed');
 }
