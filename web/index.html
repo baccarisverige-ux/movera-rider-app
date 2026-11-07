@@ -203,19 +203,29 @@
     // except firebase-messaging-sw.js: Firebase web push registers that one
     // when a build has Firebase configured, and removing it on every boot
     // would silently break push after the next reload.
+    // The driver app is served from the same origin (its own path), and
+    // Cache Storage belongs to the whole origin: only the rider's own
+    // workers (its scope) and the old Flutter worker's caches (flutter-*)
+    // are removed, never the driver's (e.g. movera-push-prefs).
     (function() {
       var tasks = [];
+      var riderScope = new URL('./', document.baseURI).href;
 
       function scriptOf(registration) {
         var worker = registration.active || registration.waiting || registration.installing;
         return worker && worker.scriptURL ? String(worker.scriptURL) : '';
       }
 
+      function isRiderOwn(registration) {
+        return String(registration.scope || '').indexOf(riderScope) === 0;
+      }
+
       if ('serviceWorker' in navigator) {
         tasks.push(
           navigator.serviceWorker.getRegistrations().then(function(registrations) {
             return Promise.all(registrations.filter(function(registration) {
-              return scriptOf(registration).indexOf('firebase-messaging-sw.js') === -1;
+              return isRiderOwn(registration) &&
+                scriptOf(registration).indexOf('firebase-messaging-sw.js') === -1;
             }).map(function(registration) {
               return registration.unregister();
             }));
@@ -226,7 +236,9 @@
       if ('caches' in window) {
         tasks.push(
           caches.keys().then(function(keys) {
-            return Promise.all(keys.map(function(key) {
+            return Promise.all(keys.filter(function(key) {
+              return String(key).indexOf('flutter-') === 0;
+            }).map(function(key) {
               return caches.delete(key);
             }));
           })
