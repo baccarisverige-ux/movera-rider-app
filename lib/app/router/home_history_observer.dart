@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:movera_rider/core/observability/crash_report.dart';
+import 'package:movera_rider/core/observability/restart_watch.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 
@@ -23,6 +24,7 @@ class HomeHistoryObserver extends NavigatorObserver {
     moveraNavigationEpoch.value += 1;
     // Contract v0.16.0: a crash report says which screen was on top.
     if (top != null) CrashReport.currentScreen = top.settings.name;
+    RestartWatch.touch();
     _sync(unlockFirst: unlockFirst);
   }
 
