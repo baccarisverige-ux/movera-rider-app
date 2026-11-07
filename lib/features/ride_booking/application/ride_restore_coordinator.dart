@@ -10,6 +10,7 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/app/router/routes.dart';
+import 'package:movera_rider/app/router/ride_stage_observer.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/web/web_search_interrupted.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
@@ -96,6 +97,17 @@ class RideRestoreCoordinator {
         return null;
       }
       if (expectedRideId != null && id != expectedRideId.trim()) return null;
+      // Owner 2026-11-07 "retours en arrière": a finished trip (completed,
+      // payment, rating pending) is never brought back on its own: after
+      // Done a late server answer reopened the receipt. Only a tap on that
+      // ride's own notification opens it, and not the ride just closed here.
+      if (trip.status.isCompletedSurface) {
+        final session = AppScope.instance.ride;
+        if (expectedRideId == null ||
+            (session.suppressRestore && session.rideId?.trim() == id)) {
+          return null;
+        }
+      }
       // The rider's cancel of this trip is still on its way: it is not
       // brought back.
       if (await _pendingCancel(id) != null) return null;
@@ -127,6 +139,9 @@ class RideRestoreCoordinator {
   /// over Sign in, and not when a ride already shows.
   Widget? _showLiveRide(RideSnapshot trip) {
     if (authRootShowing || !_holdsLiveRide(trip)) return null;
+    // A pushed Finding / Waiting / trip / receipt is on screen while
+    // [showing] is still `home`: it is never popped and rebuilt.
+    if (rideStageOnScreen()) return null;
     if (showing == RestoredSurface.finding ||
         showing == RestoredSurface.waiting) {
       return null;
@@ -286,6 +301,11 @@ class RideRestoreCoordinator {
 
   /// Tests: pretend Profile/Wallet is open so resume must not navigate.
   bool Function()? debugAtRoot;
+
+  /// True while a pushed ride screen (Finding, Waiting, the trip, the
+  /// receipt) is in the navigator: Home is not really on screen then.
+  static bool Function() rideStageOnScreen = () =>
+      RideStageRouteObserver.rideOnScreen;
 
   static final instance = RideRestoreCoordinator(
     interruptedNotice: SearchInterruptedNotice.shared,
@@ -715,7 +735,9 @@ class RideRestoreCoordinator {
     // Back in the app with no live ride stored here: the server may hold
     // one (booked before a reload, on another device, or a snapshot that
     // went stale). It is shown instead of Home.
-    if (!_holdsLiveRide(snapshot) && showing == RestoredSurface.home) {
+    if (!_holdsLiveRide(snapshot) &&
+        showing == RestoredSurface.home &&
+        !rideStageOnScreen()) {
       final live = await adoptServerActiveTrip();
       if (live != null) return _showLiveRide(live);
     }

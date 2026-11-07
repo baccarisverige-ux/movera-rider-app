@@ -43,8 +43,12 @@ class RiderTripWatch {
   static const bookedOnTheWayPath =
       '/api/v1/rider/trips?kind=scheduled&status=driver_to_pickup&status=arrived';
 
+  /// Owner 2026-11-07: `showing` stays `home` while Finding / Waiting / the
+  /// trip / the receipt are pushed over Home, so a pushed ride screen counts
+  /// as "not Home" too.
   static bool _defaultShowsHome() =>
-      RideRestoreCoordinator.instance.showing == RestoredSurface.home;
+      RideRestoreCoordinator.instance.showing == RestoredSurface.home &&
+      !RideRestoreCoordinator.rideStageOnScreen();
 
   static Future<void> _defaultAdopt() async {
     await RideRestoreCoordinator.instance.resumeIfNeeded();

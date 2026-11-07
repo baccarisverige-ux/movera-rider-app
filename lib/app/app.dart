@@ -4,6 +4,7 @@ import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
+import 'package:movera_rider/app/router/ride_stage_observer.dart';
 import 'package:movera_rider/app/screen_scale.dart';
 import 'package:movera_rider/app/theme/app_theme.dart';
 import 'package:movera_rider/core/platform/safe_area_insets.dart';
@@ -38,6 +39,7 @@ class MoveraApp extends StatelessWidget {
   const MoveraApp({super.key});
 
   static final _homeHistoryObserver = HomeHistoryObserver();
+  static final _rideStageObserver = RideStageRouteObserver();
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +51,7 @@ class MoveraApp extends StatelessWidget {
         builder: (context, _) => MaterialApp(
           onGenerateTitle: (context) => context.l10n.appTitle,
           navigatorKey: moveraNavigatorKey,
-          navigatorObservers: [_homeHistoryObserver],
+          navigatorObservers: [_homeHistoryObserver, _rideStageObserver],
           // Q48: the rider's choice, else the pickup zone's default.
           locale: language.locale,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
