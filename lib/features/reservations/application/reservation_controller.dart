@@ -215,8 +215,8 @@ class ReservationController extends ChangeNotifier {
   /// SUP3-R1 (contract bookedRideSeen.riderTripEvent: "reads ... (and its
   /// Upcoming list) again on it"): reads the server's booked rides again
   /// (Upcoming and the Home chrono). Called on rider_trip_changed, on
-  /// resume, after sign-in, with Home's 8 s check and when Home shows the
-  /// chrono. A call while one is out joins it. Never throws; the list kept
+  /// resume, after sign-in and when Home shows the chrono (never on Home's
+  /// 8 s check, Rule 33). A call while one is out joins it. Never throws; the list kept
   /// stays when the read fails. Nothing to do on a device-only build.
   Future<void> refresh() {
     if (!serverBacked) return Future<void>.value();

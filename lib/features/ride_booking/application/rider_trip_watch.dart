@@ -119,8 +119,10 @@ class RiderTripWatch {
     try {
       if (_showsHome()) {
         bookedDriverOnTheWay.value = false;
-        // Home's 8 s check reads the booked rides too (SUP3-R1).
-        await _refreshList();
+        // Rule 33 (load): the 8 s check reads only the active trip
+        // (contract pollFallback); the booked list is read again on
+        // rider_trip_changed, on resume, after sign-in and when Home or the
+        // chrono opens.
         await _adopt();
       } else {
         bookedDriverOnTheWay.value = await _bookedOnTheWay();
