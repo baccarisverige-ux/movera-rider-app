@@ -29,10 +29,12 @@ typedef RestartReport = void Function(String message);
 /// name, number or coordinate is kept.
 ///
 /// On the next start, a marker that was not clean and whose last beat is
-/// less than [recent] old means the page died: one `error` report says so,
-/// marked on screen or background (owner decision Q5, 2026-11-07, "Report
-/// background too": iOS kills a page switched away from with no pagehide,
-/// finding D6), with the last screen and, for background, the time away.
+/// recent means the page died: one `error` report says so, marked on screen
+/// or background (owner decision Q5, 2026-11-07, "Report background too":
+/// iOS kills a page switched away from with no pagehide, finding D6), with
+/// the last screen and, for background, the time away. Recent is less than
+/// [recent] (10 min) on screen and less than [recentBackground] (2 hours)
+/// in the background (owner 2026-11-07).
 /// A lost WebGL context is reported once per session the same way.
 class RestartWatch {
   RestartWatch({
@@ -42,6 +44,7 @@ class RestartWatch {
     DateTime Function()? clock,
     String? sessionId,
     this.recent = const Duration(minutes: 10),
+    this.recentBackground = const Duration(hours: 2),
   }) : _clock = clock ?? DateTime.now,
        sessionId = sessionId ?? _newId();
 
@@ -77,6 +80,7 @@ class RestartWatch {
   /// not given.
   final String? Function()? screen;
   final Duration recent;
+  final Duration recentBackground;
   final String sessionId;
   final DateTime Function() _clock;
 
@@ -111,7 +115,12 @@ class RestartWatch {
     } catch (_) {
       // Diagnostic only: storage or the browser may refuse; never break the app.
     }
-    final message = unexpectedRestart(previous, _startedAt, recent: recent);
+    final message = unexpectedRestart(
+      previous,
+      _startedAt,
+      recent: recent,
+      recentBackground: recentBackground,
+    );
     if (message != null) _send(message);
     beat();
     if (periodic) _timer = Timer.periodic(beatEvery, (_) => beat());
@@ -201,6 +210,7 @@ class RestartWatch {
     String? previous,
     DateTime now, {
     Duration recent = const Duration(minutes: 10),
+    Duration recentBackground = const Duration(hours: 2),
   }) {
     if (previous == null || previous.isEmpty) return null;
     Object? decoded;
@@ -214,15 +224,17 @@ class RestartWatch {
     final start = decoded['start'];
     if (beat is! int || start is! int) return null;
     if (decoded['clean'] == true) return null;
+    final onScreen = decoded['visible'] == true;
+    final limit = onScreen ? recent : recentBackground;
     final since = now.millisecondsSinceEpoch - beat;
-    if (since < 0 || since >= recent.inMilliseconds) return null;
+    if (since < 0 || since >= limit.inMilliseconds) return null;
     final screen = _describe(
       CrashReport.cleanScreen(decoded['screen']),
       CrashReport.cleanScreen(decoded['stage']),
     );
     final uptime = ((beat - start) / 1000).round();
     final after = '${(since / 1000).round()} s after last beat';
-    if (decoded['visible'] == true) {
+    if (onScreen) {
       return 'unexpected restart (on screen): last screen $screen, $after, '
           'uptime $uptime s';
     }

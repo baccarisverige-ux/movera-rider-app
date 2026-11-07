@@ -121,6 +121,52 @@ void main() {
     );
   });
 
+  // Owner decision (2026-11-07, on #533): on-screen restarts keep the
+  // 10 min limit; background restarts are reported up to 2 hours.
+  test('a background restart 20 min after the last beat is reported; an '
+      'on-screen one is not', () {
+    final later = lastBeat.add(const Duration(minutes: 20));
+    expect(
+      RestartWatch.unexpectedRestart(
+        _marker(
+          start: start,
+          beat: lastBeat,
+          visible: false,
+          stage: null,
+          hidden: lastBeat.subtract(const Duration(seconds: 10)),
+        ),
+        later,
+      ),
+      'unexpected restart (background): last screen /ride/active, away '
+      '1210 s, 1200 s after last beat, uptime 95 s',
+    );
+    expect(
+      RestartWatch.unexpectedRestart(
+        _marker(start: start, beat: lastBeat),
+        later,
+      ),
+      isNull,
+    );
+  });
+
+  test('a background restart 2 hours or more after the last beat is not '
+      'reported', () {
+    expect(
+      RestartWatch.unexpectedRestart(
+        _marker(start: start, beat: lastBeat, visible: false),
+        lastBeat.add(const Duration(hours: 2)),
+      ),
+      isNull,
+    );
+    expect(
+      RestartWatch.unexpectedRestart(
+        _marker(start: start, beat: lastBeat, visible: false),
+        lastBeat.add(const Duration(hours: 1, minutes: 59)),
+      ),
+      isNotNull,
+    );
+  });
+
   test('the marker keeps when the page went to the background', () {
     final later = now.add(const Duration(seconds: 5));
     var at = now;
@@ -148,7 +194,7 @@ void main() {
       _marker(start: start, beat: now.subtract(const Duration(minutes: 11))),
       _marker(
         start: start,
-        beat: now.subtract(const Duration(minutes: 11)),
+        beat: now.subtract(const Duration(hours: 2, minutes: 1)),
         visible: false,
       ),
       null,
