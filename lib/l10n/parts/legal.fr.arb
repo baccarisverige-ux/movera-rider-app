@@ -144,6 +144,6 @@
   "consentAnd": " et la ",
   "termsFreeWait": "Attente gratuite {free} min, puis {perMin} par minute",
   "termsNoShow": "Si vous n’êtes pas là {noShowAfter} min après l’arrivée du chauffeur, des frais de {noShowFee} s’appliquent",
-  "termsCancelAfterArrived": "Annuler après l’arrivée du chauffeur et la fin de l’attente gratuite compte comme un client absent",
-  "termsPickupMove": "Vous pouvez déplacer le point de départ de {meters} m au plus après la réservation"
+  "termsCancelAfterArrived": "Une annulation après l’arrivée du chauffeur et la fin de l’attente gratuite est considérée comme une absence du passager.",
+  "termsPickupMove": "Vous pouvez déplacer le lieu de prise en charge de {meters} m au plus après la réservation"
 }

@@ -85,7 +85,7 @@ void main() {
         2064,
       ),
       'fr': (
-        '087a024da8398b38e582de6939039cdb25091b2113bed3bd29f52e4ca2caf417',
+        '5fe909faf1a79b0d6c16518c2106d719b822aca3841e3dfe3f01e4e3984daa4d',
         1685,
       ),
       'sv': (

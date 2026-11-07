@@ -703,7 +703,7 @@ if set(c['afterTestRules']) != {'note', 'earlyEnd', 'bookedCancel', 'bookedNext'
 if c['configDefaults'].get('onTripOffers') != {'minRouteDonePct': 70, 'lateFreeCancelMin': 10}: bad += 1; print('ON-TRIP OFFERS default 70 % of the route (owner 2026-11-05)')
 for _k, (_lo, _hi) in _fi['earlyEnd']['settings']['ranges'].items():
     if not (_lo <= c['configDefaults']['earlyEnd'][_k] <= _hi): bad += 1; print('EARLY END range', _k)
-if _fi['paymentMethods']['texts']['cash'] != {'sv': 'Betala i bilen', 'fr': 'Payer dans la voiture', 'en': 'Pay in car'}: bad += 1; print('CASH label (owner G8 item 2)')
+if _fi['paymentMethods']['texts']['cash'] != {'sv': 'Betala i bilen', 'fr': 'Payer en espèces à bord', 'en': 'Pay in car'}: bad += 1; print('CASH label (owner G8 item 2)')
 for _sec in ('paymentMethods', 'tips', 'earlyEnd', 'receipt', 'driverMoney', 'debt'):
     for _name, _t in _fi[_sec]['texts'].items():
         if set(_t) != {'sv', 'fr', 'en'} or any(not v.strip() for v in _t.values()): bad += 1; print('FINISH text langs', _sec, _name)
