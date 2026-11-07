@@ -1808,6 +1808,15 @@
       }
     }
   },
+  "priceUnpaidFeeShort": "+{amount} unpaid fee",
+  "@priceUnpaidFeeShort": {
+    "description": "Owner 2026-11-07 (item 12): Choose ride, the unpaid earlier fee in the price, one short line.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "receiptHeading": "Receipt",
   "@receiptHeading": {
     "description": "Deep-fix 2026-11-02"

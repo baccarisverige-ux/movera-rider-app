@@ -590,17 +590,15 @@ extension _SelectRideTiles on _SelectRideState {
 
   /// Live sweep 2026-11-02 M-1: the old unpaid fee inside this price
   /// (`fareLines.outstanding_fee`), or null.
-  Money? _outstandingFeeOf(_RideOption ride) {
-    final quote = _selection.authoritativeQuotes[ride.id];
-    if (quote == null || quote.outstandingFeeMinor <= 0) return null;
-    return Money(quote.outstandingFeeMinor, quote.currency);
-  }
+  Money? _outstandingFeeOf(_RideOption ride) =>
+      _selection.unpaidFeeFor(ride.id);
 
   Widget _outstandingFeeLine(_RideOption ride, Money fee) => Padding(
     key: ValueKey('select-ride-outstanding-fee-${ride.id}'),
     padding: const EdgeInsets.only(top: 4),
     child: Text(
-      context.l10n.priceIncludesUnpaidFee(formatMoneyShort(fee)),
+      // Owner 2026-11-07 (item 12): one short line.
+      context.l10n.priceUnpaidFeeShort(formatMoneyShort(fee)),
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
       style: _text(12, color: _SelectRideState._muted),
