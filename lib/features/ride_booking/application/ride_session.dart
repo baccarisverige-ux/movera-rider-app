@@ -1,4 +1,5 @@
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/observability/restart_watch.dart';
 import 'package:movera_rider/core/utils/stale_guard.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
@@ -240,6 +241,8 @@ class RideSession {
     tripStatus = status.tripStatus;
     paymentStatus = status.paymentStatus;
     ratingStatus = status.ratingStatus;
+    // Restart diagnostic (owner 2026-11-07): the marker names the stage.
+    RestartWatch.noteStage(status == RideStatus.idle ? null : status.name);
   }
 
   Future<RideSnapshot?> loadSnapshot() => RideSnapshotStore.read();
@@ -250,6 +253,7 @@ class RideSession {
     stale.next();
     rideId = null;
     status = RideStatus.idle;
+    RestartWatch.noteStage(null);
     quote = null;
     suppressRestore = false;
     authoritativeVersion = null;
