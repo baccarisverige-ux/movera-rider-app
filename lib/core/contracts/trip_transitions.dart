@@ -68,7 +68,7 @@ class TripTransition {
 /// Anything not in the table is `409 invalid_transition` and the status does
 /// not change.
 abstract final class TripStateMachine {
-  static const contractVersion = '0.18.50';
+  static const contractVersion = '0.18.51';
 
   static const _s = TripStatus.searching;
   static const _o = TripStatus.offered;
@@ -182,7 +182,17 @@ abstract final class TripStateMachine {
       _a,
       _dp,
     }, TripStatus.noShow),
-    TripTransition('reassign', TripActor.admin, {_o, _a, _dp, _ar}, _s),
+    // v0.18.51 §73 (L6): admin reassign from accepted is split by trip
+    // kind — a booked ride goes back to the list (as Unassign).
+    TripTransition('reassign', TripActor.admin, {_a}, _s, when: TripKind.live),
+    TripTransition(
+      'reassign',
+      TripActor.admin,
+      {_a},
+      _rq,
+      when: TripKind.scheduled,
+    ),
+    TripTransition('reassign', TripActor.admin, {_o, _dp, _ar}, _s),
     TripTransition('cancel', TripActor.admin, {
       TripStatus.draft,
       TripStatus.quoted,

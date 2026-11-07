@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.50",
+  "version": "0.18.51",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -554,12 +554,32 @@
       "command": "reassign",
       "actor": "admin",
       "from": [
+        "accepted"
+      ],
+      "to": "searching",
+      "when": "live",
+      "note": "v0.18.51 §73: a live trip in accepted, as before (split from the general reassign row)."
+    },
+    {
+      "command": "reassign",
+      "actor": "admin",
+      "from": [
+        "accepted"
+      ],
+      "to": "requested",
+      "when": "scheduled",
+      "note": "v0.18.51 §73 (L6, owner 2026-11-07 'Same as Unassign'): admin Reassign on a booked ride a driver holds (accepted, not started) = Reservations › Unassign: back to the list (contract.json#lifecycle0_18_50.l6). With the live row above it replaces 'accepted' of the general reassign row (no overlap)."
+    },
+    {
+      "command": "reassign",
+      "actor": "admin",
+      "from": [
         "offered",
-        "accepted",
         "driver_to_pickup",
         "arrived"
       ],
-      "to": "searching"
+      "to": "searching",
+      "note": "v0.18.51 §73: 'accepted' moved to the two rows above (live → searching, scheduled → requested), so no two rows match the same input."
     },
     {
       "command": "cancel",
@@ -5725,10 +5745,10 @@
       "note": "TripProjection.terms (TripTerms) on every trip, rider, driver and admin views, from booking to the end: the rules this trip is charged by, taken from the booking snapshot (contract.json#bookingSnapshot: the category's waiting terms and cancel rule of booking time) plus the zone's waiting.cancelAfterArrivedIsNoShow and booking.maxPickupMoveMeters at booking time. The apps show these numbers (driver: waiting sheet and no-show confirm; rider: driver-arrived sheet shows the waiting TIME only, the prices go in the Terms — group 6 decision 4) and never their own.",
       "fields": {
         "currency": "the trip currency",
-        "freeWaitMin": "free waiting minutes after the driver arrived (reservation: after the booked time)",
+        "freeWaitMin": "free waiting minutes after the driver arrived (reservation: after the later of arrival and pickup time, v0.18.51 §73)",
         "waitPerMin": "Money per minute after the free minutes (charged per second)",
-        "noShowAfterMin": "minutes after arrival when the driver may mark a no-show",
-        "noShowFee": "Money, the no-show fee",
+        "noShowAfterMin": "minutes after arrival when the driver may mark a no-show (reservation: after the later of arrival and pickup time, v0.18.51 §73)",
+        "noShowFee": "Money, the no-show fee (reservation, from arrive: the booking late-cancel fee, v0.18.51 §73)",
         "noShowDriverSharePct": "the driver's share of the no-show fee (0–100)",
         "cancelRule": "FeeRule | null: the rider cancel fee rule (live: freeMin after accept; reservation: freeMin before pickup)",
         "cancelDriverSharePct": "the driver's share of a cancel fee (0–100)",
@@ -5760,7 +5780,7 @@
       "riderView": "Contract §2 wins: the rider's view of terms has no noShowDriverSharePct / cancelDriverSharePct, waiting has no noShowDriverShare and cancellation no driverShare (the driver's money is never the rider's to see); the driver and admin views have them."
     },
     "cancelAfterArrived": {
-      "note": "Q2 rule on the server (rider cancel, POST /trips/{tripId}/cancel): inside the cancel rule's free minutes after accept the rider ALWAYS cancels free (owner 2026-10-29 'before 2 min always free for rider'), also after the driver arrived. After them: the cancel counts as a no-show ONLY when the driver is at the pickup (status arrived), the zone's cancelAfterArrivedIsNoShow is on AND the free waiting is over (now >= waiting.freeUntil: the moment the driver himself could mark a no-show; a reservation's clock runs from the booked time, so an early-arrived driver's rider still pays the reservation late-cancel rule before it) → the fee is the trip's no-show fee (terms.noShowFee, driver share terms.noShowDriverSharePct, rider_fees kind no_show, cancellation.feeKind no_show); otherwise the normal cancel fee (cancelFees, the heading-to-pickup check (v0.18.13 pickupWaiting.headingCheck), cancellation.feeKind cancel). The status stays cancelled_by_rider (the transition table is unchanged). Closes the gap where cancelling after arrival (35 kr) was cheaper than a no-show (65 kr).",
+      "note": "Q2 rule on the server (rider cancel, POST /trips/{tripId}/cancel): inside the cancel rule's free minutes after accept the rider ALWAYS cancels free (owner 2026-10-29 'before 2 min always free for rider'), also after the driver arrived. After them: the cancel counts as a no-show ONLY when the driver is at the pickup (status arrived), the zone's cancelAfterArrivedIsNoShow is on AND the free waiting is over (now >= waiting.freeUntil: the moment the driver himself could mark a no-show; a reservation's clock runs from the booked time, so an early-arrived driver's rider still pays the reservation late-cancel rule before it) → the fee is the trip's no-show fee (terms.noShowFee, driver share terms.noShowDriverSharePct, rider_fees kind no_show, cancellation.feeKind no_show); otherwise the normal cancel fee (cancelFees, the heading-to-pickup check (v0.18.13 pickupWaiting.headingCheck), cancellation.feeKind cancel). The status stays cancelled_by_rider (the transition table is unchanged). Closes the gap where cancelling after arrival (35 kr) was cheaper than a no-show (65 kr). v0.18.51 §73 (owner 2026-11-07 'Booked fees'): not for a booked ride (kind scheduled): its rider's cancel after the driver arrived is the booked-ride late-cancel fee (feeKind cancel, cancel share), never the no-show fee (contract.json#bookedRide0_18_51.fees).",
       "cancellationFields": {
         "feeKind": "cancel | no_show: which rule set the fee (absent when fee is null)",
         "driverShare": "Money: the driver's part of the fee, credited at once (absent when fee is null)"
@@ -5958,7 +5978,7 @@
       "appliedAt": "arrive: the server computes the effective terms once, when the driver arrives, and keeps them on the trip (waiting.rules, freeWaitMin, perMin, noShowAfterMin, noShowFee; freeUntil / noShowAt from them). The waiting charge (board), the no-show fee, a cancel that counts as a no-show and the running total all use these numbers.",
       "snapshot": "POST /trips keeps the zone's farPickup, rideTypes and stopFreeWaitMin of booking time (contract.json#bookingSnapshot field waitingRules); a later publish never changes a booked trip. A trip booked before v0.18.8 has none: no extra rule, no free stop minutes (as before).",
       "projection": {
-        "waiting": "TripProjection.waiting gains (from arrive) rules: string[] (the applied rule ids, [] = the category's own terms), freeWaitMin, perMin: Money, noShowAfterMin (the effective numbers), paidMinutes (whole minutes of paid waiting, rounded up: from chargedSeconds once boarded, from chargedSecondsNow while arrived; for the admin waiting box — money is still counted by the second) and alerts (see alerts).",
+        "waiting": "TripProjection.waiting gains (from arrive) rules: string[] (the applied rule ids, [] = the category's own terms), freeWaitMin, perMin: Money, noShowAfterMin (the effective numbers), paidMinutes (whole minutes of paid waiting, rounded up: from chargedSeconds once boarded, from chargedSecondsNow while arrived; for the admin waiting box — money is still counted by the second) and alerts (see alerts). v0.18.51 §73: waitFrom (Timestamp): the moment the free waiting starts (live: arrivedAt; booked: the later of arrivedAt and scheduledAt).",
         "terms": "TripProjection.terms: from arrive, freeWaitMin, waitPerMin, noShowAfterMin and noShowFee are the effective numbers and terms.waitingRules lists the applied rule ids; before arrive they are the category's. New terms.stopFreeWaitMin (free minutes at each middle stop, 0 = none)."
       },
       "stops": "Free wait at each stop (owner re-check 2026-11-01): DriverAppConfig.waiting.stopFreeWaitMin (default 0 = no free minutes, as v0.7.1). stop_waiting charges, per stop, only the seconds after the first stopFreeWaitMin minutes of that stop (Σ max(0, (leftAt − arrivedAt) − stopFreeWaitMin × 60) / 60 × stopWaitPerMin).",
@@ -6868,7 +6888,7 @@
     "paymentsAdmin": "Payments › refund policy, reconcile, disputes, retry and rules stay 'Not connected yet' on live until a payment company is chosen (cash only today)."
   },
   "riderTripPush": {
-    "note": "v0.18.13 (G13 recheck, audit 2026-11-02 H5): the rider gets a push (bell false: push only, not in GET /notifications) at the key moments of a trip, in the rider's language (else the trip country's: SE sv, FR fr, else en). kind trip_update, data { tripId, moment }, deepLink movera://trips/{tripId}. Respects the rider's notification setting: Rider.consents.rideUpdates false → no trip pushes (default on).",
+    "note": "v0.18.13 (G13 recheck, audit 2026-11-02 H5): the rider gets a push (bell true: the push and a row in GET /notifications; v0.18.51 §73 corrects this note to what the server writes since deep fix 2026-11-02 M-8) at the key moments of a trip, in the rider's language (else the trip country's: SE sv, FR fr, else en). kind trip_update, data { tripId, moment }, deepLink movera://trips/{tripId}. Respects the rider's notification setting: Rider.consents.rideUpdates false → no trip pushes (default on).",
     "kind": "trip_update",
     "deepLink": "movera://trips/{tripId}",
     "moments": [
@@ -7370,18 +7390,18 @@
     },
     "liveFixes": {
       "note": "v0.18.19 (Book later live test 2026-11-03, Rules audits/live-book-later-2026-11-03.md). Builds on v0.18.18 (merged; test-account list for admins only).",
-      "noShowTime": "HIGH 1: POST /admin/trips/{tripId}/no-show on a booked ride (kind scheduled) is refused before the pickup time plus the trip's no-show wait (terms.noShowAfterMin, else the category's waiting): 409 conflict, reason no_show_too_early. Live rides keep their rule (status arrived and the wait over).",
+      "noShowTime": "HIGH 1: POST /admin/trips/{tripId}/no-show on a booked ride (kind scheduled) is refused before the pickup time plus the trip's no-show wait (terms.noShowAfterMin, else the category's waiting): 409 conflict, reason no_show_too_early. Live rides keep their rule (status arrived and the wait over). v0.18.51 §73: once the driver arrived, the no-show time is Waiting.noShowAt (noShowAfterMin after the later of arrival and pickup time), for the driver and the admin alike; the pickup time + noShowAfterMin stays the earliest time when he has not arrived.",
       "ownerDefaults": "MED 4: a zone document whose reservations.rideTypes still hold the old built-in values (onlineBeforeMin 30 for normal, reminderMin [60, 15]) and that no admin changed since (no publish after 2026-11-03 touching them) gets the owner values (normal onlineBeforeMin 60, reminderMin [120]) by a server migration; every other value stays.",
       "offlineGive": "MED 7: an admin may give (assign) or offer (radar group) a booked ride to a driver who is offline when the pickup is more than dispatchBeforeMin away: the offer reaches him as a notice and the must-be-online rule applies. A group offer skips drivers who cannot take it (offline for a ride soon, on a trip, wrong category) and answers skipped: [{ driverId, reason }]; only when nobody can → 409 no_free_driver. Such an offer stays open until dispatchAt (not the usual seconds) and the driver gets push kind reservation_offered. A driver who already has an open offer of this ride is not offered it again: his offer is answered under kept (no second offer, no second notice).",
       "driverFoundOnce": "MED 9: the rider gets 'driver found' once per driver of a ride: never again for a keep (Yes) or a re-accept by the same driver; a new driver after a change or a give-back → once for him.",
       "riderReminder": "MED 8: the rider reminder (riderReminderMin) is planned again after every change, admin send-now and give-back, and is sent while the ride is not over (also when a driver is already on the way).",
       "horizon": "LOW 15: RiderAppConfig.booking.bookingHorizonDays is served equal to maxAheadDays (older apps).",
       "zoneOff": "Owner A: with the zone's reservations.on false, POST /quotes and POST /trips with kind scheduled answer 403 forbidden, reason reservations_off. The rider app never hides Book later / Later: tapping it there shows bookLater.texts.zoneOff.",
-      "includedWaiting": "Owner B: a booked ride's free waiting (waiting.rideTypes.scheduled.freeWaitMin, per zone, the admin's 'Included waiting') counts from the pickup time, never from the driver's arrival: Waiting.freeUntil = scheduledAt + freeWaitMin (also when the driver arrives late). Riders and drivers see it in TripProjection.terms / waiting.",
+      "includedWaiting": "Owner B, changed by v0.18.51 §73 (owner 2026-11-07 'If arrive late do the free time start when driver clic ived arrived'): a booked ride's free waiting (the reservation policy's included waiting) starts at waitFrom = the later of the driver's Arrived and the pickup time: Waiting.freeUntil = waitFrom + freeWaitMin, Waiting.noShowAt = waitFrom + noShowAfterMin (contract.json#bookedRide0_18_51.waitFrom). Before v0.18.51 it counted from the pickup time also when the driver arrived late. Riders and drivers see it in TripProjection.terms / waiting (waiting.waitFrom).",
       "raiseFare": "Owner C (v0.18.19): raising the driver's fare of a booked ride works exactly like a live ride: the admin call is POST /admin/trips/{tripId}/driver-bonus with the same Pricing bonus limit. The zone's DriverAppConfig.reservations.raiseFare (false: refused, reason raise_off) and raiseMax (major units; the lower of it and the live limit applies; null, the default, = no cap of its own: the live limit only) are saved on the server from Dispatch › Bokningar.",
       "driverShown": "Owner D: the rider sees the driver (name, photo, car: TripProjection.driver) only from driver_to_pickup on; while a driver holds the booked ride for later the rider view has driverAssigned true and no driver details, and reservation_driver_found names nobody. The admin switch 'Rider sees the driver at once' becomes this fixed rule.",
       "noEarlyAssign": "Owner E: no early auto-assign and no backup driver: an untaken or given-back booked ride stays on the list until dispatchBeforeMin (30) before pickup, then Exclusive + Radar. The admin fields for those show 'Coming soon'.",
-      "includedWaitingPolicy": "Owner 2026-11-03: ONE included waiting for every zone (admin 'Included waiting' of the reservation policy), saved on the server: GET /admin/reservations/policy (trips.read) → ReservationPolicy { includedWaitingMinutes, rev, updatedAt }; PUT /admin/reservations/policy { expectedRev, includedWaitingMinutes 0–60 } (trips.intervene; 409 version_mismatch when another admin saved first). A kind scheduled trip's free waiting is this many minutes, counted from the pickup time; the no-show time is never before its end.",
+      "includedWaitingPolicy": "Owner 2026-11-03: ONE included waiting for every zone (admin 'Included waiting' of the reservation policy), saved on the server: GET /admin/reservations/policy (trips.read) → ReservationPolicy { includedWaitingMinutes, rev, updatedAt }; PUT /admin/reservations/policy { expectedRev, includedWaitingMinutes 0–60 } (trips.intervene; 409 version_mismatch when another admin saved first). A kind scheduled trip's free waiting is this many minutes, counted from the later of the driver's arrival and the pickup time (v0.18.51 §73); the no-show time is never before its end.",
       "riderZoneSwitch": "Owner A (v0.18.19): RiderAppConfig.booking.reservationsOn is the zone's DriverAppConfig.reservations.on, written by the server when it serves the rider document. The rider app never hides Book later; with reservationsOn false a tap says bookLater.texts.zoneOff and no booking starts. POST /quotes and POST /trips with kind scheduled still answer 403 forbidden, reason reservations_off.",
       "driverListReservation": "Live test 2026-11-03 HIGH 2: each DriverReservation row of GET /driver/reservations carries reservation (ReservationInfo, driver view) with changeAsk, leaveAt and driveSeconds, so the driver app asks Keep it at the new time? (new time and new earnings) from the list, the notice tap and the details screen. Before, the row had no changeAsk and the question never showed.",
       "leaveOnTime": "Owner 2026-11-03: for a booked ride a driver holds, the server works out the drive from his live position to the pickup (by the real road route from the server's router, Movera's OSRM, else the straight-line estimate: the same live ETA source as a normal ride's pickupWaiting.eta) and when he must start to arrive arriveEarlyMin (zone setting, default 10) before the pickup time: TripProjection.reservation.leaveAt and driveSeconds (driver and admin views), recomputed every 2 minutes from 3 hours before pickup as he moves. At leaveAt he gets push kind reservation_leave_now (once); the driver app counts down to leaveAt. If he has not started 5 minutes after leaveAt, or his drive no longer fits before the pickup time, reservation.atRisk becomes true (admin alert 'Driver may be late for a booked ride') and he gets reservation_late_risk (once). Smart assign: when a booked ride is searched (dispatchBeforeMin, Exclusive), drivers who can arrive arriveEarlyMin before the pickup time are asked first. The 3 steps (early, on time, the rest) rank by dispatch's own drive estimate (straight line × road factor at dispatch.score.pickupKmh, the number the offer shows as pickupEtaSeconds): routing every candidate by road inside a dispatch round would add one road request per driver per round; the leave-time check, one driver every 2 minutes, uses the road route. The rider sees the driver ('Driver on the way') from driver_to_pickup on (liveFixes.driverShown).",
@@ -7404,9 +7424,9 @@
         "en": "Free change and cancel more than {time} before pickup"
       },
       "includedWaiting": {
-        "sv": "{minutes} min gratis väntan räknas från upphämtningstiden",
-        "fr": "{minutes} min d’attente gratuite comptées à partir de l’heure de prise en charge",
-        "en": "{minutes} min free waiting count from the pickup time"
+        "sv": "{minutes} min gratis väntan räknas från upphämtningstiden, eller från när föraren kommer fram om det är senare",
+        "fr": "{minutes} min d’attente gratuite comptées à partir de l’heure de prise en charge, ou de l’arrivée du chauffeur si elle est plus tardive",
+        "en": "{minutes} min free waiting, counted from the pickup time, or from the driver's arrival if that is later"
       },
       "leaveIn": {
         "sv": "Starta om {minutes} min",
@@ -8356,5 +8376,49 @@
     "l12": "A live trip queued behind a trip that failed for silence goes back to dispatch without that driver (transitions: release, system, accepted → searching, live).",
     "l5": "ratingAllowed: the driver rates a rider-ended-early trip (owner G8 Q1).",
     "l9": "headers.Date: exposed to browsers."
+  },
+  "bookedRide0_18_51": {
+    "note": "v0.18.51 §73 (owner 2026-11-07, Rules decisions/session-2026-11-06.md 'Booked waiting', 'Late arrival', 'Booked fees', 'Fixed rule'; L6 row from the S7 admin check; S4 ISSUE 1 and 2). X-Api-Version stays 0.5; no migration. Booked rides (kind scheduled) only, unless said.",
+    "waitFrom": {
+      "rule": "A booked ride's free waiting starts at waitFrom = the later of the driver's Arrived (Waiting.arrivedAt) and the booked pickup time (scheduledAt): Waiting.freeUntil = waitFrom + freeWaitMin, Waiting.noShowAt = waitFrom + noShowAfterMin, and the paid waiting is the seconds after freeUntil. An early driver (Arrived at T−12) waits for nothing to run before T; a late driver (Arrived at T+7) gets the full free minutes from his Arrived, so the rider is never charged or marked a no-show at once. Replaces Owner B 2026-11-03 ('from the pickup time, also when the driver arrives late'). A live ride: waitFrom = arrivedAt (unchanged).",
+      "field": "TripProjection.waiting.waitFrom (Timestamp, optional): set by the server at arrive for every trip from v0.18.51. The server fills it on every read; for a trip that arrived before v0.18.51 it is the clock that trip is charged by (freeUntil − freeWaitMin, else arrivedAt). Apps reading an older server without it: arrivedAt for a live ride, the later of arrivedAt and scheduledAt for a booked ride.",
+      "fixed": "Owner 2026-11-07 'Fixed rule (Recommended)': a fixed rule with no admin switch; the included waiting minutes (ReservationPolicy.includedWaitingMinutes, Admin › Book later 'Included waiting') stay adjustable.",
+      "cases": "fixtures/booked_waiting.json#waitFrom"
+    },
+    "beforePickup": {
+      "rule": "Driver and rider apps: while the server time is before waitFrom (a booked ride whose driver arrived before the pickup time) the waiting timer counts DOWN to the pickup time as a negative time (−12:00 … −0:01) with the label texts.beforePickup; at waitFrom it shows 0:00 and counts the free minutes, then the paid waiting, exactly as a live ride. Nothing is charged and no no-show is possible before waitFrom. The apps take waitFrom, freeUntil and noShowAt from TripProjection.waiting (with the server clock offset), never from their own clock or constants.",
+      "example": "Booked 08:00, free 15 min, driver arrives 07:48: −12:00 at 07:48, 0:00 at 08:00, free until 08:15, paid from 08:15, no-show from 08:00 + noShowAfterMin. Driver arrives 08:07: 0:00 at 08:07, free until 08:22."
+    },
+    "noShow": "A booked ride: the driver (POST /trips/{tripId}/no-show) and an admin (POST /admin/trips/{tripId}/no-show) may mark a no-show only from Waiting.noShowAt, i.e. noShowAfterMin minutes after the later of arrival and pickup time; before → 409 reason no_show_too_early. An admin no-show while the driver has not arrived: from scheduledAt + noShowAfterMin (as v0.18.19).",
+    "fees": {
+      "rule": "Owner 2026-11-07 ('If rider cancel do booking fee and if driver cancel for no show its also booking fee (for only reservation)'), booked rides only: (1) a rider cancel after the driver arrived (status arrived) costs the booked-ride late-cancel fee — the trip's reservation cancel rule (terms.cancelRule, afterTestRules.bookedCancel, with its free minutes and booking grace) — as cancellation.feeKind cancel with the cancel share (terms.cancelDriverSharePct); it is never turned into the no-show fee (cancelAfterArrivedIsNoShow does not apply to a booked ride); (2) a no-show (driver or admin) costs the SAME booking fee — the reservation cancel rule's fee on the booked fare, as charged after its free minutes — instead of the no-show fee: status no_show, cancellation.feeKind no_show, driver share terms.noShowDriverSharePct. Waiting.noShowFee / noShowDriverShare (set at arrive) and terms.noShowFee from arrive carry that booking fee, so the driver's no-show confirm and the rider's terms show it. Owner answers 2026-11-07: (Q1) the driver's part of a booked no-show is the no-show share (terms.noShowDriverSharePct, default 80 %), not the cancel share; (Q2) a category with no reservation cancel rule (RiderAppConfig.cancelFees.reservation[category] not set) charges the NORMAL no-show fee (the category's waiting.noShowFee) on a booked no-show, also shown in waiting.noShowFee / terms.noShowFee; a rule the admin sets for the category (Admin › Cancel fees › Reservation) is used instead; (Q3) no special rule for a driver who arrives very early: the reservation rule's free minutes and booking grace stay as they are (a driver cannot see the booked trip that early). Live rides keep their rules.",
+      "cases": "fixtures/booked_waiting.json#fees"
+    },
+    "texts": {
+      "beforePickup": {
+        "sv": "Före upphämtningstiden",
+        "fr": "Avant l’heure de prise en charge",
+        "en": "Before the pickup time"
+      },
+      "noShow": {
+        "sv": "Bokad resa: om du inte kommer inom {noShowAfter} min efter förarens ankomst eller upphämtningstiden (det som är senast) tas en avgift på {noShowFee} ut",
+        "fr": "Course programmée : si vous n’êtes pas là {noShowAfter} min après l’arrivée du chauffeur ou l’heure de prise en charge (la plus tardive des deux), des frais de {noShowFee} s’appliquent",
+        "en": "Booked ride: if you do not show up within {noShowAfter} min after the later of the driver's arrival and the pickup time, a {noShowFee} fee applies"
+      },
+      "cancelAfterArrived": {
+        "sv": "Bokad resa: avbokning efter att föraren kommit fram kostar avbokningsavgiften för bokade resor",
+        "fr": "Course programmée : une annulation après l’arrivée du chauffeur coûte les frais d’annulation de la réservation",
+        "en": "Booked ride: cancelling after the driver has arrived costs the booked-ride cancel fee"
+      },
+      "adminWaitFrom": {
+        "sv": "Fri väntetid från",
+        "fr": "Attente gratuite à partir de",
+        "en": "Free waiting from"
+      }
+    },
+    "l6": "contract.json#transitions: admin reassign from accepted is split by trip kind — { reassign, admin, [accepted] → searching, when live } (as before) and { reassign, admin, [accepted] → requested, when scheduled } (new) — and the general reassign row keeps offered, driver_to_pickup and arrived; no two rows match the same input. The scheduled row is the transition the server makes since v0.18.50 §72 L6 (lifecycle0_18_50.l6).",
+    "riderTripPushBell": "riderTripPush.note now says bell true (S4 ISSUE 2: it said bell false while the server writes the rider's trip pushes with bell true).",
+    "driverReservationsLive": "driverReservationsLive.when is unchanged: the hint goes out only when a booked ride is created, accepted, released, cancelled, rescheduled or started — never for a location fix, chat message, call, search step or island alert (server fix, S4 ISSUE 1: it went out on every location fix).",
+    "apps": "Rule 0: server — waitFrom, freeUntil / noShowAt from it, the admin no-show time, the booked fees, the reservations hint only at the listed changes; driver app — the waiting timer from waitFrom with the negative countdown and texts.beforePickup, the no-show button from noShowAt, the confirm amount from waiting.noShowFee; rider app — the same timer and label on the driver-arrived sheet, bookLater.texts.includedWaiting and texts.noShow / cancelAfterArrived in the booked-ride terms, the cancel sheet after arrival shows the booking fee; admin — the trip waiting box shows waitFrom (texts.adminWaitFrom), Mark no-show enabled only from noShowAt, Reassign on a held booked ride says it goes back to the list (the new transition row); no new admin setting (fixed rule)."
   }
 }

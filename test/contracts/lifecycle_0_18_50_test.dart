@@ -75,4 +75,26 @@ void main() {
     expect(line, contains('Free cancel for 5 min after booking'));
     expect(line, contains('Cancelling less than 120 min before pickup costs'));
   });
+
+  test('v0.18.51 L6: admin reassign of a held booked ride goes back to '
+      'the list; a live one searches again', () {
+    expect(
+      TripStateMachine.apply(
+        TripStatus.accepted,
+        'reassign',
+        TripActor.admin,
+        kind: TripKind.scheduled,
+      ),
+      TripStatus.requested,
+    );
+    expect(
+      TripStateMachine.apply(
+        TripStatus.accepted,
+        'reassign',
+        TripActor.admin,
+        kind: TripKind.live,
+      ),
+      TripStatus.searching,
+    );
+  });
 }
