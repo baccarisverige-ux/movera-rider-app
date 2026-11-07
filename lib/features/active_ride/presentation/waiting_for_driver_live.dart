@@ -24,6 +24,8 @@ extension _WaitingLive on _WaitingForDriverState {
       perMin: perMin,
       // rider-r4-13: the server's end of the free wait, when it says.
       freeUntil: _tracking.waitingFreeUntil,
+      // v0.18.51 §73: a booked ride's clock runs from waitFrom.
+      waitFrom: _tracking.waitingWaitFrom,
     );
   }
 

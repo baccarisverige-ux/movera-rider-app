@@ -1179,6 +1179,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'pickupMoveTooFar': l.pickupMoveTooFar('<meters>'),
   'pickupMoveFixedAfterArrival': l.pickupMoveFixedAfterArrival,
   'waitingTimeOverFree': l.waitingTimeOverFree('<time>', '<minutes>'),
+  'waitingBeforePickup': l.waitingBeforePickup,
   'waitingChargedAfterFree': l.waitingChargedAfterFree,
   'tripPinTellDriver': l.tripPinTellDriver,
   'waitingAlertPaid': l.waitingAlertPaid,
@@ -4287,6 +4288,8 @@ class _Exhaustive implements AppLocalizations {
   String get pickupMoveFixedAfterArrival => '';
   @override
   String waitingTimeOverFree(String time, String minutes) => '';
+  @override
+  String get waitingBeforePickup => '';
   @override
   String get waitingChargedAfterFree => '';
   @override

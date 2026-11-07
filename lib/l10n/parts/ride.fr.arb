@@ -222,6 +222,7 @@
   "pickupMoveTooFar": "Vous pouvez déplacer le lieu de prise en charge de {meters} m au plus. Annulez et réservez à nouveau pour un autre endroit.",
   "pickupMoveFixedAfterArrival": "Le chauffeur est déjà arrivé. Vous ne pouvez plus modifier le lieu de prise en charge.",
   "waitingTimeOverFree": "Attente de {time} après les {minutes} min gratuites",
+  "waitingBeforePickup": "Avant l’heure de prise en charge",
   "waitingChargedAfterFree": "Le temps d’attente est facturé après les minutes gratuites",
   "tripPinTellDriver": "Donnez ce code à votre chauffeur",
   "waitingAlertPaid": "Le délai d’attente gratuit est écoulé",
