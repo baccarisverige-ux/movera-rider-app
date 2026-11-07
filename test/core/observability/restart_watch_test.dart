@@ -31,6 +31,7 @@ String _marker({
   String? stage = 'onTrip',
   bool visible = true,
   bool clean = false,
+  DateTime? hidden,
 }) => jsonEncode({
   'v': 1,
   'id': 'abcd0123',
@@ -40,6 +41,7 @@ String _marker({
   'stage': stage,
   'visible': visible,
   'clean': clean,
+  if (hidden != null) 'hidden': hidden.millisecondsSinceEpoch,
 });
 
 void main() {
@@ -80,16 +82,75 @@ void main() {
     watch().start(visible: true, periodic: false);
 
     expect(reports, [
-      'unexpected restart: last screen /ride/active (trip stage '
-          'onTrip), 3 s after last beat, uptime 95 s',
+      'unexpected restart (on screen): last screen /ride/active (trip '
+          'stage onTrip), 3 s after last beat, uptime 95 s',
     ]);
   });
 
-  test('clean, hidden, old or missing previous marker: no report', () {
+  // Owner decision Q5 (2026-11-07, "Report background too (Recommended)"):
+  // a page iOS killed while it was in the background (the app was switched
+  // away, so its last beat says visible:false, and iOS sends no pagehide on
+  // a kill; finding D6) is reported too, marked background, with the last
+  // screen and the time away. Earlier this test pinned "hidden: no report".
+  test('previous session unclean, hidden and recent: one background report '
+      'with the last screen and the time away', () {
+    store.value = _marker(
+      start: start,
+      beat: lastBeat,
+      visible: false,
+      hidden: lastBeat.subtract(const Duration(seconds: 40)),
+    );
+
+    watch().start(visible: true, periodic: false);
+
+    expect(reports, [
+      'unexpected restart (background): last screen /ride/active (trip '
+          'stage onTrip), away 43 s, 3 s after last beat, uptime 95 s',
+    ]);
+  });
+
+  test('a hidden marker from before the hidden time was kept counts the '
+      'time away from its last beat', () {
+    expect(
+      RestartWatch.unexpectedRestart(
+        _marker(start: start, beat: lastBeat, visible: false, stage: null),
+        now,
+      ),
+      'unexpected restart (background): last screen /ride/active, away 3 s, '
+      '3 s after last beat, uptime 95 s',
+    );
+  });
+
+  test('the marker keeps when the page went to the background', () {
+    final later = now.add(const Duration(seconds: 5));
+    var at = now;
+    final w = RestartWatch(
+      store: store,
+      report: reports.add,
+      screen: () => screen,
+      clock: () => at,
+    )..start(visible: true, periodic: false);
+    expect(store.marker.containsKey('hidden'), isFalse);
+    w.setVisible(false);
+    expect(store.marker['hidden'], now.millisecondsSinceEpoch);
+    at = later;
+    w.beat();
+    w.setVisible(false);
+    expect(store.marker['hidden'], now.millisecondsSinceEpoch);
+    w.setVisible(true);
+    expect(store.marker.containsKey('hidden'), isFalse);
+  });
+
+  test('clean, old or missing previous marker: no report', () {
     for (final previous in <String?>[
       _marker(start: start, beat: lastBeat, clean: true),
-      _marker(start: start, beat: lastBeat, visible: false),
+      _marker(start: start, beat: lastBeat, visible: false, clean: true),
       _marker(start: start, beat: now.subtract(const Duration(minutes: 11))),
+      _marker(
+        start: start,
+        beat: now.subtract(const Duration(minutes: 11)),
+        visible: false,
+      ),
       null,
       'not json',
     ]) {
@@ -178,8 +239,8 @@ void main() {
     expect(sent.single['app'], 'rider');
     expect(
       sent.single['error'],
-      'unexpected restart: last screen /ride/active, 3 s after last beat, '
-      'uptime 95 s',
+      'unexpected restart (on screen): last screen /ride/active, 3 s after '
+      'last beat, uptime 95 s',
     );
     sink.dispose();
   });

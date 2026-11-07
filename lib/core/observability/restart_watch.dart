@@ -24,13 +24,16 @@ typedef RestartReport = void Function(String message);
 ///
 /// Every [beatEvery], on each screen change and on each trip stage change
 /// a small JSON marker is written: session id, start time, last beat, last
-/// screen (route name) and trip stage, whether the page was visible, and a
-/// `clean` flag set on `pagehide`. No name, number or coordinate is kept.
+/// screen (route name) and trip stage, whether the page was visible, when
+/// it went to the background, and a `clean` flag set on `pagehide`. No
+/// name, number or coordinate is kept.
 ///
-/// On the next start, a marker that was not clean, whose page was visible
-/// at its last beat, and whose last beat is less than [recent] old means
-/// the page died while on screen: one `error` report says so. A lost WebGL
-/// context is reported once per session the same way.
+/// On the next start, a marker that was not clean and whose last beat is
+/// less than [recent] old means the page died: one `error` report says so,
+/// marked on screen or background (owner decision Q5, 2026-11-07, "Report
+/// background too": iOS kills a page switched away from with no pagehide,
+/// finding D6), with the last screen and, for background, the time away.
+/// A lost WebGL context is reported once per session the same way.
 class RestartWatch {
   RestartWatch({
     required this.store,
@@ -82,6 +85,7 @@ class RestartWatch {
 
   late DateTime _startedAt;
   bool _visible = true;
+  DateTime? _hiddenAt;
   bool _clean = false;
   bool _lostReported = false;
   Timer? _timer;
@@ -100,6 +104,7 @@ class RestartWatch {
   void start({required bool visible, bool periodic = true}) {
     _startedAt = _clock();
     _visible = visible;
+    _hiddenAt = visible ? null : _startedAt;
     String? previous;
     try {
       previous = store.read();
@@ -124,6 +129,7 @@ class RestartWatch {
       'stage': _stage(),
       'visible': _visible,
       'clean': _clean,
+      'hidden': ?_hiddenAt?.millisecondsSinceEpoch,
     };
     try {
       store.write(jsonEncode(marker));
@@ -139,6 +145,8 @@ class RestartWatch {
 
   /// `visibilitychange`.
   void setVisible(bool visible) {
+    if (!visible && _visible) _hiddenAt = _clock();
+    if (visible) _hiddenAt = null;
     _visible = visible;
     beat();
   }
@@ -153,6 +161,7 @@ class RestartWatch {
   void pageShow() {
     _clean = false;
     _visible = true;
+    _hiddenAt = null;
     beat();
   }
 
@@ -187,7 +196,7 @@ class RestartWatch {
   }
 
   /// The report for the marker [previous] left at [now], or null when that
-  /// session ended cleanly, was hidden, is too old or cannot be read.
+  /// session ended cleanly, is too old or cannot be read.
   static String? unexpectedRestart(
     String? previous,
     DateTime now, {
@@ -204,13 +213,23 @@ class RestartWatch {
     final beat = decoded['beat'];
     final start = decoded['start'];
     if (beat is! int || start is! int) return null;
-    if (decoded['clean'] == true || decoded['visible'] != true) return null;
+    if (decoded['clean'] == true) return null;
     final since = now.millisecondsSinceEpoch - beat;
     if (since < 0 || since >= recent.inMilliseconds) return null;
-    final screen = CrashReport.cleanScreen(decoded['screen']);
-    final stage = CrashReport.cleanScreen(decoded['stage']);
+    final screen = _describe(
+      CrashReport.cleanScreen(decoded['screen']),
+      CrashReport.cleanScreen(decoded['stage']),
+    );
     final uptime = ((beat - start) / 1000).round();
-    return 'unexpected restart: last screen ${_describe(screen, stage)}, '
-        '${(since / 1000).round()} s after last beat, uptime $uptime s';
+    final after = '${(since / 1000).round()} s after last beat';
+    if (decoded['visible'] == true) {
+      return 'unexpected restart (on screen): last screen $screen, $after, '
+          'uptime $uptime s';
+    }
+    final hidden = decoded['hidden'];
+    final hiddenAt = hidden is int && hidden <= beat ? hidden : beat;
+    final away = ((now.millisecondsSinceEpoch - hiddenAt) / 1000).round();
+    return 'unexpected restart (background): last screen $screen, '
+        'away $away s, $after, uptime $uptime s';
   }
 }
