@@ -965,6 +965,11 @@ class _SetPickupPageState extends State<SetPickupPage>
       // The pin sits above the centre and its ground point is worked out
       // with flat-map maths, which a tilted camera would throw off.
       tiltWithZoom: false,
+      // P2-1 (finder 2026-11-07): the same flat-map maths takes "up on
+      // screen" as north (setPickupPointAbove never sees the bearing), so a
+      // rotated map saved a pickup 28-164 m away from the pin. Set pickup
+      // stays north-up.
+      rotateGesturesEnabled: false,
       // Only the map and the pin: the route and the times live in the sheet.
       myLocationEnabled: true,
       onMapCreated: (controller) {
