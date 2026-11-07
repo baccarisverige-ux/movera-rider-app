@@ -39,9 +39,14 @@ class PushPayload {
       return value.trim();
     }
 
+    final type = rawType.trim();
     return PushPayload(
-      type: rawType.trim(),
-      rideId: readString('rideId', 'ride_id'),
+      type: type,
+      // SUP-1: the contract's trip pushes (riderTripPush, the Ride Check
+      // push) carry the trip as `tripId`, not `rideId`.
+      rideId:
+          readString('rideId', 'ride_id') ??
+          (_isRideKind(type) ? readString('tripId', 'trip_id') : null),
       deepLink: readString('deepLink', 'deep_link'),
       title: _clean(title) ?? readString('title', 'title'),
       body: _clean(body) ?? readString('body', 'body'),
@@ -53,7 +58,23 @@ class PushPayload {
     );
   }
 
-  bool get isRideEvent => type.startsWith('ride.') || type.startsWith('trip.');
+  /// SUP-1: contract `riderTripPush` (kind trip_update) and
+  /// `onTrip.rideCheck.push` (kind ride_check) are ride pushes too: a tap
+  /// opens (or keeps) the ride, never the Notifications list.
+  static const Set<String> _tripPushKinds = {'trip_update', 'ride_check'};
+
+  /// Links that name a ride: movera://ride/{id} (older pushes),
+  /// movera://trip/{tripId} (riderTripPush) and
+  /// movera-rider://trip/{tripId} (Ride Check push).
+  static const Set<String> _rideLinkSchemes = {'movera', 'movera-rider'};
+  static const Set<String> _rideLinkHosts = {'ride', 'trip'};
+
+  static bool _isRideKind(String type) =>
+      type.startsWith('ride.') ||
+      type.startsWith('trip.') ||
+      _tripPushKinds.contains(type);
+
+  bool get isRideEvent => _isRideKind(type);
 
   String? get routedRideId {
     final direct = _clean(rideId);
@@ -63,7 +84,9 @@ class PushPayload {
     final link = _clean(deepLink);
     if (link == null) return null;
     final uri = Uri.tryParse(link);
-    if (uri == null || uri.scheme != 'movera' || uri.host != 'ride') {
+    if (uri == null ||
+        !_rideLinkSchemes.contains(uri.scheme) ||
+        !_rideLinkHosts.contains(uri.host)) {
       return null;
     }
     if (uri.pathSegments.length != 1) return null;
