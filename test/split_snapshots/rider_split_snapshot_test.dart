@@ -202,6 +202,9 @@ void main() {
       ),
     );
     await _frames(tester, 10);
+    // Owner decision "Home map start": no GPS answers in tests, so the
+    // map opens at the zone default once the start wait is over.
+    await tester.pump(homeStartWaitLimit);
     expectTreeSnapshot(tester, 'rider_home');
     debugDefaultTargetPlatformOverride = null;
   });

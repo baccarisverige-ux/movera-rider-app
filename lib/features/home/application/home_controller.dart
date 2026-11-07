@@ -492,6 +492,7 @@ class HomeLocationController extends ChangeNotifier {
 
   void _rememberGoodFix(Position position) {
     final point = GeoPoint(position.latitude, position.longitude);
+    LocationRepository.noteSessionFix(point);
     unawaited(location.saveLastGoodFix(point));
     onGoodFix?.call(point);
   }

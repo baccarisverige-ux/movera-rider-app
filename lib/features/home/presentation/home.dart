@@ -20,6 +20,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/core/maps/camera_mode.dart';
+import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
@@ -78,6 +79,7 @@ part 'home_location.dart';
 part 'home_location_detect.dart';
 part 'home_map_controls.dart';
 part 'home_route_flow.dart';
+part 'home_start_camera.dart';
 part 'home_routes.dart';
 
 typedef _SavedPlaceData = SavedPlaceData;
@@ -231,6 +233,16 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// time, so a double tap cannot open two pickers.
   bool _routeFlowOpen = false;
 
+  /// Where Home's map opens; null while the first position is found
+  /// (see home_start_camera.dart).
+  CameraPosition? _startCamera;
+  Timer? _startWait;
+
+  /// The target of the camera the current map was born with.
+  LatLng? _mapBornAt;
+
+  /// The zone default: where the map opens when no position is known in
+  /// time (never with a flight to the rider).
   static const CameraPosition _initialPosition = CameraPosition(
     target: LatLng(59.3293, 18.0686),
     zoom: homeOpeningZoom,
@@ -246,6 +258,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _initStartCamera();
     reportHomeBuilt();
     _homeSheetController.addListener(_syncHomeSheetState);
     AppScope.instance.promotion.addListener(_onPromotionChanged);
@@ -408,6 +421,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     AppScope.instance.promotion.removeListener(_onPromotionChanged);
     _settleTimer?.cancel();
+    _startWait?.cancel();
     _routeFlowResumeTimer?.cancel();
     _detectRetryTimer?.cancel();
     _savedPlacesSubscription?.cancel();
@@ -478,6 +492,19 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       anchor: MoveraRiderPuckMarker.anchorFor(bucket.toDouble()),
       haloIcon: _halo,
     );
+  }
+
+  void _onHomeMapCreated(GoogleMapController controller) {
+    AppScope.instance.maps.attach(controller, owner: MapOwners.home);
+    final view = mapViewOf(controller);
+    _locationCtl.mapBusy = () => view.touching || view.easing;
+    AppScope.instance.mapLifecycle.created();
+    final target = _currentLatLng ?? _cameraHint;
+    if (target == null) return;
+    if (!_hasFix) _quickCameraAt = target;
+    // Owner decision "Home map start": the map is born on its target, so
+    // there is no flight; a target that moved meanwhile is placed at once.
+    _placeNewMapOn(target, _mapBornAt ?? target);
   }
 
   void _handleMapCameraMove(CameraPosition camera) {
@@ -772,34 +799,25 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             child: map,
                           ),
                           child: RepaintBoundary(
-                            child: HomeMapLayer(
-                              key: const ValueKey('home-map-layer'),
-                              location: _locationCtl,
-                              parked: _mapParked,
-                              padding: EdgeInsets.only(bottom: _sheetMinPixels),
-                              initialPosition: _initialPosition,
-                              mapStyle: homeMapStyle,
-                              onCameraMove: _handleMapCameraMove,
-                              onMapCreated: (GoogleMapController controller) {
-                                AppScope.instance.maps.attach(
-                                  controller,
-                                  owner: MapOwners.home,
-                                );
-                                final view = mapViewOf(controller);
-                                _locationCtl.mapBusy = () =>
-                                    view.touching || view.easing;
-                                AppScope.instance.mapLifecycle.created();
-                                final target = _currentLatLng ?? _cameraHint;
-                                if (target != null) {
-                                  if (!_hasFix) _quickCameraAt = target;
-                                  AppScope.instance.maps.animateCamera(
-                                    GeoPoint(target.latitude, target.longitude),
-                                    zoom: homeOpeningZoom,
-                                    follow: true,
-                                  );
-                                }
-                              },
-                            ),
+                            child: _startCamera == null
+                                ? _locatingSurface(context)
+                                : HomeMapLayer(
+                                    key: const ValueKey('home-map-layer'),
+                                    location: _locationCtl,
+                                    parked: _mapParked,
+                                    padding: EdgeInsets.only(
+                                      bottom: _sheetMinPixels,
+                                    ),
+                                    initialPosition: _startCamera!,
+                                    birthCamera: () {
+                                      final camera = _mapBirthCamera;
+                                      _mapBornAt = camera.target;
+                                      return camera;
+                                    },
+                                    mapStyle: homeMapStyle,
+                                    onCameraMove: _handleMapCameraMove,
+                                    onMapCreated: _onHomeMapCreated,
+                                  ),
                           ),
                         ),
                       ),

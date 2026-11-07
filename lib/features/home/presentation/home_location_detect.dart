@@ -40,6 +40,8 @@ extension _HomeLocationDetect on _HomeState {
       if (!mounted) return;
       final target = detected.target;
       if (detected.denied || target == null) {
+        // No position to wait for: the map opens at the zone default.
+        _openMapAt(null);
         // U2: no fix — never call a fallback point "Current location".
         if (isPlaceholderPickupLabel(_pickupAddress)) {
           // ignore: invalid_use_of_protected_member
@@ -64,6 +66,7 @@ extension _HomeLocationDetect on _HomeState {
       }
     } catch (_) {
       if (!mounted) return;
+      _openMapAt(null);
       if (isPlaceholderPickupLabel(_pickupAddress)) {
         // ignore: invalid_use_of_protected_member
         setState(() => _pickupAddress = locationOffPickupLabel);
@@ -82,6 +85,8 @@ extension _HomeLocationDetect on _HomeState {
       _currentLatLng = point;
       _roughFix = true;
     });
+    // Owner decision "Home map start": a first map is born right here.
+    _openMapAt(point);
     await _prepareLocationPuckIcons();
     if (!mounted || !_roughFix) return;
     _updateLocationVisuals();
@@ -120,6 +125,7 @@ extension _HomeLocationDetect on _HomeState {
       _locationCtl.clearOverlays();
       _locationHeading = detected.heading;
     });
+    _openMapAt(target);
     final located = _locatedSignal;
     if (located != null && !located.isCompleted) located.complete();
     // The quick puck moves to the accurate point instead of blinking out.

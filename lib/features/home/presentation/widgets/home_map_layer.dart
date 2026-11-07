@@ -19,6 +19,7 @@ class HomeMapLayer extends StatefulWidget {
     required this.mapStyle,
     required this.onCameraMove,
     required this.onMapCreated,
+    this.birthCamera,
   });
 
   final HomeLocationController location;
@@ -28,6 +29,11 @@ class HomeMapLayer extends StatefulWidget {
   final String mapStyle;
   final void Function(CameraPosition) onCameraMove;
   final void Function(GoogleMapController) onMapCreated;
+
+  /// Owner decision "Home map start" (2026-11-07): read each time a new map
+  /// is made (the first one, and again after being parked), so the map is
+  /// born where the rider is now. Null: [initialPosition].
+  final CameraPosition Function()? birthCamera;
 
   /// How long the map box must stay at its new size before the map is told
   /// to redraw (a mobile browser's toolbar animates over a few frames).
@@ -54,6 +60,9 @@ class HomeMapLayerState extends State<HomeMapLayer> {
   bool? _parked;
   GoogleMapController? _controller;
   CameraPosition? _camera;
+
+  /// The camera the current map was born with.
+  CameraPosition? _bornWith;
   Size? _size;
   Timer? _redrawTimer;
 
@@ -114,7 +123,7 @@ class HomeMapLayerState extends State<HomeMapLayer> {
     }
     _redrawPending = false;
     RiderMapBridge.redraw(controller.mapId);
-    final camera = _camera ?? widget.initialPosition;
+    final camera = _camera ?? _bornWith ?? widget.initialPosition;
     controller
         .moveCamera(CameraUpdate.newCameraPosition(camera))
         .catchError((Object _) {});
@@ -188,6 +197,12 @@ class HomeMapLayerState extends State<HomeMapLayer> {
         _padding == widget.padding) {
       return _cached!;
     }
+    // A new map (none yet, or the parked placeholder before): born on the
+    // camera of now. An existing one keeps its own camera.
+    if (_parked != false || _bornWith == null) {
+      _bornWith = widget.birthCamera?.call() ?? widget.initialPosition;
+      _camera = null;
+    }
     _parked = false;
     _markers = widget.location.markers;
     _circles = widget.location.locationCircles;
@@ -195,7 +210,7 @@ class HomeMapLayerState extends State<HomeMapLayer> {
     _padding = widget.padding;
     _cached = CustomGoogleMap(
       key: const ValueKey('home-map'),
-      initialPosition: widget.initialPosition,
+      initialPosition: _bornWith,
       markers: widget.location.markers,
       circles: widget.location.locationCircles,
       polygons: widget.location.locationDirection,

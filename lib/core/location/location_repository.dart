@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
+    show TargetPlatform, defaultTargetPlatform, kIsWeb, visibleForTesting;
 import 'package:geolocator/geolocator.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -25,6 +25,21 @@ class LocationRepository {
   /// keeps it, so a cold start after sign-out still speaks the zone's
   /// default language instead of the home zone's.
   static const lastZoneKey = 'movera.location.last_zone.v1';
+
+  /// Owner decision "Home map start" (2026-11-07, like the driver app): the
+  /// last good fix of this app session, in memory, so a Home built again
+  /// (back from a trip, after a sign-in) opens its map there at once.
+  /// Forgotten with [clearLastGoodFix] when the session ends.
+  static GeoPoint? get sessionFix => _sessionFix;
+  static GeoPoint? _sessionFix;
+
+  /// Remembers [point] as this session's last good fix ([sessionFix]).
+  static void noteSessionFix(GeoPoint point) {
+    if (point.isValid) _sessionFix = point;
+  }
+
+  @visibleForTesting
+  static void debugForgetSessionFix() => _sessionFix = null;
 
   Future<bool> isLocationServiceEnabled() {
     return Geolocator.isLocationServiceEnabled();
@@ -179,6 +194,7 @@ class LocationRepository {
   /// and session expiry) so the next person using a shared or handed-down
   /// phone never sees the previous rider's last position. Best effort.
   static Future<void> clearLastGoodFix() async {
+    _sessionFix = null;
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(lastGoodFixKey);
