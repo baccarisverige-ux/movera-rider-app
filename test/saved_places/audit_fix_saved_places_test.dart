@@ -52,7 +52,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       // No location in the test host: the picker explains, nothing is chosen.
-      expect(find.text('Pickup location'), findsOneWidget);
+      expect(find.text('Search address'), findsOneWidget);
       expect(find.textContaining('for the address'), findsOneWidget);
       if (find.text('Save').evaluate().isNotEmpty) {
         await tester.tap(find.text('Save'));

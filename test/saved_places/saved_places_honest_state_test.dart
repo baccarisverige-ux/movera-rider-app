@@ -78,22 +78,15 @@ void main() {
     expect(find.text('Your last trip'), findsOneWidget);
     expect(find.text('No recent trips yet'), findsOneWidget);
     expect(
-      find.text(
-        'Completed trips will appear here when real ride history is available.',
-      ),
+      find.text('Addresses from your recent trips appear here.'),
       findsOneWidget,
     );
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Work'), findsOneWidget);
     expect(find.text('Not saved yet'), findsNWidgets(2));
     expect(find.text('Search results'), findsOneWidget);
-    expect(find.text('No search results'), findsOneWidget);
-    expect(
-      find.text(
-        'Suggestions aren’t available yet. Type a full address and press Search.',
-      ),
-      findsOneWidget,
-    );
+    // B9: nothing typed yet, nothing searched: no "No search results" box.
+    expect(find.text('No search results'), findsNothing);
 
     expect(find.text('30 Main Street'), findsNothing);
     expect(find.text('5.9km|30 Main Street, London'), findsNothing);
@@ -136,7 +129,7 @@ void main() {
 
       await tester.tap(find.text('Add location'));
       await tester.pumpAndSettle();
-      expect(find.text('Pickup location'), findsOneWidget);
+      expect(find.text('Search address'), findsOneWidget);
 
       await tester.tap(find.text('CURRENT'));
       await tester.pumpAndSettle();
@@ -144,7 +137,7 @@ void main() {
       expect(find.text('Add new address'), findsOneWidget);
       expect(find.text('Drottninggatan 10, Stockholm'), findsOneWidget);
       expect(find.text('Current location'), findsNothing);
-      expect(find.text('Pickup location'), findsNothing);
+      expect(find.text('Search address'), findsNothing);
     },
   );
 
@@ -171,7 +164,7 @@ void main() {
       await tester.tap(find.text('Home'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Pickup location'), findsOneWidget);
+      expect(find.text('Search address'), findsOneWidget);
       expect(find.text('Add new address'), findsNothing);
     },
   );

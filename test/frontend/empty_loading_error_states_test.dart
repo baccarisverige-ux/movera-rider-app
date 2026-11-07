@@ -651,7 +651,7 @@ void main() {
     (
       'Saved places',
       'No recent trips yet',
-      'Completed trips will appear here when real ride history is available.',
+      'Addresses from your recent trips appear here.',
       'Not saved yet',
     ),
     (
