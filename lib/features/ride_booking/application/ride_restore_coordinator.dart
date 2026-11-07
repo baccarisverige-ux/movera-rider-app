@@ -119,6 +119,16 @@ class RideRestoreCoordinator {
       // keeps its own snapshot.
       final leftover = await _reader();
       if (_holdsLiveRide(leftover)) return null;
+      // #521 "no jump back": a late / stale server answer for the ride whose
+      // receipt or rating is stored here (or that just closed here) never
+      // reopens its trip.
+      if (leftover?.rideId?.trim() == id) {
+        final session = AppScope.instance.ride;
+        if (surfaceFor(leftover) == RestoredSurface.complete ||
+            (session.suppressRestore && session.rideId?.trim() == id)) {
+          return null;
+        }
+      }
       await _setAsideLeftover(leftover, id);
       await RideSnapshotStore.save(trip);
       AppLog.info(

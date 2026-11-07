@@ -203,6 +203,35 @@ void main() {
       );
     });
 
+    test('supervisor #536: stale server answer for the ride whose receipt is '
+        'stored (just closed here) does not reopen its trip', () async {
+      AppScope.instance.ride
+        ..restoreFromBackend(RideStatus.ratingPending, id: 'trp_1')
+        ..localTransition(RideStatus.closed);
+      await RideSnapshotStore.save(left(RideStatus.ratingPending, id: 'trp_1'));
+      final replaced = <Widget>[];
+      final c = coordinator(server('live', 'in_trip'), replaced);
+      await watchFor(c).check();
+      expect(
+        replaced.whereType<WaitingForDriver>(),
+        isEmpty,
+        reason: 'roots: ${replaced.map((w) => w.runtimeType).toList()}',
+      );
+    });
+
+    test('same ride receipt stored, suppressRestore false: a stale server '
+        'answer still does not reopen its trip', () async {
+      await RideSnapshotStore.save(left(RideStatus.ratingPending, id: 'trp_1'));
+      final replaced = <Widget>[];
+      final c = coordinator(server('live', 'in_trip'), replaced);
+      await watchFor(c).check();
+      expect(
+        replaced.whereType<WaitingForDriver>(),
+        isEmpty,
+        reason: 'roots: ${replaced.map((w) => w.runtimeType).toList()}',
+      );
+    });
+
     test(
       "this device's own fresh search still wins over the server trip",
       () async {
