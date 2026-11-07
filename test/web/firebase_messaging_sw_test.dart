@@ -99,4 +99,40 @@ void main() {
           '&movera_link=movera%3A%2F%2Fride%2Fr9',
     ]);
   }, skip: _hasNode() ? false : 'node is not installed');
+
+  // Contract 0.18.49 (owner Q9): the trip push carries tripId; the tap hands
+  // it to the app so it opens the ride, not the Notifications list.
+  const tripPush = {
+    'from': '1234',
+    'data': {
+      'notificationId': 'ntf_2',
+      'kind': 'trip_update',
+      'tripId': 'trp_2',
+      'deepLink': 'movera://trips/trp_2',
+      'title': 'Din förare är framme',
+      'body': 'Volvo ABC123',
+    },
+  };
+
+  test('Q9: a trip push tap tells the open tab the tripId', () async {
+    final run = await _push('hidden', payload: tripPush, click: true);
+    expect(run['posted'], [
+      {
+        'type': 'movera-push-open',
+        'notificationId': 'ntf_2',
+        'kind': 'trip_update',
+        'deepLink': 'movera://trips/trp_2',
+        'tripId': 'trp_2',
+      },
+    ]);
+  }, skip: _hasNode() ? false : 'node is not installed');
+
+  test('Q9: with no tab open a trip push tap puts the tripId in the '
+      'address', () async {
+    final run = await _push('none', payload: tripPush, click: true);
+    expect(run['opened'], [
+      'https://rider.test/?movera_push=ntf_2&movera_kind=trip_update'
+          '&movera_link=movera%3A%2F%2Ftrips%2Ftrp_2&movera_trip=trp_2',
+    ]);
+  }, skip: _hasNode() ? false : 'node is not installed');
 }

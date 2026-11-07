@@ -63,4 +63,69 @@ void main() {
     expect(payload.routedRideId, isNull);
     expect(payload.destination, PushDestination.notifications);
   });
+
+  // Contract 0.18.49 (owner Q9, server PR #110): every trip link is
+  // trips/{tripId}. Fail-before on main 8e7c92b7: host `trips` was not a
+  // ride link -> the tap opened the Notifications list again (SUP-1).
+  test('Q9: link-only trip_update tap with movera://trips/{id} opens the '
+      'ride', () {
+    final payload = pushFromOpenMessage({
+      'notificationId': 'ntf_10',
+      'kind': 'trip_update',
+      'deepLink': 'movera://trips/trp_10',
+    })!;
+    expect(payload.routedRideId, 'trp_10');
+    expect(payload.destination, PushDestination.ride);
+  });
+  test('Q9: link-only ride_check tap with movera-rider://trips/{id} opens '
+      'the ride', () {
+    final payload = pushFromOpenMessage({
+      'notificationId': 'ntf_11',
+      'kind': 'ride_check',
+      'deepLink': 'movera-rider://trips/trp_11',
+    })!;
+    expect(payload.routedRideId, 'trp_11');
+    expect(payload.destination, PushDestination.ride);
+  });
+  test('Q9: receipt push tap with movera-rider://trips/{id}/receipt opens '
+      'the trip (its receipt)', () {
+    final payload = pushFromOpenMessage({
+      'notificationId': 'ntf_12',
+      'kind': 'receipt',
+      'deepLink': 'movera-rider://trips/trp_12/receipt',
+    })!;
+    expect(payload.routedRideId, 'trp_12');
+    expect(payload.destination, PushDestination.ride);
+    // The older spelling still works.
+    final old = pushFromOpenMessage({
+      'kind': 'receipt',
+      'deepLink': 'movera-rider://trip/trp_12/receipt',
+    })!;
+    expect(old.routedRideId, 'trp_12');
+  });
+  test('Q9: a receipt notice without its receipt link opens Notifications', () {
+    final payload = pushFromOpenMessage({
+      'kind': 'receipt',
+      'deepLink': 'movera-rider://trips/trp_13',
+    })!;
+    expect(payload.destination, PushDestination.notifications);
+  });
+  test('Q9: the web worker hands over tripId: a tap with a link the app '
+      'cannot read still opens the ride', () {
+    final payload = pushFromOpenMessage({
+      'notificationId': 'ntf_14',
+      'kind': 'trip_update',
+      'deepLink': '',
+      'tripId': 'trp_14',
+    })!;
+    expect(payload.routedRideId, 'trp_14');
+    expect(payload.destination, PushDestination.ride);
+    final launch = pushFromLaunchQuery({
+      'movera_push': 'ntf_14',
+      'movera_kind': 'trip_update',
+      'movera_link': '',
+      'movera_trip': 'trp_14',
+    })!;
+    expect(launch.destination, PushDestination.ride);
+  });
 }
