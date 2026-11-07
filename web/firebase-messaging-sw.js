@@ -63,6 +63,7 @@ self.addEventListener('push', function(event) {
     ? payload.data
     : {};
   var shown = moveraNotice(payload);
+  var trip = data.tripId || data.rideId;
   event.waitUntil(
     self.clients.matchAll({type: 'window', includeUncontrolled: true}).then(function(clients) {
       var rider = moveraRiderWindows(clients);
@@ -86,8 +87,10 @@ self.addEventListener('push', function(event) {
         body: shown.body ? String(shown.body) : '',
         icon: 'icons/Icon-192.png',
         data: data,
-        // One notice per ride: a newer push for the same ride replaces it.
-        tag: data.rideId ? 'movera-ride-' + data.rideId : (data.notificationId || undefined)
+        // One notice per trip: a newer push (moment) for the same trip
+        // replaces it. tripId is the trip; rideId is only its legacy alias
+        // (contract 0.18.48, "Ids").
+        tag: trip ? 'movera-ride-' + trip : (data.notificationId || undefined)
       });
     })
   );

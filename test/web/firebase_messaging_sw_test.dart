@@ -143,4 +143,31 @@ void main() {
     expect(run['posted'], isEmpty);
     expect(run['shown'], [containsPair('title', 'Driver arrived')]);
   }, skip: _hasNode() ? false : 'node is not installed');
+
+  // Contract 0.18.48: trip pushes carry data {tripId, moment}; rideId is
+  // only a read-only legacy alias (CONTRACT.md "Ids"). Each moment of one
+  // trip replaces the trip's notice instead of stacking a new one.
+  test('a real trip push (tripId + moment) gets the per-trip tag', () async {
+    Map<String, Object?> moment(String name, String title) => {
+      'from': '1234',
+      'data': {
+        'notificationId': 'ntf_$name',
+        'kind': 'trip_moment',
+        'tripId': 't7',
+        'moment': name,
+        'title': title,
+        'body': 'Volvo XC60',
+      },
+    };
+    final arriving = await _push(
+      'hidden',
+      payload: moment('driver_arriving', 'Votre chauffeur arrive bientôt'),
+    );
+    final arrived = await _push(
+      'visible',
+      payload: moment('driver_arrived', 'Votre chauffeur est arrivé'),
+    );
+    expect(arriving['shown'], [containsPair('tag', 'movera-ride-t7')]);
+    expect(arrived['shown'], [containsPair('tag', 'movera-ride-t7')]);
+  }, skip: _hasNode() ? false : 'node is not installed');
 }
