@@ -3,6 +3,7 @@ import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/config/live_data_only.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/repository_authority.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -448,7 +449,12 @@ class ReservationController extends ChangeNotifier {
       }
 
       if (ride.status == ReservationStatus.driverAssigned &&
-          ride.driver != null) {
+          ride.driver != null &&
+          // SUP3-R2: on a server build the server owns the lifecycle (it
+          // says when the driver is on the way). A status-only patch through
+          // the server repository is a reschedule (quote + /reschedule),
+          // refused this close to pickup (booking_too_soon), every tick.
+          _store is! ServerBackedRepository) {
         // Preserve the established contract: a real assigned driver becomes
         // en-route when the pickup window opens. The clock changes status
         // only; it never creates identity, movement or cancellation.
