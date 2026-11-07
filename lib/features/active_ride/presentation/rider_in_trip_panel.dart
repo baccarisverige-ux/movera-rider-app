@@ -155,8 +155,8 @@ class RiderInTripPanel extends StatelessWidget {
               walletMinor: walletAmountMinor,
             )}',
             key: const ValueKey<String>('trip-summary-line'),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            // B8 (finder 2026-11-07): the line wraps; on one line the wallet
+            // part and the amount were cut off at 320 px in French.
             style: waitingText(
               13.5,
               weight: FontWeight.w500,
