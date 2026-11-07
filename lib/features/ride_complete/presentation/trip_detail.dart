@@ -58,9 +58,17 @@ class RideCompletedTripDetail extends StatelessWidget {
                     compact: true,
                   ),
                 ] else ...[
-                  _detailRow(context.l10n.pickupLocation, trip.pickup),
+                  // B4 (finder 2026-11-07): the stand-in labels in the app
+                  // language and no trailing country.
+                  _detailRow(
+                    context.l10n.pickupLocation,
+                    L10n.place(trip.pickup),
+                  ),
                   8.height,
-                  _detailRow(context.l10n.destination, trip.destination),
+                  _detailRow(
+                    context.l10n.destination,
+                    L10n.place(trip.destination),
+                  ),
                   8.height,
                   if (trip.endedEarly) ...[
                     // R-O6: the waybill says the trip ended early and how

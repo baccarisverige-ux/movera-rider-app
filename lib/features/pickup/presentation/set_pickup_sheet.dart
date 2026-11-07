@@ -130,7 +130,10 @@ extension _SetPickupSheet on _SetPickupPageState {
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 220),
                       child: Text(
-                        _address,
+                        // B3 (finder 2026-11-07): the English stand-in
+                        // "Pickup location" in the app language, as on
+                        // Finding and Waiting.
+                        L10n.place(_address),
                         key: ValueKey(_address),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

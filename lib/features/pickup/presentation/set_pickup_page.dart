@@ -1018,7 +1018,9 @@ class _SetPickupPageState extends State<SetPickupPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.destinationAddress,
+                      // B4: no trailing country (owner 2026-11-01), as on
+                      // Select ride and Finding.
+                      L10n.place(widget.destinationAddress),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: _text(16, weight: FontWeight.w500),
