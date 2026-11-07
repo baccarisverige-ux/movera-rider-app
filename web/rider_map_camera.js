@@ -582,7 +582,13 @@
     // this constructor returns, so the event is replayed on the next task.
     // The camera is set again then too, now that the map's new element is
     // laid out, so the screen opens on its own target, not the last view.
+    // Google measures its element only on 'resize': a reused map otherwise
+    // keeps the size of its old box and leaves a flat grey band below its
+    // tiles (Set pickup, Confirm pickup, Select ride, Finding, Waiting). It
+    // is told to measure again before the camera is set, and once more on
+    // the next frame, once the new container is laid out.
     setTimeout(() => {
+      try { sdk.event.trigger(map, 'resize'); } catch (_) { /* best effort */ }
       try {
         const camera = {heading: rest.heading || 0, tilt: rest.tilt || 0};
         if (rest.center) camera.center = rest.center;
@@ -590,6 +596,16 @@
         map.moveCamera(camera);
       } catch (_) { /* best effort */ }
       try { sdk.event.trigger(map, 'tilesloaded'); } catch (_) { /* best effort */ }
+      try {
+        if (typeof globalThis.requestAnimationFrame !== 'function') return;
+        globalThis.requestAnimationFrame(() => {
+          try { sdk.event.trigger(map, 'resize'); } catch (_) { /* best effort */ }
+          try {
+            const center = map.getCenter?.();
+            if (center) map.setCenter(center);
+          } catch (_) { /* best effort */ }
+        });
+      } catch (_) { /* best effort */ }
     }, 0);
     recycled += 1;
     return map;

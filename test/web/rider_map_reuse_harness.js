@@ -100,7 +100,17 @@ const mount = (id, options) => {
   out.pooled = layer.stats().pooled;
   // Set pickup mounts its own map at the rider's position.
   const second = mount(2, {center: {lat: 59.33, lng: 18.06}, zoom: 16});
-  await sleep(30);
+  // A reused map must measure its new element ('resize') before its
+  // camera is set again, or it keeps its old size (grey band).
+  const reuseLog = [];
+  event.addListener(second.map, 'resize', () => { reuseLog.push('resize'); });
+  const nativeMove = second.map.moveCamera;
+  second.map.moveCamera = function(c) { reuseLog.push('camera'); return nativeMove.call(this, c); };
+  await sleep(60);
+  second.map.moveCamera = nativeMove;
+  out.reuseResized = reuseLog.filter(e => e === 'resize').length;
+  out.resizeBeforeCamera = reuseLog.indexOf('resize') !== -1
+    && reuseLog.indexOf('resize') < reuseLog.indexOf('camera');
   out.reused = second.map === first.map;
   out.secondReady = second.isReady();
   out.camera = {lat: second.map.getCenter().lat(), lng: second.map.getCenter().lng(),
