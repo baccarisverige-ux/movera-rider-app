@@ -618,12 +618,19 @@
     // window.moveraMapsSrc (just above the app's start script); the first map
     // on screen calls this (lib/core/web/web_maps_available_web.dart) and the
     // map waits for it as before (rider-r4-20).
+    // Finder C3: a failed load (a network switch, a tunnel) frees the
+    // loader again, so the map's next ask (it asks again while it waits)
+    // loads it instead of leaving every map unavailable until a reload.
     window.moveraLoadGoogleMaps = function() {
       if (window.moveraGoogleMapsRequested || !window.moveraMapsSrc) return;
       window.moveraGoogleMapsRequested = true;
       var script = document.createElement('script');
       script.src = window.moveraMapsSrc;
       script.async = true;
+      script.onerror = function() {
+        window.moveraGoogleMapsRequested = false;
+        if (script.parentNode) script.parentNode.removeChild(script);
+      };
       document.head.appendChild(script);
     };
   </script>
