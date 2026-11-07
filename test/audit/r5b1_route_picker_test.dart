@@ -77,10 +77,22 @@ void main() {
         ),
       ),
     );
+    // French uses the same words for the pickup field hint ("pickup") and
+    // the fallback label, so only rows outside the input fields count.
+    final label = L10n.current.pickupLocation;
+    final outsideFields = find.byWidgetPredicate(
+      (w) => w is Text && (w.data ?? '').contains(label),
+    );
+    int rows() =>
+        outsideFields.evaluate().length -
+        find
+            .descendant(of: find.byType(TextField), matching: outsideFields)
+            .evaluate()
+            .length;
     await tester.pump(const Duration(seconds: 1));
-    expect(find.textContaining(L10n.current.pickupLocation), findsNothing);
+    expect(rows(), 0);
     await tester.enterText(find.byType(EditableText).last, 'Lieu');
     await tester.pump(const Duration(seconds: 1));
-    expect(find.textContaining(L10n.current.pickupLocation), findsNothing);
+    expect(rows(), 0);
   });
 }
