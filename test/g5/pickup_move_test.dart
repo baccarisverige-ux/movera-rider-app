@@ -184,7 +184,7 @@ void main() {
             .having(
               (e) => e.message,
               'message',
-              'Le chauffeur est déjà là – le point de départ ne peut plus être déplacé',
+              'Le chauffeur est déjà arrivé. Vous ne pouvez plus modifier le lieu de prise en charge.',
             ),
       ),
     );

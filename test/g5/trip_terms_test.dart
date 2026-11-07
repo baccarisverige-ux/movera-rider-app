@@ -58,8 +58,8 @@ void main() {
     expect(lines, [
       'Attente gratuite 3 min, puis 1,10 € par minute',
       'Si vous n’êtes pas là 3 min après l’arrivée du chauffeur, des frais de 8,00 € s’appliquent',
-      'Annuler après l’arrivée du chauffeur et la fin de l’attente gratuite compte comme un client absent',
-      'Vous pouvez déplacer le point de départ de 200 m au plus après la réservation',
+      'Annuler après l’arrivée du chauffeur et la fin de l’attente gratuite est considéré comme une absence du passager',
+      'Vous pouvez déplacer le lieu de prise en charge de 200 m au plus après la réservation',
     ]);
   });
 
