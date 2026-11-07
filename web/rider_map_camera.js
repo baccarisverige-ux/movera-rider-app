@@ -537,7 +537,50 @@
   // the same Map with its container moved inside, as Google itself advises
   // (create a map once, reuse it). Beyond the pool a map is gutted instead.
   const pool = [];
-  const POOL_MAX = 2;
+  // Diagnostic test switch (owner decision 2026-11-06, grey band): a page
+  // opened with ?mappool=0 keeps no map for reuse, so every screen makes a
+  // fresh Map (a removed map is still gutted below). It is kept in
+  // sessionStorage so in-app navigation, which drops the query, keeps it
+  // for the rest of the tab's session; ?mappool=1 turns it off again.
+  // Without the parameter nothing changes for real riders.
+  const SWITCH_KEY = 'movera.mappool';
+  const poolSwitchOff = (() => {
+    try {
+      const value = new URLSearchParams(globalThis.location?.search || '').get('mappool');
+      const store = globalThis.sessionStorage;
+      if (value === '0') { try { store?.setItem(SWITCH_KEY, '0'); } catch (_) { /* best effort */ } return true; }
+      if (value === '1') { try { store?.removeItem(SWITCH_KEY); } catch (_) { /* best effort */ } return false; }
+      return store?.getItem(SWITCH_KEY) === '0';
+    } catch (_) {
+      return false;
+    }
+  })();
+  const POOL_MAX = poolSwitchOff ? 0 : 2;
+  // With the switch on, each map shown logs its sizes to the console only
+  // (no network, no crash channel, no personal data): the plugin element,
+  // Google's container, its drawing area and canvases. A gap between the
+  // element and the drawing area is the grey band.
+  const heightOf = el => {
+    try {
+      const rect = el?.getBoundingClientRect?.();
+      return rect ? Math.round(rect.height) : (el?.clientHeight ?? null);
+    } catch (_) { return null; }
+  };
+  function logMapSize(state, reused) {
+    if (!poolSwitchOff || !state) return;
+    const {div, container, id} = state;
+    for (const [phase, ms] of [['shown', 300], ['settled', 2000]]) {
+      setTimeout(() => {
+        try {
+          const canvases = [...(container.querySelectorAll?.('canvas') || [])];
+          console.info('movera.map.size', JSON.stringify({id, phase, reused,
+            pool: POOL_MAX, element: heightOf(div), container: heightOf(container),
+            mapDiv: heightOf(container.querySelector?.('.gm-style')),
+            canvas: canvases.map(c => ({css: heightOf(c), px: c.height}))}));
+        } catch (_) { /* best effort */ }
+      }, ms);
+    }
+  }
   let created = 0, recycled = 0, pooledTotal = 0;
   const overlaysOf = map => (map.__moveraOverlays ||= new Set());
   function clearMapForReuse(state) {
@@ -608,6 +651,7 @@
       } catch (_) { /* best effort */ }
     }, 0);
     recycled += 1;
+    logMapSize(state, true);
     return map;
   }
   // Markers, lines, shapes and layers are tracked per map, so a reused map
@@ -728,6 +772,7 @@
         const map = Reflect.construct(target, [div, {...options, isFractionalZoomEnabled: true}]);
         created += 1;
         install(map, div, id);
+        logMapSize(states.get(id), false);
         return map;
       }
     });
@@ -798,7 +843,7 @@
       const ids = [...states.entries()].map(([key, state]) =>
         `${key}${div_isConnected(state.div) ? '' : ':detached'}`);
       return {live: states.size, created, recycled, pooled: pool.length,
-        pooledTotal, released, contextsReleased, ids};
+        pooledTotal, released, contextsReleased, ids, poolMax: POOL_MAX};
     },
     claim(id) {
       const state = states.get(id); if (state) state.claim = true;
