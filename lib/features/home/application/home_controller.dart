@@ -324,6 +324,8 @@ class HomeLocationController extends ChangeNotifier {
 
   Timer? _headingTimer;
   Timer? _pulseTimer;
+  bool Function()? _pulseMounted;
+  void Function()? _pulseOnTick;
   bool Function()? _headingMounted;
   void Function(double heading)? _onHeading;
   Future<bool>? _headingStartInFlight;
@@ -938,6 +940,8 @@ class HomeLocationController extends ChangeNotifier {
     if (_disposed) return;
     _pulseTimer?.cancel();
     _pulseTimer = null;
+    _pulseMounted = isMounted;
+    _pulseOnTick = onTick;
     pulseExpanded = false;
     onTick();
     if (!_pulseAnimates) return;
@@ -1055,16 +1059,45 @@ class HomeLocationController extends ChangeNotifier {
     super.dispose();
   }
 
+  /// Finder C2/C5: Home is parked (a ride or another page above it) or the
+  /// app left the front. The GPS watch, the heading poll and the pulse
+  /// timer are let go, not just ignored, so the phone's GPS (high
+  /// accuracy) is not on for the whole trip under the trip screens.
+  /// [resumeLiveUpdates] starts them again.
   void pauseLiveUpdates() {
     _livePaused = true;
+    _positionSub?.cancel();
+    _positionSub = null;
+    _resubscribeTimer?.cancel();
+    _resubscribeTimer = null;
+    _headingTimer?.cancel();
+    _headingTimer = null;
+    _pulseTimer?.cancel();
+    _pulseTimer = null;
   }
 
   void resumeLiveUpdates() {
     final wasPaused = _livePaused;
     _livePaused = false;
+    if (!wasPaused || _disposed) return;
+    final isMounted = _trackingMounted;
+    final onFix = _trackingOnFix;
+    if (isMounted != null && onFix != null && isMounted()) {
+      if (_positionSub == null && _resubscribeTimer == null) {
+        startTracking(isMounted: isMounted, onFix: onFix);
+      }
+    }
+    if (_onHeading != null && (_compassStarted || _compassSupported)) {
+      _ensureHeadingPoller();
+    }
+    final pulseMounted = _pulseMounted;
+    final pulseTick = _pulseOnTick;
+    if (pulseMounted != null && pulseTick != null && pulseMounted()) {
+      startPulse(isMounted: pulseMounted, onTick: pulseTick);
+    }
     // U2: fixes were dropped while paused, and a stationary rider may not
     // produce a new stream event for a long time. Ask for one fresh fix.
-    if (wasPaused) unawaited(_refreshAfterResume());
+    unawaited(_refreshAfterResume());
   }
 
   Future<void> _refreshAfterResume() async {
