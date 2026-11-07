@@ -19,6 +19,7 @@ import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/features/pickup/application/pickup_controller.dart';
 import 'package:movera_rider/features/pickup/application/pickup_spots_controller.dart';
 import 'package:movera_rider/features/pickup/domain/pickup_spot.dart';
+import 'package:movera_rider/features/pickup/presentation/set_pickup_hold.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/shared/formatters/place_format.dart';
@@ -32,6 +33,8 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+
+export 'package:movera_rider/features/pickup/presentation/set_pickup_hold.dart';
 
 part 'set_pickup_pin.dart';
 part 'set_pickup_sheet.dart';
@@ -159,7 +162,12 @@ class SetPickupResult {
     required this.address,
     required this.bagLevel,
     this.fareTotalKr,
+    this.hold,
   });
+
+  /// Set pickup still on screen (opened with `holdOnConfirm`): the caller
+  /// replaces or closes it once the ride is booked or refused.
+  final SetPickupHold? hold;
 
   final LatLng position;
   final String address;
@@ -199,6 +207,7 @@ class SetPickupPage extends StatefulWidget {
     this.scheduledPickup,
     this.geocoding,
     this.stops = const <String>[],
+    this.onHeldConfirm,
   });
 
   static Future<SetPickupResult?> open(
@@ -222,7 +231,13 @@ class SetPickupPage extends StatefulWidget {
     String? confirmLabel,
     DateTime? scheduledPickup,
     List<String> stops = const <String>[],
+    bool holdOnConfirm = false,
   }) async {
+    // Owner decision "Confirm and search": with [holdOnConfirm], Confirm
+    // answers at once and Set pickup stays, its button spinning, until the
+    // caller replaces or closes it (SetPickupResult.hold).
+    final confirmed = holdOnConfirm ? Completer<SetPickupResult?>() : null;
+    late final SetPickupHold hold;
     final route = RightToLeftTransition<SetPickupResult>(
       SetPickupPage(
         initialPosition: initialPosition,
@@ -244,12 +259,39 @@ class SetPickupPage extends StatefulWidget {
         confirmLabel: confirmLabel,
         scheduledPickup: scheduledPickup,
         stops: stops,
+        onHeldConfirm: confirmed == null
+            ? null
+            : (result) {
+                if (confirmed.isCompleted) return;
+                confirmed.complete(
+                  SetPickupResult(
+                    position: result.position,
+                    address: result.address,
+                    bagLevel: result.bagLevel,
+                    fareTotalKr: result.fareTotalKr,
+                    hold: hold,
+                  ),
+                );
+              },
       ),
       settings: const RouteSettings(name: AppRoutes.confirmPickup),
     );
-    final result = await Navigator.of(context).push<SetPickupResult>(route);
-    await route.completed;
-    return result;
+    hold = SetPickupHold(route);
+    final shown = Navigator.of(context).push<SetPickupResult>(route);
+    if (confirmed == null) {
+      final result = await shown;
+      await route.completed;
+      return result;
+    }
+    // Back without confirming: null once Set pickup has gone, as before.
+    unawaited(
+      shown.then((result) async {
+        if (confirmed.isCompleted) return;
+        await route.completed;
+        if (!confirmed.isCompleted) confirmed.complete(result);
+      }),
+    );
+    return confirmed.future;
   }
 
   final LatLng initialPosition;
@@ -296,6 +338,10 @@ class SetPickupPage extends StatefulWidget {
 
   /// Looks up the pin's address; the app's own geocoder when null.
   final AppGeocoding? geocoding;
+
+  /// Set by [open] with `holdOnConfirm`: Confirm hands the pickup over here
+  /// and the page stays, its button spinning, instead of closing.
+  final ValueChanged<SetPickupResult>? onHeldConfirm;
 
   /// Where the pin's tip sits, as a share of the screen height.
   static const pinFraction = 0.34;
@@ -463,6 +509,8 @@ class _SetPickupPageState extends State<SetPickupPage>
     _lift.dispose();
     _pickup.dispose();
     AppScope.instance.maps.detach(owner: MapOwners.pickup);
+    _heldRoute?.unregisterPopEntry(_heldPopEntry);
+    _heldPopEntry.dispose();
     super.dispose();
   }
 
@@ -859,16 +907,33 @@ class _SetPickupPageState extends State<SetPickupPage>
     // Next time this address comes up, the spot is offered as "Previously
     // used". Fire and forget: confirming never waits on storage.
     unawaited(_spotsController.remember(position: _center, address: address));
-    Navigator.pop(
-      context,
-      SetPickupResult(
-        position: _center,
-        address: address,
-        bagLevel: _bags,
-        fareTotalKr: _fare.totalKr,
-      ),
+    final result = SetPickupResult(
+      position: _center,
+      address: address,
+      bagLevel: _bags,
+      fareTotalKr: _fare.totalKr,
     );
+    final held = widget.onHeldConfirm;
+    if (held != null) {
+      // Owner decision "Confirm and search": the screen stays with the
+      // spinner while the ride is booked; the caller moves on from here.
+      setState(() {
+        _held = true;
+        _confirmWaiting = true;
+      });
+      // No back (system back, swipe) while the ride is booked.
+      _heldRoute = ModalRoute.of(context)?..registerPopEntry(_heldPopEntry);
+      held(result);
+      return;
+    }
+    Navigator.pop(context, result);
   }
+
+  /// Confirmed and handed over ([SetPickupPage.onHeldConfirm]): the ride
+  /// is being booked, so the page neither changes nor goes back.
+  bool _held = false;
+  final _HeldPopEntry _heldPopEntry = _HeldPopEntry();
+  ModalRoute<Object?>? _heldRoute;
 
   // ---- Sheet: drag anywhere on it, soft landing + haptic. ----
 
@@ -953,6 +1018,16 @@ class _SetPickupPageState extends State<SetPickupPage>
             ),
           ),
           Align(alignment: Alignment.bottomCenter, child: _sheetView(media)),
+          // Held while the ride is booked: the pickup handed over can no
+          // longer be changed under the spinner (last, so nothing above
+          // is rebuilt).
+          if (_held)
+            Positioned.fill(
+              key: const ValueKey('set-pickup-held'),
+              child: PointerInterceptor(
+                child: const AbsorbPointer(child: SizedBox.expand()),
+              ),
+            ),
         ],
       ),
     );
@@ -1012,7 +1087,9 @@ class _SetPickupPageState extends State<SetPickupPage>
           child: Row(
             children: [
               IconButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () {
+                  if (!_held) Navigator.pop(context);
+                },
                 tooltip: context.l10n.back,
                 icon: const Icon(Icons.arrow_back_rounded, color: _ink),
               ),
@@ -1171,4 +1248,18 @@ class _SetPickupPageState extends State<SetPickupPage>
   };
 
   static const Color _walletGreen = Color(0xFF079A60);
+}
+
+/// Refuses every back gesture while Set pickup is held (see
+/// [SetPickupPage.onHeldConfirm]); the caller closes the page itself.
+class _HeldPopEntry extends PopEntry<Object?> {
+  final ValueNotifier<bool> _canPop = ValueNotifier<bool>(false);
+
+  @override
+  ValueListenable<bool> get canPopNotifier => _canPop;
+
+  @override
+  void onPopInvokedWithResult(bool didPop, Object? result) {}
+
+  void dispose() => _canPop.dispose();
 }

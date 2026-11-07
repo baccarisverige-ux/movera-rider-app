@@ -298,9 +298,13 @@ void main() {
       expect(quotes.pin, isNotNull);
 
       // Confirm while the pin's price is still loading; Set pickup gives up
-      // waiting and closes with the old price shown.
+      // waiting and hands over the old price shown. Owner decision "Confirm
+      // and search" (2026-11-07): it stays, its button spinning.
       await confirm(tester);
-      expect(find.byType(SetPickupPage), findsNothing);
+      expect(
+        find.byKey(const ValueKey('set-pickup-confirm-waiting')),
+        findsOneWidget,
+      );
       expect(booking.submits, 0);
 
       quotes.pin!.complete();

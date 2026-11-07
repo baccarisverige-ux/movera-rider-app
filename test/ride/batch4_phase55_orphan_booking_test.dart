@@ -34,6 +34,13 @@ class _RecordingObserver extends NavigatorObserver {
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     pushed.add(route);
   }
+
+  /// Finding comes in place of Set pickup (owner decision "Confirm and
+  /// search", 2026-11-07): a presentation as well.
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    if (newRoute != null) pushed.add(newRoute);
+  }
 }
 
 class _GateRideCreateClient extends InProcessMockClient {
@@ -157,7 +164,9 @@ void main() {
       moveraNavigatorKey.currentState!.removeRoute(selectRoute);
       await tester.pump();
       expect(find.byType(SelectRide), findsNothing);
-      expect(find.text('phase55-home'), findsOneWidget);
+      // Owner decision "Confirm and search" (2026-11-07): Set pickup stays,
+      // its button spinning, until the ride is booked.
+      expect(find.byType(SetPickupPage), findsOneWidget);
 
       transport.allowRideCreate.complete();
       for (
@@ -174,6 +183,11 @@ void main() {
         reason:
             'a successful backend ride must get an immediate visible/recovery owner even if Select Ride unmounts',
       );
+      // Its owner gone, Set pickup is closed rather than left behind.
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(SetPickupPage), findsNothing);
       final snapshot = await RideSnapshotStore.read();
       expect(snapshot?.rideId, AppScope.instance.ride.rideId);
       expect(snapshot?.status, RideStatus.findingDriver);
@@ -318,7 +332,13 @@ void main() {
 
       // A second physical tap while the first mutation is pending must not
       // create a second backend ride or a second Finding presentation.
-      await tester.tap(book);
+      // Owner decision "Confirm and search" (2026-11-07): Set pickup stays
+      // on screen, so the second tap lands on its spinning button.
+      expect(find.byType(SetPickupPage), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('set-pickup-confirm')),
+        warnIfMissed: false,
+      );
       await tester.pump();
       expect(transport.rideCreateCalls, 1);
 

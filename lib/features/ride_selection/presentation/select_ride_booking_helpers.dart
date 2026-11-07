@@ -57,6 +57,7 @@ extension _SelectRideBookingHelpers on _SelectRideState {
     _RideOption ride, {
     String? confirmLabel,
     DateTime? scheduledPickup,
+    bool holdOnConfirm = false,
   }) async {
     final home = await _homePosition();
     if (!mounted) return null;
@@ -114,6 +115,7 @@ extension _SelectRideBookingHelpers on _SelectRideState {
       positionIsFallback: widget.pickupIsFallback && !_pickupConfirmed,
       confirmLabel: confirmLabel,
       scheduledPickup: scheduledPickup,
+      holdOnConfirm: holdOnConfirm,
     );
   }
 
