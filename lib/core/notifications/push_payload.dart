@@ -71,6 +71,7 @@ class PushPayload {
   /// accepting ride/ and trip/ for pushes still on phones.
   static const Set<String> _rideLinkSchemes = {'movera', 'movera-rider'};
   static const Set<String> _rideLinkHosts = {'ride', 'trip', 'trips'};
+  static const String _tripsLinkHost = 'trips';
 
   /// The receipt push (finish.receipt.resend: kind receipt, deep link
   /// movera-rider://trips/{tripId}/receipt). Its tap opens the trip, whose
@@ -90,7 +91,6 @@ class PushPayload {
     if (isRideEvent && direct != null) return direct;
 
     final isReceipt = type == _receiptKind;
-    if (!isRideEvent && !isReceipt) return null;
     final link = _clean(deepLink);
     if (link == null) return null;
     final uri = Uri.tryParse(link);
@@ -100,6 +100,14 @@ class PushPayload {
       return null;
     }
     final segments = uri.pathSegments;
+    // SUP3-R3: any other kind (the booked-ride pushes reservation_*) opens
+    // its trip when its link is the contract's trips/{tripId} (Q9), never
+    // the Notifications list.
+    if (!isRideEvent && !isReceipt) {
+      return uri.host == _tripsLinkHost && segments.length == 1
+          ? _clean(segments.single)
+          : null;
+    }
     // {id}/receipt names the trip's receipt (any trip link host).
     if (segments.length == 2 && segments.last == _receiptSegment) {
       return _clean(segments.first);
