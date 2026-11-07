@@ -13,6 +13,8 @@ import 'package:movera_rider/features/home/presentation/home_map_style.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_map_layer.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:movera_rider/core/location/location_repository.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 
 /// Phase 139 moved Home's map layer out of home.dart. These pin that Home
 /// still mounts one live map, and the layer's parked/caching rules.
@@ -20,7 +22,13 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
-  setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    // Item 9: Home no longer opens a made-up Stockholm map when no GPS
+    // answers; these map tests start from a position this session knows.
+    LocationRepository.noteSessionFix(const GeoPoint(59.3293, 18.0686));
+  });
+  tearDown(LocationRepository.debugForgetSessionFix);
 
   testWidgets('Home mounts exactly one live map', (tester) async {
     tester.view.physicalSize = const Size(390, 844);

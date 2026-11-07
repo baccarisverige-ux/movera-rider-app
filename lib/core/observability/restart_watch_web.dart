@@ -27,7 +27,9 @@ RestartWatch? startRestartWatch({required RestartReport report}) {
     );
     web.window.addEventListener(
       'pagehide',
-      ((web.Event _) => watch.pageHide()).toJS,
+      ((web.PageTransitionEvent event) => watch.pageHide(
+        persisted: event.persisted,
+      )).toJS,
     );
     web.window.addEventListener(
       'pageshow',

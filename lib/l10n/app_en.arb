@@ -2106,6 +2106,18 @@
       }
     }
   },
+  "bookingCancelCosts": "Cancelling less than {min} min before pickup costs {fee}",
+  "@bookingCancelCosts": {
+    "description": "v0.18.49 Q10 contract words (afterTestRules.bookedCancel.apps): the category's reservation cancel rule.",
+    "placeholders": {
+      "min": {
+        "type": "String"
+      },
+      "fee": {
+        "type": "String"
+      }
+    }
+  },
   "scheduleForLaterChip": "Book a ride for later",
   "bookedDriverOnTheWay": "Your booked driver is on the way",
   "@bookedDriverOnTheWay": {"description": "v0.18.32 owner Q1: banner on a live ride while a booked ride's driver drives to the rider."},

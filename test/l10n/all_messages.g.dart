@@ -953,6 +953,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'resErrChangeTooLate': l.resErrChangeTooLate(37),
   'resErrZoneOff': l.resErrZoneOff,
   'bookingFreeRule': l.bookingFreeRule('<time>'),
+  'bookingCancelCosts': l.bookingCancelCosts('<min>', '<fee>'),
   'scheduleForLaterChip': l.scheduleForLaterChip,
   'bookedDriverOnTheWay': l.bookedDriverOnTheWay,
   'findingDriver': l.findingDriver,
@@ -1839,6 +1840,7 @@ const messagePlaceholders = <String, List<String>>{
   'resErrTooFar': [],
   'resErrChangeTooLate': [],
   'bookingFreeRule': ['time'],
+  'bookingCancelCosts': ['min', 'fee'],
   'destinationLabel': ['address'],
   'stopNumber': ['number'],
   'routeSetFavourite': ['place'],
@@ -3834,6 +3836,8 @@ class _Exhaustive implements AppLocalizations {
   String get resErrZoneOff => '';
   @override
   String bookingFreeRule(String time) => '';
+  @override
+  String bookingCancelCosts(String min, String fee) => '';
   @override
   String get scheduleForLaterChip => '';
   @override

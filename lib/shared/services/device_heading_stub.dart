@@ -15,3 +15,7 @@ Future<bool> startHeadingTracking() async => false;
 double? currentHeading() => null;
 
 void stopHeadingTracking() {}
+
+/// The web asks the motion permission on the tap that calls this; nothing
+/// to ask here.
+void armHeadingPrompt() {}

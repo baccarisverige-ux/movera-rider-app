@@ -19,8 +19,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Owner decision "Home map start" (2026-11-07, like the driver app): Home's
 /// map opens at once on the last known position, never on central
 /// Stockholm with a flight to the rider. First time with no known position:
-/// a "locating" surface (at most [homeStartWaitLimit]) and then the map at
-/// the first fix, else at the zone default without a flight.
+/// a "locating" surface until the first fix (item 9: no 3 s fallback);
+/// location refused: the zone's city (Stockholm / Paris), without a flight.
 ///
 /// PROOF (problem 1): Home's map was born at central Stockholm
 /// even when the app already knows where the rider was (saved last good
@@ -248,23 +248,79 @@ void main() {
     await leave(tester);
   });
 
-  testWidgets('first time, no fix within the wait: the map opens at the zone '
-      'default (no flight)', (tester) async {
+  testWidgets('item 9: first time, a slow first fix: still "locating" '
+      'after 3 s, never a made-up Stockholm map', (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     gps
       ..failFirst = 0
-      ..gate = Completer<void>(); // the GPS never answers in time
+      ..lat = 59.6200
+      ..lng = 17.8300
+      ..gate = Completer<void>(); // the GPS is slow
     await pumpHome(tester); // 0.8 s
     expect(find.byKey(const ValueKey('home-map-locating')), findsOneWidget);
-    await frames(tester, 25); // past the 3 s wait
-    final start = mapStart(tester);
+    await frames(tester, 25); // past the old 3 s fallback
     // ignore: avoid_print
-    print('first time, no fix: map born at $start');
-    expect(start, isNotNull, reason: 'the map is not held back for good');
-    expect(start!.latitude, closeTo(59.3293, 0.001));
-    expect(find.byKey(const ValueKey('home-map-locating')), findsNothing);
+    print('item 9, slow fix after 3.3 s: map=${mapStart(tester)}');
+    expect(
+      mapStart(tester),
+      isNull,
+      reason: 'the map opened at central Stockholm before the first fix',
+    );
+    expect(find.byKey(const ValueKey('home-map-locating')), findsOneWidget);
     gps.gate!.complete();
     gps.gate = null;
+    await frames(tester, 5);
+    expect(mapStart(tester)!.latitude, closeTo(59.6200, 0.001));
     await leave(tester);
   });
+
+  for (final (zone, city, name) in [
+    (null, homeStockholm, 'Stockholm'),
+    ('FR-PC', homeParis, 'Paris'),
+  ]) {
+    testWidgets('item 9: location refused, last zone $zone: the map opens '
+        'at $name', (tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        if (zone != null) 'movera.location.last_zone.v1': zone,
+      });
+      GeolocatorPlatform.instance = _DeniedGeolocator();
+      await pumpHome(tester);
+      await frames(tester, 10);
+      final start = mapStart(tester);
+      // ignore: avoid_print
+      print('item 9, refused ($zone): map born at $start');
+      expect(start, isNotNull, reason: 'a refused location still gets a map');
+      expect(start!.latitude, closeTo(city.latitude, 0.001));
+      expect(start.longitude, closeTo(city.longitude, 0.001));
+      expect(find.byKey(const ValueKey('home-map-locating')), findsNothing);
+      await leave(tester);
+    });
+  }
+}
+
+/// Location refused: the rider said no.
+class _DeniedGeolocator extends GeolocatorPlatform {
+  @override
+  Future<bool> isLocationServiceEnabled() async => true;
+
+  @override
+  Future<LocationPermission> checkPermission() async =>
+      LocationPermission.denied;
+
+  @override
+  Future<LocationPermission> requestPermission() async =>
+      LocationPermission.denied;
+
+  @override
+  Future<Position?> getLastKnownPosition({
+    bool forceLocationManager = false,
+  }) async => null;
+
+  @override
+  Future<Position> getCurrentPosition({LocationSettings? locationSettings}) =>
+      throw const PermissionDeniedException('denied');
+
+  @override
+  Stream<Position> getPositionStream({LocationSettings? locationSettings}) =>
+      Stream<Position>.error(const PermissionDeniedException('denied'));
 }

@@ -19,6 +19,11 @@ class ScheduledRideRules {
   /// Longest free-cancel window the rider app accepts (one week).
   static const maxFreeCancelMinutes = 7 * 24 * 60;
 
+  /// v0.18.49 §71 (owner Q10 update): a booked ride's cancel is always free
+  /// for this long after booking (`contract.json#afterTestRules.bookedCancel
+  /// .graceAfterBookingMin`, a fixed contract value, not an admin setting).
+  static const cancelGraceAfterBooking = Duration(minutes: 5);
+
   /// The rider cancels for free until this many minutes before pickup.
   final int freeCancelMinutesBeforePickup;
 
@@ -121,7 +126,10 @@ class ScheduledRideRules {
       fare,
       rule.freeMin - 1,
     );
-    final charged = fee.isPositive && !missedByMovera;
+    final sinceBooking = now.difference(ride.createdAt);
+    final inGrace =
+        !sinceBooking.isNegative && sinceBooking < cancelGraceAfterBooking;
+    final charged = fee.isPositive && !missedByMovera && !inGrace;
     return ReservationCancelTerms(
       at: now,
       freeUntil: freeUntil,

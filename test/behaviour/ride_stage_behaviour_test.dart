@@ -223,7 +223,7 @@ void main() {
     await pumpWaiting(tester);
     await tester.tap(find.byIcon(Icons.close_rounded));
     await tester.pumpAndSettle();
-    expect(find.text('Cancel request'), findsOneWidget);
+    expect(find.text('Cancel ride'), findsOneWidget);
     expect(find.textContaining('Confirming your ride'), findsNothing);
     expect(find.byType(AlertDialog), findsNothing);
     await tester.pumpWidget(const SizedBox());

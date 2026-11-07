@@ -9,9 +9,18 @@ import 'package:movera_rider/l10n/l10n.dart';
 /// reflects the shared realtime connection source so the future backend can
 /// drive the same UI without changing presentation code.
 class RealtimeConnectionBanner extends StatelessWidget {
-  const RealtimeConnectionBanner({super.key, required this.connection});
+  const RealtimeConnectionBanner({
+    super.key,
+    required this.connection,
+    this.hidden,
+  });
 
   final RealtimeConnection connection;
+
+  /// Read on every connection change: true when the screen no longer
+  /// follows a trip (a committed cancel lets the transport go, which is no
+  /// lost connection to tell the rider about).
+  final bool Function()? hidden;
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +29,7 @@ class RealtimeConnectionBanner extends StatelessWidget {
       initialData: connection.state,
       builder: (context, snapshot) {
         final state = snapshot.data ?? connection.state;
-        final spec = _spec(state);
+        final spec = (hidden?.call() ?? false) ? null : _spec(state);
 
         return AnimatedSwitcher(
           duration: const Duration(milliseconds: 180),

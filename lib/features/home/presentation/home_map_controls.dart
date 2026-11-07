@@ -45,8 +45,9 @@ extension _HomeMapControls on _HomeState {
       ? MoveraRiderPuckMarker.tiltBucket(_locationCtl.lastMapTilt)
       : 0;
 
-  Future<bool> _startHeadingTracking() {
+  Future<bool> _startHeadingTracking({bool fromTap = false}) {
     return _locationCtl.startHeading(
+      fromTap: fromTap,
       isMounted: () => mounted,
       onHeading: (heading) {
         _locationHeading = heading;
