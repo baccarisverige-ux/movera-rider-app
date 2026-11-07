@@ -87,6 +87,10 @@ class DriverTrackingController {
   /// scheduled with a pickup time); its terms read as a booked ride's.
   bool booked = false;
 
+  /// A booked ride's pickup time (`scheduledAt`, device clock); null for a
+  /// live ride.
+  DateTime? bookedPickupAt;
+
   /// Q13: the last accepted back-to-searching came from an admin reassign,
   /// so the rider is not told their driver cancelled.
   bool reassignedByAdmin = false;
@@ -483,7 +487,10 @@ class DriverTrackingController {
               // The car is there: no ETA while arrived (Q4).
               if (event.status == RideStatus.driverWaiting) serverEta = null;
               acceptedAt = _onDevice(event.acceptedAt) ?? acceptedAt;
-              if (event.bookedPickupAt != null) booked = true;
+              if (event.bookedPickupAt != null) {
+                booked = true;
+                bookedPickupAt = _onDevice(event.bookedPickupAt);
+              }
               if (event.waitingArrivedAt != null) {
                 waitingSince = _onDevice(event.waitingArrivedAt);
                 _takeWaitingDeadlines(event);
@@ -498,7 +505,10 @@ class DriverTrackingController {
               // dropping its stamps restarted the waiting clock and the
               // free-cancel preview on the device clock.
               acceptedAt = _onDevice(event.acceptedAt) ?? acceptedAt;
-              if (event.bookedPickupAt != null) booked = true;
+              if (event.bookedPickupAt != null) {
+                booked = true;
+                bookedPickupAt = _onDevice(event.bookedPickupAt);
+              }
               if (event.waitingArrivedAt != null) {
                 waitingSince = _onDevice(event.waitingArrivedAt);
                 _takeWaitingDeadlines(event);
