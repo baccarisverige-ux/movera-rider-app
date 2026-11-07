@@ -10,9 +10,9 @@
 // deepLink, title, body }, already in the rider's language.
 //
 // It deliberately loads no Firebase SDK and holds no project config: the page
-// owns the FCM subscription, and this worker hands a push to a visible tab
-// (FirebaseMessaging.onMessage), shows a notification otherwise, and opens
-// the app when one is tapped. Ride state stays authoritative from the
+// owns the FCM subscription, and this worker hands a push to a visible rider
+// tab (FirebaseMessaging.onMessage), always shows a notification (owner
+// decision Q1), and opens the app when one is tapped. Ride state stays authoritative from the
 // backend and is reconciled when the app opens.
 
 self.addEventListener('install', function() {
@@ -32,37 +32,65 @@ function moveraReadPush(event) {
   }
 }
 
-self.addEventListener('push', function(event) {
-  var payload = moveraReadPush(event);
-  if (!payload || typeof payload !== 'object') return;
+// Owner decision Q1 (2026-11-07, "Toujours afficher"): EVERY push shows a
+// notification, also while the app is on screen. iOS WebKit counts a push
+// that shows none as silent and removes the push subscription after three
+// (WebPushDaemonConstants.h maxSilentPushCount = 3, finding D1), after which
+// a locked phone gets no more pushes.
+function moveraNotice(payload) {
+  if (!payload || typeof payload !== 'object') return {title: 'Movera', body: ''};
   var notification = payload.notification;
   var data = payload.data && typeof payload.data === 'object' ? payload.data : {};
+  // A notification block, or the server's data message (v0.18.3, R7).
+  if (notification && typeof notification === 'object') return notification;
+  if (data.title) return {title: data.title, body: data.body};
+  return {title: 'Movera', body: ''};
+}
+
+// Only windows of the rider app count (finding D7): the driver app is served
+// from the same github.io origin, and matchAll with includeUncontrolled
+// returns every same-origin window.
+function moveraRiderWindows(clients) {
+  var root = new URL('./', self.registration.scope).href;
+  return clients.filter(function(client) {
+    return String(client.url || '').indexOf(root) === 0;
+  });
+}
+
+self.addEventListener('push', function(event) {
+  var payload = moveraReadPush(event);
+  var data = payload && typeof payload === 'object' && payload.data && typeof payload.data === 'object'
+    ? payload.data
+    : {};
+  var shown = moveraNotice(payload);
+  var trip = data.tripId || data.rideId;
   event.waitUntil(
     self.clients.matchAll({type: 'window', includeUncontrolled: true}).then(function(clients) {
-      var visible = clients.some(function(client) {
+      var rider = moveraRiderWindows(clients);
+      var visible = rider.some(function(client) {
         return client.visibilityState === 'visible';
       });
-      if (visible) {
-        // rider-u243: a visible Movera tab shows the update in the app. The
-        // browser hands pushes only to this worker, and the page's
+      if (visible && payload && typeof payload === 'object') {
+        // rider-u243: a visible rider tab also shows the update in the app.
+        // The browser hands pushes only to this worker, and the page's
         // FirebaseMessaging.onMessage fires only for a payload posted to it
         // in the Firebase SDK's own format (what its messaging worker does).
         payload.isFirebaseMessaging = true;
         payload.messageType = 'push-received';
-        clients.forEach(function(client) {
+        rider.forEach(function(client) {
           client.postMessage(payload);
         });
-        return undefined;
       }
-      // A notification block, or the server's data message (v0.18.3, R7).
-      var shown = notification && typeof notification === 'object' ? notification : null;
-      if (!shown && data.notificationId && data.title) shown = {title: data.title, body: data.body};
-      if (!shown) return undefined;
+    }).catch(function() {}).then(function() {
+      // Always, whatever happened above (a rejected promise is silent too).
       return self.registration.showNotification(String(shown.title || 'Movera'), {
         body: shown.body ? String(shown.body) : '',
         icon: 'icons/Icon-192.png',
         data: data,
-        tag: data.rideId ? 'movera-ride-' + data.rideId : (data.notificationId || undefined)
+        // One notice per trip: a newer push (moment) for the same trip
+        // replaces it. tripId is the trip; rideId is only its legacy alias
+        // (contract 0.18.48, "Ids").
+        tag: trip ? 'movera-ride-' + trip : (data.notificationId || undefined)
       });
     })
   );
