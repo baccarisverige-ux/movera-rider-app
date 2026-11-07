@@ -1514,6 +1514,31 @@
     }
   },
   "termsCancelAfterArrived": "Cancelling after the driver has arrived and the free waiting is over counts as a no-show",
+  "termsBookedIncludedWaiting": "{minutes} min free waiting, counted from the pickup time, or from the driver's arrival if that is later",
+  "@termsBookedIncludedWaiting": {
+    "description": "v0.18.51 §73 bookLater.texts.includedWaiting (booked ride).",
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "termsBookedNoShow": "Booked ride: if you do not show up within {noShowAfter} min after the later of the driver's arrival and the pickup time, a {noShowFee} fee applies",
+  "@termsBookedNoShow": {
+    "description": "v0.18.51 §73 bookedRide0_18_51.texts.noShow.",
+    "placeholders": {
+      "noShowAfter": {
+        "type": "String"
+      },
+      "noShowFee": {
+        "type": "String"
+      }
+    }
+  },
+  "termsBookedCancelAfterArrived": "Booked ride: cancelling after the driver has arrived costs the booked-ride cancel fee",
+  "@termsBookedCancelAfterArrived": {
+    "description": "v0.18.51 §73 bookedRide0_18_51.texts.cancelAfterArrived."
+  },
   "termsPickupMove": "You can move the pickup at most {meters} m after booking",
   "@termsPickupMove": {
     "placeholders": {
@@ -2106,6 +2131,18 @@
       }
     }
   },
+  "bookingCancelCosts": "Cancelling less than {min} min before pickup costs {fee}",
+  "@bookingCancelCosts": {
+    "description": "v0.18.49 Q10 contract words (afterTestRules.bookedCancel.apps): the category's reservation cancel rule.",
+    "placeholders": {
+      "min": {
+        "type": "String"
+      },
+      "fee": {
+        "type": "String"
+      }
+    }
+  },
   "scheduleForLaterChip": "Book a ride for later",
   "bookedDriverOnTheWay": "Your booked driver is on the way",
   "@bookedDriverOnTheWay": {"description": "v0.18.32 owner Q1: banner on a live ride while a booked ride's driver drives to the rider."},
@@ -2690,6 +2727,10 @@
         "type": "String"
       }
     }
+  },
+  "waitingBeforePickup": "Before the pickup time",
+  "@waitingBeforePickup": {
+    "description": "v0.18.51 §73 bookedRide0_18_51.texts.beforePickup: a booked driver arrived before the pickup time; the timer counts down to it."
   },
   "waitingChargedAfterFree": "Waiting time is charged after the free minutes",
   "tripPinTellDriver": "Tell your driver this code",

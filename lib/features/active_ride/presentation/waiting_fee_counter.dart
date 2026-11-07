@@ -89,6 +89,7 @@ class WaitingFeeCounter extends StatefulWidget {
     required this.freeWaitMin,
     required this.perMin,
     this.freeUntil,
+    this.waitFrom,
     this.clock,
   });
 
@@ -101,6 +102,31 @@ class WaitingFeeCounter extends StatefulWidget {
 
   /// When the server ends the free wait (`waiting.freeUntil`), if it says.
   final DateTime? freeUntil;
+
+  /// v0.18.51 §73 (`waiting.waitFrom`): when the waiting clock runs from. A
+  /// booked ride whose driver arrived before the pickup time counts down to
+  /// it first (−12:00 … −0:01, texts.beforePickup), then the free minutes,
+  /// then the paid waiting, as a live ride.
+  final DateTime? waitFrom;
+
+  /// The clock's start: [waitFrom]; else, when the server's [freeUntil]
+  /// leaves more than the zone's free minutes after [since] (an older
+  /// server that already counts a booked ride from its pickup time), the
+  /// start that free wait implies (`freeUntil − freeWaitMin`, as the
+  /// contract's waitFrom fallback); else [since].
+  static DateTime clockStart({
+    required DateTime since,
+    required int freeWaitMin,
+    DateTime? freeUntil,
+    DateTime? waitFrom,
+  }) {
+    if (waitFrom != null) return waitFrom.isAfter(since) ? waitFrom : since;
+    if (freeUntil != null) {
+      final implied = freeUntil.subtract(Duration(minutes: freeWaitMin));
+      if (implied.isAfter(since)) return implied;
+    }
+    return since;
+  }
 
   /// Test seam for "now".
   final DateTime Function()? clock;
@@ -132,28 +158,42 @@ class _WaitingFeeCounterState extends State<WaitingFeeCounter> {
 
   @override
   Widget build(BuildContext context) {
-    final state = WaitingFeeState.at(
+    final now = _now();
+    final since = WaitingFeeCounter.clockStart(
       since: widget.since,
-      now: _now(),
+      freeWaitMin: widget.freeWaitMin,
+      freeUntil: widget.freeUntil,
+      waitFrom: widget.waitFrom,
+    );
+    final state = WaitingFeeState.at(
+      since: since,
+      now: now,
       freeWaitMin: widget.freeWaitMin,
       perMin: widget.perMin,
       freeUntil: widget.freeUntil,
     );
+    // The free minutes from the clock's start (a booked driver who came
+    // early is not "past the free 27 min").
     final freeMin = WaitingFeeState.freeWait(
-      widget.since,
+      since,
       widget.freeWaitMin,
       widget.freeUntil,
     ).inMinutes;
-    final charging = state.charging;
+    final beforePickup = now.isBefore(since);
+    final charging = !beforePickup && state.charging;
     const muted = Color(0xFF5C656C);
     const warm = Color(0xFFB4452B);
-    final title = charging
+    final title = beforePickup
+        ? '−${formatWaitClock(since.difference(now) + const Duration(milliseconds: 999))}'
+        : charging
         ? context.l10n.waitingTimeOverFree(
             formatWaitClock(state.over),
             '$freeMin',
           )
         : context.l10n.freeWaitingLeft(formatWaitClock(state.freeLeft));
-    final detail = context.l10n.waitingChargedAfterFree;
+    final detail = beforePickup
+        ? context.l10n.waitingBeforePickup
+        : context.l10n.waitingChargedAfterFree;
     return Semantics(
       container: true,
       liveRegion: charging,

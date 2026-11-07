@@ -641,6 +641,13 @@ class ApiRideRealtime implements RideRealtime {
             waitingFreeUntilKey: at,
           if (_waiting(ride, 'noShowAt') case final String at)
             waitingNoShowAtKey: at,
+          // v0.18.51 §73: a booked ride's waiting runs from waitFrom (the
+          // later of Arrived and the pickup time); the booked pickup time
+          // is its fallback from an older server.
+          if (_waiting(ride, 'waitFrom') case final String at)
+            waitingWaitFromKey: at,
+          if (ride['kind'] == 'scheduled' && ride['scheduledAt'] is String)
+            bookedPickupAtKey: ride['scheduledAt'],
           // v0.18.7: the server ETA, the trip's terms, the waiting cost so
           // far, the cancel fee and kind, and the pickup (a move).
           if (eta is Map) etaKey: Map<String, Object?>.from(eta),

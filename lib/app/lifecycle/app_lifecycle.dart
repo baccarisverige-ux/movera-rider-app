@@ -51,7 +51,12 @@ class AppLifecycleObserver with WidgetsBindingObserver {
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
-        RiderTripWatch.instance.stop();
+        // Owner 2026-11-07 (S5): on the web a blur is `inactive`, often with
+        // no `resumed` after it; the Home poll that opens a booked ride keeps
+        // running then. Hidden / paused / detached stop it.
+        if (state != AppLifecycleState.inactive) {
+          RiderTripWatch.instance.stop();
+        }
         RideSnapshotStore.touchCurrent().catchError((Object error) {
           AppLog.error(
             'app.lifecycle.persist_failed',

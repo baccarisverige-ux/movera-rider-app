@@ -127,8 +127,8 @@
   "creditedToWallet": "{amount} crédité sur votre portefeuille Movera",
   "refundedToDays": "{amount} remboursé sur {method} sous 2 à 3 jours ouvrés",
   "samePrice": "Même prix qu’avant.",
-  "moreCash": "+{amount} de plus. Vous payez le nouveau prix dans la voiture.",
-  "lessCash": "{amount} de moins. Vous payez le nouveau prix dans la voiture.",
+  "moreCash": "+{amount} de plus. Vous payez le nouveau prix à bord.",
+  "lessCash": "{amount} de moins. Vous payez le nouveau prix à bord.",
   "moreCharged": "+{amount} de plus, débité sur {method}.",
   "lessReturned": "{amount} de moins, remboursé sur {method}.",
   "newRoute": "Nouvel itinéraire",
@@ -355,6 +355,6 @@
   "tipsNotOnHere": "Les pourboires ne sont pas activés ici.",
   "endedEarlyReason": "Motif",
   "favouriteDriverTitle": "Enregistrer comme chauffeur favori",
-  "favouriteDriverHelp": "Vos courses réservées peuvent aller d'abord à vos chauffeurs favoris.",
+  "favouriteDriverHelp": "Vos courses programmées peuvent aller d'abord à vos chauffeurs favoris.",
   "favouriteDriverFailed": "Impossible d'enregistrer. Vérifiez votre connexion et réessayez."
 }

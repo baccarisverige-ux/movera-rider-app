@@ -154,11 +154,14 @@ extension _HomeRouteFlow on _HomeState {
             destinationPosition: confirmedDestinationPosition,
             stops: const <String>[],
             bookingMode: BookingMode.now,
-            onScheduled: (context, id) => RideScheduledPage.open(
-              context,
-              reservationId: id,
-              replace: true,
-            ),
+            onScheduled: (context, id) {
+              _scheduledInFlow = true;
+              return RideScheduledPage.open(
+                context,
+                reservationId: id,
+                replace: true,
+              );
+            },
           ),
           settings: const RouteSettings(name: AppRoutes.selectRide),
         ),
@@ -193,11 +196,13 @@ extension _HomeRouteFlow on _HomeState {
         final ride = AppScope.instance.ride;
         final changed =
             ride.rideId != rideBefore || ride.status != statusBefore;
-        if (changed &&
-            (ride.status.isTerminal || ride.status.isCompletedSurface)) {
+        if (_scheduledInFlow ||
+            (changed &&
+                (ride.status.isTerminal || ride.status.isCompletedSurface))) {
           _destinationAddress = null;
           _routeStops = const <String>[];
         }
+        _scheduledInFlow = false;
         _closeDestinationSheet();
         // NAV-3: the flow's page can be replaced by another one (Book for
         // later -> Ride scheduled). Stay parked until Home is on top again.
@@ -647,6 +652,7 @@ extension _HomeRouteFlow on _HomeState {
               initialRideId: initialRideId,
               onScheduled: (context, id) {
                 scheduledHere = true;
+                _scheduledInFlow = true;
                 return RideScheduledPage.open(
                   context,
                   reservationId: id,

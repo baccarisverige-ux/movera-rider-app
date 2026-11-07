@@ -1159,6 +1159,9 @@ class _FindingDriversState extends State<FindingDrivers> {
                 child: PointerInterceptor(
                   child: RealtimeConnectionBanner(
                     connection: AppScope.instance.realtime,
+                    // proof5: the cancel commits under the sheet, before
+                    // _leaving; the transport's release is no lost link.
+                    hidden: () => _leaving || _match.cancelled,
                   ),
                 ),
               ),

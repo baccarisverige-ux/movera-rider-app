@@ -1,0 +1,277 @@
+{
+  "version": "0.18.51",
+  "note": "v0.18.51 §73 (contract.json#bookedRide0_18_51). Times are minutes relative to the booked pickup time T (a live ride: to its accept). waitFrom = arrivedAt for a live ride, max(arrivedAt, T) for a booked ride; freeUntil = waitFrom + freeWaitMin; noShowAt = waitFrom + noShowAfterMin; checks: charged seconds at atMin = max(0, atMin − freeUntil) × 60, a no-show allowed when atMin >= noShowAt. fees: the rider's fee and kind for a rider cancel with the driver arrived (rider_cancel_arrived) or for a no-show; money in minor units, fare 30000.",
+  "waitFrom": [
+    {
+      "id": "booked-early-12",
+      "kind": "scheduled",
+      "arrivedAtMin": -12,
+      "freeWaitMin": 15,
+      "noShowAfterMin": 15,
+      "expect": {
+        "waitFromMin": 0,
+        "freeUntilMin": 15,
+        "noShowAtMin": 15
+      },
+      "checks": [
+        {
+          "atMin": -1,
+          "chargedSeconds": 0,
+          "noShowAllowed": false
+        },
+        {
+          "atMin": 0,
+          "chargedSeconds": 0,
+          "noShowAllowed": false
+        },
+        {
+          "atMin": 16,
+          "chargedSeconds": 60,
+          "noShowAllowed": true
+        }
+      ]
+    },
+    {
+      "id": "booked-late-7",
+      "kind": "scheduled",
+      "arrivedAtMin": 7,
+      "freeWaitMin": 5,
+      "noShowAfterMin": 5,
+      "expect": {
+        "waitFromMin": 7,
+        "freeUntilMin": 12,
+        "noShowAtMin": 12
+      },
+      "checks": [
+        {
+          "atMin": 7,
+          "chargedSeconds": 0,
+          "noShowAllowed": false
+        },
+        {
+          "atMin": 11,
+          "chargedSeconds": 0,
+          "noShowAllowed": false
+        },
+        {
+          "atMin": 13,
+          "chargedSeconds": 60,
+          "noShowAllowed": true
+        }
+      ]
+    },
+    {
+      "id": "booked-on-time",
+      "kind": "scheduled",
+      "arrivedAtMin": 0,
+      "freeWaitMin": 15,
+      "noShowAfterMin": 20,
+      "expect": {
+        "waitFromMin": 0,
+        "freeUntilMin": 15,
+        "noShowAtMin": 20
+      },
+      "checks": [
+        {
+          "atMin": 19,
+          "chargedSeconds": 240,
+          "noShowAllowed": false
+        },
+        {
+          "atMin": 20,
+          "chargedSeconds": 300,
+          "noShowAllowed": true
+        }
+      ]
+    },
+    {
+      "id": "live-unchanged",
+      "kind": "live",
+      "arrivedAtMin": 6,
+      "freeWaitMin": 5,
+      "noShowAfterMin": 5,
+      "expect": {
+        "waitFromMin": 6,
+        "freeUntilMin": 11,
+        "noShowAtMin": 11
+      },
+      "checks": [
+        {
+          "atMin": 12,
+          "chargedSeconds": 60,
+          "noShowAllowed": true
+        }
+      ]
+    }
+  ],
+  "fees": [
+    {
+      "id": "booked-cancel-arrived-after-free-wait-booking-fee",
+      "kind": "scheduled",
+      "event": "rider_cancel_arrived",
+      "pastFreeWait": true,
+      "switch": true,
+      "minutesBeforePickup": -20,
+      "cancelRule": {
+        "freeMin": 60,
+        "type": "fixed",
+        "value": 5000,
+        "min": null,
+        "max": null
+      },
+      "noShowFee": 6500,
+      "expect": {
+        "fee": 5000,
+        "feeKind": "cancel"
+      }
+    },
+    {
+      "id": "booked-cancel-arrived-before-free-wait-booking-fee",
+      "kind": "scheduled",
+      "event": "rider_cancel_arrived",
+      "pastFreeWait": false,
+      "switch": true,
+      "minutesBeforePickup": 5,
+      "cancelRule": {
+        "freeMin": 60,
+        "type": "fixed",
+        "value": 5000,
+        "min": null,
+        "max": null
+      },
+      "noShowFee": 6500,
+      "expect": {
+        "fee": 5000,
+        "feeKind": "cancel"
+      }
+    },
+    {
+      "id": "booked-cancel-arrived-percent-min",
+      "kind": "scheduled",
+      "event": "rider_cancel_arrived",
+      "pastFreeWait": true,
+      "switch": true,
+      "minutesBeforePickup": -16,
+      "cancelRule": {
+        "freeMin": 120,
+        "type": "percent",
+        "value": 25,
+        "min": {
+          "amountMinor": 8000,
+          "currency": "SEK"
+        },
+        "max": null
+      },
+      "noShowFee": 6500,
+      "expect": {
+        "fee": 8000,
+        "feeKind": "cancel"
+      }
+    },
+    {
+      "id": "booked-cancel-arrived-inside-free-minutes",
+      "kind": "scheduled",
+      "event": "rider_cancel_arrived",
+      "pastFreeWait": false,
+      "switch": true,
+      "minutesBeforePickup": 70,
+      "cancelRule": {
+        "freeMin": 60,
+        "type": "fixed",
+        "value": 5000,
+        "min": null,
+        "max": null
+      },
+      "noShowFee": 6500,
+      "expect": {
+        "fee": null,
+        "feeKind": null
+      }
+    },
+    {
+      "id": "booked-no-show-booking-fee",
+      "kind": "scheduled",
+      "event": "no_show",
+      "minutesBeforePickup": -15,
+      "cancelRule": {
+        "freeMin": 60,
+        "type": "fixed",
+        "value": 5000,
+        "min": null,
+        "max": null
+      },
+      "noShowFee": 6500,
+      "expect": {
+        "fee": 5000,
+        "feeKind": "no_show"
+      }
+    },
+    {
+      "id": "booked-no-show-percent",
+      "kind": "scheduled",
+      "event": "no_show",
+      "minutesBeforePickup": -15,
+      "cancelRule": {
+        "freeMin": 0,
+        "type": "percent",
+        "value": 25,
+        "min": null,
+        "max": null
+      },
+      "noShowFee": 6500,
+      "expect": {
+        "fee": 7500,
+        "feeKind": "no_show"
+      }
+    },
+    {
+      "id": "booked-no-show-no-rule-normal-no-show-fee",
+      "kind": "scheduled",
+      "event": "no_show",
+      "minutesBeforePickup": -15,
+      "cancelRule": null,
+      "noShowFee": 6500,
+      "expect": {
+        "fee": 6500,
+        "feeKind": "no_show"
+      }
+    },
+    {
+      "id": "live-no-show-unchanged",
+      "kind": "live",
+      "event": "no_show",
+      "cancelRule": {
+        "freeMin": 2,
+        "type": "fixed",
+        "value": 3500,
+        "min": null,
+        "max": null
+      },
+      "noShowFee": 6500,
+      "expect": {
+        "fee": 6500,
+        "feeKind": "no_show"
+      }
+    },
+    {
+      "id": "live-cancel-arrived-after-free-wait-unchanged",
+      "kind": "live",
+      "event": "rider_cancel_arrived",
+      "pastFreeWait": true,
+      "switch": true,
+      "minutesSinceAccept": 8,
+      "cancelRule": {
+        "freeMin": 2,
+        "type": "fixed",
+        "value": 3500,
+        "min": null,
+        "max": null
+      },
+      "noShowFee": 6500,
+      "expect": {
+        "fee": 6500,
+        "feeKind": "no_show"
+      }
+    }
+  ]
+}

@@ -36,6 +36,15 @@ typedef RestartReport = void Function(String message);
 /// [recent] (10 min) on screen and less than [recentBackground] (2 hours)
 /// in the background (owner 2026-11-07).
 /// A lost WebGL context is reported once per session the same way.
+///
+/// S8 R3 / proof5 (2026-11-07): the rider and driver web apps are served
+/// from one origin and shared one key, so each read the other's marker
+/// (false restarts, real ones hidden). The rider keeps its own key
+/// [storageKey], each marker names its [app], and a marker of another app
+/// is never read. A `pagehide` marks the session clean only until the page
+/// is seen again: `visibilitychange` to visible and every visible beat
+/// clear it (iOS resumes a page after `pagehide` with no `pageshow`), and
+/// whether that `pagehide` went to the back/forward cache is kept apart.
 class RestartWatch {
   RestartWatch({
     required this.store,
@@ -45,10 +54,14 @@ class RestartWatch {
     String? sessionId,
     this.recent = const Duration(minutes: 10),
     this.recentBackground = const Duration(hours: 2),
+    this.app = appName,
   }) : _clock = clock ?? DateTime.now,
        sessionId = sessionId ?? _newId();
 
-  static const storageKey = 'movera.restart_watch.v1';
+  static const storageKey = 'movera.restart_watch.rider.v1';
+
+  /// The app that writes the marker; a marker of another app is ignored.
+  static const appName = 'rider';
   static const beatEvery = Duration(seconds: 2);
 
   /// The running watch (live web builds only); null elsewhere.
@@ -82,6 +95,10 @@ class RestartWatch {
   final Duration recent;
   final Duration recentBackground;
   final String sessionId;
+
+  /// The app this watch belongs to ([appName]; a test may stand for the
+  /// other app of the origin).
+  final String app;
   final DateTime Function() _clock;
 
   /// Runs after each beat (the web binding watches new canvases here).
@@ -91,6 +108,7 @@ class RestartWatch {
   bool _visible = true;
   DateTime? _hiddenAt;
   bool _clean = false;
+  bool? _hidePersisted;
   bool _lostReported = false;
   Timer? _timer;
 
@@ -120,17 +138,25 @@ class RestartWatch {
       _startedAt,
       recent: recent,
       recentBackground: recentBackground,
+      app: app,
     );
     if (message != null) _send(message);
     beat();
     if (periodic) _timer = Timer.periodic(beatEvery, (_) => beat());
   }
 
-  /// Writes the marker now.
+  /// Writes the marker now. A visible page is running, so an earlier
+  /// `pagehide` no longer counts as a clean end.
   void beat() {
+    if (_visible) _clean = false;
+    _write();
+  }
+
+  void _write() {
     final now = _clock();
     final marker = <String, Object?>{
       'v': 1,
+      'app': app,
       'id': sessionId,
       'start': _startedAt.millisecondsSinceEpoch,
       'beat': now.millisecondsSinceEpoch,
@@ -138,6 +164,7 @@ class RestartWatch {
       'stage': _stage(),
       'visible': _visible,
       'clean': _clean,
+      'hidePersisted': ?_hidePersisted,
       'hidden': ?_hiddenAt?.millisecondsSinceEpoch,
     };
     try {
@@ -160,15 +187,19 @@ class RestartWatch {
     beat();
   }
 
-  /// `pagehide`: the page is closed or reloaded on purpose.
-  void pageHide() {
+  /// `pagehide`: the page is closed or reloaded on purpose, or kept in the
+  /// back/forward cache ([persisted], recorded on its own). Clean until the
+  /// page is seen again.
+  void pageHide({bool persisted = false}) {
     _clean = true;
-    beat();
+    _hidePersisted = persisted;
+    _write();
   }
 
   /// `pageshow` from the back/forward cache: the same session goes on.
   void pageShow() {
     _clean = false;
+    _hidePersisted = null;
     _visible = true;
     _hiddenAt = null;
     beat();
@@ -211,6 +242,7 @@ class RestartWatch {
     DateTime now, {
     Duration recent = const Duration(minutes: 10),
     Duration recentBackground = const Duration(hours: 2),
+    String app = appName,
   }) {
     if (previous == null || previous.isEmpty) return null;
     Object? decoded;
@@ -220,6 +252,8 @@ class RestartWatch {
       return null;
     }
     if (decoded is! Map) return null;
+    // Another app's marker (same origin) is never this app's restart.
+    if (decoded['app'] != app) return null;
     final beat = decoded['beat'];
     final start = decoded['start'];
     if (beat is! int || start is! int) return null;

@@ -733,6 +733,9 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'termsFreeWait': l.termsFreeWait('<free>', '<perMin>'),
   'termsNoShow': l.termsNoShow('<noShowAfter>', '<noShowFee>'),
   'termsCancelAfterArrived': l.termsCancelAfterArrived,
+  'termsBookedIncludedWaiting': l.termsBookedIncludedWaiting('<minutes>'),
+  'termsBookedNoShow': l.termsBookedNoShow('<noShowAfter>', '<noShowFee>'),
+  'termsBookedCancelAfterArrived': l.termsBookedCancelAfterArrived,
   'termsPickupMove': l.termsPickupMove('<meters>'),
   'priceUpdated': l.priceUpdated,
   'priceUpdatedBody': l.priceUpdatedBody('<now>', '<was>'),
@@ -953,6 +956,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'resErrChangeTooLate': l.resErrChangeTooLate(37),
   'resErrZoneOff': l.resErrZoneOff,
   'bookingFreeRule': l.bookingFreeRule('<time>'),
+  'bookingCancelCosts': l.bookingCancelCosts('<min>', '<fee>'),
   'scheduleForLaterChip': l.scheduleForLaterChip,
   'bookedDriverOnTheWay': l.bookedDriverOnTheWay,
   'findingDriver': l.findingDriver,
@@ -1178,6 +1182,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'pickupMoveTooFar': l.pickupMoveTooFar('<meters>'),
   'pickupMoveFixedAfterArrival': l.pickupMoveFixedAfterArrival,
   'waitingTimeOverFree': l.waitingTimeOverFree('<time>', '<minutes>'),
+  'waitingBeforePickup': l.waitingBeforePickup,
   'waitingChargedAfterFree': l.waitingChargedAfterFree,
   'tripPinTellDriver': l.tripPinTellDriver,
   'waitingAlertPaid': l.waitingAlertPaid,
@@ -1799,6 +1804,8 @@ const messagePlaceholders = <String, List<String>>{
   'refundedToWallet': ['amount'],
   'termsFreeWait': ['free', 'perMin'],
   'termsNoShow': ['noShowAfter', 'noShowFee'],
+  'termsBookedIncludedWaiting': ['minutes'],
+  'termsBookedNoShow': ['noShowAfter', 'noShowFee'],
   'termsPickupMove': ['meters'],
   'priceUpdatedBody': ['now', 'was'],
   'cardExpires': ['date'],
@@ -1838,6 +1845,7 @@ const messagePlaceholders = <String, List<String>>{
   'resErrTooFar': [],
   'resErrChangeTooLate': [],
   'bookingFreeRule': ['time'],
+  'bookingCancelCosts': ['min', 'fee'],
   'destinationLabel': ['address'],
   'stopNumber': ['number'],
   'routeSetFavourite': ['place'],
@@ -3394,6 +3402,12 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get termsCancelAfterArrived => '';
   @override
+  String termsBookedIncludedWaiting(String minutes) => '';
+  @override
+  String termsBookedNoShow(String noShowAfter, String noShowFee) => '';
+  @override
+  String get termsBookedCancelAfterArrived => '';
+  @override
   String termsPickupMove(String meters) => '';
   @override
   String get priceUpdated => '';
@@ -3833,6 +3847,8 @@ class _Exhaustive implements AppLocalizations {
   String get resErrZoneOff => '';
   @override
   String bookingFreeRule(String time) => '';
+  @override
+  String bookingCancelCosts(String min, String fee) => '';
   @override
   String get scheduleForLaterChip => '';
   @override
@@ -4283,6 +4299,8 @@ class _Exhaustive implements AppLocalizations {
   String get pickupMoveFixedAfterArrival => '';
   @override
   String waitingTimeOverFree(String time, String minutes) => '';
+  @override
+  String get waitingBeforePickup => '';
   @override
   String get waitingChargedAfterFree => '';
   @override
