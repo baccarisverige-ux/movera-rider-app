@@ -34,6 +34,12 @@ const _dataFiles = {
 };
 
 const _allowed = <String, Set<String>>{
+  'restart diagnostic, never shown: a crash-report message and DOM tag '
+      'names (lib/core/*/restart_watch*.dart)': {
+    'flutter-view, flt-glass-pane',
+    'webgl context lost: last screen , uptime s',
+    'unexpected restart: last screen , s after last beat, uptime s',
+  },
   'names: brands, payment brands, languages in their own name, a place, '
       'the legacy demo profile seed it removes': {
     'Movera',

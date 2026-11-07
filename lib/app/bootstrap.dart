@@ -19,6 +19,8 @@ import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/maps/native_maps_config.dart';
+import 'package:movera_rider/core/observability/crash_report.dart';
+import 'package:movera_rider/core/observability/restart_watch.dart';
 import 'package:movera_rider/core/web/web_ride_pagehide.dart';
 import 'package:movera_rider/core/web/web_splash.dart';
 import 'package:movera_rider/features/auth/application/fresh_install_reset.dart';
@@ -157,6 +159,18 @@ Future<void> bootstrap() async {
     return true;
   };
 
+  // Owner 2026-11-07 ("5. Mouchard redémarrage"): proof of a page that iOS
+  // restarts from zero (live web builds only: the sink is release-only).
+  final reports = AppScope.instance.observabilitySink;
+  if (reports != null) {
+    RestartWatch.instance = startRestartWatch(
+      report: (message) => reports.record(
+        message,
+        StackTrace.empty,
+        extra: const {'kind': CrashReport.kindError},
+      ),
+    );
+  }
   AppScope.instance.lifecycle.attach();
   // rider-u17: before anything writes a preference or reads the session,
   // drop a Keychain session a previous install of the app left behind.
