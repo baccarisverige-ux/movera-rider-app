@@ -65,9 +65,18 @@ class PushPayload {
 
   /// Links that name a ride: movera://ride/{id} (older pushes),
   /// movera://trip/{tripId} (riderTripPush) and
-  /// movera-rider://trip/{tripId} (Ride Check push).
+  /// movera-rider://trip/{tripId} (Ride Check push). Contract 0.18.49
+  /// (owner Q9): the server now spells every trip link trips/{tripId}
+  /// (movera://trips/{tripId}, movera-rider://trips/{tripId}); the app keeps
+  /// accepting ride/ and trip/ for pushes still on phones.
   static const Set<String> _rideLinkSchemes = {'movera', 'movera-rider'};
-  static const Set<String> _rideLinkHosts = {'ride', 'trip'};
+  static const Set<String> _rideLinkHosts = {'ride', 'trip', 'trips'};
+
+  /// The receipt push (finish.receipt.resend: kind receipt, deep link
+  /// movera-rider://trips/{tripId}/receipt). Its tap opens the trip, whose
+  /// ended stage is the receipt.
+  static const String _receiptKind = 'receipt';
+  static const String _receiptSegment = 'receipt';
 
   static bool _isRideKind(String type) =>
       type.startsWith('ride.') ||
@@ -80,7 +89,8 @@ class PushPayload {
     final direct = _clean(rideId);
     if (isRideEvent && direct != null) return direct;
 
-    if (!isRideEvent) return null;
+    final isReceipt = type == _receiptKind;
+    if (!isRideEvent && !isReceipt) return null;
     final link = _clean(deepLink);
     if (link == null) return null;
     final uri = Uri.tryParse(link);
@@ -89,8 +99,14 @@ class PushPayload {
         !_rideLinkHosts.contains(uri.host)) {
       return null;
     }
-    if (uri.pathSegments.length != 1) return null;
-    return _clean(uri.pathSegments.single);
+    final segments = uri.pathSegments;
+    // {id}/receipt names the trip's receipt (any trip link host).
+    if (segments.length == 2 && segments.last == _receiptSegment) {
+      return _clean(segments.first);
+    }
+    // The receipt kind routes only through its receipt link.
+    if (isReceipt || segments.length != 1) return null;
+    return _clean(segments.single);
   }
 
   PushDestination get destination => routedRideId == null

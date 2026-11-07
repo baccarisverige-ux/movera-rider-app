@@ -5,7 +5,7 @@ import 'package:movera_rider/core/web/web_push_open_io.dart'
 /// Contract v0.18.3 (owner decision R7): a tap on a web push. The service
 /// worker (`web/firebase-messaging-sw.js`) posts `movera-push-open` to an
 /// open tab, or opens the app with `?movera_push=…&movera_kind=…
-/// &movera_link=…`; FlutterFire has no tap event on the web.
+/// &movera_link=…[&movera_trip=…]`; FlutterFire has no tap event on the web.
 Stream<PushPayload> webPushOpens() => platformWebPushOpens();
 
 /// The push this page was opened from, read once.
@@ -19,6 +19,7 @@ PushPayload? pushFromLaunchQuery(Map<String, String> query) {
     'notificationId': id,
     'kind': query['movera_kind'],
     'deepLink': query['movera_link'],
+    'tripId': query['movera_trip'],
   });
 }
 
@@ -30,6 +31,8 @@ PushPayload? pushFromOpenMessage(Map<String, Object?> data) {
     return PushPayload.fromMap({
       'type': kind is String && kind.trim().isNotEmpty ? kind : 'notification',
       'deepLink': data['deepLink'],
+      // Contract 0.18.49 (owner Q9): the worker also hands over the trip.
+      'tripId': data['tripId'],
       'messageId': id,
     });
   } on FormatException {

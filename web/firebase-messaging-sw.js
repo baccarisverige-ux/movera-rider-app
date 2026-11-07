@@ -80,6 +80,9 @@ self.addEventListener('notificationclick', function(event) {
     kind: String(data.kind || data.type || ''),
     deepLink: String(data.deepLink || '')
   };
+  // Contract 0.18.49 (owner Q9): the trip push names its trip as tripId; the
+  // app routes on it, so a tap opens the ride, not the Notifications list.
+  if (data.tripId) open.tripId = String(data.tripId);
   event.waitUntil(
     self.clients.matchAll({type: 'window', includeUncontrolled: true}).then(function(clients) {
       for (var i = 0; i < clients.length; i += 1) {
@@ -91,7 +94,8 @@ self.addEventListener('notificationclick', function(event) {
       var url = open.notificationId
         ? target + '?movera_push=' + encodeURIComponent(open.notificationId) +
           '&movera_kind=' + encodeURIComponent(open.kind) +
-          '&movera_link=' + encodeURIComponent(open.deepLink)
+          '&movera_link=' + encodeURIComponent(open.deepLink) +
+          (open.tripId ? '&movera_trip=' + encodeURIComponent(open.tripId) : '')
         : target;
       return self.clients.openWindow ? self.clients.openWindow(url) : undefined;
     })

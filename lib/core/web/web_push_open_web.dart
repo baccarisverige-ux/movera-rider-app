@@ -27,6 +27,7 @@ Stream<PushPayload> platformWebPushOpens() {
           'notificationId': text('notificationId'),
           'kind': text('kind'),
           'deepLink': text('deepLink'),
+          'tripId': text('tripId'),
         });
         if (payload != null) controller.add(payload);
       }).toJS;
