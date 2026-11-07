@@ -327,25 +327,25 @@ abstract final class ReservationFormat {
     return L10n.current.noFeeToCancel;
   }
 
-  /// LOW 12 + v0.18.49 Q10: the booking terms line. The free CHANGE window
-  /// (`booking.freeChangeBeforeMin`), the 5 free minutes after booking
-  /// (`afterTestRules.bookedCancel.graceAfterBookingMin`) and, when the
-  /// category is known ([rule] of `cancelFees.reservation[category]` and
-  /// the ride's [fare]), what a late cancel costs. freeChangeBeforeMin no
-  /// longer makes a cancel free.
+  /// LOW 12: "Free change and cancel more than 1 hour before pickup", from
+  /// the zone's `booking.freeChangeBeforeMin` (contract
+  /// bookLater.texts.freeRule, unchanged). v0.18.49 Q10: when the category
+  /// is known ([rule] of `cancelFees.reservation[category]` and the ride's
+  /// [fare]), what a late cancel costs, in the contract's words
+  /// (afterTestRules.bookedCancel.apps).
   static String freeRule(int minutes, {FeeRule? rule, Money? fare}) {
     final l = L10n.current;
     final time = minutes % 60 == 0 && minutes > 0
         ? l.freeRuleHours(minutes ~/ 60)
         : l.durMin('$minutes');
-    final lines = [l.bookingFreeRule(time), l.bookingCancelGrace];
+    final free = l.bookingFreeRule(time);
     if (rule != null && fare != null && rule.freeMin > 0) {
       final fee = CancelFeeCalculator.reservation(rule, fare, rule.freeMin - 1);
       if (fee.isPositive) {
-        lines.add(l.bookingCancelCosts('${rule.freeMin}', money(fee)));
+        return '$free. ${l.bookingCancelCosts('${rule.freeMin}', money(fee))}.';
       }
     }
-    return '${lines.join('. ')}.';
+    return free;
   }
 
   /// The admin cancel rule in one line, for the terms page.
