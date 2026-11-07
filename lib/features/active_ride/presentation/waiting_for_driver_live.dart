@@ -34,7 +34,9 @@ extension _WaitingLive on _WaitingForDriverState {
   /// numbers). Null until either is known.
   TripTermsLines? _termsLines() {
     final tripTerms = _tracking.terms;
-    if (tripTerms != null) return TripTermsLines.fromTerms(tripTerms);
+    if (tripTerms != null) {
+      return TripTermsLines.fromTerms(tripTerms, booked: _tracking.booked);
+    }
     final config = _zoneConfig;
     if (config == null || config.currency != widget.currency) return null;
     return TripTermsLines.fromConfig(config, categoryId: _categoryIdNow);

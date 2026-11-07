@@ -18,15 +18,20 @@ class TripTermsLines {
 
   final List<String> lines;
 
-  static TripTermsLines fromTerms(TripTerms terms) => _build(
-    freeWaitMin: terms.freeWaitMin,
-    perMin: terms.waitPerMin,
-    noShowAfterMin: terms.noShowAfterMin,
-    noShowFee: terms.noShowFee,
-    cancelAfterArrivedIsNoShow: terms.cancelAfterArrivedIsNoShow,
-    maxPickupMoveMeters: terms.maxPickupMoveMeters,
-    stopLine: stopWaitLine(terms),
-  );
+  /// [booked]: a booked ride (v0.18.51 §73) — free waiting from the later
+  /// of the pickup time and the driver's arrival, its own no-show words,
+  /// and a cancel after arrival costs the booked-ride cancel fee.
+  static TripTermsLines fromTerms(TripTerms terms, {bool booked = false}) =>
+      _build(
+        booked: booked,
+        freeWaitMin: terms.freeWaitMin,
+        perMin: terms.waitPerMin,
+        noShowAfterMin: terms.noShowAfterMin,
+        noShowFee: terms.noShowFee,
+        cancelAfterArrivedIsNoShow: terms.cancelAfterArrivedIsNoShow,
+        maxPickupMoveMeters: terms.maxPickupMoveMeters,
+        stopLine: stopWaitLine(terms),
+      );
 
   /// v0.18.9 (G7 decision 4, `onTrip.stopWaiting.texts`): what a minute of
   /// waiting at a middle stop costs, from the trip's own terms; null from
@@ -62,6 +67,7 @@ class TripTermsLines {
   }
 
   static TripTermsLines _build({
+    bool booked = false,
     required num freeWaitMin,
     required Money perMin,
     required num noShowAfterMin,
@@ -73,6 +79,22 @@ class TripTermsLines {
     final l10n = L10n.current;
     String minutes(num value) =>
         value == value.roundToDouble() ? '${value.toInt()}' : '$value';
+    if (booked) {
+      return TripTermsLines._([
+        l10n.termsBookedIncludedWaiting(minutes(freeWaitMin)),
+        l10n.termsFreeWait(minutes(freeWaitMin), formatMoney(perMin)),
+        if (noShowFee.isPositive)
+          l10n.termsBookedNoShow(
+            minutes(noShowAfterMin),
+            formatMoney(noShowFee),
+          ),
+        // A booked ride's cancel after arrival is the booking fee, never
+        // the no-show (bookedRide0_18_51.fees).
+        l10n.termsBookedCancelAfterArrived,
+        l10n.termsPickupMove('$maxPickupMoveMeters'),
+        ?stopLine,
+      ]);
+    }
     return TripTermsLines._([
       l10n.termsFreeWait(minutes(freeWaitMin), formatMoney(perMin)),
       if (noShowFee.isPositive)

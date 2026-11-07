@@ -733,6 +733,9 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'termsFreeWait': l.termsFreeWait('<free>', '<perMin>'),
   'termsNoShow': l.termsNoShow('<noShowAfter>', '<noShowFee>'),
   'termsCancelAfterArrived': l.termsCancelAfterArrived,
+  'termsBookedIncludedWaiting': l.termsBookedIncludedWaiting('<minutes>'),
+  'termsBookedNoShow': l.termsBookedNoShow('<noShowAfter>', '<noShowFee>'),
+  'termsBookedCancelAfterArrived': l.termsBookedCancelAfterArrived,
   'termsPickupMove': l.termsPickupMove('<meters>'),
   'priceUpdated': l.priceUpdated,
   'priceUpdatedBody': l.priceUpdatedBody('<now>', '<was>'),
@@ -1800,6 +1803,8 @@ const messagePlaceholders = <String, List<String>>{
   'refundedToWallet': ['amount'],
   'termsFreeWait': ['free', 'perMin'],
   'termsNoShow': ['noShowAfter', 'noShowFee'],
+  'termsBookedIncludedWaiting': ['minutes'],
+  'termsBookedNoShow': ['noShowAfter', 'noShowFee'],
   'termsPickupMove': ['meters'],
   'priceUpdatedBody': ['now', 'was'],
   'cardExpires': ['date'],
@@ -3394,6 +3399,12 @@ class _Exhaustive implements AppLocalizations {
   String termsNoShow(String noShowAfter, String noShowFee) => '';
   @override
   String get termsCancelAfterArrived => '';
+  @override
+  String termsBookedIncludedWaiting(String minutes) => '';
+  @override
+  String termsBookedNoShow(String noShowAfter, String noShowFee) => '';
+  @override
+  String get termsBookedCancelAfterArrived => '';
   @override
   String termsPickupMove(String meters) => '';
   @override
