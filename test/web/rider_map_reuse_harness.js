@@ -4,12 +4,25 @@
 // the reused map would be reported ready to google_maps_flutter_web (its
 // onMapCreated waits for the first 'tilesloaded') and where its camera is.
 //
-// node rider_map_reuse_harness.js <rider_map_camera.js>
+// node rider_map_reuse_harness.js <rider_map_camera.js> [search] [stored]
+// [search] is the page's query (e.g. '?mappool=0'); [stored] is what the
+// tab's sessionStorage already holds under 'movera.mappool' (in-app
+// navigation drops the query, the session keeps the switch).
 'use strict';
 const fs = require('fs');
 const vm = require('vm');
 
-const [layerPath] = process.argv.slice(2);
+const [layerPath, search = '', stored = ''] = process.argv.slice(2);
+const storage = new Map(stored ? [['movera.mappool', stored]] : []);
+const sessionStorage = {
+  getItem: key => (storage.has(key) ? storage.get(key) : null),
+  setItem: (key, value) => { storage.set(key, String(value)); },
+  removeItem: key => { storage.delete(key); },
+};
+const sizeLogs = [];
+const capturedConsole = {...console, info: (...args) => {
+  if (args[0] === 'movera.map.size') sizeLogs.push(JSON.parse(args[1]));
+}};
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 class LatLng {
@@ -70,7 +83,8 @@ const context = {
   performance: {now: () => Date.now()},
   MutationObserver: class { observe() {} disconnect() {} },
   HTMLCanvasElement: class {},
-  document: {body: {}}, console,
+  document: {body: {}}, console: capturedConsole,
+  location: {search}, sessionStorage, URLSearchParams,
   setTimeout, clearTimeout, setInterval, clearInterval,
   Math, Number, Promise, Map, Set, Proxy, Reflect,
 };
@@ -124,6 +138,14 @@ const mount = (id, options) => {
   layer.redraw(99); // an unknown map: nothing happens
   out.redraw = {resized, centerSet: (second.map.centerSets || 0) - sets,
     lat: second.map.getCenter().lat(), lng: second.map.getCenter().lng()};
+  const stats = layer.stats();
+  out.poolMax = stats.poolMax;
+  out.created = stats.created;
+  out.recycled = stats.recycled;
+  out.released = stats.released;
+  out.stored = sessionStorage.getItem('movera.mappool');
+  await sleep(2100);
+  out.sizeLogs = sizeLogs;
   process.stdout.write(JSON.stringify(out));
   process.exit(0);
 })();
