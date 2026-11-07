@@ -114,8 +114,7 @@
   "resErrTripTooLong": "Cette course est trop longue pour être programmée à l'avance. Réservez-la au moment de partir.",
   "resErrChangeTooLate": "À moins de {minutes} minutes de la prise en charge, la course ne peut plus être modifiée. Votre course n'a pas changé.",
   "resErrZoneOff": "Pas encore disponible dans cette zone",
-  "bookingFreeRule": "Modification gratuite plus de {time} avant la prise en charge",
-  "bookingCancelGrace": "Annulation gratuite pendant 5 min après la réservation",
+  "bookingFreeRule": "Modification et annulation gratuites plus de {time} avant la prise en charge",
   "bookingCancelCosts": "Annuler moins de {min} min avant la prise en charge coûte {fee}",
   "scheduleForLaterChip": "Réserver une course pour plus tard",
   "bookedDriverOnTheWay": "Votre chauffeur réservé est en route"

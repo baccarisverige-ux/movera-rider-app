@@ -64,15 +64,22 @@ void main() {
     );
   });
 
-  test('Q10: the booking line says the category cancel rule, not a free '
-      'cancel in the change window', () {
+  test('Q10: the booking line keeps the contract freeRule and adds the '
+      'category cancel cost (no grace line: owner question)', () {
     final line = ReservationFormat.freeRule(
       60,
       rule: const FeeRule(freeMin: 120, type: FeeType.fixed, value: 5000),
       fare: const Money(42000),
     );
-    expect(line, isNot(contains('change and cancel')));
-    expect(line, contains('Free cancel for 5 min after booking'));
+    expect(
+      line,
+      startsWith('Free change and cancel more than 1 hour before pickup. '),
+    );
+    expect(line, isNot(contains('5 min after booking')));
     expect(line, contains('Cancelling less than 120 min before pickup costs'));
+    expect(
+      ReservationFormat.freeRule(60),
+      'Free change and cancel more than 1 hour before pickup',
+    );
   });
 }
