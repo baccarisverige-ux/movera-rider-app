@@ -233,6 +233,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// time, so a double tap cannot open two pickers.
   bool _routeFlowOpen = false;
 
+  /// Owner video 16:35 (B10): the booking flow over Home scheduled a ride
+  /// (Book later → Your ride is scheduled), so Home starts the next booking
+  /// from "Where to?" as after a ride-now trip.
+  bool _scheduledInFlow = false;
+
   /// Where Home's map opens; null while the first position is found
   /// (see home_start_camera.dart).
   CameraPosition? _startCamera;
