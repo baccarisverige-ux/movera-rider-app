@@ -123,7 +123,7 @@ void main() {
 
     await tester.tap(find.text('open-matched-cancel'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Cancel request'));
+    await tester.tap(find.text('Cancel ride'));
     await tester.pumpAndSettle();
 
     expect(committed, isFalse);

@@ -48,7 +48,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.close_rounded));
       await tester.pumpAndSettle();
       expect(find.text('Cancel ride?'), findsOneWidget);
-      await tester.tap(find.text('Cancel request'));
+      await tester.tap(find.text('Cancel ride'));
       await tester.pumpAndSettle();
 
       // The rider boards while the reason sheet is open.

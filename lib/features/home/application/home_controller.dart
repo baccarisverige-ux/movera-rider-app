@@ -184,6 +184,7 @@ class HomeLocationController extends ChangeNotifier {
     Future<bool> Function()? startCompass,
     double? Function()? readCompass,
     void Function()? stopCompass,
+    void Function()? armCompassPrompt,
     bool? compassSupported,
     DateTime Function()? clock,
     bool? pulseAnimates,
@@ -192,6 +193,7 @@ class HomeLocationController extends ChangeNotifier {
        _startCompass = startCompass ?? heading_service.startHeadingTracking,
        _readCompass = readCompass ?? heading_service.currentHeading,
        _stopCompass = stopCompass ?? heading_service.stopHeadingTracking,
+       _armCompassPrompt = armCompassPrompt ?? heading_service.armHeadingPrompt,
        _compassSupported =
            compassSupported ??
            (startCompass != null || heading_service.headingTrackingSupported);
@@ -202,6 +204,9 @@ class HomeLocationController extends ChangeNotifier {
   final Future<bool> Function() _startCompass;
   final double? Function() _readCompass;
   final void Function() _stopCompass;
+
+  /// Item 10: lets the web ask the motion permission on this tap.
+  final void Function() _armCompassPrompt;
   final DateTime Function() _now;
 
   /// rider-u116: false on the web. Each pulse swaps the puck between two
@@ -319,6 +324,8 @@ class HomeLocationController extends ChangeNotifier {
 
   Timer? _headingTimer;
   Timer? _pulseTimer;
+  bool Function()? _pulseMounted;
+  void Function()? _pulseOnTick;
   bool Function()? _headingMounted;
   void Function(double heading)? _onHeading;
   Future<bool>? _headingStartInFlight;
@@ -827,11 +834,15 @@ class HomeLocationController extends ChangeNotifier {
 
   /// Requests compass permission, then polls heading. Returns whether the
   /// compass actually started. GPS course remains the fallback if this fails.
+  /// [fromTap]: the rider tapped "my position", the only tap that may ask
+  /// for the motion permission (owner 2026-11-07, item 10).
   Future<bool> startHeading({
     required bool Function() isMounted,
     required void Function(double heading) onHeading,
+    bool fromTap = false,
   }) async {
     if (_disposed) return false;
+    if (fromTap && !_compassStarted) _armCompassPrompt();
     _headingMounted = isMounted;
     _onHeading = onHeading;
     final granted = await _ensureCompassStarted();
@@ -929,6 +940,8 @@ class HomeLocationController extends ChangeNotifier {
     if (_disposed) return;
     _pulseTimer?.cancel();
     _pulseTimer = null;
+    _pulseMounted = isMounted;
+    _pulseOnTick = onTick;
     pulseExpanded = false;
     onTick();
     if (!_pulseAnimates) return;
@@ -1046,16 +1059,45 @@ class HomeLocationController extends ChangeNotifier {
     super.dispose();
   }
 
+  /// Finder C2/C5: Home is parked (a ride or another page above it) or the
+  /// app left the front. The GPS watch, the heading poll and the pulse
+  /// timer are let go, not just ignored, so the phone's GPS (high
+  /// accuracy) is not on for the whole trip under the trip screens.
+  /// [resumeLiveUpdates] starts them again.
   void pauseLiveUpdates() {
     _livePaused = true;
+    _positionSub?.cancel();
+    _positionSub = null;
+    _resubscribeTimer?.cancel();
+    _resubscribeTimer = null;
+    _headingTimer?.cancel();
+    _headingTimer = null;
+    _pulseTimer?.cancel();
+    _pulseTimer = null;
   }
 
   void resumeLiveUpdates() {
     final wasPaused = _livePaused;
     _livePaused = false;
+    if (!wasPaused || _disposed) return;
+    final isMounted = _trackingMounted;
+    final onFix = _trackingOnFix;
+    if (isMounted != null && onFix != null && isMounted()) {
+      if (_positionSub == null && _resubscribeTimer == null) {
+        startTracking(isMounted: isMounted, onFix: onFix);
+      }
+    }
+    if (_onHeading != null && (_compassStarted || _compassSupported)) {
+      _ensureHeadingPoller();
+    }
+    final pulseMounted = _pulseMounted;
+    final pulseTick = _pulseOnTick;
+    if (pulseMounted != null && pulseTick != null && pulseMounted()) {
+      startPulse(isMounted: pulseMounted, onTick: pulseTick);
+    }
     // U2: fixes were dropped while paused, and a stationary rider may not
     // produce a new stream event for a long time. Ask for one fresh fix.
-    if (wasPaused) unawaited(_refreshAfterResume());
+    unawaited(_refreshAfterResume());
   }
 
   Future<void> _refreshAfterResume() async {

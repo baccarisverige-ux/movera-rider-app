@@ -16,6 +16,8 @@ import 'package:movera_rider/features/promotions/presentation/promotion_ticket.d
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:movera_rider/core/location/location_repository.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 
 /// B16 (2026-11-04): behaviour tests for Home that replace source-reading
 /// guards (archived in Rules/archive/old-tests/movera-rider-app/). They pump
@@ -66,6 +68,9 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    // Item 9: Home no longer opens a made-up Stockholm map when no GPS
+    // answers; these map tests start from a position this session knows.
+    LocationRepository.noteSessionFix(const GeoPoint(59.3293, 18.0686));
     AppScope.instance.ride
       ..rideId = null
       ..status = RideStatus.idle
