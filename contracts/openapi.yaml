@@ -1,11 +1,11 @@
-# Movera API v0.18.48 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.50 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.48
+  version: 0.18.50
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.48 in this folder; this file must agree with them.
+    v0.18.50 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.48
+  version: 0.18.50
   source: contract.json
 paths:
   /auth/otp/request:
@@ -241,19 +241,29 @@ paths:
     post:
       operationId: refreshTokens
       summary: Rotate the refresh token for new tokens
-      description: 'A used, revoked or unknown refresh token → 401 unauthenticated; the app signs out. v0.18.5: v0.18.5 (G1-B6):
-        an answer to POST /auth/refresh lost on a bad connection: the app may send the same refresh token again within refreshRetryWindowSeconds
-        (60 s) of its first use, as long as the new token it was given has not been used; the server then answers a fresh
-        pair and drops the lost one. After 60 s, or once the new token was used, the old token is treated as stolen: the whole
-        session ends (401 unauthenticated, reason refresh_token_reused). Apps send one refresh at a time and retry a lost
-        one at once. v0.18.5 (owner G1-D3 "Show a message (Recommended)"): when POST /auth/refresh answers 401 the app signs
-        out and its sign-in screen shows why, in sv / fr / en. The 401 reason says which. Reasons: session_expired = expired,
-        session_ended = revoked, refresh_token_reused = revoked, refresh_token_unknown = revoked, signed_in_elsewhere = revoked.
-        v0.18.14: Codes stay 4 digits (owner). otp_locked_today per number + address; admin unlock; countryLimits (wrongCodesPerDay,
+      description: 'A used, revoked or unknown refresh token → 401 unauthenticated; the app signs out. v0.18.5: v0.18.5 (G1-B6),
+        v0.18.49 §71 (owner Q6 ''Accept lost answer''): an answer to POST /auth/refresh lost on a bad connection. The app
+        sends the same (old) refresh token again. (1) Within refreshRetryWindowSeconds (60 s) of its last use, while the new
+        token it was given has never been used: a retry, the server answers a fresh pair and drops the lost one (as often
+        as the app retries inside the window). (2) Later than that, still while that new token has never been used: a lost
+        answer, accepted ONCE (lostAnswer); the server answers a fresh pair, drops the lost one, and the 60 s window starts
+        again from this answer. (3) The old token again after that, or the old token at any time once the new token was used:
+        theft, the whole session ends (401 unauthenticated, reason refresh_token_reused). The same rule for the admin (POST
+        /admin/auth/refresh). Apps send one refresh at a time and retry a lost one at once; no app change is needed. v0.18.5
+        (owner G1-D3 "Show a message (Recommended)"): when POST /auth/refresh answers 401 the app signs out and its sign-in
+        screen shows why, in sv / fr / en. The 401 reason says which. Reasons: session_expired = expired, session_ended =
+        revoked, refresh_token_reused = revoked, refresh_token_unknown = revoked, signed_in_elsewhere = revoked. v0.18.14:
+        Codes stay 4 digits (owner). otp_locked_today per number + address; admin unlock; countryLimits (wrongCodesPerDay,
         codesPerAddressPerHour, codesPerPhonePerHour, uploadsPerHour). One phone at a time for drivers: a new driver sign-in
         ends his other sessions — their calls and POST /auth/refresh answer 401 reason signed_in_elsewhere (auth.signedOut.reasons);
         the old phone is set offline (the driver goes online again from the new phone) and a notice kind signed_in_elsewhere
-        is sent. Riders keep several phones.'
+        is sent. Riders keep several phones. v0.18.49 §71 (owner Q6, Rules plan/finders-2026-11-07/D.md D9 + D8): a refresh
+        token already used, whose replacement was never used, sent again more than refreshRetryWindowSeconds after its last
+        use, is a lost answer (a dead zone, a tunnel, a lift), not theft: answered once with a fresh pair; the never-used
+        replacement is dropped. A second late use of the same old token ends the session (refresh_token_reused). A replacement
+        that WAS used means two holders of the session: the session ends at once, as before. Each old refresh token is accepted
+        at most once outside the 60 s window (the server keeps the time it accepted it: refresh_tokens.late_retry_at). Inside
+        the 60 s window after that answer, retries still work.'
       tags:
       - Auth
       x-actor:
@@ -388,7 +398,13 @@ paths:
     post:
       operationId: signOut
       summary: End this session (revokes the refresh token)
-      description: Idempotent; also unregister the push device.
+      description: 'Idempotent; also unregister the push device. v0.18.49 §71 (owner Q8 ''Server refuses too'', Rules plan/finders-2026-11-07/A.md
+        A3): POST /auth/sign-out by a driver whose session is still active while he has a current trip (a trip of his in a
+        tripStatus.driverAssigned status — the trip GET /driver/profile names as activeTripId; a booked ride held for later
+        and a live trip queued after the current one do not count) answers 409 conflict, reason sign_out_on_trip, with message
+        texts.finishTripFirst in the driver''s language. The session, the push devices and the trip stay as they are. The
+        rider app is not refused. A session already ended is still 204 (signing out twice is fine); an expired access token
+        of an active session is checked like any other.'
       tags:
       - Auth
       x-actor:
@@ -413,6 +429,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -812,10 +830,20 @@ paths:
         (the zone''s admin list per sheet) decides which reasons the driver app SHOWS; titles (sv/fr/en) come from DriverAppConfig.texts
         and the app keeps the built-in list as the offline backup. The server accepts every contract code of the sheet (contract.json#cancelReasons),
         so an old app that shows the built-in list keeps working; a code of another sheet → 400 invalid_request, reason invalid_reason_code.
-        v0.18.17: Q6: POST /trips/{tripId}/cancel more than freeChangeBeforeMin minutes before pickup is always free; later
-        the reservation cancel fee rule of booking time applies (RiderAppConfig.cancelFees, reservation; unchanged). v0.18.33
-        (fix job 5, owner fix-plan Q3 + Q5): this also holds before any driver took the ride: under freeChangeBeforeMin the
-        fee is charged even with no driver, and Movera keeps all of it (no driver share). contract.json#afterTestRules.bookedCancel.'
+        v0.18.17: v0.18.49 §71 (owner Q10 ''Category rule B only''): POST /trips/{tripId}/cancel of a booked ride is free
+        during the first afterTestRules.bookedCancel.graceAfterBookingMin (5) minutes after booking (owner Q10 update), else
+        only inside the free minutes of the reservation cancel fee rule of booking time (RiderAppConfig.cancelFees.reservation[category].freeMin:
+        free while minutesBeforePickup >= freeMin); later that rule''s fee applies. freeChangeBeforeMin is the free-CHANGE
+        window only (POST /trips/{tripId}/reschedule) and no longer makes a cancel free (before v0.18.49: more than freeChangeBeforeMin
+        before pickup was always free). No rule for the category = free. This also holds before any driver took the ride:
+        after the free minutes the fee is charged even with no driver, and Movera keeps all of it (no driver share). A booked
+        ride past its pickup time with no driver is always free. contract.json#afterTestRules.bookedCancel. v0.18.50 §72 (L4):
+        A driver may cancel a live trip queued after his current trip (status accepted with a next trip link, the Next-trip
+        card) with a cancelReasons.driverNextTrip code (also a driverBeforeTrip code from an older app): POST /trips/{tripId}/cancel
+        { expectedVersion, reasonCode }. The trip goes back to dispatch without him (searching, the rider gets driver_changed
+        and keeps searching), no rider fee, his current trip is not touched, and it counts on his cancel record (driver_cancels)
+        like every give-back. Any other code → 400 invalid_reason_code. (L1) The driver of a trip the rider cancels gets driverTripPush
+        rider_cancelled.'
       tags:
       - Trips
       x-actor:
@@ -5149,6 +5177,11 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      description: 'v0.18.50 §72 (L6): Admin Reassign (POST /admin/trips/{tripId}/reassign) on a BOOKED ride (kind scheduled)
+        a driver holds (status accepted, not started) does what Reservations › Unassign does: back to the Scheduled rides
+        list (status requested; searched at once if its dispatch time has passed), the driver gets reservation_unassigned;
+        as with Unassign he is NOT barred from it (owner 2026-11-07: re-offer allowed, no cancelled_driver_ids). Audit trip.reassign.
+        (L1) The driver taken off gets driverTripPush admin_reassigned (a held booked ride: reservation_unassigned).'
   /admin/trips/{tripId}/assign:
     post:
       operationId: adminAssignTrip
@@ -14597,8 +14630,8 @@ paths:
       summary: Send the receipt to the rider again
       description: 'v0.18.10: POST /admin/trips/{tripId}/receipt/resend { reason } (trips.intervene) → 200 { tripId, notificationId,
         sentAt }: the rider gets a bell notice + push kind receipt (texts.resendTitle / resendBody in the rider''s language,
-        deep link movera-rider://trip/{tripId}/receipt); audit trip.receipt_resend with the reason. receipt_not_ready as above.
-        E-mail receipts wait for the owner''s choice of an e-mail company.'
+        deep link movera-rider://trips/{tripId}/receipt); audit trip.receipt_resend with the reason. receipt_not_ready as
+        above. E-mail receipts wait for the owner''s choice of an e-mail company.'
       tags:
       - Admin · Trips
       x-actor:
@@ -17725,6 +17758,11 @@ components:
         status: cancelled_by_rider
         command: end_early
         note: the rider ended the trip early (POST /trips/{tripId}/end-early) and gets the normal rating screen
+      - rater: driver
+        status: cancelled_by_rider
+        command: end_early
+        note: 'v0.18.50 §72 (L5, owner G8 Q1): the rider ended the trip early; the driver gets the normal finish and rates
+          the rider'
       description: 'Rating machine; changes after `completed` (rider also after a trip the rider ended early) via `rating_updated`.
         Who may rate after what: x-rating-allowed (contract.json#ratingAllowed).'
     DriverAccountStatus:
@@ -22731,7 +22769,16 @@ components:
             TripProjection.reservation.changeAsk { until, previousAt }; POST /driver/reservations/{tripId}/keep { keep });
             Yes keeps it (rider told reservation_driver_found), No or no answer within changeAnswerMin (default 15) puts it
             back on the list (transition release, push reservation_changed) and the ride is planned again (bookLater.plan).
-            Later → 409 conflict, reason change_too_late. Not a scheduled trip, or not before pickup → 409 not_a_reservation.'
+            Later → 409 conflict, reason change_too_late. Not a scheduled trip, or not before pickup → 409 not_a_reservation.
+            v0.18.49 §71 (owner Q10): the free-CHANGE window only; a booked ride''s cancel is free only inside the category''s
+            reservation cancel fee freeMin (v0.18.49 §71 (owner Q10 ''Category rule B only''): POST /trips/{tripId}/cancel
+            of a booked ride is free during the first afterTestRules.bookedCancel.graceAfterBookingMin (5) minutes after booking
+            (owner Q10 update), else only inside the free minutes of the reservation cancel fee rule of booking time (RiderAppConfig.cancelFees.reservation[category].freeMin:
+            free while minutesBeforePickup >= freeMin); later that rule''s fee applies. freeChangeBeforeMin is the free-CHANGE
+            window only (POST /trips/{tripId}/reschedule) and no longer makes a cancel free (before v0.18.49: more than freeChangeBeforeMin
+            before pickup was always free). No rule for the category = free. This also holds before any driver took the ride:
+            after the free minutes the fee is charged even with no driver, and Movera keeps all of it (no driver share). A
+            booked ride past its pickup time with no driver is always free. contract.json#afterTestRules.bookedCancel.)'
           default: 60
         raiseFare:
           type: boolean
@@ -23511,7 +23558,17 @@ components:
               type: integer
               minimum: 0
               maximum: 1440
-              description: 'v0.18.17: written by the server from the zone''s DriverAppConfig.reservations.freeChangeBeforeMin'
+              description: 'v0.18.17: written by the server from the zone''s DriverAppConfig.reservations.freeChangeBeforeMin
+                v0.18.49 §71 (owner Q10): the free-CHANGE window only; a booked ride''s cancel is free only inside the category''s
+                reservation cancel fee freeMin (v0.18.49 §71 (owner Q10 ''Category rule B only''): POST /trips/{tripId}/cancel
+                of a booked ride is free during the first afterTestRules.bookedCancel.graceAfterBookingMin (5) minutes after
+                booking (owner Q10 update), else only inside the free minutes of the reservation cancel fee rule of booking
+                time (RiderAppConfig.cancelFees.reservation[category].freeMin: free while minutesBeforePickup >= freeMin);
+                later that rule''s fee applies. freeChangeBeforeMin is the free-CHANGE window only (POST /trips/{tripId}/reschedule)
+                and no longer makes a cancel free (before v0.18.49: more than freeChangeBeforeMin before pickup was always
+                free). No rule for the category = free. This also holds before any driver took the ride: after the free minutes
+                the fee is charged even with no driver, and Movera keeps all of it (no driver share). A booked ride past its
+                pickup time with no driver is always free. contract.json#afterTestRules.bookedCancel.)'
               default: 60
             reservationsOn:
               type: boolean
@@ -26113,7 +26170,8 @@ components:
             route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now,
             pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit).
             v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.44
-            reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress).'
+            reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress). v0.18.49 reason: sign_out_on_trip
+            (409 conflict, contract.json#auth.signOutOnTrip).'
         details:
           type: array
           items:

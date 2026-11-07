@@ -2098,10 +2098,27 @@
     }
   },
   "resErrZoneOff": "Not available in this area yet",
-  "bookingFreeRule": "Free change and cancel more than {time} before pickup",
+  "bookingFreeRule": "Free change more than {time} before pickup",
   "@bookingFreeRule": {
+    "description": "v0.18.49 Q10: freeChangeBeforeMin is the free-change window only.",
     "placeholders": {
       "time": {
+        "type": "String"
+      }
+    }
+  },
+  "bookingCancelGrace": "Free cancel for 5 min after booking",
+  "@bookingCancelGrace": {
+    "description": "v0.18.49 Q10: afterTestRules.bookedCancel.graceAfterBookingMin (5)."
+  },
+  "bookingCancelCosts": "Cancelling less than {min} min before pickup costs {fee}",
+  "@bookingCancelCosts": {
+    "description": "v0.18.49 Q10 contract words (afterTestRules.bookedCancel.apps): the category's reservation cancel rule.",
+    "placeholders": {
+      "min": {
+        "type": "String"
+      },
+      "fee": {
         "type": "String"
       }
     }

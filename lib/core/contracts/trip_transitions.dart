@@ -68,7 +68,7 @@ class TripTransition {
 /// Anything not in the table is `409 invalid_transition` and the status does
 /// not change.
 abstract final class TripStateMachine {
-  static const contractVersion = '0.18.48';
+  static const contractVersion = '0.18.50';
 
   static const _s = TripStatus.searching;
   static const _o = TripStatus.offered;
@@ -219,6 +219,9 @@ abstract final class TripStateMachine {
       _it,
       _ad,
     }, TripStatus.failed),
+    // v0.18.50 §72 (L12): a live trip queued behind a trip that failed for
+    // silence goes back to dispatch without that driver.
+    TripTransition('release', TripActor.system, {_a}, _s, when: TripKind.live),
   ];
 
   /// Every command name the table knows.
@@ -308,6 +311,13 @@ abstract final class TripRatingRules {
     TripRatingRule(TripActor.driver, TripStatus.completed),
     TripRatingRule(
       TripActor.rider,
+      TripStatus.cancelledByRider,
+      command: 'end_early',
+    ),
+    // v0.18.50 §72 (L5, owner G8 Q1): the driver rates the rider who ended
+    // the trip early.
+    TripRatingRule(
+      TripActor.driver,
       TripStatus.cancelledByRider,
       command: 'end_early',
     ),

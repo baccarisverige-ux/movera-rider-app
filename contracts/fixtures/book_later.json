@@ -1,5 +1,5 @@
 {
-  "note": "v0.18.17 contract.json#bookLater.plan: when each step of a booked ride happens. settings override configDefaults.reservations. Times are UTC.",
+  "note": "v0.18.17 contract.json#bookLater.plan: when each step of a booked ride happens. settings override configDefaults.reservations. Times are UTC. riderCancel (v0.18.49 §71, owner Q10): free while minutesBefore >= freeMin (the category's reservation cancel fee rule), else the fee; freeChangeBeforeMin is listed only to show that it no longer decides.",
   "defaults": {
     "minAheadMin": 15,
     "maxAheadDays": 90,
@@ -124,25 +124,43 @@
       "id": "two_hours_before_free",
       "minutesBefore": 120,
       "freeChangeBeforeMin": 60,
+      "freeMin": 60,
       "expect": "free"
     },
     {
       "id": "sixty_one_before_free",
       "minutesBefore": 61,
       "freeChangeBeforeMin": 60,
+      "freeMin": 60,
       "expect": "free"
     },
     {
-      "id": "sixty_before_fee_rule",
+      "id": "sixty_before_free_at_freeMin",
       "minutesBefore": 60,
       "freeChangeBeforeMin": 60,
-      "expect": "reservation_fee_rule"
+      "freeMin": 60,
+      "expect": "free"
     },
     {
-      "id": "ten_before_fee_rule",
+      "id": "ten_before_fee",
       "minutesBefore": 10,
       "freeChangeBeforeMin": 60,
-      "expect": "reservation_fee_rule"
+      "freeMin": 60,
+      "expect": "fee"
+    },
+    {
+      "id": "q10_change_window_no_longer_free",
+      "minutesBefore": 90,
+      "freeChangeBeforeMin": 60,
+      "freeMin": 120,
+      "expect": "fee"
+    },
+    {
+      "id": "q10_category_free_below_change_window",
+      "minutesBefore": 45,
+      "freeChangeBeforeMin": 60,
+      "freeMin": 30,
+      "expect": "free"
     }
   ],
   "driverTimes": [

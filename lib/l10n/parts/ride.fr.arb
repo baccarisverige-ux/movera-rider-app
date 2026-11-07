@@ -240,7 +240,7 @@
   "g7RouteChangeOff": "La modification de l’itinéraire pendant la course est désactivée dans cette zone. Vous pouvez le dire à votre chauffeur.",
   "g7RouteLeavesFixedPrice": "Le prix fixe ne s'applique plus : la course est facturée au prix normal.",
   "g7RouteFixedRoute": "Cette course a un prix fixe, son itinéraire ne peut pas changer. Vous pouvez le dire à votre chauffeur.",
-  "g7RouteBeforePickupOff": "Vous pourrez modifier l’itinéraire une fois dans la voiture.",
+  "g7RouteBeforePickupOff": "Vous pourrez modifier l’itinéraire une fois à bord.",
   "pickupSpotApproximate": "{name} (approximatif)",
   "routeVisitedStopLocked": "Vous êtes déjà passé par cet arrêt : il ne peut plus être supprimé ni modifié.",
   "routeChangeRefused": "Movera n’a pas pu faire ce changement pour le moment. La course garde son itinéraire.",

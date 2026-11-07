@@ -35,7 +35,10 @@ void main() {
     // LOW 12 (live test 2026-11-03): the zone's real rule, with its
     // number (booking.freeChangeBeforeMin, 60 by default).
     expect(
-      find.text('Free change and cancel more than 1 hour before pickup'),
+      find.text(
+        'Free change more than 1 hour before pickup. '
+        'Free cancel for 5 min after booking.',
+      ),
       findsOneWidget,
     );
   });

@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/cancel_fee.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/status_words.g.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
@@ -326,14 +327,25 @@ abstract final class ReservationFormat {
     return L10n.current.noFeeToCancel;
   }
 
-  /// LOW 12: "Free change and cancel more than 1 hour before pickup",
-  /// from the zone's `booking.freeChangeBeforeMin`.
-  static String freeRule(int minutes) {
+  /// LOW 12 + v0.18.49 Q10: the booking terms line. The free CHANGE window
+  /// (`booking.freeChangeBeforeMin`), the 5 free minutes after booking
+  /// (`afterTestRules.bookedCancel.graceAfterBookingMin`) and, when the
+  /// category is known ([rule] of `cancelFees.reservation[category]` and
+  /// the ride's [fare]), what a late cancel costs. freeChangeBeforeMin no
+  /// longer makes a cancel free.
+  static String freeRule(int minutes, {FeeRule? rule, Money? fare}) {
     final l = L10n.current;
     final time = minutes % 60 == 0 && minutes > 0
         ? l.freeRuleHours(minutes ~/ 60)
         : l.durMin('$minutes');
-    return l.bookingFreeRule(time);
+    final lines = [l.bookingFreeRule(time), l.bookingCancelGrace];
+    if (rule != null && fare != null && rule.freeMin > 0) {
+      final fee = CancelFeeCalculator.reservation(rule, fare, rule.freeMin - 1);
+      if (fee.isPositive) {
+        lines.add(l.bookingCancelCosts('${rule.freeMin}', money(fee)));
+      }
+    }
+    return '${lines.join('. ')}.';
   }
 
   /// The admin cancel rule in one line, for the terms page.

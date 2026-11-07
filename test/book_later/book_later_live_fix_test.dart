@@ -58,18 +58,22 @@ void main() {
     );
   });
 
-  test('LOW 12: the free change and cancel rule uses the zone value', () {
+  test('LOW 12 + Q10: the free change rule uses the zone value, with the 5 '
+      'free minutes after booking', () {
     expect(
       ReservationFormat.freeRule(60),
-      'Free change and cancel more than 1 hour before pickup',
+      'Free change more than 1 hour before pickup. '
+      'Free cancel for 5 min after booking.',
     );
     expect(
       ReservationFormat.freeRule(120),
-      'Free change and cancel more than 2 hours before pickup',
+      'Free change more than 2 hours before pickup. '
+      'Free cancel for 5 min after booking.',
     );
     expect(
       ReservationFormat.freeRule(45),
-      'Free change and cancel more than 45 min before pickup',
+      'Free change more than 45 min before pickup. '
+      'Free cancel for 5 min after booking.',
     );
   });
 
@@ -106,7 +110,10 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 300));
     expect(
-      find.text('Free change and cancel more than 2 hours before pickup'),
+      find.text(
+        'Free change more than 2 hours before pickup. '
+        'Free cancel for 5 min after booking.',
+      ),
       findsOneWidget,
     );
   });
