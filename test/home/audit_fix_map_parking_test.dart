@@ -15,6 +15,8 @@ import 'package:movera_rider/features/reservations/domain/reservation_status.dar
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:movera_rider/core/location/location_repository.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 
 /// NAV-3: Home's map is parked whenever another map screen covers it, not only
 /// for the flows home.dart opens itself. Two Google Maps at once crashes the
@@ -22,7 +24,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
-  setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    // Item 9: Home no longer opens a made-up Stockholm map when no GPS
+    // answers; these map tests start from a position this session knows.
+    LocationRepository.noteSessionFix(const GeoPoint(59.3293, 18.0686));
+  });
+  tearDown(LocationRepository.debugForgetSessionFix);
 
   int mapsMounted() =>
       find.byType(CustomGoogleMap, skipOffstage: false).evaluate().length;
