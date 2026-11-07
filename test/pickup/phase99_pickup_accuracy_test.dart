@@ -51,8 +51,10 @@ void main() {
   });
 
   group('U6: the picker opens where the rider is now', () {
+    // Rule 25 split (2026-11-07): the pickup picker and the parked-map
+    // flow moved, unchanged, into Home's route-flow part file.
     final home = File(
-      'lib/features/home/presentation/home.dart',
+      'lib/features/home/presentation/home_route_flow.dart',
     ).readAsStringSync();
     final picker = home.substring(
       home.indexOf('Future<PickupMapResult?> _openPickupMapPicker('),

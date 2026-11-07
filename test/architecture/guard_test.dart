@@ -27,6 +27,9 @@ void main() {
     'lib/features/home/presentation/home_location.dart',
     'lib/features/home/presentation/home_map_controls.dart',
     'lib/features/home/presentation/home_routes.dart',
+    // Rule 25 split (2026-11-07) moved more of Home into part files.
+    'lib/features/home/presentation/home_location_detect.dart',
+    'lib/features/home/presentation/home_route_flow.dart',
   ];
 
   const selectRideScreenFiles = [
