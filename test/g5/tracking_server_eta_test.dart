@@ -318,7 +318,10 @@ void main() {
       L10n.use('sv');
       expect(riderCancelFeeText(outcome), 'Avgift för utebliven kund 65 kr');
       L10n.use('fr');
-      expect(riderCancelFeeText(outcome), 'Frais de non-présentation du passager : 65 kr');
+      expect(
+        riderCancelFeeText(outcome),
+        'Frais de non-présentation du passager : 65 kr',
+      );
       L10n.use('en');
       expect(
         riderCancelFeeText(
