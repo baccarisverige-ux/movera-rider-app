@@ -203,19 +203,29 @@
     // except firebase-messaging-sw.js: Firebase web push registers that one
     // when a build has Firebase configured, and removing it on every boot
     // would silently break push after the next reload.
+    // The driver app is served from the same origin (its own path), and
+    // Cache Storage belongs to the whole origin: only the rider's own
+    // workers (its scope) and the old Flutter worker's caches (flutter-*)
+    // are removed, never the driver's (e.g. movera-push-prefs).
     (function() {
       var tasks = [];
+      var riderScope = new URL('./', document.baseURI).href;
 
       function scriptOf(registration) {
         var worker = registration.active || registration.waiting || registration.installing;
         return worker && worker.scriptURL ? String(worker.scriptURL) : '';
       }
 
+      function isRiderOwn(registration) {
+        return String(registration.scope || '').indexOf(riderScope) === 0;
+      }
+
       if ('serviceWorker' in navigator) {
         tasks.push(
           navigator.serviceWorker.getRegistrations().then(function(registrations) {
             return Promise.all(registrations.filter(function(registration) {
-              return scriptOf(registration).indexOf('firebase-messaging-sw.js') === -1;
+              return isRiderOwn(registration) &&
+                scriptOf(registration).indexOf('firebase-messaging-sw.js') === -1;
             }).map(function(registration) {
               return registration.unregister();
             }));
@@ -226,7 +236,9 @@
       if ('caches' in window) {
         tasks.push(
           caches.keys().then(function(keys) {
-            return Promise.all(keys.map(function(key) {
+            return Promise.all(keys.filter(function(key) {
+              return String(key).indexOf('flutter-') === 0;
+            }).map(function(key) {
               return caches.delete(key);
             }));
           })
@@ -588,27 +600,35 @@
       return started;
     };
 
+    // Owner 2026-11-07 (item 10): the Motion & Orientation prompt is asked
+    // only when the rider taps "my position" (Home calls this from that
+    // tap), never on the first tap after every start. The rest of that same
+    // tap (touchend / click, trusted events) asks once; then it disarms.
     window.moveraArmHeadingFromGesture = function() {
+      if (window.moveraHeadingStarted && window.moveraHeadingPermission === 'granted') {
+        return;
+      }
       if (window._moveraHeadingArmed) return;
       window._moveraHeadingArmed = true;
+      var disarm = function() {
+        window._moveraHeadingArmed = false;
+        window.removeEventListener('pointerdown', arm, true);
+        window.removeEventListener('touchstart', arm, true);
+        window.removeEventListener('touchend', arm, true);
+        window.removeEventListener('click', arm, true);
+      };
       var arm = function() {
         var now = Date.now();
         if (now - window._moveraLastAskAt < 350) return;
         window._moveraLastAskAt = now;
+        disarm();
         window.moveraRequestHeadingFromGesture();
-        if (window.moveraHeadingStarted && window.moveraHeadingPermission === 'granted') {
-          window.removeEventListener('pointerdown', arm, true);
-          window.removeEventListener('touchstart', arm, true);
-          window.removeEventListener('touchend', arm, true);
-          window.removeEventListener('click', arm, true);
-        }
       };
       window.addEventListener('pointerdown', arm, true);
       window.addEventListener('touchstart', arm, true);
       window.addEventListener('touchend', arm, true);
       window.addEventListener('click', arm, true);
     };
-    window.moveraArmHeadingFromGesture();
     // Do not stop heading on pagehide — iOS fires it for the motion prompt
     // and for backgrounding, which previously killed listeners after grant.
   </script>
@@ -618,12 +638,19 @@
     // window.moveraMapsSrc (just above the app's start script); the first map
     // on screen calls this (lib/core/web/web_maps_available_web.dart) and the
     // map waits for it as before (rider-r4-20).
+    // Finder C3: a failed load (a network switch, a tunnel) frees the
+    // loader again, so the map's next ask (it asks again while it waits)
+    // loads it instead of leaving every map unavailable until a reload.
     window.moveraLoadGoogleMaps = function() {
       if (window.moveraGoogleMapsRequested || !window.moveraMapsSrc) return;
       window.moveraGoogleMapsRequested = true;
       var script = document.createElement('script');
       script.src = window.moveraMapsSrc;
       script.async = true;
+      script.onerror = function() {
+        window.moveraGoogleMapsRequested = false;
+        if (script.parentNode) script.parentNode.removeChild(script);
+      };
       document.head.appendChild(script);
     };
   </script>

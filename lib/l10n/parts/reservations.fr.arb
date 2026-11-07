@@ -14,7 +14,7 @@
   "resCancelledFee": "Annulée · frais de {amount}",
   "resCancelled": "Annulée",
   "resPaymentFailed": "Échec du paiement",
-  "resReservedFor": "Votre course est réservée pour le {date} à {time}",
+  "resReservedFor": "Votre course est programmée pour le {date} à {time}",
   "resWasScheduledFor": "Ce trajet était prévu le {date} à {time}",
   "resKeepReady": "Nous gardons votre réservation prête pour le {date} à {time}.",
   "resNotifyAssigned": "Nous vous préviendrons dès qu’un chauffeur sera attribué.",
@@ -111,10 +111,11 @@
   "schedDateNext": "Vous choisirez la date et l'heure à l'écran suivant.",
   "resErrTooSoon": "Réservez au moins {minutes} minutes avant la prise en charge.",
   "resErrTooFar": "Vous pouvez réserver au maximum {days} jours à l'avance.",
-  "resErrTripTooLong": "Cette course est trop longue pour être réservée à l'avance. Réservez-la au moment de partir.",
+  "resErrTripTooLong": "Cette course est trop longue pour être programmée à l'avance. Réservez-la au moment de partir.",
   "resErrChangeTooLate": "À moins de {minutes} minutes de la prise en charge, la course ne peut plus être modifiée. Votre course n'a pas changé.",
   "resErrZoneOff": "Pas encore disponible dans cette zone",
   "bookingFreeRule": "Modification et annulation gratuites plus de {time} avant la prise en charge",
+  "bookingCancelCosts": "Annuler moins de {min} min avant la prise en charge coûte {fee}",
   "scheduleForLaterChip": "Réserver une course pour plus tard",
   "bookedDriverOnTheWay": "Votre chauffeur réservé est en route"
 }

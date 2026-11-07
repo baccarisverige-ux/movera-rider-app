@@ -112,7 +112,7 @@ void main() {
       );
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Cancel request'));
+      await tester.tap(find.text('Cancel ride'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Destination needs to be changed'));
       await tester.pump();

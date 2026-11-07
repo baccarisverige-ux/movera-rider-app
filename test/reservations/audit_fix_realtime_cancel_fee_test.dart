@@ -13,7 +13,9 @@ void main() {
   test('the realtime cancel records the reservation\'s late fee', () async {
     // Two minutes before pickup: inside the default 60-minute window.
     final pickup = DateTime.utc(2026, 10, 21, 21, 50);
-    final now = pickup.subtract(const Duration(minutes: 2));
+    // Booked 10 minutes before that: past the 5 free minutes after booking
+    // (v0.18.49 Q10, bookedCancel.graceAfterBookingMin).
+    var now = pickup.subtract(const Duration(minutes: 12));
     final controller = ReservationController(
       store: LocalReservationRepository(
         storage: MemoryReservationStorage(),
@@ -34,6 +36,7 @@ void main() {
         paymentMethod: 'Apple Pay',
       ),
     );
+    now = pickup.subtract(const Duration(minutes: 2));
     await controller.applyDriverAssignment(
       ride.reservationId,
       driver: const ReservationDriver(firstName: 'Amina', rating: 4.9),

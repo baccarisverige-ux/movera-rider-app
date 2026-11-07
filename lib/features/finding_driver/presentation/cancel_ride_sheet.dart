@@ -272,8 +272,12 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
                       ],
                     )
                   : Text(
+                      // Owner 2026-11-07: once a driver is on the ride it
+                      // is the ride the rider cancels, not a request.
                       inTrip
                           ? context.l10n.endTripHere
+                          : matched
+                          ? context.l10n.cancelRide
                           : context.l10n.cancelRequest,
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w600,
