@@ -50,10 +50,14 @@ class PushPayload {
       deepLink: readString('deepLink', 'deep_link'),
       title: _clean(title) ?? readString('title', 'title'),
       body: _clean(body) ?? readString('body', 'body'),
+      // v0.18.51 §73 (riderTripPushBell): the server's notificationId names
+      // the notice first — it is also the bell row of GET /notifications,
+      // so a push shown in the app and its server row stay one row. The
+      // transport's message id only when the push has none.
       messageId:
+          readString('notificationId', 'notification_id') ??
           _clean(messageId) ??
-          readString('messageId', 'message_id') ??
-          readString('notificationId', 'notification_id'),
+          readString('messageId', 'message_id'),
       sentAt: sentAt,
     );
   }
