@@ -242,6 +242,9 @@ class ApiQuoteRepository implements QuoteRepository {
           bookingFeeMinor: found.bookingFeeMinor,
           surgeMinor: found.surgeMinor,
           discountMinor: found.discountMinor,
+          // Live 5+5 run 2: without it Choose ride saw 0 and showed no
+          // « +35 kr obetald avgift » line under a price that held it.
+          outstandingFeeMinor: found.outstandingFeeMinor,
           serverHeld: true,
         );
       }
