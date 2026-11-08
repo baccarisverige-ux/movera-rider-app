@@ -1,4 +1,4 @@
-name: Android test APK (staging)
+name: Android test APK (staging)  # PROOF BUILD: no Map ID
 
 # Owner upgrade test: builds APK 1 from `old_ref` and APK 2 from `new_ref` in ONE run,
 # both signed with the same throw-away test key (generated here, never stored), with
@@ -64,7 +64,6 @@ jobs:
             echo "MAPS_API_KEY=TEST_BUILD_NO_MAP" >> "$GITHUB_ENV"
             export MAPS_API_KEY=TEST_BUILD_NO_MAP
           fi
-          printf '%s' "$RIDER_MAP_ID" | grep -Eq '^[A-Za-z0-9]+$'
           mkdir -p out
           build() {
             ref="$1"; number="$2"; name="$3"
@@ -77,8 +76,7 @@ jobs:
               --dart-define=MOVERA_FLAVOR=staging \
               --dart-define=MOVERA_API_BASE_URL="$LIVE_API" \
               --dart-define=MOVERA_AUTH_REQUIRED=true \
-              --dart-define=MOVERA_APP_VERSION="$app_version" \
-              --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID"
+              --dart-define=MOVERA_APP_VERSION="$app_version"
             cp build/app/outputs/flutter-apk/app-release.apk "out/$name"
           }
           build "$OLD_REF" 100000 "1-install-first-old.apk"
