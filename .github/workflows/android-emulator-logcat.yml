@@ -4,6 +4,9 @@ name: Android emulator logcat (Maps proof)  # PROOF ONLY, owner-approved, not fo
 # same throw-away signing), runs it on a Google APIs emulator and keeps the Android log.
 on:
   workflow_dispatch:
+  # A workflow only on a side branch cannot be dispatched, so a push to this proof branch starts it.
+  push:
+    branches: [test/apk-emulator-logcat]
 
 permissions:
   contents: read
