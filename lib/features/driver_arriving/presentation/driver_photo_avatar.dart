@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/contracts/matched_driver.dart';
 import 'package:movera_rider/features/driver_arriving/application/driver_photo.dart';
 
@@ -29,6 +30,9 @@ class _DriverPhotoAvatarState extends State<DriverPhotoAvatar> {
   Uint8List? _bytes;
   String? _path;
 
+  /// The picture failed to decode: the fallback shows instead.
+  bool _failed = false;
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +48,7 @@ class _DriverPhotoAvatarState extends State<DriverPhotoAvatar> {
   void _follow() {
     final path = widget.driver?.photoUrl;
     _path = path;
+    _failed = false;
     _bytes = DriverPhotos.cached(path);
     if (_bytes != null || !DriverPhotos.isTripPhotoPath(path)) return;
     DriverPhotos.load(path).then((bytes) {
@@ -52,11 +57,24 @@ class _DriverPhotoAvatarState extends State<DriverPhotoAvatar> {
     });
   }
 
+  void _onImageError(Object error, StackTrace? stack) {
+    final path = _path;
+    if (_bytes != null) DriverPhotos.markBroken(path);
+    AppLog.warning('driver_photo.undecodable', extra: {'error': '$error'});
+    if (!mounted || _failed) return;
+    setState(() {
+      _failed = true;
+      _bytes = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final bytes = _bytes;
     final asset = widget.driver?.photoAsset;
-    final ImageProvider? image = bytes != null
+    final ImageProvider? image = _failed
+        ? null
+        : bytes != null
         ? MemoryImage(bytes)
         : asset != null
         ? AssetImage(asset)
@@ -66,6 +84,9 @@ class _DriverPhotoAvatarState extends State<DriverPhotoAvatar> {
       radius: widget.radius,
       backgroundColor: widget.backgroundColor,
       backgroundImage: image,
+      // Live 5+5 test 2026-11-08: a photo that does not decode (staging test
+      // drivers' placeholder file) is not a crash: the fallback shows.
+      onBackgroundImageError: image == null ? null : _onImageError,
       child: image == null ? widget.fallback : null,
     );
   }
