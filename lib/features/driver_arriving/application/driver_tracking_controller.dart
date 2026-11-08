@@ -100,6 +100,10 @@ class DriverTrackingController {
   /// server has computed one, and while the driver waits at the pickup.
   TripEta? serverEta;
 
+  /// Whether [eta] was built with the rider on board (its seconds are a
+  /// drop-off time); pickup seconds are never carried into the trip.
+  bool _etaOnBoard = false;
+
   /// v0.18.7: the rules this trip is charged by (`TripProjection.terms`):
   /// waiting, no-show, cancel and the pickup move limit, in the trip's
   /// currency. Null until a projection carried them.
@@ -523,9 +527,25 @@ class DriverTrackingController {
             // v0.18.7: the server ETA (road route, every 30 s) is what
             // both apps show; its tick keeps the marker fresh while a
             // parked driver's phone sends few fixes.
-            final routed = status == RideStatus.driverWaiting
+            // Live 5+5 test 2026-11-08 (arrival time = start time for
+            // 8-10 s): on board, a PICKUP ETA (the server's stored one
+            // still rides on the rider_onboard projection until the next
+            // 30 s tick) never gives the arrival time, nor do the pickup
+            // seconds from before boarding; the sheet shows the "trip in
+            // progress" texts until a drop-off ETA arrives.
+            final onBoard = DriverEta.isInTrip(status);
+            final known = serverEta;
+            final routed =
+                status == RideStatus.driverWaiting ||
+                    (onBoard && known != null && known.toPickup)
                 ? null
-                : serverEta;
+                : known;
+            final eventSeconds = onBoard && event.eta?.toPickup == true
+                ? null
+                : event.etaSeconds;
+            final carriedSeconds = onBoard && !_etaOnBoard
+                ? null
+                : eta?.seconds;
             final routedAt = routed == null
                 ? null
                 : _onDevice(routed.at) ?? routed.at;
@@ -541,11 +561,13 @@ class DriverTrackingController {
                 destinationLat: destinationLat,
                 destinationLng: destinationLng,
                 locationAt: incomingLocationAt,
-                etaSeconds: event.etaSeconds,
+                etaSeconds: eventSeconds,
                 status: status,
                 server: routed,
                 serverEtaAt: routedAt,
+                estimate: !onBoard,
               );
+              _etaOnBoard = onBoard;
             } else if (eta != null && eta!.locationAt != null) {
               eta = DriverEta.fromFix(
                 latitude: eta!.latitude ?? pickupLat,
@@ -555,11 +577,13 @@ class DriverTrackingController {
                 destinationLat: destinationLat,
                 destinationLng: destinationLng,
                 locationAt: eta!.locationAt!,
-                etaSeconds: event.etaSeconds ?? eta!.seconds,
+                etaSeconds: eventSeconds ?? carriedSeconds,
                 status: status,
                 server: routed,
                 serverEtaAt: routedAt,
+                estimate: !onBoard,
               );
+              _etaOnBoard = onBoard;
             }
             // Also persist an accepted event that confirms the current stage
             // when that stage is not stored yet (start never stores a stage it

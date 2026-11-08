@@ -395,10 +395,12 @@ void main() {
         isTrue,
       );
 
-      realtime.emit(RideStatus.tripStarted);
+      // On board the arrival time comes from a drop-off ETA, as the mock's
+      // own feed sends (live 5+5 test 2026-11-08: never a guess).
+      realtime.emit(RideStatus.tripStarted, etaSeconds: 600);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
-      realtime.emit(RideStatus.tripInProgress);
+      realtime.emit(RideStatus.tripInProgress, etaSeconds: 600);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 

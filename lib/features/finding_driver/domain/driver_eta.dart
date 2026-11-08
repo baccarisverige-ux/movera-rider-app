@@ -70,6 +70,7 @@ class DriverEta {
     RideStatus? status,
     TripEta? server,
     DateTime? serverEtaAt,
+    bool estimate = true,
   }) {
     final clock = now ?? DateTime.now();
     // Once the trip is under way, "how far / how long" means distance to
@@ -93,9 +94,13 @@ class DriverEta {
     final stale =
         clock.difference(freshAt) > staleAfter || server?.source == 'stale';
     // The server's road ETA first (both apps show the same one), its
-    // `etaSeconds` repeat next, the straight-line guess only without any.
+    // `etaSeconds` repeat next, the straight-line guess only without any
+    // (and only when [estimate]: on board the arrival time waits for the
+    // server's drop-off ETA, live 5+5 test 2026-11-08).
     final seconds =
-        server?.etaSeconds ?? etaSeconds ?? secondsForDistance(straight);
+        server?.etaSeconds ??
+        etaSeconds ??
+        (estimate ? secondsForDistance(straight) : null);
     return DriverEta(
       seconds: seconds,
       distanceMeters: server?.distanceMeters.toDouble() ?? straight,

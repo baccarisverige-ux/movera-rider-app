@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/features/finding_driver/domain/driver_eta.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
@@ -108,7 +109,14 @@ void main() {
         RideStatus.tripInProgress,
         RideStatus.approachingDropoff,
       ]) {
-        realtime.emit(step, latitude: 59.331, longitude: 18.070);
+        // On board the arrival time comes from a drop-off ETA, as the
+        // mock's own feed sends (live 5+5 test 2026-11-08: never a guess).
+        realtime.emit(
+          step,
+          latitude: 59.331,
+          longitude: 18.070,
+          etaSeconds: DriverEta.isInTrip(step) ? 600 : null,
+        );
         await tester.pump();
         if (step == RideStatus.driverWaiting) {
           // Reaching driverWaiting opens the driver-arrived sheet; give it
