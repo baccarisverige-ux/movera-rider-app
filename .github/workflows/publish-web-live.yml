@@ -63,7 +63,10 @@ jobs:
           # just-replaced index.html gets 404s for the old fingerprinted
           # main.<sha>.dart.js until it expires; the boot screen then clears
           # after 20 s to an empty page, not to Home.
-          flutter build web --release \
+          # Owner 2026-11-04 (B9, "Yes, both apps"): --wasm builds main.dart.wasm
+          # (skwasm) AND main.dart.js; flutter_bootstrap.js picks wasm where the
+          # browser supports it and falls back to JS elsewhere (older Safari).
+          flutter build web --release --wasm \
             -t lib/main_staging.dart \
             --dart-define=MOVERA_FLAVOR=staging \
             --dart-define=MOVERA_API_BASE_URL="$LIVE_API" \
@@ -85,6 +88,8 @@ jobs:
           s = s.replace('<base href="/">', '<base href="/movera-rider-app/live/">')
           p.write_text(s)
           PY
+          # B9: let the page open the API connection early (hint only).
+          sed -i "s|  <!-- MOVERA_API_PRECONNECT -->|  <link rel=\"preconnect\" href=\"${LIVE_API%/}\" crossorigin>|" build/web/index.html
           rm -rf /tmp/movera-live
           cp -a build/web /tmp/movera-live
           git checkout -- .

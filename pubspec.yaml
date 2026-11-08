@@ -47,7 +47,7 @@ dependencies:
   geolocator: ^14.0.2
   shared_preferences: ^2.5.3
   http: ^1.4.0
-  flutter_secure_storage: ^9.2.4
+  flutter_secure_storage: ^10.3.4
   intl: ^0.20.2
   url_launcher: ^6.3.2
   record: ^7.1.1

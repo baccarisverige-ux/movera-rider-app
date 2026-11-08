@@ -15,14 +15,10 @@ import 'package:movera_rider/features/history/presentation/ride_history_result.d
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/features/profile/presentation/language_picker.dart';
-import 'package:movera_rider/features/profile/presentation/personal_info.dart';
-import 'package:movera_rider/features/profile/presentation/privacy.dart';
 import 'package:movera_rider/features/profile/presentation/refer_and_earn.dart';
-import 'package:movera_rider/features/profile/presentation/security.dart';
 import 'package:movera_rider/features/promotions/presentation/promotion_details_sheet.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/saved_places/presentation/saved_places.dart';
-import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/app/deferred_screens.dart';
 import 'package:movera_rider/shared/accessibility/a11y.dart';
 import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
@@ -479,7 +475,7 @@ class RiderMenuPage extends StatelessWidget {
       (
         context.l10n.menuSupport,
         'questions',
-        () => _pushPage(context, const SupportHome()),
+        () => _pushPage(context, supportHomeScreen()),
       ),
     ];
     Widget tile((String, String, VoidCallback) item) {
@@ -585,7 +581,7 @@ class RiderMenuPage extends StatelessWidget {
           picture: 'family',
           onTap: () => _pushPage(
             context,
-            HelpArticle(
+            helpArticleScreen(
               title: context.l10n.menuFamily,
               body: context.l10n.menuFamilyArticle,
             ),
@@ -607,7 +603,7 @@ class RiderMenuPage extends StatelessWidget {
           pictureWidth: 96,
           onTap: () => _pushPage(
             context,
-            HelpArticle(
+            helpArticleScreen(
               title: context.l10n.menuBusiness,
               body: context.l10n.menuBusinessArticle,
             ),
@@ -619,7 +615,7 @@ class RiderMenuPage extends StatelessWidget {
         picture: 'nature',
         onTap: () => _pushPage(
           context,
-          HelpArticle(
+          helpArticleScreen(
             title: context.l10n.menuGreener,
             body: context.l10n.menuGreenerArticle,
           ),
@@ -709,7 +705,7 @@ class RiderMenuPage extends StatelessWidget {
         context.l10n.accountPersonalInfoBody,
         () => _pushPage(
           context,
-          PersonalInfoPage(controller: profile, securityController: security),
+          personalInfoScreen(controller: profile, securityController: security),
         ),
       ),
       (
@@ -724,13 +720,14 @@ class RiderMenuPage extends StatelessWidget {
           AppAssets.solarShieldCheck,
           context.l10n.accountSecurity,
           context.l10n.accountSecurityBody,
-          () => _pushPage(context, SecurityPage(securityController: security)),
+          () =>
+              _pushPage(context, securityScreen(securityController: security)),
         ),
       (
         AppAssets.solarLock,
         context.l10n.accountPrivacy,
         context.l10n.accountPrivacyBody,
-        () => _pushPage(context, PrivacyPage(controller: profile)),
+        () => _pushPage(context, privacyScreen(controller: profile)),
       ),
       (
         AppAssets.solarDocument,
@@ -750,7 +747,7 @@ class RiderMenuPage extends StatelessWidget {
         context.l10n.menuAboutBody,
         () => _pushPage(
           context,
-          HelpArticle(
+          helpArticleScreen(
             title: context.l10n.menuAboutMovera,
             body: context.l10n.menuAboutArticle,
           ),

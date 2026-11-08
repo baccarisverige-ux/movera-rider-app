@@ -175,7 +175,8 @@ void main() {
     ]) {
       expect(
         File(path).readAsStringSync(),
-        contains('SupportHome()'),
+        // B9: Help now opens through its load-on-open wrapper.
+        contains('supportHomeScreen()'),
         reason: path,
       );
     }

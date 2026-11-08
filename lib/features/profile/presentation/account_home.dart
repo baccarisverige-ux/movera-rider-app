@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:movera_rider/app/deferred_screens.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/di.dart';
@@ -16,11 +17,7 @@ import 'package:movera_rider/features/profile/presentation/account_checkup.dart'
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/features/profile/presentation/delete_account.dart';
 import 'package:movera_rider/features/profile/presentation/language_picker.dart';
-import 'package:movera_rider/features/profile/presentation/personal_info.dart';
-import 'package:movera_rider/features/profile/presentation/privacy.dart';
-import 'package:movera_rider/features/profile/presentation/security.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
-import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
@@ -160,7 +157,7 @@ class _AccountHomePageState extends State<AccountHomePage> {
                 title: context.l10n.accountPersonalInfo,
                 body: context.l10n.accountPersonalInfoBody,
                 onTap: () => _open(
-                  PersonalInfoPage(
+                  personalInfoScreen(
                     controller: _profile,
                     securityController: _security,
                   ),
@@ -172,13 +169,13 @@ class _AccountHomePageState extends State<AccountHomePage> {
                   title: context.l10n.accountSecurity,
                   body: context.l10n.accountSecurityBody,
                   onTap: () =>
-                      _open(SecurityPage(securityController: _security)),
+                      _open(securityScreen(securityController: _security)),
                 ),
               AccountTile(
                 mark: const AccountIcon.asset(AppAssets.solarLock),
                 title: context.l10n.accountPrivacy,
                 body: context.l10n.accountPrivacyBody,
-                onTap: () => _open(PrivacyPage(controller: _profile)),
+                onTap: () => _open(privacyScreen(controller: _profile)),
               ),
               // Q48: "FR · Français"; the choice wins over the zone default.
               AccountTile(
@@ -255,7 +252,7 @@ class _AccountHomePageState extends State<AccountHomePage> {
                 mark: const AccountIcon.asset(AppAssets.solarHeadphones),
                 title: context.l10n.menuSupport,
                 body: context.l10n.accountSupportBody,
-                onTap: () => _open(const SupportHome()),
+                onTap: () => _open(supportHomeScreen()),
               ),
               AccountTile(
                 mark: const AccountIcon.asset(AppAssets.solarDocument),

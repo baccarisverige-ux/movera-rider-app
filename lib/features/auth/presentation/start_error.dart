@@ -1,8 +1,8 @@
+import 'package:movera_rider/app/deferred_screens.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
-import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// Owner 2026-10-29, decision 2 (the driver app's start screen, done the
@@ -36,7 +36,7 @@ class _StartErrorState extends State<StartError> {
 
   void _contact() => Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) => widget.supportBuilder?.call() ?? const SupportMessages(),
+      builder: (_) => widget.supportBuilder?.call() ?? supportMessagesScreen(),
     ),
   );
 
