@@ -1,0 +1,125 @@
+name: Android emulator logcat (Maps proof)  # PROOF ONLY, owner-approved, not for merge
+
+# Builds the staging test APK exactly like android-test-apk.yml (same Maps key secret order,
+# same throw-away signing), runs it on a Google APIs emulator and keeps the Android log.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  emulator-logcat:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      LIVE_API: https://movera-server.onrender.com
+      MAPS_API_KEY: ${{ secrets.ANDROID_MAPS_API_KEY || secrets.MAPS_API_KEY || secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS1 || secrets.MAPS || secrets.GOOGLE_MAPS_WEB_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Which key secret is used (names and lengths only, never values)
+        env:
+          S1: ${{ secrets.ANDROID_MAPS_API_KEY }}
+          S2: ${{ secrets.MAPS_API_KEY }}
+          S3: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          S4: ${{ secrets.MAPS1 }}
+          S5: ${{ secrets.MAPS }}
+          S6: ${{ secrets.GOOGLE_MAPS_WEB_API_KEY }}
+        run: |
+          for pair in "ANDROID_MAPS_API_KEY:$S1" "MAPS_API_KEY:$S2" "GOOGLE_MAPS_API_KEY:$S3" "MAPS1:$S4" "MAPS:$S5" "GOOGLE_MAPS_WEB_API_KEY:$S6"; do
+            n="${pair%%:*}"; v="${pair#*:}"
+            if [ -n "$v" ]; then
+              case "$v" in AIza*) shape="starts like a Google key";; *) shape="does NOT start like a Google key";; esac
+              echo "$n: set, length ${#v}, $shape"
+            else echo "$n: empty"; fi
+          done
+          for pair in "ANDROID_MAPS_API_KEY:$S1" "MAPS_API_KEY:$S2" "GOOGLE_MAPS_API_KEY:$S3" "MAPS1:$S4" "MAPS:$S5" "GOOGLE_MAPS_WEB_API_KEY:$S6"; do
+            [ -n "${pair#*:}" ] && { echo "Build uses: ${pair%%:*}"; break; }
+          done
+          [ "$S1" = "$MAPS_API_KEY" ] && [ -n "$S1" ] && echo "Build key == ANDROID_MAPS_API_KEY" || true
+          [ -n "$S6" ] && [ "$S6" = "$MAPS_API_KEY" ] && echo "Build key == GOOGLE_MAPS_WEB_API_KEY (the web key)" || true
+          [ -n "$S2" ] && [ "$S2" = "$MAPS_API_KEY" ] && echo "Build key == MAPS_API_KEY" || true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.7'
+          cache: true
+      - name: Make a throw-away test signing key
+        run: |
+          set -euo pipefail
+          install -m 700 -d "$RUNNER_TEMP/test-signing"
+          pw="$(openssl rand -hex 16)"
+          echo "::add-mask::$pw"
+          keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/test-signing/test.jks" \
+            -storepass "$pw" -keypass "$pw" -alias movera-test -keyalg RSA -keysize 2048 \
+            -validity 30 -dname "CN=Movera owner test, O=Movera"
+          {
+            echo "MOVERA_RELEASE_KEYSTORE_PATH=$RUNNER_TEMP/test-signing/test.jks"
+            echo "MOVERA_RELEASE_STORE_PASSWORD=$pw"
+            echo "MOVERA_RELEASE_KEY_ALIAS=movera-test"
+            echo "MOVERA_RELEASE_KEY_PASSWORD=$pw"
+          } >> "$GITHUB_ENV"
+          echo "Test signing certificate SHA-1 (throw-away key, not secret):"
+          keytool -list -v -keystore "$RUNNER_TEMP/test-signing/test.jks" -storepass "$pw" -alias movera-test | grep -E 'SHA1|SHA-1'
+      - name: Build staging APKs (same flags as android-test-apk.yml on test/apk-no-mapid)
+        run: |
+          set -euo pipefail
+          if [ -z "${MAPS_API_KEY:-}" ]; then
+            echo '::warning::No Google Maps key secret: placeholder used.'
+            echo "MAPS_API_KEY=TEST_BUILD_NO_MAP" >> "$GITHUB_ENV"
+            export MAPS_API_KEY=TEST_BUILD_NO_MAP
+          fi
+          mkdir -p out
+          flutter pub get
+          app_version="$(sed -n 's/^version: *//p' pubspec.yaml)"
+          b() {
+            flutter build apk --release -t lib/main_staging.dart --build-number="$1" \
+              --dart-define=MOVERA_FLAVOR=staging \
+              --dart-define=MOVERA_API_BASE_URL="$LIVE_API" \
+              --dart-define=MOVERA_AUTH_REQUIRED="$2" \
+              --dart-define=MOVERA_APP_VERSION="$app_version"
+            cp build/app/outputs/flutter-apk/app-release.apk "out/$3"
+          }
+          b 100001 true A-staging-exact.apk
+          b 100002 false B-staging-no-signin.apk
+          ls -la out
+      - name: Check the Maps key inside the built APK manifest (masked)
+        run: |
+          set -uo pipefail
+          AAPT2="$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)"
+          "$AAPT2" dump xmltree --file AndroidManifest.xml out/A-staging-exact.apk > manifest.txt
+          grep -n -A2 'com.google.android.geo.API_KEY' manifest.txt \
+            | perl -pe 'BEGIN{$k=$ENV{MAPS_API_KEY}} s/\Q$k\E/[REDACTED]/g if length $k; s/AIza[0-9A-Za-z_\-]{20,}/[REDACTED-AIza]/g'
+          if grep -q -F "$MAPS_API_KEY" manifest.txt; then echo "Manifest value == build key: YES"; else echo "Manifest value == build key: NO"; fi
+          grep -c 'MISSING_MAPS_API_KEY\|TEST_BUILD_NO_MAP\|\${MAPS_API_KEY}' manifest.txt || true
+          grep -n 'package=' manifest.txt | head -2
+          rm -f manifest.txt
+      - name: Remove test key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/test-signing"
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run on Google APIs emulator and keep logcat
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash .github/proof/emulator-probe.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: emulator-logcat-maps-proof
+          path: probe-out/
+          retention-days: 7
+          if-no-files-found: warn
