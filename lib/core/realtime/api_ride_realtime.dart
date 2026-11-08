@@ -120,6 +120,30 @@ class ApiRideRealtime implements RideRealtime {
   @override
   bool get supportsRiderSignals => _api.contractWire;
 
+  /// Contract v0.18.13 `TripProjection.headingCheck.freeCancel`, read now
+  /// with one `GET /trips/{tripId}` (the cancel sheet asks once as it
+  /// opens; nothing is polled). The server changes the check on its ETA
+  /// tick without a new version or a projection event (the stream only
+  /// carries the tick's `location`), and a re-read of the trip is a
+  /// duplicate for the event gate, so the followed trip never shows it.
+  /// Null when the trip does not say or cannot be read.
+  Future<bool?> readHeadingFreeCancel(
+    String rideId, {
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    if (_disposed || !_api.contractWire) return null;
+    try {
+      final json = await _api
+          .get(_api.tripPath(rideId.trim()))
+          .timeout(timeout);
+      final check = tripProjectionOf(json)?['headingCheck'];
+      final free = check is Map ? check['freeCancel'] : null;
+      return free is bool ? free : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Whether the trip stream of [rideId] is up right now (test seam).
   bool isStreamUp(String rideId) => _rides[rideId.trim()]?.streamUp ?? false;
 
