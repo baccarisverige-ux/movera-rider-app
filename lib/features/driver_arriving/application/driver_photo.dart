@@ -18,6 +18,10 @@ abstract final class DriverPhotos {
   static final Map<String, Uint8List> _bytes = {};
   static final Map<String, Future<Uint8List?>> _loading = {};
 
+  /// Paths whose bytes did not decode as a picture: not loaded again for
+  /// this trip (no repeat requests), the Movera avatar stays.
+  static final Set<String> _broken = {};
+
   /// Bumped by [clear], so a load started for an ended trip is dropped.
   static int _generation = 0;
 
@@ -38,6 +42,7 @@ abstract final class DriverPhotos {
   static Future<Uint8List?> load(String? path) {
     if (!isTripPhotoPath(path)) return Future.value(null);
     final key = path!;
+    if (_broken.contains(key)) return Future.value(null);
     final have = _bytes[key];
     if (have != null) return Future.value(have);
     return _loading[key] ??= _fetch(key).whenComplete(() {
@@ -52,7 +57,10 @@ abstract final class DriverPhotos {
     try {
       final api = debugApi ?? AppScope.instance.api;
       final bytes = await api.getBytes(path);
-      if (bytes == null || bytes.isEmpty || generation != _generation) {
+      if (bytes == null ||
+          bytes.isEmpty ||
+          generation != _generation ||
+          _broken.contains(path)) {
         return null;
       }
       final data = Uint8List.fromList(bytes);
@@ -64,11 +72,21 @@ abstract final class DriverPhotos {
     }
   }
 
+  /// Live 5+5 test 2026-11-08: the bytes for [path] did not decode (a
+  /// non-image body sent as image/jpeg). They are dropped and the path is
+  /// not loaded again until [clear].
+  static void markBroken(String? path) {
+    if (path == null) return;
+    _bytes.remove(path);
+    _broken.add(path);
+  }
+
   /// The trip ended or the rider signed out: nothing is kept.
   static void clear() {
     _generation += 1;
     _bytes.clear();
     _loading.clear();
+    _broken.clear();
   }
 
   @visibleForTesting
