@@ -108,7 +108,7 @@ void main() {
     expect(find.textContaining('free for'), findsNothing);
 
     // Confirming records the fee the rider saw, as the Upcoming screen does.
-    await tester.tap(find.text('Cancel request'));
+    await tester.tap(find.text('Cancel ride'));
     await tester.pumpAndSettle(const Duration(milliseconds: 400));
     await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle(const Duration(milliseconds: 600));

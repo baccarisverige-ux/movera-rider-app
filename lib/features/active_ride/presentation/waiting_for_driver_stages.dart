@@ -289,6 +289,10 @@ extension _WaitingStages on _WaitingForDriverState {
   String? _termsCancelNote(TripTerms terms) {
     final rule = terms.cancelRule;
     final now = WaitingForDriver.cancelFeeClock();
+    final bookedPickupAt = _tracking.bookedPickupAt;
+    if (_tracking.booked && bookedPickupAt != null) {
+      return _bookedCancelNote(terms, bookedPickupAt, now);
+    }
     // Fix job 5 (owner Q3 + Q5): a trip waiting behind the driver's current
     // one, or a late chained trip, cancels free.
     if (_tracking.chainCancelFree(now)) return L10n.current.cancelFreeChained;
@@ -319,6 +323,29 @@ extension _WaitingStages on _WaitingForDriverState {
         !now.isBefore(freeUntil)) {
       fee = terms.noShowFee;
     }
+    if (fee.isPositive) {
+      _cancelFeeChargedNow = true;
+      return L10n.current.cancelCostsNow(formatMoney(fee));
+    }
+    return L10n.current.noFeeToCancel;
+  }
+
+  /// v0.18.51 §73 (bookedRide0_18_51.fees, owner "If rider cancel do
+  /// booking fee"): a booked ride's cancel — also after the driver arrived
+  /// — costs the booked-ride cancel fee from the trip's reservation cancel
+  /// rule (terms.cancelRule: free while minutesBeforePickup >= freeMin),
+  /// feeKind cancel; never the no-show fee.
+  String _bookedCancelNote(TripTerms terms, DateTime pickupAt, DateTime now) {
+    final rule = terms.cancelRule;
+    if (rule == null) return L10n.current.noFeeToCancel;
+    final fare = Money.fromLegacyMajor(_price, widget.currency);
+    // Minutes before the booked pickup time (negative once it has passed,
+    // so after the driver arrived at or after it the rule's fee applies).
+    final fee = CancelFeeCalculator.reservation(
+      rule,
+      fare,
+      pickupAt.difference(now).inMinutes,
+    );
     if (fee.isPositive) {
       _cancelFeeChargedNow = true;
       return L10n.current.cancelCostsNow(formatMoney(fee));

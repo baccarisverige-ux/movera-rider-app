@@ -24,6 +24,8 @@ extension _WaitingLive on _WaitingForDriverState {
       perMin: perMin,
       // rider-r4-13: the server's end of the free wait, when it says.
       freeUntil: _tracking.waitingFreeUntil,
+      // v0.18.51 §73: a booked ride's clock runs from waitFrom.
+      waitFrom: _tracking.waitingWaitFrom,
     );
   }
 
@@ -32,7 +34,9 @@ extension _WaitingLive on _WaitingForDriverState {
   /// numbers). Null until either is known.
   TripTermsLines? _termsLines() {
     final tripTerms = _tracking.terms;
-    if (tripTerms != null) return TripTermsLines.fromTerms(tripTerms);
+    if (tripTerms != null) {
+      return TripTermsLines.fromTerms(tripTerms, booked: _tracking.booked);
+    }
     final config = _zoneConfig;
     if (config == null || config.currency != widget.currency) return null;
     return TripTermsLines.fromConfig(config, categoryId: _categoryIdNow);

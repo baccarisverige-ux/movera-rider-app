@@ -34,6 +34,7 @@ String _marker({
   DateTime? hidden,
 }) => jsonEncode({
   'v': 1,
+  'app': 'rider',
   'id': 'abcd0123',
   'start': start.millisecondsSinceEpoch,
   'beat': beat.millisecondsSinceEpoch,

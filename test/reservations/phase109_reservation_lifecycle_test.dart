@@ -385,7 +385,7 @@ void main() {
 
       await tester.tap(find.byIcon(Icons.close_rounded).first);
       await frames();
-      await tester.tap(find.text('Cancel request'));
+      await tester.tap(find.text('Cancel ride'));
       await frames();
       await tester.tap(find.text('Plans changed'));
       await tester.pump();

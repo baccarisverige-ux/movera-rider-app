@@ -3,6 +3,7 @@ import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/config/live_data_only.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/repository_authority.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -204,6 +205,33 @@ class ReservationController extends ChangeNotifier {
   Future<void> hydrate() async {
     await _store.hydrate();
     notifyListeners();
+  }
+
+  /// Whether the booked rides are the server's (a server build).
+  bool get serverBacked => _store is ServerBackedRepository;
+
+  Future<void>? _refreshing;
+
+  /// SUP3-R1 (contract bookedRideSeen.riderTripEvent: "reads ... (and its
+  /// Upcoming list) again on it"): reads the server's booked rides again
+  /// (Upcoming and the Home chrono). Called on rider_trip_changed, on
+  /// resume, after sign-in and when Home shows the chrono (never on Home's
+  /// 8 s check, Rule 33). A call while one is out joins it. Never throws; the list kept
+  /// stays when the read fails. Nothing to do on a device-only build.
+  Future<void> refresh() {
+    if (!serverBacked) return Future<void>.value();
+    return _refreshing ??= _refreshNow().whenComplete(() => _refreshing = null);
+  }
+
+  Future<void> _refreshNow() async {
+    try {
+      await hydrate();
+    } catch (error) {
+      AppLog.warning(
+        'reservation.refresh_failed',
+        extra: {'error': error.runtimeType.toString()},
+      );
+    }
   }
 
   /// Forgets the signed-out rider's reservations in memory. A simulated trip
@@ -448,7 +476,12 @@ class ReservationController extends ChangeNotifier {
       }
 
       if (ride.status == ReservationStatus.driverAssigned &&
-          ride.driver != null) {
+          ride.driver != null &&
+          // SUP3-R2: on a server build the server owns the lifecycle (it
+          // says when the driver is on the way). A status-only patch through
+          // the server repository is a reschedule (quote + /reschedule),
+          // refused this close to pickup (booking_too_soon), every tick.
+          _store is! ServerBackedRepository) {
         // Preserve the established contract: a real assigned driver becomes
         // en-route when the pickup window opens. The clock changes status
         // only; it never creates identity, movement or cancellation.

@@ -703,7 +703,7 @@ if set(c['afterTestRules']) != {'note', 'earlyEnd', 'bookedCancel', 'bookedNext'
 if c['configDefaults'].get('onTripOffers') != {'minRouteDonePct': 70, 'lateFreeCancelMin': 10}: bad += 1; print('ON-TRIP OFFERS default 70 % of the route (owner 2026-11-05)')
 for _k, (_lo, _hi) in _fi['earlyEnd']['settings']['ranges'].items():
     if not (_lo <= c['configDefaults']['earlyEnd'][_k] <= _hi): bad += 1; print('EARLY END range', _k)
-if _fi['paymentMethods']['texts']['cash'] != {'sv': 'Betala i bilen', 'fr': 'Payer en espèces à bord', 'en': 'Pay in car'}: bad += 1; print('CASH label (owner G8 item 2)')
+if _fi['paymentMethods']['texts']['cash'] != {'sv': 'Betala i bilen', 'fr': 'Payer à bord', 'en': 'Pay in car'}: bad += 1; print('CASH label (owner G8 item 2)')
 for _sec in ('paymentMethods', 'tips', 'earlyEnd', 'receipt', 'driverMoney', 'debt'):
     for _name, _t in _fi[_sec]['texts'].items():
         if set(_t) != {'sv', 'fr', 'en'} or any(not v.strip() for v in _t.values()): bad += 1; print('FINISH text langs', _sec, _name)
@@ -741,7 +741,8 @@ for case in _blf['plan']:
     got = book_later_plan(_p(case['bookedAt']), _p(case['scheduledAt']), {**_bd, **case['settings']})
     if got != case['expect']: bad += 1; print('BOOK LATER PLAN', case['id'], got)
 for case in _blf['riderCancel']:
-    if ('free' if case['minutesBefore'] > case['freeChangeBeforeMin'] else 'reservation_fee_rule') != case['expect']: bad += 1; print('BOOK LATER CANCEL', case['id'])
+    # v0.18.49 §71 (owner Q10): only the category's reservation freeMin decides; freeChangeBeforeMin no longer makes a cancel free.
+    if ('free' if case['minutesBefore'] >= case['freeMin'] else 'fee') != case['expect']: bad += 1; print('BOOK LATER CANCEL', case['id'])
 for case in _blf['driverTimes']:
     acc, at = _p(case['acceptedAt']), _p(case['scheduledAt'])
     rem = [_iso(at - _td(minutes=m)) for m in sorted(case['reminderMin'], reverse=True) if at - _td(minutes=m) > acc]

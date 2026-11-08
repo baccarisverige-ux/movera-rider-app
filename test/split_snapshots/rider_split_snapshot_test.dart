@@ -33,6 +33,7 @@ import 'package:movera_rider/features/ride_selection/presentation/select_ride.da
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'tree_snapshot.dart';
+import 'package:movera_rider/core/location/location_repository.dart';
 
 // Base job 2 (2026-11-04): the three rider screens split with no behaviour
 // change. Each snapshot was written before the split and must match after it.
@@ -106,6 +107,9 @@ void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    // Item 9: Home no longer opens a made-up Stockholm map when no GPS
+    // answers; these map tests start from a position this session knows.
+    LocationRepository.noteSessionFix(const GeoPoint(59.3293, 18.0686));
     FindingDriverController.active = null;
     AppScope.instance.ride
       ..rideId = null
