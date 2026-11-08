@@ -1,3 +1,4 @@
+import 'package:movera_rider/features/profile/domain/rider_outstanding.dart';
 import 'package:movera_rider/core/config/live_data_only.dart';
 import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 import 'package:movera_rider/core/api/api_error.dart';
@@ -43,7 +44,9 @@ class RideSelectionController {
     this.bookingMode = BookingMode.now,
     this.lockBookingMode = false,
     String currency = Money.defaultCurrency,
+    Money? Function(String currency)? owedIn,
   }) : _currency = currency,
+       _owedIn = owedIn ?? _riderOwes,
        _store = store ?? RideSelectionRepository(),
        _catalog = catalog ?? (store == null ? AppScope.instance.catalog : null),
        _quotes = quotes ?? AppScope.instance.quotes,
@@ -55,6 +58,30 @@ class RideSelectionController {
   }
 
   final RideSelectionRepository _store;
+
+  /// Owner 2026-11-07 (item 12): an unpaid fee from an earlier trip rides on
+  /// the next price (server quotes add it from the first quote,
+  /// `fareLines.outstanding_fee`). Until a category's quote is in, its list
+  /// price shows with the debt in this currency too, so the price does not
+  /// jump when the quote lands (259 → 408 kr).
+  final Money? Function(String currency) _owedIn;
+
+  static Money? _riderOwes(String currency) =>
+      RiderOutstanding.current.value.inCurrency(currency);
+
+  /// The unpaid earlier fee [id]'s shown price carries: the quote's
+  /// `outstanding_fee` line once it is in, else what the rider owes in this
+  /// currency. Null when none.
+  Money? unpaidFeeFor(String id) {
+    final quote = authoritativeQuotes[id];
+    if (quote != null) {
+      return quote.outstandingFeeMinor > 0
+          ? Money(quote.outstandingFeeMinor, quote.currency)
+          : null;
+    }
+    return _owedIn(currency);
+  }
+
   final RideCatalogController? _catalog;
   final QuoteRepository _quotes;
   final FareController _fare;
@@ -722,7 +749,10 @@ class RideSelectionController {
 
   double priceFor(String id, double catalog, {DateTime? now}) {
     _discardExpiredQuote(id, now: now);
-    return offeredPrices[id] ?? catalog;
+    final price = offeredPrices[id] ?? catalog;
+    if (authoritativeQuotes.containsKey(id)) return price;
+    final owed = _owedIn(currency);
+    return owed == null ? price : price + owed.major;
   }
 
   double? authoritativePriceFor(String id, {DateTime? now}) {

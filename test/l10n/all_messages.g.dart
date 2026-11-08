@@ -837,6 +837,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'receiptTip': l.receiptTip,
   'receiptRefunded': l.receiptRefunded,
   'priceIncludesUnpaidFee': l.priceIncludesUnpaidFee('<amount>'),
+  'priceUnpaidFeeShort': l.priceUnpaidFeeShort('<amount>'),
   'receiptHeading': l.receiptHeading,
   'receiptDebtIncludedNote': l.receiptDebtIncludedNote,
   'walletUsedFirst': l.walletUsedFirst,
@@ -1823,6 +1824,7 @@ const messagePlaceholders = <String, List<String>>{
   'promotionApplied': ['percent'],
   'tipMax': ['amount'],
   'priceIncludesUnpaidFee': ['amount'],
+  'priceUnpaidFeeShort': ['amount'],
   'bookForPrice': ['price'],
   'resCancelledFee': ['amount'],
   'resReservedFor': ['date', 'time'],
@@ -3609,6 +3611,8 @@ class _Exhaustive implements AppLocalizations {
   String get receiptRefunded => '';
   @override
   String priceIncludesUnpaidFee(String amount) => '';
+  @override
+  String priceUnpaidFeeShort(String amount) => '';
   @override
   String get receiptHeading => '';
   @override

@@ -831,6 +831,7 @@
   "receiptTip": "Dricks",
   "receiptRefunded": "Återbetalt",
   "priceIncludesUnpaidFee": "Inklusive {amount} i obetald avgift från en tidigare resa",
+  "priceUnpaidFeeShort": "+{amount} obetald avgift",
   "receiptHeading": "Kvitto",
   "receiptDebtIncludedNote": "En obetald avgift från en tidigare resa har lagts till på den här resan.",
   "walletUsedFirst": "Din plånbok används först",

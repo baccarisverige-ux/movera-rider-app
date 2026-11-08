@@ -831,6 +831,7 @@
   "receiptTip": "Pourboire",
   "receiptRefunded": "Remboursé",
   "priceIncludesUnpaidFee": "Dont {amount} de frais impayés d’une course précédente",
+  "priceUnpaidFeeShort": "+{amount} frais impayés",
   "receiptHeading": "Reçu",
   "receiptDebtIncludedNote": "Des frais impayés d’un trajet précédent ont été ajoutés à ce trajet.",
   "walletUsedFirst": "Votre portefeuille est utilisé en premier",
