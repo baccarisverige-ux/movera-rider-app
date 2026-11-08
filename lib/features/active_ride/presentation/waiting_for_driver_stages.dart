@@ -230,6 +230,20 @@ extension _WaitingStages on _WaitingForDriverState {
         ),
       );
     }
+    // Live 5+5 run 2: the check changes on the server's ETA tick with no
+    // event that carries it, so the sheet reads the trip once as it opens
+    // (a live trip on its way to the pickup only; no polling).
+    final realtime = _realtime;
+    final rideId = _rideId;
+    if (realtime is ApiRideRealtime &&
+        rideId != null &&
+        !_tracking.booked &&
+        (_tracking.status == RideStatus.driverAssigned ||
+            _tracking.status == RideStatus.driverArriving)) {
+      final free = await realtime.readHeadingFreeCancel(rideId);
+      if (!mounted) return null;
+      if (free != null) _tracking.headingFreeCancel = free;
+    }
     // v0.18.13 (deep re-check M5): the server waives the fee while the
     // driver is not heading to the pickup; the preview says so.
     if (_tracking.headingFreeCancel &&
