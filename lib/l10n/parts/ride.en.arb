@@ -314,7 +314,7 @@
   },
   "on": "On",
   "rideUpdates": "Ride updates",
-  "rideUpdatesBody": "Pickup, driver, and reservation alerts",
+  "rideUpdatesBody": "Driver found and almost-there alerts. Arrived, cancelled, new driver, no driver and support answers are always sent.",
   "durDaysHours": "{days}d {hours}h",
   "@durDaysHours": {
     "placeholders": {

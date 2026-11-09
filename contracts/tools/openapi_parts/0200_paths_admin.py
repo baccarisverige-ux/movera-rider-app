@@ -86,7 +86,7 @@ op("get", "/admin/tickets/{ticketId}", "adminGetTicket", "A support ticket with 
    params=[pref("TicketId")], ok=(200, "SupportTicket"), permission="support.reply", desc="v0.9.0. In the admin's zones only (else 403 zone_out_of_scope). v0.13.0: support.reply is needed to read too.")
 op("post", "/admin/tickets/{ticketId}/reply", "adminReplyTicket", "Answer a support ticket", ["admin"], "Admin · Support",
    params=[pref("TicketId")], body="TicketReplyCommand", ok=(200, "SupportTicket"), mutation=True, permission="support.reply",
-   desc="v0.9.0. The person sees the answer in the app (GET /support/tickets/{ticketId}). v0.13.0: the admin's zones only (else 403 zone_out_of_scope); audited.")
+   desc="v0.9.0. The person sees the answer in the app (GET /support/tickets/{ticketId}). v0.13.0: the admin's zones only (else 403 zone_out_of_scope); audited. v0.18.53 (§75): the ticket's owner gets a push at once (kind support_reply, contract.json#support.answerPush), whatever the rider's Ride updates switch.")
 # v0.18.15 support desk (contract.json#supportDesk)
 op("post", "/support/tickets/{ticketId}/messages", "writeOwnTicket", "Write on an own support ticket", ["rider", "driver"], "Support",
    params=[pref("TicketId")], body="TicketPersonMessage", ok=(201, "SupportTicket"), mutation=True,

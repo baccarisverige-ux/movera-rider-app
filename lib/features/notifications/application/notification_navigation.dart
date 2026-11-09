@@ -9,6 +9,8 @@ import 'package:movera_rider/features/finding_driver/application/finding_driver_
 import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/features/support/application/support_ticket_repository.dart';
+import 'package:movera_rider/features/support/presentation/support_tickets.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -62,6 +64,23 @@ bool pushPageOnce(Widget Function() page, String name) {
     ),
   );
   return true;
+}
+
+/// v0.18.53 §75 (support.answerPush): a support_reply push opens its ticket
+/// thread (movera://support/{ticketId}). Returns false when the ticket API
+/// is not served on this build, so the Notifications list opens instead.
+Future<bool> openSupportTicketFromNotification(String ticketId) async {
+  final id = ticketId.trim();
+  if (id.isEmpty) return false;
+  await RideRestoreCoordinator.instance.firstRootResolved;
+  // Handled on purpose: nothing opens over Sign in.
+  if (await navigationBlockedBySignIn()) return true;
+  final repository = SupportTicketRepository();
+  if (!repository.available) return false;
+  return pushPageOnce(
+    () => SupportTicketThread(ticketId: id, repository: repository),
+    AppRoutes.supportTicket,
+  );
 }
 
 /// Opens what a ride notification points at. Returns false when there is

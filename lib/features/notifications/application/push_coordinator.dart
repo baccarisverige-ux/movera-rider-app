@@ -9,19 +9,26 @@ import 'package:movera_rider/features/notifications/application/notifications_co
 typedef RidePushOpener = Future<bool> Function(String rideId);
 typedef NotificationsPushOpener = void Function();
 
+/// v0.18.53 §75: opens the support ticket a support_reply push names.
+/// Returns false when nothing could be opened (the list opens instead).
+typedef SupportPushOpener = Future<bool> Function(String ticketId);
+
 class PushCoordinator {
   PushCoordinator({
     required PushService push,
     required RidePushOpener openRide,
     required NotificationsPushOpener openNotifications,
+    SupportPushOpener? openSupport,
     NotificationsController? notifications,
   }) : _push = push,
        _openRide = openRide,
+       _openSupport = openSupport,
        _openNotifications = openNotifications,
        _notifications = notifications ?? NotificationsController();
 
   final PushService _push;
   final RidePushOpener _openRide;
+  final SupportPushOpener? _openSupport;
   final NotificationsPushOpener _openNotifications;
   final NotificationsController _notifications;
 
@@ -93,6 +100,24 @@ class PushCoordinator {
           error: error,
           stackTrace: stack,
           extra: {'rideId': rideId},
+        );
+      }
+    }
+
+    final ticketId = payload.routedTicketId;
+    final openSupport = _openSupport;
+    if (payload.destination == PushDestination.support &&
+        ticketId != null &&
+        openSupport != null) {
+      try {
+        final handled = await openSupport(ticketId);
+        if (handled) return;
+      } catch (error, stack) {
+        AppLog.error(
+          'push.support_open_failed',
+          error: error,
+          stackTrace: stack,
+          extra: {'ticketId': ticketId},
         );
       }
     }

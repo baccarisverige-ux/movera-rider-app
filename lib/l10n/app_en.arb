@@ -205,7 +205,7 @@
   "pushBody": "Movera lets you know when your driver is assigned, arriving and waiting, even when the app is closed. Your phone asks next.",
   "pushFailed": "Notifications could not be turned on. Try again later.",
   "pushTurnOn": "Turn on notifications",
-  "pushRideUpdatesOff": "Ride updates are off",
+  "pushRideUpdatesOff": "Ride updates are off. Arrived, cancelled, new driver, no driver and support answers still come.",
   "pushTurnOnInSettings": "Turn them on in Settings.",
   "pushHearDriver": "Hear when your driver is on the way.",
   "pushWebBlockedBody": "Allow notifications for this site in your browser settings to hear when your driver is assigned, arriving and waiting. Then tap Try again.",
@@ -2470,7 +2470,7 @@
   },
   "on": "On",
   "rideUpdates": "Ride updates",
-  "rideUpdatesBody": "Pickup, driver, and reservation alerts",
+  "rideUpdatesBody": "Driver found and almost-there alerts. Arrived, cancelled, new driver, no driver and support answers are always sent.",
   "durDaysHours": "{days}d {hours}h",
   "@durDaysHours": {
     "placeholders": {
