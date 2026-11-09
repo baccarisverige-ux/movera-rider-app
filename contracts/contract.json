@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.53",
+  "version": "0.18.54",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -1052,7 +1052,7 @@
       "note": "v0.15.0 (owner 2026-10-29, decision 5): a number answered 403 sign_in_restricted can join the waiting list until an SMS provider is chosen. No bearer token. POST /auth/waitlist { phone (E.164), app: rider | driver, locale? } → 200 WaitlistReceipt { status: saved, requestId }; sending the same phone and app again is fine (one row, its count and lastAt go up). A number already on the test list is still saved. Rate limited per address (429 rate_limited, reason waitlist_too_many, Retry-After).",
       "endpoint": "POST /auth/waitlist",
       "perIpPerHour": 30,
-      "admin": "GET /admin/waitlist (overview.read) → WaitlistPage of WaitlistEntry { phone, app, locale?, firstAt, lastAt, count }, newest lastAt first; the admin's Waiting list page reads it again every 15 s (live)."
+      "admin": "GET /admin/waitlist (overview.read) → WaitlistPage of WaitlistEntry { phone, app, locale?, firstAt, lastAt, count }, newest lastAt first (v0.18.54 §76: phone masked without riders.viewSensitive, no Reveal); the admin's Waiting list page reads it again every 15 s (live)."
     },
     "testAccounts": {
       "note": "v0.15.0 (owner 2026-10-29, decision 6, \"Only in test builds\"): GET /auth/test-accounts → TestAccountList { accounts: [TestAccount { phone, app, status, name? }] } lists the test numbers with each one's account status, so the sign-in screen of a staging or test build can show them. No bearer token. It exists only while MOVERA_ENV is not production: a production server answers 404 not_found and the store builds never call it. v0.18.18 (owner 2026-11-03 \"Close it now\"): the list needs a signed-in admin with drivers.read (401 unauthenticated without a bearer token, 403 forbidden without the permission); the apps cannot fetch it signed out, so their Test numbers button shows \"Ask an admin for the test numbers\" (sv/fr/en) and typed test numbers still sign in with the test code.",
@@ -8456,5 +8456,56 @@
     "riderTripPushBell": "riderTripPush.note now says bell true (S4 ISSUE 2: it said bell false while the server writes the rider's trip pushes with bell true).",
     "driverReservationsLive": "driverReservationsLive.when is unchanged: the hint goes out only when a booked ride is created, accepted, released, cancelled, rescheduled or started — never for a location fix, chat message, call, search step or island alert (server fix, S4 ISSUE 1: it went out on every location fix).",
     "apps": "Rule 0: server — waitFrom, freeUntil / noShowAt from it, the admin no-show time, the booked fees, the reservations hint only at the listed changes; driver app — the waiting timer from waitFrom with the negative countdown and texts.beforePickup, the no-show button from noShowAt, the confirm amount from waiting.noShowFee; rider app — the same timer and label on the driver-arrived sheet, bookLater.texts.includedWaiting and texts.noShow / cancelAfterArrived in the booked-ride terms, the cancel sheet after arrival shows the booking fee; admin — the trip waiting box shows waitFrom (texts.adminWaitFrom), Mark no-show enabled only from noShowAt, Reassign on a held booked ride says it goes back to the list (the new transition row); no new admin setting (fixed rule)."
+  },
+  "adminMasking": {
+    "note": "v0.18.54 §76 (owner 2026-11-09, START-HERE steps 35–37, Q40 'Yes, now', Q41 'Yes, logged'; Rules plan/MASKING-INVENTORY-2026-11-09.md). X-Api-Version stays 0.5; no migration. Admin answers mask a person's phone, e-mail and date of birth unless the admin has the matching viewSensitive right; Reveal routes with a reason (audited); one SOS reveal of both numbers.",
+    "rights": {
+      "riders": "riders.viewSensitive: full phone and email of riders.",
+      "drivers": "drivers.viewSensitive: full phone, email and dateOfBirth of drivers and the ownerEmail of fleets.",
+      "withoutRight": "An admin without the matching right gets the masked shapes and sensitiveMasked true; an admin with it gets the full values and no sensitiveMasked (the Reveal routes still work for them).",
+      "rolesToday": "riders.viewSensitive: support, safety, ops, super. drivers.viewSensitive: dispatcher, compliance, fleet, ops, super. viewer and finance have neither and are masked from v0.18.54 (they had full values before)."
+    },
+    "shapes": {
+      "phone": "country code + one '•' per hidden digit + the last 2 digits, e.g. +46•••••12 for +46701234512 (the country code = the zone countries' codes +46, +33, +216 when the number starts with one, else the longest match of 1–3 digits after '+'; never fewer than one '•').",
+      "email": "the first character + '•••@' + the domain, e.g. a•••@example.com.",
+      "dateOfBirth": "the year only, e.g. 1990 (a 4-character string; the full value is YYYY-MM-DD).",
+      "flag": "sensitiveMasked: true on that Rider / Driver / Fleet object when at least one field was masked; absent when the values are full. The admin shows a Reveal button on it.",
+      "pattern": "A masked phone does not match the Rider.phone pattern and a masked e-mail is not an e-mail: the admin accepts both shapes for every masked field."
+    },
+    "ownProfile": "Never masked: GET /rider/profile, GET /driver/profile and GET /driver/fleet (the person's own data). Rider and driver apps: no change.",
+    "search": "GET /admin/riders?q= keeps searching the full phone number on the server for every role: a masked role can confirm a number by searching for it (the row still comes back masked).",
+    "masked": {
+      "riders": "GET /admin/riders rows and the rider commands that answer the rider view (POST /admin/riders/{riderId}/status, /moderation, /wallet-credit, /fees/{tripId}/mark-paid): phone, email (riders.viewSensitive).",
+      "drivers": "GET /admin/drivers rows, GET /admin/drivers/{driverId} and the driver commands that answer the driver view (POST /admin/drivers/{driverId}/status, /payout-hold, the vehicle driver-link actions): phone (when the record has one), email, dateOfBirth (drivers.viewSensitive).",
+      "waitlist": "GET /admin/waitlist: WaitlistEntry.phone masked for every admin without riders.viewSensitive; no Reveal (pre-account, no person to audit against); the full number is never answered to a masked role.",
+      "fleets": "GET /admin/fleets rows, GET /admin/fleets/{fleetId} (FleetView.fleet) and the fleet commands (POST /admin/fleets/{fleetId}/review, /code, the invitations): ownerEmail (drivers.viewSensitive)."
+    },
+    "notMasked": {
+      "positions": "Exact positions on the live map (GET /admin/live/drivers), trip rows and the admin trip view, nearby drivers, traces, ride checks and SOS cases stay full: a position is operational for dispatch and safety; step 25 narrows who may read a trip.",
+      "emergencyContacts": "GET /admin/incidents/{incidentId}/emergency-contacts is unchanged: already audited (incident.emergency_contacts_viewed) and only on an open case.",
+      "refundPayouts": "GET /admin/refunds/payouts keeps the full riderPhone and payoutTo for finance.read (the money has to reach the right person) BUT every read now writes the audit row refunds.payouts_viewed with detail { count } (the rows answered; never the numbers). New rule.",
+      "testAccounts": "GET /auth/test-accounts (non-production only) is unchanged."
+    },
+    "reveal": {
+      "rider": "POST /admin/riders/{riderId}/reveal { reason } -> { riderId, phone, email?, revealedAt } (riders.read).",
+      "driver": "POST /admin/drivers/{driverId}/reveal { reason } -> { driverId, phone?, email?, dateOfBirth?, revealedAt } (drivers.read; phone when the driver record has one).",
+      "fleet": "POST /admin/fleets/{fleetId}/reveal { reason } -> { fleetId, ownerEmail, revealedAt } (drivers.read).",
+      "scope": "The person's zone (a rider by the zones of its trips, a driver by his zones, a fleet by its zone) must be in the admin's zones, else 403 forbidden, reason zone_out_of_scope.",
+      "reason": "reason 3–200 characters; missing, empty or outside = 400 invalid_request, reason reason_required.",
+      "idempotency": "Never cached by the idempotency layer (each call is a new read and a new audit row; same as POST /admin/trips/{tripId}/reveal-contact).",
+      "audit": "rider.reveal / driver.reveal / fleet.reveal with detail { reason } — never the values.",
+      "withRight": "An admin WITH the matching viewSensitive right already sees the full values and needs no Reveal; the routes still answer for them (audited the same way).",
+      "tripRevealContact": "POST /admin/trips/{tripId}/reveal-contact is unchanged."
+    },
+    "sosReveal": {
+      "route": "POST /admin/incidents/{incidentId}/reveal-contacts { reason? } -> { incidentId, rider: { phone } | null, driver: { phone } | null, revealedAt }.",
+      "who": "incidents.read; the incident's zone in the admin's zones (else 403 zone_out_of_scope); the incident must be OPEN (status open or investigating), else 409 invalid_transition, reason incident_closed.",
+      "reason": "reason defaults to 'SOS' when omitted (1–200 characters when sent).",
+      "audit": "ONE audit row incident.reveal_contacts with detail { reason } (never the numbers), whatever the admin's rights.",
+      "why": "Owner Q41 'Yes, logged': in an SOS the safety role (riders.viewSensitive, no drivers.viewSensitive) can call the driver too; one click on an open SOS reveals both numbers. null for a side the incident has no account for.",
+      "driverPhone": "A driver record without a phone answers driver: { phone: null }."
+    },
+    "export": "There is no CSV or export route today; a future export follows the same masking and the same rights.",
+    "apps": "Rule 0 order: contract -> admin (accepts both full and masked values in every people view; shows Reveal with a reason dialog on sensitiveMasked; one click on an open SOS case reveals both numbers) -> server (masks in the admin projections, adds the four routes and the refunds.payouts_viewed audit row). Rider and driver apps: no change needed (own profiles stay full)."
   }
 }
