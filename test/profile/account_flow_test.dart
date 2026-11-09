@@ -150,7 +150,7 @@ void main() {
       RiderProfileData.defaults().copyWith(
         name: 'Real Rider',
         email: 'real.rider@example.com',
-        phone: '+46 70 999 88 77',
+        phone: '+46 70 174 06 77',
       ),
     );
 

@@ -40,12 +40,12 @@ void main() {
       ContactKind.phone,
       (path) => path.endsWith('/change')
           ? {'sessionId': 'ses_1', 'retryAfterSeconds': 30}
-          : {'phone': '+46701112233'},
+          : {'phone': '+46701740633'},
       saved: () => saved++,
     );
     await tester.enterText(
       find.byKey(const ValueKey('contact-value')),
-      '+46701112233',
+      '+46701740633',
     );
     await tester.tap(find.byKey(const ValueKey('contact-submit')));
     await tester.pumpAndSettle();
@@ -56,7 +56,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(sent.last.$1, '/api/v1/account/phone/verify');
     expect(sent.last.$2, {
-      'phone': '+46701112233',
+      'phone': '+46701740633',
       'sessionId': 'ses_1',
       'code': '1234',
     });

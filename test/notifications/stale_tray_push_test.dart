@@ -30,7 +30,7 @@ void main() {
 
   test('a previous rider\'s tapped notification is dropped', () async {
     SharedPreferences.setMockInitialValues({});
-    await UserDataWipe.enterSessionAs('phone:+46709876543');
+    await UserDataWipe.enterSessionAs('phone:+46701740650');
     final push = _Push();
     final store = NotificationsRepository();
     final coordinator = PushCoordinator(

@@ -51,13 +51,13 @@ void main() {
   test(
     'a deleted contact is not sent the trip; one marked Share trips is',
     () async {
-      await safety.addContact(name: 'Anna', phone: '0701234561');
+      await safety.addContact(name: 'Anna', phone: '0701740661');
       await tick('Anna', true);
       final anna = idOf('Anna');
       await safety.removeContact(anna);
       await safety.addContact(
         name: 'Bo',
-        phone: '0701234562',
+        phone: '0701740662',
         shareTrips: true,
       );
 
@@ -69,9 +69,9 @@ void main() {
   test(
     'a contact switched off in the editor or disabled is not sent the trip',
     () async {
-      await safety.addContact(name: 'Anna', phone: '0701234561');
-      await safety.addContact(name: 'Cleo', phone: '0701234563');
-      await safety.addContact(name: 'Dan', phone: '0701234564');
+      await safety.addContact(name: 'Anna', phone: '0701740661');
+      await safety.addContact(name: 'Cleo', phone: '0701740663');
+      await safety.addContact(name: 'Dan', phone: '0701740664');
       await tick('Anna', true);
       await tick('Cleo', true);
       await tick('Dan', true);

@@ -188,7 +188,7 @@ void main() {
         RiderProfileData.defaults().copyWith(name: 'Rider A'),
       );
 
-      await _signInAs('+46709876543');
+      await _signInAs('+46701740650');
 
       final left = await _riderKeysLeft();
       // rider-r5-31: and that the new rider still owes a name;
