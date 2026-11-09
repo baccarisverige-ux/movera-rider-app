@@ -195,8 +195,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Ride updates are off'), findsOneWidget);
-    await tester.tap(find.text('Ride updates are off'));
+    expect(find.textContaining('Ride updates are off'), findsOneWidget);
+    await tester.tap(find.textContaining('Ride updates are off'));
     await tester.pumpAndSettle();
     expect(find.text('Open settings'), findsOneWidget);
     expect(find.text('Try again'), findsOneWidget);
@@ -216,7 +216,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Turn them on in your browser settings.'), findsOneWidget);
-    await tester.tap(find.text('Ride updates are off'));
+    await tester.tap(find.textContaining('Ride updates are off'));
     await tester.pumpAndSettle();
     expect(find.text('Open settings'), findsNothing);
     expect(find.textContaining('this site in your browser'), findsOneWidget);
@@ -234,6 +234,6 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Ride updates are off'), findsNothing);
+    expect(find.textContaining('Ride updates are off'), findsNothing);
   });
 }

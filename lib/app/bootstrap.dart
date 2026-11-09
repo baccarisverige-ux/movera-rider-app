@@ -254,6 +254,7 @@ Future<void> bootstrap() async {
       _pushCoordinator ??= PushCoordinator(
         push: AppScope.instance.push,
         openRide: openRideFromNotification,
+        openSupport: openSupportTicketFromNotification,
         openNotifications: _openNotificationsFromPush,
       );
       startPushAfterFirstFrame(

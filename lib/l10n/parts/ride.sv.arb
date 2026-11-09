@@ -130,7 +130,7 @@
   "ratingStarsValue": "{count} av 5 stjärnor",
   "on": "På",
   "rideUpdates": "Reseuppdateringar",
-  "rideUpdatesBody": "Aviseringar om upphämtning, förare och bokningar",
+  "rideUpdatesBody": "Aviseringar om hittad förare och strax framme. Framme, avbokad, ny förare, ingen förare och svar från support skickas alltid.",
   "durDaysHours": "{days} d {hours} h",
   "durDays": "{days} d",
   "durHoursMinutes": "{hours} h {minutes} min",

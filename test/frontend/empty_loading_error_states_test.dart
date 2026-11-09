@@ -404,6 +404,14 @@ void main() {
 
   testWidgets('privacy connected-apps empty state is designed', (tester) async {
     await pumpScreen(tester, PrivacyPage(controller: emptyProfile()));
+    // v0.18.53 §75: the longer Ride updates text puts the connected-apps
+    // section below the first screen of the lazily built list.
+    await tester.scrollUntilVisible(
+      find.byType(MoveraEmptyState),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     expect(find.byType(MoveraEmptyState), findsOneWidget);
     expect(find.text('No connected apps'), findsOneWidget);
     expect(

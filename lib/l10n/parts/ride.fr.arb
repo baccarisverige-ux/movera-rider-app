@@ -130,7 +130,7 @@
   "ratingStarsValue": "Note de {count} sur 5",
   "on": "Activée",
   "rideUpdates": "Infos sur les courses",
-  "rideUpdatesBody": "Alertes de prise en charge, de chauffeur et de réservation",
+  "rideUpdatesBody": "Alertes chauffeur trouvé et bientôt là. Arrivé, annulée, nouveau chauffeur, aucun chauffeur et réponses du support sont toujours envoyés.",
   "durDaysHours": "{days} j {hours} h",
   "durDays": "{days} j",
   "durHoursMinutes": "{hours} h {minutes} min",

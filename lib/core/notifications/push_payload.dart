@@ -1,4 +1,4 @@
-enum PushDestination { ride, notifications }
+enum PushDestination { ride, support, notifications }
 
 class PushPayload {
   const PushPayload({
@@ -83,6 +83,13 @@ class PushPayload {
   static const String _receiptKind = 'receipt';
   static const String _receiptSegment = 'receipt';
 
+  /// Contract v0.18.53 §75 (support.answerPush): an admin's answer to a
+  /// ticket is pushed as kind support_reply with the deep link
+  /// movera://support/{ticketId} (movera-rider:// accepted too). A tap
+  /// opens that ticket; any other link of this kind opens the list.
+  static const String _supportReplyKind = 'support_reply';
+  static const String _supportLinkHost = 'support';
+
   static bool _isRideKind(String type) =>
       type.startsWith('ride.') ||
       type.startsWith('trip.') ||
@@ -121,9 +128,26 @@ class PushPayload {
     return _clean(segments.single);
   }
 
-  PushDestination get destination => routedRideId == null
-      ? PushDestination.notifications
-      : PushDestination.ride;
+  /// The ticket a support_reply push opens, from its deep link.
+  String? get routedTicketId {
+    if (type != _supportReplyKind) return null;
+    final link = _clean(deepLink);
+    if (link == null) return null;
+    final uri = Uri.tryParse(link);
+    if (uri == null ||
+        !_rideLinkSchemes.contains(uri.scheme) ||
+        uri.host != _supportLinkHost ||
+        uri.pathSegments.length != 1) {
+      return null;
+    }
+    return _clean(uri.pathSegments.single);
+  }
+
+  PushDestination get destination {
+    if (routedRideId != null) return PushDestination.ride;
+    if (routedTicketId != null) return PushDestination.support;
+    return PushDestination.notifications;
+  }
 
   static String? _clean(String? value) {
     final trimmed = value?.trim();

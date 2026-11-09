@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.52",
+  "version": "0.18.53",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -953,7 +953,7 @@
           "kind": "Notification.kind",
           "deepLink": "Notification.deepLink when it has one, else empty"
         },
-        "riderConsent": "A rider with consents.rideUpdates false gets no push (the bell notice is still stored). Drivers have no push consent: the operating system's permission is the switch.",
+        "riderConsent": "A rider with consents.rideUpdates false gets no OPTIONAL push (driver found, almost there); the bell notice is always stored. v0.18.53 §75 (owner Q36-Q39): arrived, a new driver, cancelled, no driver found, trip failed, the booked-ride no-driver kinds and support answers are always pushed (riderTripPush.consent, support.answerPush). Drivers have no push consent: the operating system's permission is the switch.",
         "tap": "A tap on the push opens the app at data.deepLink (the bell list when empty)."
       },
       "config": {
@@ -4183,7 +4183,27 @@
       "closed"
     ],
     "adminScope": "v0.13.0: GET /admin/tickets, GET /admin/tickets/{ticketId} and POST /admin/tickets/{ticketId}/reply need support.reply (reading too) and see only tickets of the admin's zones (super admin: all; a ticket without zone: super admin only). Outside the zones: 403 forbidden, reason zone_out_of_scope. Every reply is audited.",
-    "ownScope": "v0.13.0: a rider or driver sees only the tickets they opened; another person's ticket is 404 not_found. A ticket with tripId must be the caller's own trip (else 404)."
+    "ownScope": "v0.13.0: a rider or driver sees only the tickets they opened; another person's ticket is 404 not_found. A ticket with tripId must be the caller's own trip (else 404).",
+    "answerPush": {
+      "note": "v0.18.53 §75 (owner Q39 2026-11-09): a support answer (POST /admin/tickets/{ticketId}/reply, and an admin's trip-tool reply) pushes the ticket's owner (rider or driver) at once: kind support_reply, bell true, deepLink movera://support/{ticketId} (rider) / movera-driver://support/{ticketId} (driver), data { ticketId }. A service message: sent even with Rider.consents.rideUpdates false. Text in the person's language (else the ticket zone country's, else English). Not sent for the person's own message, nor for an admin-opened case the person cannot see.",
+      "kind": "support_reply",
+      "deepLink": {
+        "rider": "movera://support/{ticketId}",
+        "driver": "movera-driver://support/{ticketId}"
+      },
+      "texts": {
+        "title": {
+          "sv": "Svar från Movera Support",
+          "fr": "Réponse de Movera Support",
+          "en": "Reply from Movera Support"
+        },
+        "body": {
+          "sv": "Du har fått ett svar på ditt ärende. Öppna appen för att läsa det.",
+          "fr": "Vous avez reçu une réponse à votre demande. Ouvrez l’application pour la lire.",
+          "en": "You have a reply to your request. Open the app to read it."
+        }
+      }
+    }
   },
   "supportDesk": {
     "note": "v0.18.15 (build-all A1, owner 2026-11-02 decisions/other-support-promos.md QO-1/QO-2/QO-4/QO-5 + rule 16): the support desk works on the server. Riders and drivers keep writing on their ticket chat-style; Admin › Support claims, assigns, changes the topic, marks waiting / solved, reopens and opens a safety case from a ticket; the topics and time limits are an admin setting per country (SE, FR, TN-ready) with the defaults below. Additive: older apps keep working.",
@@ -6904,7 +6924,7 @@
     "paymentsAdmin": "Payments › refund policy, reconcile, disputes, retry and rules stay 'Not connected yet' on live until a payment company is chosen (cash only today)."
   },
   "riderTripPush": {
-    "note": "v0.18.13 (G13 recheck, audit 2026-11-02 H5): the rider gets a push (bell true: the push and a row in GET /notifications; v0.18.51 §73 corrects this note to what the server writes since deep fix 2026-11-02 M-8) at the key moments of a trip, in the rider's language (else the trip country's: SE sv, FR fr, else en). kind trip_update, data { tripId, moment }, deepLink movera://trips/{tripId}. Respects the rider's notification setting: Rider.consents.rideUpdates false → no trip pushes (default on).",
+    "note": "v0.18.13 (G13 recheck, audit 2026-11-02 H5): the rider gets a push (bell true: the push and a row in GET /notifications; v0.18.51 §73 corrects this note to what the server writes since deep fix 2026-11-02 M-8) at the key moments of a trip, in the rider's language (else the trip country's: SE sv, FR fr, else en). kind trip_update, data { tripId, moment }, deepLink movera://trips/{tripId}. Respects the rider's notification setting (default on) only for driver_found and driver_arriving; see consent (v0.18.53 §75).",
     "kind": "trip_update",
     "deepLink": "movera://trips/{tripId}",
     "moments": [
@@ -7018,7 +7038,7 @@
       "en": "Your driver"
     },
     "bell": "v0.18.14: also kept in the rider's Notifications list (bell true), shown in his current language.",
-    "consent": "Owner 2026-11-02 (driver-g13): Rider.consents.rideUpdates false stops only 'driver found' and 'arriving'; 'driver arrived', 'a new driver' and 'trip cancelled' are always sent."
+    "consent": "Owner 2026-11-02 (driver-g13) and 2026-11-09 (START-HERE Q36-Q39, v0.18.53 §75): Rider.consents.rideUpdates false stops ONLY 'driver_found' and 'driver_arriving'. ALWAYS sent, whatever the switch: 'driver_arrived', 'driver_changed' (a new driver), 'trip_cancelled', 'no_driver_found', 'trip_failed'; also the booked-ride kinds reservation_no_driver and reservation_no_driver_found (bookLater.push), and the support answer (support.answerPush). The server applies this in ONE place, the push dispatcher (the row is always stored for the bell)."
   },
   "fleetShareRemoved": "v0.18.13 (owner G10-1 'Movera dont care about what fleet owner take from drivers … if there is any % u delete that'): PricingDocument.fleetCommissionPct is removed (schema, defaults, fixtures). For a fleet driver Movera pays the whole driver earnings to the fleet owner (Driver.payoutTo fleet); the owner settles with his drivers outside Movera. A document that still carries the key is accepted and the key ignored.",
   "drivingLimits": {
@@ -7103,7 +7123,7 @@
     "dispatchLock": "A dispatch round locks and reads only the drivers of the trip's zone and its neighbour zones.",
     "birthDate": "A date of birth that does not exist (2001-02-31) or before 1900 is 400 invalid_date_of_birth.",
     "addMoney": "Owner 2026-11-02 (driver-g5): admin Add money (Exclusive / Radar) goes to the simply nearest free drivers, same-country neighbour-zone drivers included when neighbours are on; reach limits, busy and declined filters stay. The in-zone-first rule is gone.",
-    "rideUpdates": "Owner 2026-11-02 (driver-g13): Rider.consents.rideUpdates false stops only 'driver found' and 'arriving'; 'driver arrived', 'a new driver' and 'trip cancelled' are always sent.",
+    "rideUpdates": "Owner 2026-11-02 (driver-g13): Rider.consents.rideUpdates false stops only 'driver found' and 'arriving'; 'driver arrived', 'a new driver' and 'trip cancelled' are always sent. v0.18.53 §75 widens the always-sent list; see riderTripPush.consent.",
     "arrivePosition": "arrivedWaiting.positionMaxAge applies to driver apps sending X-Contract-Version ≥ 0.18.14; older apps keep the old arrive check."
   },
   "bookLater": {
@@ -7172,7 +7192,7 @@
         "reservation_taken_back",
         "reservation_no_driver_found"
       ],
-      "note": "Push and Notifications list (bell), in the person's language (else the zone country's, else English); {time} is the pickup time HH:MM in the zone's time zone, {driver} the driver's first name. Deep links: rider movera://trips/{tripId}, driver movera-driver://reservations/{tripId}.",
+      "note": "Push and Notifications list (bell), in the person's language (else the zone country's, else English); {time} is the pickup time HH:MM in the zone's time zone, {driver} the driver's first name. Deep links: rider movera://trips/{tripId}, driver movera-driver://reservations/{tripId}. v0.18.53 §75: reservation_no_driver and reservation_no_driver_found to the rider are always sent, whatever Rider.consents.rideUpdates (riderTripPush.consent).",
       "texts": {
         "reservation_new": {
           "title": {

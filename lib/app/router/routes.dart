@@ -14,6 +14,7 @@ abstract final class AppRoutes {
   static const reservationUpcoming = '/reservation/upcoming';
   static const reservationLive = '/reservation/live';
   static const safety = '/safety';
+  static const supportTicket = '/support/ticket';
 
   /// Home is a destination contract, not a stack-position assumption.
   /// Prefer the stable route name and keep the root fallback for legacy/restored
