@@ -196,7 +196,7 @@ void main() {
     await tester.runAsync(() async {
       await ctl.load();
       await ctl.addContact(name: 'Kim', phone: '0701234567');
-      await ctl.addContact(name: 'Sam', phone: '0707654321');
+      await ctl.addContact(name: 'Sam', phone: '0701740621');
     });
     await tester.pumpWidget(
       MaterialApp(home: EmergencyContactsPage(controller: ctl)),

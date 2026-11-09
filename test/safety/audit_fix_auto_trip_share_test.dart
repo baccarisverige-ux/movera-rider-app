@@ -163,7 +163,7 @@ void main() {
       await safety.load();
       await safety.addContact(
         name: 'Anna',
-        phone: '0701234561',
+        phone: '0701740661',
         shareTrips: true,
       );
       await safety.setTripShare(enabled: true, mode: TripShareMode.auto);
@@ -183,7 +183,7 @@ void main() {
       await safety.load();
       await safety.addContact(
         name: 'Anna',
-        phone: '0701234561',
+        phone: '0701740661',
         shareTrips: true,
       );
       await safety.setTripShare(enabled: true, mode: TripShareMode.manual);
