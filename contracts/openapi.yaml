@@ -1,11 +1,11 @@
-# Movera API v0.18.53 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.54 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.53
+  version: 0.18.54
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.53 in this folder; this file must agree with them.
+    v0.18.54 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.53
+  version: 0.18.54
   source: contract.json
 paths:
   /auth/otp/request:
@@ -4254,7 +4254,10 @@ paths:
       summary: List riders (cursor paging)
       description: 'Results are limited to the zones in the admin''s token scope. v0.17.2 (contract.json#adminListFilters):
         zoneId, zoneIds and country narrow the list inside those zones; an unknown query key → 400 invalid_request (reason
-        unknown_filter).'
+        unknown_filter). v0.18.54 §76: GET /admin/riders rows and the rider commands that answer the rider view (POST /admin/riders/{riderId}/status,
+        /moderation, /wallet-credit, /fees/{tripId}/mark-paid): phone, email (riders.viewSensitive). GET /admin/riders?q=
+        keeps searching the full phone number on the server for every role: a masked role can confirm a number by searching
+        for it (the row still comes back masked).'
       tags:
       - Admin · Lists
       x-actor:
@@ -4307,7 +4310,9 @@ paths:
       summary: List drivers (cursor paging)
       description: 'Results are limited to the zones in the admin''s token scope. v0.17.2 (contract.json#adminListFilters):
         zoneId, zoneIds and country narrow the list inside those zones; an unknown query key → 400 invalid_request (reason
-        unknown_filter).'
+        unknown_filter). v0.18.54 §76: GET /admin/drivers rows, GET /admin/drivers/{driverId} and the driver commands that
+        answer the driver view (POST /admin/drivers/{driverId}/status, /payout-hold, the vehicle driver-link actions): phone
+        (when the record has one), email, dateOfBirth (drivers.viewSensitive).'
       tags:
       - Admin · Lists
       x-actor:
@@ -4373,7 +4378,9 @@ paths:
     get:
       operationId: adminListFleets
       summary: List fleets (cursor paging)
-      description: Results are limited to the zones in the admin's token scope.
+      description: 'Results are limited to the zones in the admin''s token scope. v0.18.54 §76: GET /admin/fleets rows, GET
+        /admin/fleets/{fleetId} (FleetView.fleet) and the fleet commands (POST /admin/fleets/{fleetId}/review, /code, the
+        invitations): ownerEmail (drivers.viewSensitive).'
       tags:
       - Admin · Lists
       x-actor:
@@ -4917,7 +4924,10 @@ paths:
       summary: The sign-in waiting list (newest first)
       description: 'v0.15.0 (owner 2026-10-29, decision 5): the numbers that asked to join, newest lastAt first; the admin
         page reads it again every 15 s. GET /admin/waitlist (overview.read) → WaitlistPage of WaitlistEntry { phone, app,
-        locale?, firstAt, lastAt, count }, newest lastAt first; the admin''s Waiting list page reads it again every 15 s (live).'
+        locale?, firstAt, lastAt, count }, newest lastAt first (v0.18.54 §76: phone masked without riders.viewSensitive, no
+        Reveal); the admin''s Waiting list page reads it again every 15 s (live). v0.18.54 §76: GET /admin/waitlist: WaitlistEntry.phone
+        masked for every admin without riders.viewSensitive; no Reveal (pre-account, no person to audit against); the full
+        number is never answered to a masked role.'
       tags:
       - Admin · Lists
       x-actor:
@@ -8415,7 +8425,9 @@ paths:
     get:
       operationId: adminGetDriver
       summary: Driver detail (details, fleet, documents)
-      description: v0.5.3.
+      description: 'v0.5.3. v0.18.54 §76: GET /admin/drivers rows, GET /admin/drivers/{driverId} and the driver commands that
+        answer the driver view (POST /admin/drivers/{driverId}/status, /payout-hold, the vehicle driver-link actions): phone
+        (when the record has one), email, dateOfBirth (drivers.viewSensitive).'
       tags:
       - Admin · People
       x-actor:
@@ -8453,7 +8465,8 @@ paths:
     get:
       operationId: adminGetFleet
       summary: 'Fleet detail: company, code, drivers and cars'
-      description: v0.5.3.
+      description: 'v0.5.3. v0.18.54 §76: GET /admin/fleets rows, GET /admin/fleets/{fleetId} (FleetView.fleet) and the fleet
+        commands (POST /admin/fleets/{fleetId}/review, /code, the invitations): ownerEmail (drivers.viewSensitive).'
       tags:
       - Admin · People
       x-actor:
@@ -14885,7 +14898,9 @@ paths:
     get:
       operationId: adminRefundPayouts
       summary: Swish / bank refunds to pay by hand
-      description: 'v0.18.13 (audit M4: served since v0.18.10, now in the paths).'
+      description: 'v0.18.13 (audit M4: served since v0.18.10, now in the paths). v0.18.54 §76: GET /admin/refunds/payouts
+        keeps the full riderPhone and payoutTo for finance.read (the money has to reach the right person) BUT every read now
+        writes the audit row refunds.payouts_viewed with detail { count } (the rows answered; never the numbers). New rule.'
       tags:
       - Admin · Money
       x-actor:
@@ -15218,6 +15233,218 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/riders/{riderId}/reveal:
+    post:
+      operationId: adminRevealRider
+      summary: Show a rider's full phone and e-mail (reason, audited)
+      description: 'v0.18.54 §76: POST /admin/riders/{riderId}/reveal { reason } -> { riderId, phone, email?, revealedAt }
+        (riders.read). The person''s zone (a rider by the zones of its trips, a driver by his zones, a fleet by its zone)
+        must be in the admin''s zones, else 403 forbidden, reason zone_out_of_scope. reason 3–200 characters; missing, empty
+        or outside = 400 invalid_request, reason reason_required. Never cached by the idempotency layer (each call is a new
+        read and a new audit row; same as POST /admin/trips/{tripId}/reveal-contact). An admin WITH the matching viewSensitive
+        right already sees the full values and needs no Reveal; the routes still answer for them (audited the same way). Audited
+        rider.reveal { reason }.'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: riders.read
+      parameters:
+      - $ref: '#/components/parameters/RiderId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminRevealCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevealedRider'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/drivers/{driverId}/reveal:
+    post:
+      operationId: adminRevealDriver
+      summary: Show a driver's full phone, e-mail and date of birth (reason, audited)
+      description: 'v0.18.54 §76: POST /admin/drivers/{driverId}/reveal { reason } -> { driverId, phone?, email?, dateOfBirth?,
+        revealedAt } (drivers.read; phone when the driver record has one). The person''s zone (a rider by the zones of its
+        trips, a driver by his zones, a fleet by its zone) must be in the admin''s zones, else 403 forbidden, reason zone_out_of_scope.
+        reason 3–200 characters; missing, empty or outside = 400 invalid_request, reason reason_required. Never cached by
+        the idempotency layer (each call is a new read and a new audit row; same as POST /admin/trips/{tripId}/reveal-contact).
+        An admin WITH the matching viewSensitive right already sees the full values and needs no Reveal; the routes still
+        answer for them (audited the same way). Audited driver.reveal { reason }.'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.read
+      parameters:
+      - $ref: '#/components/parameters/DriverId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminRevealCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevealedDriver'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/fleets/{fleetId}/reveal:
+    post:
+      operationId: adminRevealFleet
+      summary: Show a fleet's full owner e-mail (reason, audited)
+      description: 'v0.18.54 §76: POST /admin/fleets/{fleetId}/reveal { reason } -> { fleetId, ownerEmail, revealedAt } (drivers.read).
+        The person''s zone (a rider by the zones of its trips, a driver by his zones, a fleet by its zone) must be in the
+        admin''s zones, else 403 forbidden, reason zone_out_of_scope. reason 3–200 characters; missing, empty or outside =
+        400 invalid_request, reason reason_required. Never cached by the idempotency layer (each call is a new read and a
+        new audit row; same as POST /admin/trips/{tripId}/reveal-contact). An admin WITH the matching viewSensitive right
+        already sees the full values and needs no Reveal; the routes still answer for them (audited the same way). Audited
+        fleet.reveal { reason }.'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.read
+      parameters:
+      - $ref: '#/components/parameters/FleetId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminRevealCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevealedFleet'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/incidents/{incidentId}/reveal-contacts:
+    post:
+      operationId: adminIncidentRevealContacts
+      summary: Show the rider's and the driver's phone numbers of an open safety case (one click, audited)
+      description: 'v0.18.54 §76: POST /admin/incidents/{incidentId}/reveal-contacts { reason? } -> { incidentId, rider: {
+        phone } | null, driver: { phone } | null, revealedAt }. incidents.read; the incident''s zone in the admin''s zones
+        (else 403 zone_out_of_scope); the incident must be OPEN (status open or investigating), else 409 invalid_transition,
+        reason incident_closed. reason defaults to ''SOS'' when omitted (1–200 characters when sent). ONE audit row incident.reveal_contacts
+        with detail { reason } (never the numbers), whatever the admin''s rights. A driver record without a phone answers
+        driver: { phone: null }. Never cached by the idempotency layer (each call is a new read and a new audit row; same
+        as POST /admin/trips/{tripId}/reveal-contact).'
+      tags:
+      - Admin · Safety
+      x-actor:
+      - admin
+      x-permission: incidents.read
+      parameters:
+      - $ref: '#/components/parameters/IncidentId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminIncidentRevealCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevealedIncidentContacts'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -18940,9 +19167,13 @@ components:
         phone:
           type: string
           pattern: ^\+[1-9]\d{6,14}$
+          description: 'The rider''s phone (E.164). Masked for admins without riders.viewSensitive (v0.18.54 §76): country
+            code + one ''•'' per hidden digit + the last 2 digits; the admin accepts both shapes.'
         email:
           type: string
           format: email
+          description: 'The rider''s e-mail. Masked for admins without riders.viewSensitive (v0.18.54 §76): the first character
+            + ''•••@'' + the domain, e.g. a•••@example.com.'
         rating:
           type: number
           minimum: 0
@@ -18982,6 +19213,10 @@ components:
           description: 'v0.18.7 (Q3): Rider.outstanding = the owed fees in the rider''s oldest owed currency (Money, null
             when nothing is owed); Rider.outstandingByCurrency = every currency with an owed amount (Money[], one per currency,
             ascending by first debt). The admin rider view shows all of them.'
+        sensitiveMasked:
+          type: boolean
+          description: 'v0.18.54 §76: true on an admin answer when phone / email were masked (the admin lacks riders.viewSensitive);
+            absent when the values are full. The admin shows Reveal (POST /admin/riders/{riderId}/reveal).'
         moderation:
           allOf:
           - $ref: '#/components/schemas/RiderModeration'
@@ -19163,11 +19398,13 @@ components:
         dateOfBirth:
           type: string
           format: date
-          description: 'v0.5.3: YYYY-MM-DD; at least contract.json#driverOnboarding.minAge years.'
+          description: 'v0.5.3: YYYY-MM-DD; at least contract.json#driverOnboarding.minAge years. Masked for admins without
+            drivers.viewSensitive (v0.18.54 §76): the year only, e.g. 1990 (a 4-character string; the full value is YYYY-MM-DD).'
         email:
           type: string
           format: email
-          description: v0.5.3
+          description: 'v0.5.3 Masked for admins without drivers.viewSensitive (v0.18.54 §76): the first character + ''•••@''
+            + the domain, e.g. a•••@example.com.'
         country:
           allOf:
           - $ref: '#/components/schemas/DriverCountry'
@@ -19266,6 +19503,10 @@ components:
           $ref: '#/components/schemas/Timestamp'
         drivingTime:
           $ref: '#/components/schemas/DrivingTime'
+        sensitiveMasked:
+          type: boolean
+          description: 'v0.18.54 §76: true on an admin answer when phone / email / dateOfBirth were masked (the admin lacks
+            drivers.viewSensitive); absent when the values are full. The admin shows Reveal (POST /admin/drivers/{driverId}/reveal).'
         homeArea:
           allOf:
           - $ref: '#/components/schemas/HomeArea'
@@ -19514,7 +19755,8 @@ components:
         ownerEmail:
           type: string
           format: email
-          description: Owner and admin views only.
+          description: 'Owner and admin views only. Masked for admins without drivers.viewSensitive (v0.18.54 §76): the first
+            character + ''•••@'' + the domain, e.g. a•••@example.com.'
         status:
           $ref: '#/components/schemas/FleetStatus'
         code:
@@ -19533,6 +19775,10 @@ components:
         version:
           type: integer
           minimum: 1
+        sensitiveMasked:
+          type: boolean
+          description: 'v0.18.54 §76: true on an admin answer when ownerEmail was masked (the admin lacks drivers.viewSensitive);
+            absent when the value is full. The admin shows Reveal (POST /admin/fleets/{fleetId}/reveal).'
     FleetDriver:
       type: object
       required:
@@ -23403,7 +23649,10 @@ components:
       - count
       properties:
         phone:
-          $ref: '#/components/schemas/PhoneE164'
+          type: string
+          description: 'E.164 for an admin with riders.viewSensitive; v0.18.54 §76: GET /admin/waitlist: WaitlistEntry.phone
+            masked for every admin without riders.viewSensitive; no Reveal (pre-account, no person to audit against); the
+            full number is never answered to a masked role. The admin accepts both shapes.'
         app:
           type: string
           enum:
@@ -32492,6 +32741,122 @@ components:
       properties:
         phone:
           $ref: '#/components/schemas/PhoneE164'
+    AdminRevealCommand:
+      type: object
+      description: 'v0.18.54 §76: reason 3–200 characters; missing, empty or outside = 400 invalid_request, reason reason_required.'
+      required:
+      - reason
+      properties:
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 200
+          description: Why the admin needs the values; audited, never the values.
+    RevealedRider:
+      type: object
+      description: 'v0.18.54 §76: the full values, once; the admin never stores them.'
+      required:
+      - riderId
+      - phone
+      - revealedAt
+      properties:
+        riderId:
+          $ref: '#/components/schemas/Id'
+        phone:
+          type: string
+          pattern: ^\+[1-9]\d{6,14}$
+        email:
+          type: string
+          format: email
+        revealedAt:
+          $ref: '#/components/schemas/Timestamp'
+    RevealedDriver:
+      type: object
+      description: 'v0.18.54 §76: the full values, once; the admin never stores them.'
+      required:
+      - driverId
+      - revealedAt
+      properties:
+        driverId:
+          $ref: '#/components/schemas/Id'
+        phone:
+          type: string
+          pattern: ^\+[1-9]\d{6,14}$
+          description: When the driver record has one.
+        email:
+          type: string
+          format: email
+        dateOfBirth:
+          type: string
+          format: date
+          description: YYYY-MM-DD.
+        revealedAt:
+          $ref: '#/components/schemas/Timestamp'
+    RevealedFleet:
+      type: object
+      description: 'v0.18.54 §76: the full value, once.'
+      required:
+      - fleetId
+      - ownerEmail
+      - revealedAt
+      properties:
+        fleetId:
+          $ref: '#/components/schemas/Id'
+        ownerEmail:
+          type: string
+          format: email
+        revealedAt:
+          $ref: '#/components/schemas/Timestamp'
+    AdminIncidentRevealCommand:
+      type: object
+      description: 'v0.18.54 §76: reason defaults to ''SOS'' when omitted (1–200 characters when sent).'
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Defaults to "SOS" when omitted.
+    RevealedIncidentContacts:
+      type: object
+      description: 'v0.18.54 §76: Owner Q41 ''Yes, logged'': in an SOS the safety role (riders.viewSensitive, no drivers.viewSensitive)
+        can call the driver too; one click on an open SOS reveals both numbers. null for a side the incident has no account
+        for.'
+      required:
+      - incidentId
+      - rider
+      - driver
+      - revealedAt
+      properties:
+        incidentId:
+          $ref: '#/components/schemas/Id'
+        rider:
+          oneOf:
+          - type: object
+            required:
+            - phone
+            properties:
+              phone:
+                type:
+                - string
+                - 'null'
+                description: E.164; null when the record has no phone.
+          - type: 'null'
+          description: null when the incident has no account on that side.
+        driver:
+          oneOf:
+          - type: object
+            required:
+            - phone
+            properties:
+              phone:
+                type:
+                - string
+                - 'null'
+                description: E.164; null when the record has no phone.
+          - type: 'null'
+          description: null when the incident has no account on that side.
+        revealedAt:
+          $ref: '#/components/schemas/Timestamp'
     ReservationInfo:
       type: object
       description: 'v0.18.17: TripProjection.reservation (kind scheduled only) = { mode: now | list, dispatchAt, freeChangeUntil,
