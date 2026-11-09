@@ -149,7 +149,7 @@ op("post", "/driver/availability", "setDriverAvailability", "Go online / offline
         "Slow server: contract.json#auth.slowStart covers this call.")
 op("post", "/driver/location", "postDriverLocation", "Upload a batch of GPS fixes", ["driver"], "Driver · Session",
    body="LocationBatch", ok=(200, "DriverLocationAck"), mutation=True,
-   desc="Fixes are fanned out as kind=location on the active trip's stream; they never change the projection version.")
+   desc="Fixes are fanned out as kind=location on the active trip's stream; they never change the projection version. v0.18.52 (§74): a batch from a driver who is offline or suspended with no active trip is not stored: 200 with accepted 0 (contract.json#driverHome.offlineLocation).")
 op("get", "/driver/offers", "listDriverOffers", "Current offers for the driver", ["driver"], "Driver · Offers",
    params=[pref("Cursor"), pref("Limit"), q("status", ref("OfferStatus"), multi=True), q("kind", ref("OfferKind"), multi=True)],
    ok=(200, "OfferPage"))
