@@ -5,9 +5,14 @@ on:
   push:
     branches: ["main"]
   workflow_dispatch:
+  # Step 22 (2026-11-09, plan row 0.5): once a day, so a copy left behind after a
+  # contract merge is noticed even when nobody pushes here.
+  schedule:
+    - cron: "17 5 * * *"
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: contract-copy-${{ github.ref }}
@@ -21,6 +26,35 @@ jobs:
       - uses: actions/checkout@v4
       # Fails when contracts/ differs from movera-contracts main at the version
       # it claims (or from its own CHECKSUMS). The message says how to sync.
-      - run: bash tool/check_contract_copy.sh
+      # "Behind main" is only a warning here; the daily run turns it into an issue.
+      - id: check
+        run: |
+          set -o pipefail
+          bash tool/check_contract_copy.sh 2>&1 | tee check.log
+          if grep -q "contract copy is behind" check.log; then echo "behind=true" >> "$GITHUB_OUTPUT"; else echo "behind=false" >> "$GITHUB_OUTPUT"; fi
         env:
           CONTRACTS_TOKEN: ${{ secrets.CONTRACTS_TOKEN }}
+      # Daily and manual runs only (no red): open or update one issue while the
+      # copy is behind movera-contracts main, close it when the copy is current.
+      - name: Issue "Contract copy behind" (daily run)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEHIND: ${{ steps.check.outputs.behind }}
+        run: |
+          set -eu
+          title="Contract copy behind movera-contracts main"
+          n="$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')"
+          today="$(date -u +%F)"
+          if [ "$BEHIND" = "true" ]; then
+            line="$(grep -m1 "contract copy is behind" check.log | sed 's/^::warning::contract copy is behind/behind/')"
+            if [ -n "$n" ]; then
+              gh issue comment "$n" --body "Still $line ($today)."
+            else
+              gh issue create --title "$title" --body "The contract copy in contracts/ is $line (found $today by the daily check). Sync it: run the command named in the check output (tool/sync_contract.sh <main sha>) in its own PR and commit contracts/ as it comes out. This issue closes itself when the copy is current."
+            fi
+          elif [ -n "$n" ]; then
+            gh issue close "$n" --comment "The contract copy is current again ($today)."
+          else
+            echo "copy is current; no issue to manage"
+          fi
