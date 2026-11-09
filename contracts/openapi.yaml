@@ -1,11 +1,11 @@
-# Movera API v0.18.51 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.52 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.51
+  version: 0.18.52
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.51 in this folder; this file must agree with them.
+    v0.18.52 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.51
+  version: 0.18.52
   source: contract.json
 paths:
   /auth/otp/request:
@@ -2496,7 +2496,9 @@ paths:
     post:
       operationId: postDriverLocation
       summary: Upload a batch of GPS fixes
-      description: Fixes are fanned out as kind=location on the active trip's stream; they never change the projection version.
+      description: 'Fixes are fanned out as kind=location on the active trip''s stream; they never change the projection version.
+        v0.18.52 (§74): a batch from a driver who is offline or suspended with no active trip is not stored: 200 with accepted
+        0 (contract.json#driverHome.offlineLocation).'
       tags:
       - Driver · Session
       x-actor:

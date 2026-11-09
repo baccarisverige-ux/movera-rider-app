@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.51",
+  "version": "0.18.52",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -5379,7 +5379,7 @@
       }
     },
     "backgroundLocation": {
-      "note": "Decision 1 (app only, no wire change): while online the driver app keeps sending POST /driver/location (about every 10 s while moving, at least every 60 s) also with the phone locked or the app in the background, with a persistent notification; it stops when offline. A driver who stops sending is set offline after setOffline.default minutes.",
+      "note": "Decision 1 (app only, no wire change): while online the driver app keeps sending POST /driver/location (about every 10 s while moving, at least every 60 s) also with the phone locked or the app in the background, with a persistent notification; it stops when offline. A driver who stops sending is set offline after setOffline.default minutes. v0.18.52 (§74): it also stops when a trip restored after a restart ends and the app is offline (driverHome.offlineLocation).",
       "notification": {
         "title": {
           "sv": "Movera är online",
@@ -5391,6 +5391,22 @@
           "fr": "Votre position est transmise pour vous proposer des courses à proximité.",
           "en": "Your position is sent so you get trips"
         }
+      }
+    },
+    "offlineLocation": {
+      "note": "v0.18.52 §74 (owner 2026-11-09, START-HERE Q14 + Q15; Rules decisions/session-2026-11-06.md). Owner: 'Driver when on trip never go offline' — during a trip the driver is NEVER set offline, also after an app restart; only once that trip is over (completed, cancelled by the rider or ended) and the app had restarted during it, the driver goes offline (the existing app_restart offline card, setOffline.reasons.app_restart; no new text), and the app's location sender stops. Server (owner 'Not stored'): a POST /driver/location batch from a driver whose onlineStatus is offline or suspended and who has no active trip is not stored.",
+      "app": {
+        "rule": "A trip restored after a restart (D11: a restart is offline) keeps sending fixes while it runs (onTrip). When it ends and the app is offline and never asked online, the app sets the server offline (W2, as settleAfterStart) and stops the location sender at once: no POST /driver/location after the end.",
+        "proofPerStep": "driver test: after the restored trip ends offline, no fix is sent; before v0.18.52 the sender kept ticking every 10 s."
+      },
+      "server": {
+        "rule": "POST /driver/location: when the driver's onlineStatus is offline or suspended AND there is no active trip (accepted..approaching_dropoff), the batch is NOT stored (no driver_locations, no trip_locations, no airport-queue or ETA work): 200 { accepted: 0 }. A driver on a trip is always stored, whatever his onlineStatus. going_online and online are stored as before.",
+        "accepted": 0,
+        "why": "privacy: an offline driver never shows on the admin map or in the stale-fix job from a phone that kept sending (old app versions, a sender not stopped); matches the app rule above."
+      },
+      "appsNoChange": {
+        "rider": "no change needed",
+        "admin": "no change needed (the map and stale job read driver_locations, which no longer gets offline fixes)"
       }
     },
     "scheduledRidesPerDriver": "G3-R3 (owner 2026-10-30 'Remove the switch'): the admin's per-driver 'Scheduled driver access' switch is removed; every driver can take booked rides (the zone's reservations.on still decides). No server path ever set Driver.scheduledRides; the field (owner decision 2, v0.4.2) stays in the schema for older apps and is never sent; apps ignore it.",

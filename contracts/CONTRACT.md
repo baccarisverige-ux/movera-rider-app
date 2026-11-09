@@ -1,4 +1,6 @@
-# Movera shared contract v0.18.51
+# Movera shared contract v0.18.52
+
+v0.18.52 (owner decisions of 2026-11-09, START-HERE Q14 and Q15, Rules `decisions/session-2026-11-06.md`; X-Api-Version stays `0.5`; no migration): **a driver on a trip is never set offline**, also after an app restart; when a trip restored after a restart ends and the app is offline, the app sets the server offline (W2) **and stops sending its position**; **the server does not store a `POST /driver/location` batch from an offline (or suspended) driver with no active trip** (200, `accepted: 0`) (`driverHome.offlineLocation`). §74.
 
 v0.18.51 (owner decisions of 2026-11-07 on booked rides, Rules `decisions/session-2026-11-06.md` 'Booked waiting', 'Late arrival', 'Booked fees', 'Fixed rule'; X-Api-Version stays `0.5`; no migration): **a booked ride's free waiting starts at the later of the driver's Arrived and the pickup time** (`waiting.waitFrom`; before the pickup time both apps count down « −12:00 »; replaces Owner B 'also when late'); **for a booked ride a rider cancel after arrival and a no-show both cost the booking late-cancel fee** (not the no-show fee); admin `reassign` from `accepted` split by kind: `when: scheduled` → `requested` (L6); `riderTripPush` is bell true; `driverReservationsLive.when` unchanged (server fix). §73.
 
@@ -1387,3 +1389,13 @@ Owner decisions of 2026-11-07 (Rules `decisions/session-2026-11-06.md`). X-Api-V
 - **L6 rows**: admin `reassign` from `accepted` is split by kind — `{ [accepted] → searching, when: live }` (as before) and `{ [accepted] → requested, when: scheduled }` (what the server does since §72 L6); the general reassign row keeps `offered`, `driver_to_pickup`, `arrived`, so no two rows match the same input.
 - **Notes**: `riderTripPush` is bell true (the note said bell false); `driverReservationsLive.when` is unchanged — the server sends the hint only at those changes, never on location fixes.
 - **Apps (Rule 0)**: server — waitFrom, no-show time, booked fees, reservations hint; driver and rider — the timer from `waitFrom` with the negative countdown, the no-show button from `noShowAt`, the booking fee in the no-show confirm / cancel sheet / terms; admin — waiting box "Free waiting from" (`texts.adminWaitFrom`), Mark no-show only from `noShowAt`, the Reassign label on a held booked ride; no new admin setting.
+
+## 74. Restored trip: never offline on a trip; offline and silent after it; offline fixes not stored (v0.18.52)
+
+Owner decisions of 2026-11-09 (START-HERE Sitting A Q14 "Driver when on trip never go offline", confirmed "Yes, exactly"; Q15 "Not stored"; Rules `decisions/session-2026-11-06.md`). X-Api-Version stays `0.5`; no migration. `contract.json#driverHome.offlineLocation`.
+
+- **Never offline on a trip**: a trip restored after an app restart (D11: a restart is offline) runs to its end; nothing sets the driver offline while it runs.
+- **Offline and silent after it**: when that trip ends (completed, rider cancel, early end) and the app is offline and never asked online, the app sets the server offline too (W2, driver #501: the `app_restart` offline card, `setOffline.reasons.app_restart`, no new text) and **stops the location sender at once** — before v0.18.52 the sender started by the trip kept posting every 10 s with the driver "offline".
+- **Server rule**: `POST /driver/location` from a driver whose `onlineStatus` is `offline` or `suspended` and who has no active trip is **not stored** (no `driver_locations`, `trip_locations`, airport-queue or ETA work): `200 { accepted: 0 }`. On a trip the fixes are always stored. `going_online` / `online` unchanged.
+- **Apps (Rule 0)**: driver — stop the sender (and #501's server offline); server — the not-stored rule; rider, admin — no change needed (they read `driver_locations`).
+
