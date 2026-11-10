@@ -658,6 +658,7 @@ class ApiRideRealtime implements RideRealtime {
     final serverLocationAt = location.at;
     final serverNow =
         _date(envelope['serverTime'] ?? ride['serverTime']) ?? updatedAt;
+    if (kind == RealtimeKind.paymentUpdated) RidePaymentEvents.notify(poll.id);
     poll.controller?.add(
       RideRealtimeEvent(
         rideId: poll.id,
