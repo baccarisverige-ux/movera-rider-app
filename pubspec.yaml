@@ -55,6 +55,7 @@ dependencies:
   firebase_core: ^4.15.0
   firebase_messaging: ^16.7.0
   flutter_webrtc: ^1.6.3
+  audioplayers: ^6.8.1
 
 dev_dependencies:
   flutter_test:
@@ -98,6 +99,8 @@ flutter:
     - assets/images/notes/
     # UI-15: Poppins for offline use; see assets/google_fonts/README.md.
     - assets/google_fonts/
+    # Chat message sound and incoming-call ring (own generated tones).
+    - assets/sounds/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/sound/app_tones.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/features/messages/data/messages_repository.dart';
 import 'package:movera_rider/features/messages/data/api_trip_messages.dart';
@@ -159,14 +160,37 @@ class MessagesController extends ChangeNotifier {
 
   /// v0.18.56 §78 `chat.stream`: one `message` event of the trip stream
   /// (`RealtimeEvent.message`), folded into that trip's conversation. The
-  /// unread badge and the open chat follow it; nothing polls.
+  /// unread badge and the open chat follow it; nothing polls. A new
+  /// message from the driver plays Movera's message sound while the
+  /// country's `chat.sound` is on (REMINDERS row 28).
   static void ingestStreamMessage(String tripId, Map<String, dynamic> raw) {
     final id = tripId.trim();
     if (id.isEmpty) return;
     final message = ChatMessageWire.fromJson(raw);
     if (message == null) return;
-    MessagesRepository.forRide(id).merge([message]);
+    final store = MessagesRepository.forRide(id);
+    final known =
+        message.messageId != null &&
+        store.messages.any((m) => m.messageId == message.messageId);
+    store.merge([message]);
+    if (!known &&
+        message.sender != ChatMessageSender.rider &&
+        (_soundByRide[id] ?? ChatOptions.fallback.sound)) {
+      unawaited(AppTones.playChatMessage());
+    }
   }
+
+  /// The last `chat.sound` read per trip (options are read per screen,
+  /// stream messages arrive without one).
+  static final Map<String, bool> _soundByRide = <String, bool>{};
+
+  @visibleForTesting
+  static void debugResetSound() => _soundByRide.clear();
+
+  /// Tests: what [loadOptions] would keep for [rideId].
+  @visibleForTesting
+  static void debugSetSound(String rideId, bool on) =>
+      _soundByRide[rideId] = on;
 
   /// The chat settings of the trip's country (contract v0.18.56 §78);
   /// [ChatOptions.fallback] until [loadOptions] has an answer.
@@ -184,6 +208,7 @@ class MessagesController extends ChangeNotifier {
       final options = await extras.options(_rideId);
       if (_disposed) return;
       _options = options;
+      _soundByRide[_rideId] = options.sound;
       notifyListeners();
     } catch (error) {
       AppLog.warning(

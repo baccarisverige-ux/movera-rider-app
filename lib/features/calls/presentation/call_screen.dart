@@ -1,13 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/sound/app_tones.dart';
 import 'package:movera_rider/features/calls/domain/trip_call_session.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// v0.18.38 §62 (fix job 8, owner G15 2026-11-05 "In-app calls only",
 /// "Just 'Call failed'"): the in-app call with the driver. Calling… →
 /// In call (mute, speaker, end); an incoming call shows Answer / Decline.
-/// A failure shows only "Call failed" and the screen closes.
+/// A failure shows only "Call failed" and the screen closes. An incoming
+/// call rings (Movera's `call_ring.wav`, looped) until it is answered,
+/// declined, missed or failed.
 class TripCallScreen extends StatefulWidget {
   const TripCallScreen({super.key, required this.session, this.name});
 
@@ -40,15 +43,21 @@ class _TripCallScreenState extends State<TripCallScreen> {
   Timer? _tick;
   DateTime? _since;
 
+  CallRingtone? _ring;
+
   TripCallSession get _s => widget.session;
+
+  bool get _ringing => _s.state == TripCallState.ringing && !_s.over;
 
   @override
   void initState() {
     super.initState();
     _s.addListener(_changed);
+    if (!_s.outgoingCall) _ring = CallRingtone()..update(_ringing);
   }
 
   void _changed() {
+    _ring?.update(_ringing);
     if (!mounted) return;
     if (_s.state == TripCallState.connected && _since == null) {
       _since = DateTime.now();
@@ -68,6 +77,7 @@ class _TripCallScreenState extends State<TripCallScreen> {
   @override
   void dispose() {
     _s.removeListener(_changed);
+    _ring?.dispose();
     _close?.cancel();
     _tick?.cancel();
     // Leaving the screen (back) hangs up a call still going on.
