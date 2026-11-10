@@ -32,6 +32,9 @@ import 'package:movera_rider/features/finding_driver/domain/nearby_vehicle.dart'
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/price_bump_card.dart';
+import 'package:movera_rider/features/finding_driver/presentation/rebook_price_dialog.dart';
+export 'package:movera_rider/features/finding_driver/presentation/rebook_price_dialog.dart'
+    show showRebookPriceDialog;
 import 'package:movera_rider/features/finding_driver/presentation/still_looking_card.dart';
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart'
@@ -45,7 +48,6 @@ import 'package:movera_rider/features/ride_selection/presentation/ride_labels.da
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
-import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/formatters/place_format.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
@@ -1467,36 +1469,4 @@ class _FindingDriversState extends State<FindingDrivers> {
       ),
     );
   }
-}
-
-/// A booking asked again is priced again: a price other than the one the
-/// rider last saw (a surge, their own raise) is booked only once they accept
-/// it (rider-u107). Used after "No driver found" and by "Search again".
-Future<bool> showRebookPriceDialog(
-  BuildContext context, {
-  required Money shown,
-  required Money next,
-}) async {
-  final accepted = await showDialog<bool>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      key: const ValueKey('rebook-price-updated'),
-      title: Text(context.l10n.priceUpdated),
-      content: Text(
-        context.l10n.priceUpdatedBody(formatMoney(next), formatMoney(shown)),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext, false),
-          child: Text(context.l10n.notNow),
-        ),
-        FilledButton(
-          key: const ValueKey('rebook-price-accept'),
-          onPressed: () => Navigator.pop(dialogContext, true),
-          child: Text(context.l10n.bookForPrice(formatMoney(next))),
-        ),
-      ],
-    ),
-  );
-  return accepted == true;
 }
