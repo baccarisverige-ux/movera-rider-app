@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/reservations/domain/scheduled_ride_rules.dart';
@@ -25,6 +26,9 @@ class ConfigScheduledRideRulesSource implements ScheduledRideRulesSource {
             minutes >= 0 && minutes <= ScheduledRideRules.maxFreeCancelMinutes
             ? minutes
             : ScheduledRideRules.defaults.freeCancelMinutesBeforePickup,
+        // Owner 2026-11-10 (R10 #3): the fee per category comes only from
+        // `cancelFees.reservation`; no built-in late fee besides it.
+        lateCancelFee: Money(0, config.currency),
         showDriverOnAccept: false,
       );
     } catch (error) {

@@ -10,6 +10,7 @@ import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/config/live_data_only.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
 
@@ -200,7 +201,23 @@ class ApiRiderConfigRepository extends ChangeNotifier
       return;
     }
     _documents[zoneId] = next;
+    _applyFeatures();
     if (!_disposed) notifyListeners();
+  }
+
+  /// The zone whose switches the app follows: the watched one, else home.
+  String get activeZoneId => _watching ?? homeZoneId;
+
+  /// Owner 2026-11-10 (R10 #4): the app follows the server's feature
+  /// switches of the zone in use ([ServerFeatures]); none until that
+  /// zone's document has been read.
+  void _applyFeatures() {
+    final document = _documents[activeZoneId];
+    if (document == null) {
+      ServerFeatures.clear();
+    } else {
+      ServerFeatures.apply(document.features);
+    }
   }
 
   Future<RiderAppConfig> _fallback(String zoneId) async {
@@ -227,6 +244,7 @@ class ApiRiderConfigRepository extends ChangeNotifier
     if (_watching == zoneId && _stream != null) return;
     await _stopStream();
     _watching = zoneId;
+    _applyFeatures();
     _renewTried = false;
     unawaited(refresh(zoneId));
     await _connect(zoneId);
