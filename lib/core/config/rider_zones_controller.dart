@@ -51,14 +51,30 @@ class MemoryRiderZonesStore implements RiderZonesStore {
 /// kept on the device and used until the server answers. Without [api]
 /// (the demo) the built-in sample zones stay. Never throws to its callers.
 class RiderZonesController extends ChangeNotifier {
-  RiderZonesController({this.api, RiderZonesStore? store})
-    : _store = store ?? const PrefsRiderZonesStore();
+  RiderZonesController({
+    this.api,
+    RiderZonesStore? store,
+    List<Duration>? retryDelays,
+  }) : _store = store ?? const PrefsRiderZonesStore(),
+       retryDelays = retryDelays ?? defaultRetryDelays;
+
+  /// Owner 2026-11-10: a failed read while a kept list is in use is tried
+  /// again after each of these delays (bounded: 3 more tries).
+  static const defaultRetryDelays = [
+    Duration(seconds: 3),
+    Duration(seconds: 10),
+    Duration(seconds: 30),
+  ];
+
+  final List<Duration> retryDelays;
 
   static const path = '/api/v1/rider/zones';
 
   final ApiClient? api;
   final RiderZonesStore _store;
   Future<bool>? _inFlight;
+  Timer? _retryTimer;
+  int _retries = 0;
 
   List<RiderZone> get zones => RiderZones.all;
 
@@ -111,12 +127,15 @@ class RiderZonesController extends ChangeNotifier {
     return _inFlight ??= _fetch().whenComplete(() => _inFlight = null);
   }
 
-  Future<bool> _fetch() async {
+  Future<bool> _fetch({bool retry = false}) async {
     try {
       final raw = await api!.get(path);
       final zones = parse(raw);
       if (zones == null) throw const FormatException('not a zones answer');
       _use(zones);
+      _retryTimer?.cancel();
+      _retryTimer = null;
+      _retries = 0;
       try {
         await _store.write({
           'zones': [for (final zone in zones) zone.toJson()],
@@ -128,8 +147,27 @@ class RiderZonesController extends ChangeNotifier {
     } catch (error) {
       AppLog.warning('rider_zones.unavailable', extra: {'error': '$error'});
       _markFailed();
+      if (!retry) _retries = 0;
+      _scheduleRetry();
       return false;
     }
+  }
+
+  /// Owner 2026-11-10: a kept list stays in use when a read fails, so it is
+  /// read again after a short delay (bounded by [retryDelays]) instead of
+  /// keeping an old list silently. Without a list in use the screen offers
+  /// Retry itself.
+  void _scheduleRetry() {
+    if (!RiderZones.known || _retryTimer != null) return;
+    if (_retries >= retryDelays.length) return;
+    final delay = retryDelays[_retries++];
+    _retryTimer = Timer(delay, () {
+      _retryTimer = null;
+      if (api == null) return;
+      unawaited(
+        _inFlight ??= _fetch(retry: true).whenComplete(() => _inFlight = null),
+      );
+    });
   }
 
   /// Kept answer, then the server's.

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/config/rider_zones_controller.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/core/web/web_gpu.dart';
@@ -10,6 +11,10 @@ import 'package:movera_rider/features/ride_booking/application/rider_trip_watch.
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 
 class AppLifecycleObserver with WidgetsBindingObserver {
+  AppLifecycleObserver({RiderZonesController? zones}) : _zonesSeam = zones;
+
+  final RiderZonesController? _zonesSeam;
+
   void attach() => WidgetsBinding.instance.addObserver(this);
 
   void detach() => WidgetsBinding.instance.removeObserver(this);
@@ -47,6 +52,9 @@ class AppLifecycleObserver with WidgetsBindingObserver {
         // v0.18.5 legal.read: again when the app comes back (no stream
         // event carries it).
         unawaited(AppScope.instance.legal.load());
+        // Owner 2026-11-10 (§21): the kept zone list is read again too, so a
+        // zone opened while the app was away is not missed.
+        unawaited((_zonesSeam ?? AppScope.instance.zones).refresh());
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
