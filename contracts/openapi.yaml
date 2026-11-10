@@ -1,11 +1,11 @@
-# Movera API v0.18.55 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.57 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.55
+  version: 0.18.57
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.55 in this folder; this file must agree with them.
+    v0.18.57 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.55
+  version: 0.18.57
   source: contract.json
 paths:
   /auth/otp/request:
@@ -1020,7 +1020,10 @@ paths:
       description: 'v0.5.4, CONTRACT.md §4. The rider''s "I''m on the way" (shown once the driver has arrived, also while
         the driver is coming) reaches the driver as a `rider_on_the_way` realtime event carrying the current projection. Not
         a lifecycle transition: status and version do not change. Allowed while the trip is accepted, driver_to_pickup or
-        arrived; any other state → 409 invalid_transition. No request body.'
+        arrived; any other state → 409 invalid_transition. No request body. v0.18.56 §78: When the rider calls POST /trips/{tripId}/on-the-way
+        the server, besides the rider_on_the_way event, writes ONE chat message from the rider, Message.auto = on_my_way,
+        once per trip (a repeat writes none), in the DRIVER''s app language (Driver.language, else the zone country''s language,
+        else en); kind message on the trip stream (the driver''s sheet card).'
       tags:
       - Rider · Booking
       x-actor:
@@ -2203,7 +2206,12 @@ paths:
         the trip is terminal, GET /trips/{tripId}/messages answers { items: [], nextCursor: null, closed: true } to the rider
         and the driver, and their trip events (GET /trips/{tripId}/events and the stream) carry no message text. The apps
         clear the chat when the trip ends and keep no copy. Admins with support.reply keep the full chat in the trip details
-        (GET /trips/{tripId}/messages as admin), within chat.retentionDays.'
+        (GET /trips/{tripId}/messages as admin), within chat.retentionDays. v0.18.56 §78: Both apps count unread messages
+        from kind message events on the trip stream (GET /trips/{tripId}/events SSE, resync with ?after=sequence); no timer
+        poll of GET /trips/{tripId}/messages (the rider''s 3 s / 10 s polls are removed). The chat screen loads the page once
+        (cursor) and then appends message events. A poll that is still needed stops while the tab or app is hidden. The apps''
+        realtime gate admits every kind message and call_* event in sequence order (same seen / gap / resync rules as realtime),
+        not only call_* kinds.'
       tags:
       - Notifications & messages
       x-actor:
@@ -2245,7 +2253,13 @@ paths:
       operationId: sendTripMessage
       summary: Send a trip chat message (emits kind=message)
       description: 'v0.13.0: open from driver assignment until drop-off; after it the rider and driver get 409 invalid_transition,
-        reason chat_closed (no grace period). Admins as for GET.'
+        reason chat_closed (no grace period). Admins as for GET. v0.18.56 §78: Longest message text in characters; a longer
+        POST /trips/{tripId}/messages is 400 invalid_request, reason message_too_long. Never above 2000 (Message.text). Default
+        2000. Messages one sender may post on one trip per minute; more is 429 rate_limited, reason too_many_requests (Retry-After).
+        Support (admin) is not limited. Default 10. POST /trips/{tripId}/messages { text, quickReplyId }: with quickReplyId
+        (an id of the sender''s side list) the server writes the text of that chip in the reader''s app language (the other
+        side''s profile language, else the zone country''s language, else en) and ignores text; an unknown id is 400 invalid_request,
+        reason unknown_quick_reply. Message.quickReplyId is set on the stored message.'
       tags:
       - Notifications & messages
       x-actor:
@@ -2304,7 +2318,17 @@ paths:
         live callId]. calls.on false → POST /trips/{tripId}/call is 403 forbidden, reason calls_off; the apps hide the call
         button. CountryRules.calls.mode phone + a configured provider (phoneProvider, keys only in the server environment)
         → TripCall { tripId, mode:''phone'', proxyNumber, expiresAt } as before (v0.13.0). Mode phone without a provider falls
-        back to in_app. Owner G15: in-app calls only until a phone company is chosen.'
+        back to in_app. Owner G15: in-app calls only until a phone company is chosen. v0.18.56 §78: On call_ringing the server
+        also sends a push to every push device of the callee that has no open trip stream (no SSE connection for that trip):
+        kind call_ringing, data { tripId, callId }, deepLink movera://trips/{tripId}/call (rider) / movera-driver://trips/{tripId}/call
+        (driver), not stored in GET /notifications, sent even with Rider.consents.rideUpdates false (a service message). The
+        app opens on the incoming-call sheet while the call still rings; a call that is no longer ringing shows nothing. iPhone
+        (apns tokens): owner Q79: a plain notification first (the text below); the real call screen (CallKit with a VoIP push)
+        comes later (G13). During an answered call the microphone stays on with the screen locked: Android a microphone foreground
+        service (FOREGROUND_SERVICE_MICROPHONE, type phoneCall / microphone) with a "Movera call" notification while the call
+        lasts (+ the Play Console declaration); iOS the audio background mode in the driver app (the rider app already has
+        it). Built only after the device proof (global plan step 69, T7). Server environment names: MOVERA_STUN_URLS, MOVERA_TURN_URLS,
+        MOVERA_TURN_SECRET.'
       tags:
       - Notifications & messages
       x-actor:
@@ -2875,7 +2899,12 @@ paths:
       description: ' v0.18.7 (Q6): waiting.noShowFee and waiting.noShowDriverShare are set here. v0.18.8: arrive: the server
         computes the effective terms once, when the driver arrives, and keeps them on the trip (waiting.rules, freeWaitMin,
         perMin, noShowAfterMin, noShowFee; freeUntil / noShowAt from them). The waiting charge (board), the no-show fee, a
-        cancel that counts as a no-show and the running total all use these numbers.'
+        cancel that counts as a no-show and the running total all use these numbers. v0.18.56 §78: When the trip goes to arrived
+        through POST /trips/{tripId}/arrive, both on the driver''s tap and on auto-arrive (the driver app''s arrival geofence
+        calls the same route), the server writes ONE chat message from the driver, Message.auto = arrived, once per trip (a
+        second arrive, a retry or a resync writes none). The text is CountryRules.chat.autoArrived.text in the RIDER''s app
+        language (Rider.language, else the zone country''s language, else en). CountryRules.chat.autoArrived.on false → no
+        message; arrive works as before.'
   /trips/{tripId}/board:
     post:
       operationId: boardRider
@@ -17338,6 +17367,250 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /trips/{tripId}/messages/options:
+    get:
+      operationId: tripChatOptions
+      summary: 'Chat options of the trip: quick replies and chat settings'
+      description: 'v0.18.56 §78: GET /trips/{tripId}/messages/options (the trip''s rider or driver) answers ChatOptions:
+        the caller''s side quick replies (all three languages; the app shows its own), maxLength, sound, sheetAutoOpen, readAloudDefault,
+        translation, the header line. Values of the trip zone''s country_rules, else configDefaults.chat.'
+      tags:
+      - Notifications & messages
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatOptions'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /trips/{tripId}/messages/translate:
+    post:
+      operationId: translateTripMessage
+      summary: Translate one chat message (503 coming_soon until a provider is set)
+      description: 'v0.18.56 §78: POST /trips/{tripId}/messages/translate { messageId, to: sv|fr|en } by the trip''s rider
+        or driver (open trip, a message of that trip) (to = the reading user''s own app language, sv|fr|en; owner answer A1
+        2026-11-10) → 200 TranslatedMessage { messageId, to, text } when a translation provider is configured on the server
+        (keys only in the server environment). Until one is configured: 503 unavailable, reason coming_soon; the app shows
+        "Translation coming soon". CountryRules.chat.translation false → 403 forbidden, reason translation_off. Nothing is
+        stored. Target language (owner A1): the reading user''s own app language; the link reads "Translate to <that language>".
+        Under each translated message the app shows a link "See original" that switches back to the original text, and then
+        "Translate" again (owner 2026-11-10); the original text is always kept in the app. Another to is 400 invalid_request,
+        reason translate_target_not_allowed.'
+      tags:
+      - Notifications & messages
+      x-actor:
+      - rider
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TranslateMessageRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslatedMessage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/chats:
+    get:
+      operationId: adminChats
+      summary: Open trips with chat messages (live chat list)
+      description: 'v0.18.56 §78: GET /admin/chats?zoneId&zoneIds&country&cursor&limit (support.reply) → AdminChatPage { items:
+        [AdminChatRow], nextCursor }: only open trips (chat.openStatuses) that have at least one message, newest lastMessageAt
+        first, only trips of the admin''s zones (Super admin: all; a zone filter outside them → 403 forbidden, reason zone_out_of_scope).
+        Replaces reading /admin/trips?limit=100 and filtering in the browser. AdminChatRow { tripId, zoneId, status, riderFirstName,
+        driverFirstName, messageCount, lastMessageAt, lastFrom (rider|driver|support) }: no message text, no phone number.'
+      tags:
+      - Admin · Support
+      x-actor:
+      - admin
+      x-permission: support.reply
+      parameters:
+      - $ref: '#/components/parameters/ListZoneId'
+      - $ref: '#/components/parameters/ListZoneIds'
+      - $ref: '#/components/parameters/ListCountry'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminChatPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/drivers/{driverId}/message:
+    post:
+      operationId: adminMessageDriver
+      summary: Message a driver in the app's Support inbox
+      description: 'v0.18.56 §78: POST /admin/drivers/{driverId}/message and POST /admin/riders/{riderId}/message { text (1–2000)
+        } (support.reply; the person must have a zone in the admin''s zones, Super admin: all, else 403 forbidden, reason
+        zone_out_of_scope) → 201 SupportTicket: the server opens a support ticket for that person (openedBy admin, topic help,
+        the text as its first message from support, zoneId = the person''s first zone), which the person sees in the app''s
+        Support inbox (GET /support/tickets) and answers there. Audited driver.message / rider.message { ticketId } (never
+        the text). No push in this version: the push half is IN-OTHER.1, the first job of G13. The person sees the message
+        on the next open of Support.'
+      tags:
+      - Admin · Support
+      x-actor:
+      - admin
+      x-permission: support.reply
+      parameters:
+      - $ref: '#/components/parameters/DriverId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminPersonMessageCommand'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/riders/{riderId}/message:
+    post:
+      operationId: adminMessageRider
+      summary: Message a rider in the app's Support inbox
+      description: 'v0.18.56 §78: POST /admin/drivers/{driverId}/message and POST /admin/riders/{riderId}/message { text (1–2000)
+        } (support.reply; the person must have a zone in the admin''s zones, Super admin: all, else 403 forbidden, reason
+        zone_out_of_scope) → 201 SupportTicket: the server opens a support ticket for that person (openedBy admin, topic help,
+        the text as its first message from support, zoneId = the person''s first zone), which the person sees in the app''s
+        Support inbox (GET /support/tickets) and answers there. Audited driver.message / rider.message { ticketId } (never
+        the text). No push in this version: the push half is IN-OTHER.1, the first job of G13. The person sees the message
+        on the next open of Support.'
+      tags:
+      - Admin · Support
+      x-actor:
+      - admin
+      x-permission: support.reply
+      parameters:
+      - $ref: '#/components/parameters/RiderId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminPersonMessageCommand'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -20332,6 +20605,22 @@ components:
           maxLength: 2000
         at:
           $ref: '#/components/schemas/Timestamp'
+        quickReplyId:
+          type: string
+          description: 'v0.18.56 §78: set when the message was sent from a quick-reply chip.'
+        auto:
+          type: string
+          enum:
+          - arrived
+          - on_my_way
+          description: 'v0.18.56 §78: When the trip goes to arrived through POST /trips/{tripId}/arrive, both on the driver''s
+            tap and on auto-arrive (the driver app''s arrival geofence calls the same route), the server writes ONE chat message
+            from the driver, Message.auto = arrived, once per trip (a second arrive, a retry or a resync writes none). The
+            text is CountryRules.chat.autoArrived.text in the RIDER''s app language (Rider.language, else the zone country''s
+            language, else en). When the rider calls POST /trips/{tripId}/on-the-way the server, besides the rider_on_the_way
+            event, writes ONE chat message from the rider, Message.auto = on_my_way, once per trip (a repeat writes none),
+            in the DRIVER''s app language (Driver.language, else the zone country''s language, else en); kind message on the
+            trip stream (the driver''s sheet card).'
     TripCall:
       type: object
       description: 'v0.13.0: a masked call between the trip''s rider and driver (contract.json#chat.call). v0.18.38 §62: POST
@@ -22415,6 +22704,21 @@ components:
               - none
               - twilio
               default: none
+        chat:
+          $ref: '#/components/schemas/ChatSettings'
+        emergencyNumbers:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmergencyNumber'
+          minItems: 1
+          maxItems: 6
+          description: 'v0.18.57 §79: Admin › Pricing › Tips & limits per country › Emergency numbers: CountryRules.emergencyNumbers
+            of the COUNTRY STANDARD only (emergency numbers are national; a zone''s own country_rules never carries them and
+            is 400 invalid_request, reason emergency_numbers_country_only), saved and published with the country_rules document
+            (settings.edit / settings.publish), like CountryRules.chat. Never saved = configDefaults.emergencyNumbers[country].
+            Add, edit, remove and reorder rows; at least one row. SE: 112 (general). FR: 112 (general). TN: police 197, ambulance
+            (SAMU) 190. A country with no default and nothing saved shows 112. 400 invalid_request, reason invalid_emergency_numbers:
+            empty list, more than 6, a number not matching the pattern, a kind not in kinds, or a missing sv / fr / en label.'
       x-server-only: true
     FeeRule:
       type: object
@@ -23978,6 +24282,20 @@ components:
             it is taken off the list.'
         tipRules:
           $ref: '#/components/schemas/TipRules'
+        emergencyNumbers:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmergencyNumber'
+          minItems: 1
+          maxItems: 6
+          description: 'v0.18.57 §79: Written by the server from the zone''s country into RiderAppConfig.emergencyNumbers
+            and DriverAppConfig.emergencyNumbers (GET /rider/config, GET /driver/config, config_published) when the country
+            standard is published, like dontMatchAgain. The apps keep the last list they got (offline) and fall back to [112
+            general] only if they never got one. Rider and driver apps: (1) the safety shield with no trip — one "Call <label>
+            <number>" button per row (opens the phone dialer, nothing sent to Movera) instead of "Call 112"; (2) SOS during
+            a trip — the SOS dials the FIRST number and alerts Movera; the other rows show as extra call buttons on the "SOS
+            sent" screen; (3) ride check "Need help" — the same call buttons; (4) the driver''s emergency contacts screen
+            — the built-in number shown is the country list, not 112. Labels in the app language (sv / fr / en).'
     DriverAppConfig:
       type: object
       description: Per-zone driver document built by Admin exporters. Unknown keys are ignored; missing keys fall back to
@@ -24281,6 +24599,20 @@ components:
             it is taken off the list.'
         headingCheck:
           $ref: '#/components/schemas/HeadingCheckSettings'
+        emergencyNumbers:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmergencyNumber'
+          minItems: 1
+          maxItems: 6
+          description: 'v0.18.57 §79: Written by the server from the zone''s country into RiderAppConfig.emergencyNumbers
+            and DriverAppConfig.emergencyNumbers (GET /rider/config, GET /driver/config, config_published) when the country
+            standard is published, like dontMatchAgain. The apps keep the last list they got (offline) and fall back to [112
+            general] only if they never got one. Rider and driver apps: (1) the safety shield with no trip — one "Call <label>
+            <number>" button per row (opens the phone dialer, nothing sent to Movera) instead of "Call 112"; (2) SOS during
+            a trip — the SOS dials the FIRST number and alerts Movera; the other rows show as extra call buttons on the "SOS
+            sent" screen; (3) ride check "Need help" — the same call buttons; (4) the driver''s emergency contacts screen
+            — the built-in number shown is the country list, not 112. Labels in the app language (sv / fr / en).'
     CategoryPricingWaiting:
       type: object
       description: Waiting at pickup for one category; RiderAppConfig / DriverAppConfig waiting.byCategory carry the same
@@ -26504,7 +26836,8 @@ components:
             pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit).
             v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.44
             reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress). v0.18.49 reason: sign_out_on_trip
-            (409 conflict, contract.json#auth.signOutOnTrip).'
+            (409 conflict, contract.json#auth.signOutOnTrip). v0.18.56 reasons: message_too_long, unknown_quick_reply, translate_target_not_allowed
+            (400 invalid_request), translation_off (403 forbidden), coming_soon (503 unavailable) (contract.json#chat, §78).'
         details:
           type: array
           items:
@@ -27230,6 +27563,13 @@ components:
           type: string
           minLength: 1
           maxLength: 2000
+        quickReplyId:
+          type: string
+          pattern: ^[a-z][a-z0-9_]{0,39}$
+          description: 'v0.18.56 §78: POST /trips/{tripId}/messages { text, quickReplyId }: with quickReplyId (an id of the
+            sender''s side list) the server writes the text of that chip in the reader''s app language (the other side''s
+            profile language, else the zone country''s language, else en) and ignores text; an unknown id is 400 invalid_request,
+            reason unknown_quick_reply. Message.quickReplyId is set on the stored message.'
     TicketRequest:
       type: object
       required:
@@ -33983,3 +34323,397 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AirportQueueFeedItem'
+    QuickReply:
+      type: object
+      description: 'v0.18.56 §78: v0.18.56 §78 (G9 part 2, owner Q79–Q85 2026-11-10): quick-reply chips (G9-2.5): a tap sends
+        the chip as a normal chat message.'
+      required:
+      - id
+      - text
+      properties:
+        id:
+          type: string
+          pattern: ^[a-z][a-z0-9_]{0,39}$
+        text:
+          type: object
+          required:
+          - sv
+          - fr
+          - en
+          properties:
+            sv:
+              type: string
+              minLength: 1
+              maxLength: 60
+            fr:
+              type: string
+              minLength: 1
+              maxLength: 60
+            en:
+              type: string
+              minLength: 1
+              maxLength: 60
+    ChatSettings:
+      type: object
+      description: 'v0.18.56 §78: Admin › Pricing › Tips & limits per country › Chat: CountryRules.chat of the country standard
+        (a zone''s own country_rules may set them), saved and published with the country_rules document (settings.edit / settings.publish),
+        like CountryRules.calls. Never saved = configDefaults.chat.'
+      properties:
+        keepDays:
+          type: integer
+          minimum: 1
+          maximum: 365
+          description: Days a trip chat message is kept (replaces the fixed chat.retentionDays 90; the daily purge reads the
+            setting of the trip zone country). Messages of a trip with a safety case stay with the case. Default 90.
+          default: 90
+        maxLength:
+          type: integer
+          minimum: 100
+          maximum: 2000
+          description: Longest message text in characters; a longer POST /trips/{tripId}/messages is 400 invalid_request,
+            reason message_too_long. Never above 2000 (Message.text). Default 2000.
+          default: 2000
+        spamPerMin:
+          type: integer
+          minimum: 1
+          maximum: 60
+          description: Messages one sender may post on one trip per minute; more is 429 rate_limited, reason too_many_requests
+            (Retry-After). Support (admin) is not limited. Default 10.
+          default: 10
+        sound:
+          type: boolean
+          description: Both apps play a short sound on a new message from the other side (the driver app follows its Accessibility
+            sound / vibrate / flash switches). Default true.
+          default: true
+        sheetAutoOpen:
+          type: string
+          enum:
+          - new_message
+          - 'off'
+          description: 'new_message: a folded trip sheet opens by itself on a new chat message from the other side and shows
+            the message card (owner Q82: on a new message only; "near the pickup" is a later G15 question); off: never opens
+            by itself. Default new_message.'
+          default: new_message
+        readAloudDefault:
+          type: boolean
+          description: Starting value of the driver's "Read new messages aloud" switch (TTS in the app language); the driver
+            may change it. Default false.
+          default: false
+        translation:
+          type: boolean
+          description: 'true: the apps show "Translate to <language>" under each message from the other side (POST /trips/{tripId}/messages/translate);
+            false: the link is hidden and the route answers 403 forbidden, reason translation_off. Default true (answers "coming
+            soon" until a provider is set).'
+          default: true
+        quickRepliesOn:
+          type: boolean
+          description: Quick-reply chips in the chat and on the sheet card. Default true.
+          default: true
+        quickReplies:
+          type: object
+          description: 'Lists per side: driver (chips the driver sees) and rider (chips the rider sees), each at most 8 items
+            { id (snake_case, unique in the list), text { sv, fr, en } (1–60 characters each) }. Default: configDefaults.chat.quickReplies.'
+          required:
+          - driver
+          - rider
+          properties:
+            driver:
+              type: array
+              items:
+                $ref: '#/components/schemas/QuickReply'
+              maxItems: 8
+            rider:
+              type: array
+              items:
+                $ref: '#/components/schemas/QuickReply'
+              maxItems: 8
+          default:
+            driver:
+            - id: on_my_way
+              text:
+                sv: Jag är på väg
+                fr: Je suis en route
+                en: I'm on my way
+            - id: five_min
+              text:
+                sv: Framme om 5 minuter
+                fr: J'arrive dans 5 minutes
+                en: Arriving in 5 minutes
+            - id: traffic
+              text:
+                sv: Mycket trafik, jag blir lite sen
+                fr: Il y a des bouchons, j'aurai un peu de retard
+                en: Heavy traffic, I'll be a little late
+            - id: where_are_you
+              text:
+                sv: Var exakt är du?
+                fr: Où êtes-vous exactement ?
+                en: Where exactly are you?
+            - id: ok_got_it
+              text:
+                sv: OK, uppfattat!
+                fr: D'accord, bien reçu !
+                en: OK, got it!
+            rider:
+            - id: coming_now
+              text:
+                sv: Jag kommer nu
+                fr: J'arrive tout de suite
+                en: I'm coming now
+            - id: two_min
+              text:
+                sv: Jag är ute om 2 minuter
+                fr: Je sors dans 2 minutes
+                en: I'll be out in 2 minutes
+            - id: where_parked
+              text:
+                sv: Var står du?
+                fr: Où êtes-vous garé ?
+                en: Where are you parked?
+            - id: thanks
+              text:
+                sv: Tack!
+                fr: Merci !
+                en: Thanks!
+        autoArrived:
+          type: object
+          description: '{ on, text { sv, fr, en } (1–200 characters) }: see chat.autoArrived. Default on with configDefaults.chat.autoArrived.text.'
+          required:
+          - 'on'
+          - text
+          properties:
+            'on':
+              type: boolean
+            text:
+              type: object
+              required:
+              - sv
+              - fr
+              - en
+              properties:
+                sv:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                fr:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                en:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+          default:
+            'on': true
+            text:
+              sv: Jag är framme vid upphämtningsplatsen.
+              fr: Je suis au point de prise en charge.
+              en: I've arrived at the pickup point.
+    ChatOptions:
+      type: object
+      description: 'v0.18.56 §78: GET /trips/{tripId}/messages/options (the trip''s rider or driver) answers ChatOptions:
+        the caller''s side quick replies (all three languages; the app shows its own), maxLength, sound, sheetAutoOpen, readAloudDefault,
+        translation, the header line. Values of the trip zone''s country_rules, else configDefaults.chat. v0.18.56 §78 (G9
+        part 2, owner Q79–Q85 2026-11-10): owner Q81: no report or block button in the chat; one line in the chat header instead
+        (also written in the Apple review notes).'
+      required:
+      - quickReplies
+      - quickRepliesOn
+      - maxLength
+      - sound
+      - sheetAutoOpen
+      - readAloudDefault
+      - translation
+      - headerLine
+      properties:
+        quickReplies:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuickReply'
+        quickRepliesOn:
+          type: boolean
+        maxLength:
+          type: integer
+          minimum: 1
+          maximum: 2000
+        sound:
+          type: boolean
+        sheetAutoOpen:
+          type: string
+          enum:
+          - new_message
+          - 'off'
+        readAloudDefault:
+          type: boolean
+        translation:
+          type: boolean
+        headerLine:
+          type: object
+          required:
+          - sv
+          - fr
+          - en
+          properties:
+            sv:
+              type: string
+              minLength: 1
+              maxLength: 200
+            fr:
+              type: string
+              minLength: 1
+              maxLength: 200
+            en:
+              type: string
+              minLength: 1
+              maxLength: 200
+    TranslateMessageRequest:
+      type: object
+      description: 'v0.18.56 §78: POST /trips/{tripId}/messages/translate { messageId, to: sv|fr|en } by the trip''s rider
+        or driver (open trip, a message of that trip) (to = the reading user''s own app language, sv|fr|en; owner answer A1
+        2026-11-10) → 200 TranslatedMessage { messageId, to, text } when a translation provider is configured on the server
+        (keys only in the server environment). Until one is configured: 503 unavailable, reason coming_soon; the app shows
+        "Translation coming soon". CountryRules.chat.translation false → 403 forbidden, reason translation_off. Nothing is
+        stored. Target language (owner A1): the reading user''s own app language; the link reads "Translate to <that language>".
+        Under each translated message the app shows a link "See original" that switches back to the original text, and then
+        "Translate" again (owner 2026-11-10); the original text is always kept in the app. Another to is 400 invalid_request,
+        reason translate_target_not_allowed.'
+      required:
+      - messageId
+      - to
+      properties:
+        messageId:
+          $ref: '#/components/schemas/Id'
+        to:
+          type: string
+          enum:
+          - sv
+          - fr
+          - en
+    TranslatedMessage:
+      type: object
+      description: 'v0.18.56 §78: nothing is stored.'
+      required:
+      - messageId
+      - to
+      - text
+      properties:
+        messageId:
+          $ref: '#/components/schemas/Id'
+        to:
+          type: string
+          enum:
+          - sv
+          - fr
+          - en
+        text:
+          type: string
+          minLength: 1
+    AdminChatRow:
+      type: object
+      description: 'v0.18.56 §78: AdminChatRow { tripId, zoneId, status, riderFirstName, driverFirstName, messageCount, lastMessageAt,
+        lastFrom (rider|driver|support) }: no message text, no phone number.'
+      required:
+      - tripId
+      - zoneId
+      - status
+      - messageCount
+      - lastMessageAt
+      - lastFrom
+      properties:
+        tripId:
+          $ref: '#/components/schemas/Id'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        status:
+          $ref: '#/components/schemas/TripStatus'
+        riderFirstName:
+          type:
+          - string
+          - 'null'
+        driverFirstName:
+          type:
+          - string
+          - 'null'
+        messageCount:
+          type: integer
+          minimum: 1
+        lastMessageAt:
+          $ref: '#/components/schemas/Timestamp'
+        lastFrom:
+          type: string
+          enum:
+          - rider
+          - driver
+          - support
+    AdminChatPage:
+      type: object
+      description: 'v0.18.56 §78: GET /admin/chats?zoneId&zoneIds&country&cursor&limit (support.reply) → AdminChatPage { items:
+        [AdminChatRow], nextCursor }: only open trips (chat.openStatuses) that have at least one message, newest lastMessageAt
+        first, only trips of the admin''s zones (Super admin: all; a zone filter outside them → 403 forbidden, reason zone_out_of_scope).
+        Replaces reading /admin/trips?limit=100 and filtering in the browser.'
+      required:
+      - items
+      - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminChatRow'
+        nextCursor:
+          type:
+          - string
+          - 'null'
+    AdminPersonMessageCommand:
+      type: object
+      description: 'v0.18.56 §78: POST /admin/drivers/{driverId}/message and POST /admin/riders/{riderId}/message { text (1–2000)
+        } (support.reply; the person must have a zone in the admin''s zones, Super admin: all, else 403 forbidden, reason
+        zone_out_of_scope) → 201 SupportTicket: the server opens a support ticket for that person (openedBy admin, topic help,
+        the text as its first message from support, zoneId = the person''s first zone), which the person sees in the app''s
+        Support inbox (GET /support/tickets) and answers there. Audited driver.message / rider.message { ticketId } (never
+        the text).'
+      required:
+      - text
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+    EmergencyNumber:
+      type: object
+      description: 'v0.18.57 §79: EmergencyNumber { kind police | ambulance | fire | general, number (digits only, optional
+        leading +, 2-15 characters: ^\+?[0-9]{2,15}$), label { sv, fr, en } 1-40 each }. 1-6 numbers per country; the first
+        one is the main number.'
+      required:
+      - kind
+      - number
+      - label
+      properties:
+        kind:
+          type: string
+          enum:
+          - police
+          - ambulance
+          - fire
+          - general
+        number:
+          type: string
+          pattern: ^\+?[0-9]{2,15}$
+        label:
+          type: object
+          required:
+          - sv
+          - fr
+          - en
+          properties:
+            sv:
+              type: string
+              minLength: 1
+              maxLength: 40
+            fr:
+              type: string
+              minLength: 1
+              maxLength: 40
+            en:
+              type: string
+              minLength: 1
+              maxLength: 40

@@ -1,3 +1,5 @@
+import 'package:movera_rider/core/config/emergency_numbers.dart';
+
 import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
@@ -603,7 +605,10 @@ class _MainStep extends StatelessWidget {
               Expanded(
                 child: _BigButton(
                   key: const ValueKey<String>('ride-check-call-112'),
-                  label: context.l10n.rcCall112,
+                  label: EmergencyNumbers.labelFor(
+                    EmergencyNumbers.main,
+                    context.l10n.rcCall112,
+                  ),
                   icon: AppAssets.solarPhoneCalling,
                   red: true,
                   onTap: controller.call112,
@@ -620,6 +625,17 @@ class _MainStep extends StatelessWidget {
               ),
             ],
           ),
+        // v0.18.57 §79: "Need help" offers every number of the country.
+        for (final row in EmergencyNumbers.others) ...[
+          const SizedBox(height: 9),
+          _BigButton(
+            key: ValueKey<String>('ride-check-call-${row.number}'),
+            label: row.callText,
+            icon: AppAssets.solarPhoneCalling,
+            red: true,
+            onTap: () => controller.call112(number: row.number),
+          ),
+        ],
         if (session.called112) ...[
           const SizedBox(height: 10),
           _AlertBanner(session: session, controller: controller),
@@ -884,7 +900,10 @@ class _Call112Now extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        context.l10n.rcCall112Now,
+                        EmergencyNumbers.labelFor(
+                          EmergencyNumbers.main,
+                          context.l10n.rcCall112Now,
+                        ),
                         style: _text(18, weight: FontWeight.w700, height: 1.2),
                       ),
                       const SizedBox(height: 2),
