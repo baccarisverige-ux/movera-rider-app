@@ -13,15 +13,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// A config source whose zones name [riderDefault] as the rider language.
 class _Config implements RiderConfigRepository {
-  _Config(this.byZone);
+  _Config(this.byZone, {this.available = const ['en', 'fr', 'sv']});
 
   final Map<String, String> byZone;
+  final List<String> available;
 
   RiderAppConfig _doc(String zoneId) => RiderAppConfig.fromJson({
     ...SeedRiderConfigRepository.seedDocument,
     'zoneId': zoneId,
     'languages': {
-      'available': ['en', 'fr', 'sv'],
+      'available': available,
       'default': {'rider': byZone[zoneId], 'driver': 'en', 'admin': 'en'},
     },
   })!;
@@ -37,12 +38,14 @@ class _Config implements RiderConfigRepository {
 /// rider's own choice in Account wins and is saved. Since v0.18.2
 /// (`auth.firstLanguage`) the phone's language comes first when the app
 /// ships it, so these run on a phone in a language it does not ship.
-AppLanguageController _controller(AppLanguageStore store) =>
-    AppLanguageController(
-      store: store,
-      deviceLanguage: () => 'de',
-      deviceRegion: () => 'FR',
-    );
+AppLanguageController _controller(
+  AppLanguageStore store, {
+  String phone = 'de',
+}) => AppLanguageController(
+  store: store,
+  deviceLanguage: () => phone,
+  deviceRegion: () => 'FR',
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -52,11 +55,12 @@ void main() {
   group('zone default', () {
     const seeds = SeedRiderConfigRepository();
 
-    test('Sweden speaks Swedish, France and Tunisia French', () async {
+    test('a phone language the app does not ship is English in every zone '
+        '(owner 2026-11-10)', () async {
       for (final (zone, code) in [
-        (RiderZones.sweden, 'sv'),
-        (RiderZones.france, 'fr'),
-        (RiderZones.tunisia, 'fr'),
+        (RiderZones.sweden, 'en'),
+        (RiderZones.france, 'en'),
+        (RiderZones.tunisia, 'en'),
       ]) {
         final language = _controller(MemoryAppLanguageStore());
         await language.load(config: seeds, zone: zone);
@@ -67,19 +71,27 @@ void main() {
     });
 
     test('it is the config document that decides, not the country', () async {
-      final config = _Config({RiderZones.sweden.id: 'fr'});
+      // Only a zone without English falls back to its config's default.
+      final config = _Config(
+        {RiderZones.sweden.id: 'fr'},
+        available: const ['fr', 'sv'],
+      );
       final language = _controller(MemoryAppLanguageStore());
       await language.load(config: config, zone: RiderZones.sweden);
       expect(language.code, 'fr');
     });
 
     test('a good fix in another zone moves the default', () async {
+      final config = _Config(
+        {RiderZones.sweden.id: 'sv', RiderZones.france.id: 'fr'},
+        available: const ['fr', 'sv'],
+      );
       final language = _controller(MemoryAppLanguageStore());
-      await language.load(config: seeds, zone: RiderZones.sweden);
+      await language.load(config: config, zone: RiderZones.sweden);
       expect(language.code, 'sv');
       var notified = 0;
       language.addListener(() => notified++);
-      await language.useZone(config: seeds, zone: RiderZones.france);
+      await language.useZone(config: config, zone: RiderZones.france);
       expect(language.code, 'fr');
       expect(notified, 1);
     });
@@ -89,7 +101,7 @@ void main() {
     test('overrides the zone default and survives a restart', () async {
       final store = MemoryAppLanguageStore();
       const seeds = SeedRiderConfigRepository();
-      final first = _controller(store);
+      final first = _controller(store, phone: 'fr');
       await first.load(config: seeds, zone: RiderZones.france);
       expect(first.code, 'fr');
 
@@ -121,14 +133,14 @@ void main() {
       expect(await store.read(), 'fr');
     });
 
-    test('an unknown saved code falls back to the zone default', () async {
+    test('an unknown saved code falls back to English', () async {
       final language = _controller(MemoryAppLanguageStore('ar'));
       await language.load(
         config: const SeedRiderConfigRepository(),
         zone: RiderZones.sweden,
       );
       expect(language.choice, isNull);
-      expect(language.code, 'sv');
+      expect(language.code, 'en');
     });
 
     testWidgets('Account lists FR / SV / EN and switches the app', (
@@ -136,7 +148,7 @@ void main() {
     ) async {
       SharedPreferences.setMockInitialValues({});
       final store = MemoryAppLanguageStore();
-      final language = _controller(store);
+      final language = _controller(store, phone: 'fr');
       await language.load(
         config: const SeedRiderConfigRepository(),
         zone: RiderZones.france,
@@ -156,7 +168,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      // France's default: the Account screen is in French.
+      // A French phone: the Account screen is in French.
       expect(find.text('Compte'), findsOneWidget);
       expect(find.text('FR · Français'), findsOneWidget);
 
@@ -177,7 +189,7 @@ void main() {
   });
 
   testWidgets('a new language reaches screens already open', (tester) async {
-    final language = _controller(MemoryAppLanguageStore());
+    final language = _controller(MemoryAppLanguageStore(), phone: 'sv');
     await language.load(
       config: const SeedRiderConfigRepository(),
       zone: RiderZones.sweden,

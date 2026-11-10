@@ -615,6 +615,7 @@ void main() {
     await language.useZone(config: _FrenchZone(), zone: RiderZones.france);
     // G1-B5: languages listed Svenska, Français, English.
     expect(language.available, ['fr', 'en']);
-    expect(language.code, 'fr');
+    // Owner 2026-11-10: a phone language the app does not ship is English.
+    expect(language.code, 'en');
   });
 }
