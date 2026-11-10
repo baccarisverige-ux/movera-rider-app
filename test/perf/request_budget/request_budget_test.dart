@@ -18,7 +18,7 @@ const Map<RiderState, Map<String, double>> budgets = {
   },
   RiderState.quoting: {
     'GET /api/v1/rider/trips/active': 7.5,
-    'GET /api/v1/rider/nearby-vehicles': 10.0,
+    'GET /api/v1/rider/nearby-vehicles': 12.0,
   },
   RiderState.searching: {
     'GET /api/v1/rider/trips?kind=scheduled&status=driver_to_pickup,arrived':

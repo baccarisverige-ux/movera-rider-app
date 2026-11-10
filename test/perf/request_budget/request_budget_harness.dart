@@ -110,7 +110,8 @@ class CountingClient extends http.BaseClient {
       };
     }
     if (path == '/api/v1/rider/nearby-vehicles') {
-      return {'vehicles': <Object>[]};
+      // contract.json#riderNearby.refreshSeconds.
+      return {'vehicles': <Object>[], 'refreshSeconds': 5};
     }
     return {};
   }

@@ -17,7 +17,7 @@ What runs in each state (the code the harness drives):
 | State | Request owners |
 |---|---|
 | homeIdle | config watch (`lib/core/config/api_rider_config_repository.dart`), trip watch on Home (`lib/features/ride_booking/application/rider_trip_watch.dart`, 8 s), presence ping (`lib/features/home/application/home_presence.dart`, 45 s) |
-| quoting | config watch, trip watch on Home, cars near the pickup (`lib/features/ride_selection/application/nearby_cars_controller.dart`, server `refreshSeconds`, default 6 s); presence stops (Home covered) |
+| quoting | config watch, trip watch on Home, cars near the pickup (`lib/features/ride_selection/application/nearby_cars_controller.dart`, server `refreshSeconds`, the fake server answers the contract's 5 s, contract.json#riderNearby); presence stops (Home covered) |
 | searching | config watch, trip watch (ride on screen: booked-driver check, 8 s), trip follow (`lib/core/realtime/api_ride_realtime.dart`: one read + SSE) |
 | driverArriving / onTrip | as searching + unread badge poll (`lib/features/messages/application/messages_controller.dart`, 10 s, started in `waiting_for_driver.dart:237`) |
 | tripFinished | config watch, trip watch (receipt counts as a ride on screen), trip follow (`ride_completed.dart:137`) |
@@ -36,7 +36,7 @@ What runs in each state (the code the harness drives):
 | homeIdle | `GET /api/v1/rider/trips?kind=scheduled` | 0 | 0.00 | 1 |
 | quoting | `GET /api/v1/rider/config` | 0 | 0.00 | 1 |
 | quoting | `GET /api/v1/rider/config/stream (SSE open)` | 0 | 0.00 | 1 |
-| quoting | `GET /api/v1/rider/nearby-vehicles` | 10.0 | 10.00 | 1 |
+| quoting | `GET /api/v1/rider/nearby-vehicles` | 12.0 | 12.00 | 1 |
 | quoting | `GET /api/v1/rider/trips/active` | 7.5 | 7.50 | 0 |
 | quoting | `GET /api/v1/rider/trips?kind=scheduled` | 0 | 0.00 | 1 |
 | searching | `GET /api/v1/rider/config` | 0 | 0.00 | 1 |
@@ -85,7 +85,7 @@ What runs in each state (the code the harness drives):
 | State | Requests /min |
 |---|---|
 | homeIdle | 8.80 |
-| quoting | 17.50 |
+| quoting | 19.50 |
 | searching | 7.50 |
 | driverArriving | 13.50 |
 | onTrip | 13.50 |
@@ -102,8 +102,14 @@ What runs in each state (the code the harness drives):
 - `/rider/config/stream` refused: the watch reconnects every 5 s with no backoff
   and reads the config each time (`api_rider_config_repository.dart:279`): 24
   requests a minute per rider while the server is down or restarting.
+- **Not covered: searching after 3 min.** After the search timeout the finding
+  screen asks the server every 15 s (`finding_driver_controller.dart:96-97`,
+  `finding_driver_controller_search.dart:42-55`): +4/min, so searching late is
+  11.5/min (step 60 uses 11.5). Not driven here: the controller needs the whole
+  AppScope / widget setup.
+- Each trip event (`rider_trip_changed` on `/rider/config/stream`) costs +2
+  requests (booked list + check, `rider_trip_watch.dart:79-85`), as in step 60;
+  not counted in the steady rates.
 - Not in this table (one-off, not timed): the quote request(s) on Select ride
-  and the requote at quote expiry (`select_ride_quotes.dart:21`); the finding
-  screen's server check every 15 s after the search timeout
-  (`finding_driver_controller.dart:97`); the open Chat screen (3 s poll,
+  and the requote at quote expiry (`select_ride_quotes.dart:21`); the open Chat screen (3 s poll,
   `messages_controller.dart:48`); resume bursts.
