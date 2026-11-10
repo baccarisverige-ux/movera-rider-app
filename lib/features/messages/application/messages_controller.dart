@@ -6,12 +6,15 @@ import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/features/messages/data/messages_repository.dart';
+import 'package:movera_rider/features/messages/data/api_trip_messages.dart';
+import 'package:movera_rider/features/messages/domain/chat_options.dart';
 import 'package:movera_rider/features/messages/domain/messages.dart';
 import 'package:movera_rider/features/messages/domain/trip_messages_transport.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// One screen's handle on a ride's conversation. Notifies when the
-/// conversation changes (a send, a confirmation, a polled inbound message).
+/// conversation changes (a send, a confirmation, an inbound message from the
+/// trip stream).
 class MessagesController extends ChangeNotifier {
   MessagesController({
     MessagesRepository? store,
@@ -27,7 +30,7 @@ class MessagesController extends ChangeNotifier {
 
   /// The conversation of [rideId], shared by every screen of this process.
   /// With a [transport] (the live wire) the rider can send and the server's
-  /// messages are polled; without one (the demo) the chat stays read-only.
+  /// messages are read once and then arrive on the trip stream; without one (the demo) the chat stays read-only.
   factory MessagesController.forRide(
     String? rideId, {
     DateTime Function()? now,
@@ -42,21 +45,15 @@ class MessagesController extends ChangeNotifier {
     );
   }
 
-  /// How often the open Chat screen asks the server for new messages. The
-  /// live transport polls the trip and never reads the event stream, so
-  /// inbound messages are polled too (contract v0.5.4, `listTripMessages`).
-  static const chatPollInterval = Duration(seconds: 3);
-
-  /// How often the trip screen asks, for the unread badge on its Message
-  /// button.
-  static const tripPollInterval = Duration(seconds: 10);
-
   final MessagesRepository _store;
   final DateTime Function() _now;
   final TripMessagesTransport? _transport;
   final String _rideId;
-  Timer? _poll;
   bool _refreshing = false;
+  ChatOptions _options = ChatOptions.fallback;
+  final Map<String, String> _translations = <String, String>{};
+  final Set<String> _showingTranslation = <String>{};
+  final Set<String> _translating = <String>{};
   bool _disposed = false;
 
   /// Told when a send fails (the server refused it or never answered), so
@@ -111,22 +108,34 @@ class MessagesController extends ChangeNotifier {
     final localId = message.localId;
     if (localId == null || message.delivery != ChatDelivery.failed) return;
     _store.setDelivery(localId, ChatDelivery.sending);
-    await _deliver(message);
+    final chip = message.quickReplyId;
+    final reply = chip == null
+        ? null
+        : _options.quickReplies.where((r) => r.id == chip).firstOrNull;
+    await _deliver(message, quickReply: reply, extras: _extras);
   }
 
-  Future<void> _deliver(ChatMessage local) async {
+  Future<void> _deliver(
+    ChatMessage local, {
+    ChatQuickReply? quickReply,
+    TripChatExtras? extras,
+  }) async {
     final transport = _transport;
     final localId = local.localId;
     if (transport == null || localId == null) return;
     try {
-      final sent = await transport.send(
-        _rideId,
-        local.text,
-        // One key per message written on this device: a retry replays the
-        // same send (contract: a different body under the same key is a
-        // 409, so the key is never shared between messages).
-        idempotencyKey: stableIdempotencyKey('message', '$_rideId/$localId'),
-      );
+      // One key per message written on this device: a retry replays the
+      // same send (contract: a different body under the same key is a
+      // 409, so the key is never shared between messages).
+      final key = stableIdempotencyKey('message', '$_rideId/$localId');
+      final sent = quickReply != null && extras != null
+          ? await extras.sendQuickReply(
+              _rideId,
+              quickReply,
+              local.text,
+              idempotencyKey: key,
+            )
+          : await transport.send(_rideId, local.text, idempotencyKey: key);
       if (_disposed) return;
       _store.confirm(localId, sent);
     } catch (error) {
@@ -148,26 +157,108 @@ class MessagesController extends ChangeNotifier {
 
   void markAllRead() => _store.markAllRead(_now());
 
-  /// Asks the server for the trip's messages now and [every] so long from
-  /// now on, until [stopPolling] or [dispose]. Nothing happens without a
-  /// transport.
-  void startPolling(Duration every) {
-    if (_transport == null || _disposed) return;
-    _poll?.cancel();
-    _poll = Timer.periodic(every, (_) => unawaited(refresh()));
-    unawaited(refresh());
+  /// v0.18.56 §78 `chat.stream`: one `message` event of the trip stream
+  /// (`RealtimeEvent.message`), folded into that trip's conversation. The
+  /// unread badge and the open chat follow it; nothing polls.
+  static void ingestStreamMessage(String tripId, Map<String, dynamic> raw) {
+    final id = tripId.trim();
+    if (id.isEmpty) return;
+    final message = ChatMessageWire.fromJson(raw);
+    if (message == null) return;
+    MessagesRepository.forRide(id).merge([message]);
   }
 
-  void stopPolling() {
-    _poll?.cancel();
-    _poll = null;
+  /// The chat settings of the trip's country (contract v0.18.56 §78);
+  /// [ChatOptions.fallback] until [loadOptions] has an answer.
+  ChatOptions get options => _options;
+
+  TripChatExtras? get _extras =>
+      _transport is TripChatExtras ? _transport as TripChatExtras : null;
+
+  /// `GET /trips/{tripId}/messages/options`, once. A failure keeps the
+  /// fallback (no chips, no translate link).
+  Future<void> loadOptions() async {
+    final extras = _extras;
+    if (extras == null || _disposed || _rideId.isEmpty) return;
+    try {
+      final options = await extras.options(_rideId);
+      if (_disposed) return;
+      _options = options;
+      notifyListeners();
+    } catch (error) {
+      AppLog.warning(
+        'messages.options_failed',
+        extra: {'rideId': _rideId, 'error': error.toString()},
+      );
+    }
   }
 
-  bool get isPolling => _poll != null;
+  /// A quick-reply chip: shown at once in the rider's language and sent with
+  /// its id, so the server writes it in the driver's language.
+  bool sendQuickReply(ChatQuickReply reply) {
+    final extras = _extras;
+    if (extras == null || isClosed) return false;
+    final text = reply.textIn(L10n.current.localeName);
+    final local = ChatMessage(
+      text: text,
+      sender: ChatMessageSender.rider,
+      localId: newRequestId(),
+      delivery: ChatDelivery.sending,
+      quickReplyId: reply.id,
+    );
+    _store.add(local);
+    unawaited(_deliver(local, quickReply: reply, extras: extras));
+    return true;
+  }
 
-  /// One listing from the server, merged into the conversation. A failed
-  /// read is logged and the next tick asks again; the screen keeps what it
-  /// has.
+  /// The translated text of [message] while the rider shows it, else null.
+  String? translationOf(ChatMessage message) {
+    final id = message.messageId;
+    if (id == null || !_showingTranslation.contains(id)) return null;
+    return _translations[id];
+  }
+
+  bool isTranslating(ChatMessage message) =>
+      _translating.contains(message.messageId);
+
+  /// "Translate to `my language`": `to` is always the rider's own app
+  /// language (owner A1). A translation already fetched is shown again
+  /// without a new request. Returns what the screen should say.
+  Future<ChatTranslation> translate(ChatMessage message) async {
+    final id = message.messageId;
+    final extras = _extras;
+    if (id == null || extras == null) return const ChatTranslationFailed();
+    if (_translations[id] case final known?) {
+      _showingTranslation.add(id);
+      notifyListeners();
+      return ChatTranslated(known);
+    }
+    if (!_translating.add(id)) return const ChatTranslationFailed();
+    notifyListeners();
+    ChatTranslation answer;
+    try {
+      answer = await extras.translate(_rideId, id, L10n.current.localeName);
+    } catch (_) {
+      answer = const ChatTranslationFailed();
+    }
+    _translating.remove(id);
+    if (_disposed) return answer;
+    if (answer case ChatTranslated(:final text)) {
+      _translations[id] = text;
+      _showingTranslation.add(id);
+    }
+    notifyListeners();
+    return answer;
+  }
+
+  /// "See original": back to the text as written.
+  void showOriginal(ChatMessage message) {
+    if (_showingTranslation.remove(message.messageId)) notifyListeners();
+  }
+
+  /// One listing from the server (the page, once, when a screen opens),
+  /// merged into the conversation; later messages come from the trip
+  /// stream. A failed read is logged; the screen keeps what it has.
   Future<void> refresh() async {
     final transport = _transport;
     if (transport == null || _refreshing || _disposed) return;
@@ -178,7 +269,7 @@ class MessagesController extends ChangeNotifier {
       _store.merge(fromServer);
     } catch (error) {
       AppLog.warning(
-        'messages.poll_failed',
+        'messages.load_failed',
         extra: {'rideId': _rideId, 'error': error.toString()},
       );
     } finally {
@@ -189,7 +280,6 @@ class MessagesController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    stopPolling();
     _store.removeListener(notifyListeners);
     super.dispose();
   }

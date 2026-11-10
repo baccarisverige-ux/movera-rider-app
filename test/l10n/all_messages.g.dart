@@ -167,6 +167,12 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'callMute': l.callMute,
   'callSpeaker': l.callSpeaker,
   'callEnded': l.callEnded,
+  'chatHeaderLine': l.chatHeaderLine,
+  'chatTranslate': l.chatTranslate,
+  'chatSeeOriginal': l.chatSeeOriginal,
+  'chatTranslationComingSoon': l.chatTranslationComingSoon,
+  'chatTranslateFailed': l.chatTranslateFailed,
+  'chatQuickReplies': l.chatQuickReplies,
   'cancelRide': l.cancelRide,
   'cancelReasonPickupIncorrect': l.cancelReasonPickupIncorrect,
   'cancelReasonWrongRideOption': l.cancelReasonWrongRideOption,
@@ -2274,6 +2280,18 @@ class _Exhaustive implements AppLocalizations {
   String get callSpeaker => '';
   @override
   String get callEnded => '';
+  @override
+  String get chatHeaderLine => '';
+  @override
+  String get chatTranslate => '';
+  @override
+  String get chatSeeOriginal => '';
+  @override
+  String get chatTranslationComingSoon => '';
+  @override
+  String get chatTranslateFailed => '';
+  @override
+  String get chatQuickReplies => '';
   @override
   String get cancelRide => '';
   @override

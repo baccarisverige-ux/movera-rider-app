@@ -56,6 +56,7 @@ import 'package:movera_rider/features/onboarding/application/onboarding_controll
 import 'package:movera_rider/features/history/data/ride_history_repositories.dart';
 import 'package:movera_rider/features/history/domain/ride_history_repository.dart';
 import 'package:movera_rider/features/messages/data/api_trip_call.dart';
+import 'package:movera_rider/features/messages/application/messages_controller.dart';
 import 'package:movera_rider/features/messages/data/api_trip_messages.dart';
 import 'package:movera_rider/features/messages/data/messages_repository.dart';
 import 'package:movera_rider/features/driver_arriving/application/driver_photo.dart';
@@ -81,6 +82,7 @@ import 'package:movera_rider/features/reservations/data/config_scheduled_ride_ru
 import 'package:movera_rider/features/reservations/data/disabled_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/data/mock_reservation_dispatch.dart';
+import 'package:movera_rider/features/reservations/data/switched_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_repository.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/active_trip_repositories.dart';
@@ -97,6 +99,7 @@ import 'package:movera_rider/features/saved_places/data/server_saved_places.dart
 import 'package:movera_rider/features/support/application/support_controller.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/features/wallet/data/api_wallet_repository.dart';
+import 'package:movera_rider/features/wallet/data/switched_wallet_repository.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
 import 'package:movera_rider/core/preview/preview_mode.dart';
@@ -183,22 +186,28 @@ class AppScope {
     final release = environment.isReleaseLike;
     // Fix job 6 (owner 2026-11-04 "Turn it on", contract v0.18.28): release
     // builds read the wallet from the server, one balance per currency.
+    // Owner 2026-11-10 "Yes, fix": built always and switched per call, so
+    // an admin switch takes effect mid-session (no restart).
     walletBalances = !release
         ? LocalWalletRepository()
-        : flags.wallet
-        ? ApiWalletRepository(api: api)
-        : const DisabledWalletRepository();
+        : SwitchedWalletRepository(
+            on: ApiWalletRepository(api: api),
+            off: const DisabledWalletRepository(),
+            isOn: () => flags.wallet,
+          );
     // Contract v0.18.17 Book later (owner 2026-11-03): release builds book
     // later on the server. Book later switched off: the fail-closed
     // stand-in (kept for that case).
-    reservationRepository = !(flags.scheduledRides || flags.bookingLater)
-        ? (release
-              ? DisabledReservationRepository()
-              : LocalReservationRepository())
-        : release
-        ? ApiReservationRepository(
-            api: api,
-            categoryLabel: (id) => catalog.labelOf(id) ?? id,
+    // Owner 2026-11-10 "Yes, fix": on release builds both sides exist and
+    // the admin switch (ServerFeatures via flags) picks one per call.
+    reservationRepository = release
+        ? SwitchedReservationRepository(
+            on: ApiReservationRepository(
+              api: api,
+              categoryLabel: (id) => catalog.labelOf(id) ?? id,
+            ),
+            off: DisabledReservationRepository(),
+            isOn: () => flags.scheduledRides || flags.bookingLater,
           )
         : LocalReservationRepository();
     savedCardsStore = flags.savedCards || !release
@@ -236,11 +245,10 @@ class AppScope {
       // v0.18.32 (bookedRideSeen.rulesSource): on the live wire the rules
       // come from the rider config; the demo's mock still answers the old
       // route.
-      rulesSource: flags.scheduledRides || flags.bookingLater
-          ? (api.contractWire
-                ? ConfigScheduledRideRulesSource(_servedConfig)
-                : ApiScheduledRideRulesSource(api))
-          : null,
+      // Always built: the switch can turn on mid-session.
+      rulesSource: api.contractWire
+          ? ConfigScheduledRideRulesSource(_servedConfig)
+          : ApiScheduledRideRulesSource(api),
       // X3: reservation cancel fees per category from the rider config.
       // Owner 2026-11-10 (R10 #3): on the live wire only the server's
       // document (never the built-in sample); the demo keeps the seed.
@@ -376,7 +384,10 @@ class AppScope {
   /// composed with the fail-closed stand-in (staging/production, flags
   /// off), so its entry points say so at once instead of running the
   /// whole scheduling flow first.
-  bool get bookLaterAvailable => reservationRepository is! FeatureOffRepository;
+  bool get bookLaterAvailable => switch (reservationRepository) {
+    final SwitchedReservationRepository r => r.switchedOn,
+    final r => r is! FeatureOffRepository,
+  };
   late final SavedCardsStore savedCardsStore;
   late final RideHistoryRepository rideHistory;
   late final ActiveTripRepository activeTrips;
@@ -507,8 +518,15 @@ class AppScope {
   /// live wire. The demo's mock transport has no chat server, so there it
   /// is null and Chat stays read-only as before.
   late final TripMessagesTransport? tripMessages = api.contractWire
-      ? ApiTripMessages(api: api)
+      ? _withChatStream(ApiTripMessages(api: api))
       : null;
+
+  /// v0.18.56 §78 `chat.stream`: the trip stream's `message` events feed
+  /// the chat and its unread badge (the 3 s / 10 s polls are gone).
+  static ApiTripMessages _withChatStream(ApiTripMessages transport) {
+    RideMessageEvents.sink = MessagesController.ingestStreamMessage;
+    return transport;
+  }
 
   /// Contract v0.13.0 §22: masked calls (`POST /trips/{tripId}/call`) on
   /// the live wire; the demo has none and says calls are not available.

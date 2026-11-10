@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/realtime/call_events.dart';
 import 'package:movera_rider/features/ride_complete/application/server_receipt.dart';
 import 'package:movera_rider/features/ride_complete/domain/ride_dispute_not_served.dart';
 import 'package:movera_rider/app/di.dart';
@@ -22,7 +25,23 @@ class RideCompletedTripDetail extends StatefulWidget {
     this.controller,
     this.rideId,
     this.receiptLoader,
+    this.receiptRetryDelays = defaultReceiptRetryDelays,
   });
+
+  /// Owner 2026-11-10 "Yes, auto-update": while the server has no receipt
+  /// yet (`receipt_not_ready`: a cash trip before the payment is captured)
+  /// it is read again after each of these waits (about 2 min in all), and at
+  /// once on a `payment_updated` event of the trip.
+  static const defaultReceiptRetryDelays = <Duration>[
+    Duration(seconds: 3),
+    Duration(seconds: 5),
+    Duration(seconds: 10),
+    Duration(seconds: 20),
+    Duration(seconds: 30),
+    Duration(seconds: 60),
+  ];
+
+  final List<Duration> receiptRetryDelays;
 
   final RideCompleteController? controller;
   final String? rideId;
@@ -46,18 +65,48 @@ class _RideCompletedTripDetailState extends State<RideCompletedTripDetail> {
   RideCompleteController? get controller => widget.controller;
   String? get rideId => widget.rideId;
 
+  Timer? _retry;
+  int _attempt = 0;
+  bool _loading = false;
+
   @override
   void initState() {
     super.initState();
+    RidePaymentEvents.listen(_onPaymentEvent);
+    _loadReceipt();
+  }
+
+  @override
+  void dispose() {
+    RidePaymentEvents.cancel(_onPaymentEvent);
+    _retry?.cancel();
+    super.dispose();
+  }
+
+  void _onPaymentEvent(String tripId) {
+    if (_server != null || tripId != rideId?.trim()) return;
+    _retry?.cancel();
     _loadReceipt();
   }
 
   Future<void> _loadReceipt() async {
     final id = rideId?.trim();
-    if (id == null || id.isEmpty) return;
+    if (id == null || id.isEmpty || _loading) return;
+    _loading = true;
     final receipt = await (widget.receiptLoader ?? ServerReceipt.load)(id);
-    if (!mounted || receipt == null) return;
-    setState(() => _server = receipt);
+    _loading = false;
+    if (!mounted) return;
+    if (receipt != null) {
+      _retry?.cancel();
+      setState(() => _server = receipt);
+      return;
+    }
+    // Not ready yet (payment not captured): read again, a bounded number
+    // of times; the booked price stays until then.
+    final delays = widget.receiptRetryDelays;
+    if (_attempt >= delays.length) return;
+    _retry?.cancel();
+    _retry = Timer(delays[_attempt++], _loadReceipt);
   }
 
   @override

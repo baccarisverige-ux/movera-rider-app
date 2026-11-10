@@ -65,7 +65,22 @@ class PushPayload {
   /// SUP-1: contract `riderTripPush` (kind trip_update) and
   /// `onTrip.rideCheck.push` (kind ride_check) are ride pushes too: a tap
   /// opens (or keeps) the ride, never the Notifications list.
-  static const Set<String> _tripPushKinds = {'trip_update', 'ride_check'};
+  ///
+  /// v0.18.56 §78 `inAppCalls.push` (Q79): kind call_ringing (data
+  /// `{ tripId, callId }`, link movera://trips/{tripId}/call) opens the trip,
+  /// whose incoming-call sheet shows while the call still rings.
+  static const Set<String> _tripPushKinds = {
+    'trip_update',
+    'ride_check',
+    callRingingKind,
+  };
+
+  static const String callRingingKind = 'call_ringing';
+  static const String _callSegment = 'call';
+
+  /// A service push that is never a row of the Notifications list (the
+  /// contract: not stored in GET /notifications).
+  bool get isIncomingCall => type == callRingingKind;
 
   /// Links that name a ride: movera://ride/{id} (older pushes),
   /// movera://trip/{tripId} (riderTripPush) and
@@ -119,8 +134,11 @@ class PushPayload {
           ? _clean(segments.single)
           : null;
     }
-    // {id}/receipt names the trip's receipt (any trip link host).
-    if (segments.length == 2 && segments.last == _receiptSegment) {
+    // {id}/receipt names the trip's receipt (any trip link host);
+    // {id}/call the trip of an incoming call.
+    if (segments.length == 2 &&
+        (segments.last == _receiptSegment ||
+            (!isReceipt && segments.last == _callSegment))) {
       return _clean(segments.first);
     }
     // The receipt kind routes only through its receipt link.

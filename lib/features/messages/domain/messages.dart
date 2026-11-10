@@ -21,6 +21,8 @@ class ChatMessage {
     this.messageId,
     this.localId,
     this.delivery = ChatDelivery.sent,
+    this.quickReplyId,
+    this.auto,
   }) : assert(
          sender != null || fromRider != null,
          'A chat message needs an explicit sender.',
@@ -55,6 +57,13 @@ class ChatMessage {
   final String? localId;
   final ChatDelivery delivery;
 
+  /// v0.18.56 §78: the quick-reply chip this message was sent from.
+  final String? quickReplyId;
+
+  /// v0.18.56 §78: `arrived` (the driver's automatic "I've arrived") or
+  /// `on_my_way` (the rider's "I'm on my way"), written by the server.
+  final String? auto;
+
   bool get fromRider => sender == ChatMessageSender.rider;
   bool get isSystem => sender == ChatMessageSender.system;
   bool get isUnreadForRider =>
@@ -70,6 +79,8 @@ class ChatMessage {
     String? messageId,
     String? localId,
     ChatDelivery? delivery,
+    String? quickReplyId,
+    String? auto,
   }) {
     return ChatMessage(
       text: text ?? this.text,
@@ -81,6 +92,8 @@ class ChatMessage {
       messageId: messageId ?? this.messageId,
       localId: localId ?? this.localId,
       delivery: delivery ?? this.delivery,
+      quickReplyId: quickReplyId ?? this.quickReplyId,
+      auto: auto ?? this.auto,
     );
   }
 }

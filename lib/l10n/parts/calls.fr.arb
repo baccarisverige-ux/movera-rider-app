@@ -9,5 +9,11 @@
   "callEnd": "Raccrocher",
   "callMute": "Muet",
   "callSpeaker": "Haut-parleur",
-  "callEnded": "Appel terminé"
+  "callEnded": "Appel terminé",
+  "chatHeaderLine": "Un problème ? Utilisez Support ou SOS",
+  "chatTranslate": "Traduire en français",
+  "chatSeeOriginal": "Voir l'original",
+  "chatTranslationComingSoon": "Traduction bientôt disponible",
+  "chatTranslateFailed": "Impossible de traduire ce message",
+  "chatQuickReplies": "Réponses rapides"
 }

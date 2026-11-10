@@ -11,3 +11,33 @@ class RideCallEvents {
   )?
   sink;
 }
+
+/// v0.18.56 §78 `chat.stream`: the trip stream hands each `message` event's
+/// `Message` to whoever listens — the trip chat (features/messages), wired
+/// in di.dart. The unread badge and the open chat come from it; no poll.
+class RideMessageEvents {
+  RideMessageEvents._();
+
+  static void Function(String tripId, Map<String, dynamic> message)? sink;
+}
+
+/// Owner 2026-11-10 "Yes, auto-update": a `payment_updated` change of a trip
+/// (stream or poll). The trip summary re-reads the receipt on it, so a cash
+/// trip shows the final amount once the payment is captured.
+class RidePaymentEvents {
+  RidePaymentEvents._();
+
+  static final Set<void Function(String tripId)> _listeners = {};
+
+  static void listen(void Function(String tripId) listener) =>
+      _listeners.add(listener);
+
+  static void cancel(void Function(String tripId) listener) =>
+      _listeners.remove(listener);
+
+  static void notify(String tripId) {
+    for (final listener in _listeners.toList()) {
+      listener(tripId);
+    }
+  }
+}

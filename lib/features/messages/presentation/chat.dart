@@ -1,14 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/messages/application/messages_controller.dart';
+import 'package:movera_rider/features/messages/domain/chat_options.dart';
 import 'package:movera_rider/features/messages/domain/messages.dart';
 import 'package:movera_rider/features/messages/domain/trip_call_transport.dart';
 import 'package:movera_rider/features/messages/presentation/chat_appbar.dart';
+import 'package:movera_rider/features/messages/presentation/chat_extras.dart';
 import 'package:movera_rider/features/messages/presentation/trip_call.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
@@ -78,9 +81,10 @@ class _ChatState extends State<Chat> {
     _shownCount = _chat.messages.length;
     _chat.addListener(_onConversationChanged);
     _chat.onSendFailed = _onSendFailed;
-    // The live transport never reads the event stream, so new messages are
-    // asked for while this screen is open (contract v0.5.4).
-    _chat.startPolling(MessagesController.chatPollInterval);
+    // v0.18.56 §78 `chat.stream`: the page is read once; new messages come
+    // from the trip stream's `message` events (no poll).
+    unawaited(_chat.refresh());
+    unawaited(_chat.loadOptions());
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _scrollToEnd(jump: true),
     );
@@ -88,7 +92,6 @@ class _ChatState extends State<Chat> {
 
   @override
   void dispose() {
-    _chat.stopPolling();
     _chat.removeListener(_onConversationChanged);
     _chat.onSendFailed = null;
     if (_ownsController) _chat.dispose();
@@ -122,6 +125,29 @@ class _ChatState extends State<Chat> {
     if (!_chat.send(_messageController.text)) return;
     _messageController.clear();
   }
+
+  void _sendQuickReply(ChatQuickReply reply) {
+    if (_chat.sendQuickReply(reply)) HapticFeedback.selectionClick();
+  }
+
+  Future<void> _translate(ChatMessage message) async {
+    final answer = await _chat.translate(message);
+    if (!mounted) return;
+    switch (answer) {
+      case ChatTranslated():
+        break;
+      case ChatTranslationComingSoon():
+        MoveraToast.show(context, context.l10n.chatTranslationComingSoon);
+      case ChatTranslationFailed():
+        MoveraToast.show(context, context.l10n.chatTranslateFailed);
+    }
+  }
+
+  /// Q81: "Problem? Use Support or SOS" — the server's line in the app
+  /// language, else the app's own text.
+  String _headerLine(BuildContext context) =>
+      _chat.options.headerLine[context.l10n.localeName] ??
+      context.l10n.chatHeaderLine;
 
   void _scrollToEnd({bool jump = false}) {
     if (!_scrollController.hasClients) return;
@@ -160,7 +186,7 @@ class _ChatState extends State<Chat> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          12.height,
+          ChatHeaderLine(text: _headerLine(context)),
           Expanded(
             child: _chat.messages.isEmpty
                 ? Center(
@@ -184,7 +210,17 @@ class _ChatState extends State<Chat> {
                               message: message,
                               onRetry: () => _chat.retry(message),
                             )
-                          : DriverMessageBubble(message: message);
+                          : DriverMessageBubble(
+                              message: message,
+                              translated: _chat.translationOf(message),
+                              translating: _chat.isTranslating(message),
+                              onTranslate:
+                                  _chat.options.translation &&
+                                      message.messageId != null
+                                  ? () => _translate(message)
+                                  : null,
+                              onSeeOriginal: () => _chat.showOriginal(message),
+                            );
                     },
                   ),
           ),
@@ -216,6 +252,13 @@ class _ChatState extends State<Chat> {
                       notice,
                       style: const TextStyle(color: Colors.white, fontSize: 13),
                     ),
+                  ),
+                  8.height,
+                ],
+                if (canSend && _chat.options.shownQuickReplies.isNotEmpty) ...[
+                  ChatQuickReplies(
+                    replies: _chat.options.shownQuickReplies,
+                    onTap: _sendQuickReply,
                   ),
                   8.height,
                 ],
@@ -393,9 +436,25 @@ class RiderMessageBubble extends StatelessWidget {
 }
 
 class DriverMessageBubble extends StatelessWidget {
-  const DriverMessageBubble({super.key, required this.message});
+  const DriverMessageBubble({
+    super.key,
+    required this.message,
+    this.translated,
+    this.translating = false,
+    this.onTranslate,
+    this.onSeeOriginal,
+  });
 
   final ChatMessage message;
+
+  /// v0.18.56 §78: the translation shown instead of the text, with a
+  /// "See original" link under it.
+  final String? translated;
+  final bool translating;
+
+  /// "Translate to `language`"; null when translation is off.
+  final VoidCallback? onTranslate;
+  final VoidCallback? onSeeOriginal;
 
   @override
   Widget build(BuildContext context) {
@@ -433,12 +492,24 @@ class DriverMessageBubble extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
             ),
             child: TextWidget(
-              text: message.text,
+              text: translated ?? message.text,
               fontSize: 14,
               color: AppColor.title,
               fontWeight: fwNormal,
             ),
           ),
+          if (translated != null)
+            ChatTranslateLink(
+              key: ValueKey<String>('chat-see-original-${message.messageId}'),
+              text: context.l10n.chatSeeOriginal,
+              onTap: onSeeOriginal,
+            )
+          else if (onTranslate != null)
+            ChatTranslateLink(
+              key: ValueKey<String>('chat-translate-${message.messageId}'),
+              text: context.l10n.chatTranslate,
+              onTap: translating ? null : onTranslate,
+            ),
           if (time != null) ...[
             5.height,
             TextWidget(

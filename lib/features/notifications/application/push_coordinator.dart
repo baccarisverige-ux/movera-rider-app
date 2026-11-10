@@ -68,7 +68,8 @@ class PushCoordinator {
   }
 
   void _handleForeground(PushPayload payload) {
-    _notifications.ingest(payload, read: false);
+    // v0.18.56 §78: an incoming-call push is no Notifications row.
+    if (!payload.isIncomingCall) _notifications.ingest(payload, read: false);
     AppLog.info(
       'push.foreground',
       extra: {'type': payload.type, 'rideId': payload.routedRideId ?? ''},
@@ -87,7 +88,7 @@ class PushCoordinator {
       AppLog.info('push.opened_before_session', extra: {'type': payload.type});
       return;
     }
-    _notifications.ingest(payload, read: true);
+    if (!payload.isIncomingCall) _notifications.ingest(payload, read: true);
 
     final rideId = payload.routedRideId;
     if (payload.destination == PushDestination.ride && rideId != null) {

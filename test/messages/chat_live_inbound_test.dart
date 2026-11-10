@@ -8,9 +8,11 @@ import 'package:movera_rider/features/messages/domain/trip_messages_transport.da
 import 'package:movera_rider/features/messages/presentation/chat.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
-/// Contract v0.5.4: on the live wire the open Chat screen polls the trip's
-/// messages, so a driver's message appears without the rider doing
-/// anything, and the rider's own message is sent and confirmed.
+/// Contract v0.5.4 + v0.18.56 §78 `chat.stream`: on the live wire the open
+/// Chat screen reads the page once and then takes the trip stream's
+/// `message` events, so a driver's message appears without the rider doing
+/// anything (and without a poll), and the rider's own message is sent and
+/// confirmed.
 class _FakeTripMessages implements TripMessagesTransport {
   final List<ChatMessage> onServer = [];
   final List<String> sentTexts = [];
@@ -48,9 +50,10 @@ void main() {
   late MessagesController controller;
 
   setUp(() {
+    MessagesRepository.clearAllSessions();
     server = _FakeTripMessages();
     controller = MessagesController(
-      store: MessagesRepository(),
+      store: MessagesRepository.forRide('trp_1'),
       transport: server,
       rideId: 'trp_1',
     );
@@ -76,48 +79,50 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('a driver message polled while the chat is open appears and '
-      'is read', (tester) async {
+  tearDown(MessagesRepository.clearAllSessions);
+
+  testWidgets('a driver message from the trip stream while the chat is open '
+      'appears and is read; nothing polls', (tester) async {
     await pumpChat(tester);
     expect(find.text('No messages yet'), findsOneWidget);
     expect(server.listings, 1);
 
-    server.onServer.add(
-      ChatMessage(
-        text: 'I am outside',
-        sender: ChatMessageSender.driver,
-        sentAt: DateTime.utc(2026, 10, 26, 8, 35),
-        messageId: 'msg_d1',
-      ),
-    );
-    await tester.pump(MessagesController.chatPollInterval);
+    MessagesController.ingestStreamMessage('trp_1', {
+      'messageId': 'msg_d1',
+      'tripId': 'trp_1',
+      'from': 'driver',
+      'text': 'I am outside',
+      'at': '2026-10-26T08:35:00Z',
+    });
+    await tester.pump(const Duration(seconds: 30));
     await tester.pump();
 
-    expect(server.listings, 2);
+    expect(server.listings, 1);
     expect(find.text('I am outside'), findsOneWidget);
     expect(find.text('No messages yet'), findsNothing);
     // The rider is looking at it: no unread badge waits on the trip screen.
     expect(controller.unreadCount, 0);
 
     // Support's messages are shown under Movera's name.
-    server.onServer.add(
-      ChatMessage(
-        text: 'We have told your driver',
-        sender: ChatMessageSender.support,
-        sentAt: DateTime.utc(2026, 10, 26, 8, 36),
-        messageId: 'msg_s1',
-      ),
-    );
-    await tester.pump(MessagesController.chatPollInterval);
+    MessagesController.ingestStreamMessage('trp_1', {
+      'messageId': 'msg_s1',
+      'tripId': 'trp_1',
+      'from': 'support',
+      'text': 'We have told your driver',
+      'at': '2026-10-26T08:36:00Z',
+    });
+    // A replayed event (resync) is not shown twice.
+    MessagesController.ingestStreamMessage('trp_1', {
+      'messageId': 'msg_s1',
+      'tripId': 'trp_1',
+      'from': 'support',
+      'text': 'We have told your driver',
+      'at': '2026-10-26T08:36:00Z',
+    });
     await tester.pump();
     expect(find.text('We have told your driver'), findsOneWidget);
     expect(find.text('Movera'), findsOneWidget);
-
-    // Closing the screen stops the polling.
-    await tester.pumpWidget(const SizedBox.shrink());
-    final after = server.listings;
-    await tester.pump(MessagesController.chatPollInterval * 3);
-    expect(server.listings, after);
+    expect(server.listings, 1);
   });
 
   testWidgets('the rider sends from the composer; a failed send stays '

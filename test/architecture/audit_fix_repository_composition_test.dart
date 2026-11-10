@@ -19,6 +19,7 @@ import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/ride_booking/data/active_trip_repositories.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/features/wallet/data/api_wallet_repository.dart';
+import 'package:movera_rider/features/wallet/data/switched_wallet_repository.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -81,7 +82,12 @@ void main() {
       expect(scope.flags.savedCards, isFalse);
 
       expect(scope.walletBalances, isNot(isA<LocalWalletRepository>()));
-      expect(scope.walletBalances, isA<ApiWalletRepository>());
+      // Owner 2026-11-10 "Yes, fix": switched per call, server side when on.
+      expect(scope.walletBalances, isA<SwitchedWalletRepository>());
+      expect(
+        (scope.walletBalances as SwitchedWalletRepository).on,
+        isA<ApiWalletRepository>(),
+      );
       expect(scope.walletBalances, isA<ServerBackedRepository>());
       expect(
         scope.reservationRepository,

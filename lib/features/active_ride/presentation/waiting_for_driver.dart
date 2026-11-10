@@ -45,6 +45,7 @@ import 'package:movera_rider/core/contracts/trip_terms.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
 import 'package:movera_rider/features/messages/application/messages_controller.dart';
+import 'package:movera_rider/features/messages/domain/trip_messages_transport.dart';
 import 'package:movera_rider/features/active_ride/presentation/rider_in_trip_panel.dart';
 import 'package:movera_rider/features/driver_arriving/application/driver_tracking_controller.dart';
 import 'package:movera_rider/features/driver_arriving/presentation/driver_profile_page.dart';
@@ -92,6 +93,7 @@ import 'package:movera_rider/features/driver_arriving/presentation/driver_photo_
 part 'waiting_for_driver_camera.dart';
 part 'waiting_for_driver_cancel.dart';
 part 'waiting_for_driver_changes.dart';
+part 'waiting_for_driver_chat.dart';
 part 'waiting_for_driver_compact_row.dart';
 part 'waiting_for_driver_details.dart';
 part 'waiting_for_driver_feed.dart';
@@ -179,11 +181,14 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       widget.realtime ?? AppScope.instance.rideRealtime;
   String? get _rideId => widget.rideId ?? AppScope.instance.ride.rideId;
 
-  /// The trip chat on the live wire, polled while this screen shows the
-  /// ride so the Message button's unread badge is current (contract
-  /// v0.5.4; the live transport never reads the event stream). Null in the
-  /// demo, which has no chat server.
+  /// The trip chat on the live wire: read once, then kept current by the
+  /// trip stream's `message` events (v0.18.56 §78 `chat.stream`) so the
+  /// Message button's unread badge follows. Null in the demo, which has no
+  /// chat server.
   MessagesController? _messages;
+
+  /// Unread messages last seen, so only a NEW one opens the sheet.
+  int _seenUnread = 0;
 
   @override
   void initState() {
@@ -233,8 +238,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       );
       unawaited(_readArrivalAnnounced(rideId.trim()));
       if (AppScope.instance.tripMessages case final transport?) {
-        _messages = MessagesController.forRide(rideId, transport: transport)
-          ..startPolling(MessagesController.tripPollInterval);
+        _startTripChat(rideId, transport);
       }
     } else {
       // No rideId means nothing will ever subscribe: no driver marker, no
@@ -319,6 +323,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     _sheetController.removeListener(_syncSheetOverlay);
     _settleTimer?.cancel();
     _rideCheckStillTimer?.cancel();
+    _messages?.removeListener(_onTripChatChanged);
     _messages?.dispose();
     _sheetController.dispose();
     _tracking.dispose();

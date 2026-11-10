@@ -325,6 +325,35 @@ class ApiRideRealtime implements RideRealtime {
       }
       return;
     }
+    // v0.18.56 §78 `chat.stream`: a chat message goes to the trip chat (the
+    // badge and the open chat); it never changes the trip.
+    if (wire == 'message') {
+      // The gate admits message sequences too (same seen / gap rules), so
+      // a replayed message is dropped and a gap still resyncs the trip.
+      final sequence = _version(event['sequence']);
+      if (sequence != null && sequence >= 1) {
+        final eventId = _eventId(event['eventId']) ?? '${poll.id}:$sequence';
+        final disposition = poll.gate.admit(
+          eventId: eventId,
+          tripId: poll.id,
+          sequence: sequence,
+          kind: RealtimeKind.message,
+        );
+        if (!disposition.passes) return;
+        if (disposition == RealtimeDisposition.acceptedWithGap) {
+          unawaited(_poll(poll, force: true));
+        }
+        poll.remember(eventId);
+      }
+      final message = event['message'];
+      if (message is Map) {
+        RideMessageEvents.sink?.call(
+          poll.id,
+          Map<String, dynamic>.from(message),
+        );
+      }
+      if (event['projection'] is! Map) return;
+    }
     final projection = event['projection'];
     if (projection is Map) {
       _applyProjection(poll, {
@@ -629,6 +658,7 @@ class ApiRideRealtime implements RideRealtime {
     final serverLocationAt = location.at;
     final serverNow =
         _date(envelope['serverTime'] ?? ride['serverTime']) ?? updatedAt;
+    if (kind == RealtimeKind.paymentUpdated) RidePaymentEvents.notify(poll.id);
     poll.controller?.add(
       RideRealtimeEvent(
         rideId: poll.id,
