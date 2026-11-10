@@ -2,6 +2,10 @@ name: Contract copy
 
 on:
   pull_request:
+    # Step 47 (2026-11-09, U6): the default types leave ready_for_review out, so a
+    # draft's result stayed as it was when the PR was marked Ready. Now the check
+    # runs again on that event.
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: ["main"]
   workflow_dispatch:
