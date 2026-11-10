@@ -69,6 +69,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: File size ratchet (Rule 25)
+        run: python3 tool/size_ratchet.py
       - uses: subosito/flutter-action@v2
         with:
           channel: stable

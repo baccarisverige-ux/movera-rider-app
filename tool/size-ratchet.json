@@ -1,0 +1,7 @@
+{
+  "limit": 1500,
+  "over": {
+    "lib/core/api/in_process_mock_client.dart": 2995,
+    "lib/features/active_ride/presentation/waiting_for_driver.dart": 1763
+  }
+}
