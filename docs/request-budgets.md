@@ -67,8 +67,8 @@ What runs in each state (the code the harness drives):
 | tripFinished | `GET /api/v1/trips/{tripId}/events (SSE open)` | 0 | 0.00 | 1 |
 | background | `GET /api/v1/rider/config` | 0 | 0.00 | 1 |
 | background | `GET /api/v1/rider/config/stream (SSE open)` | 0 | 0.00 | 1 |
-| homeConfigStreamDown | `GET /api/v1/rider/config` | 12.0 | 12.00 | 1 |
-| homeConfigStreamDown | `GET /api/v1/rider/config/stream (SSE open)` | 12.0 | 12.00 | 1 |
+| homeConfigStreamDown | `GET /api/v1/rider/config` | 1.1 | 1.10 | 1 |
+| homeConfigStreamDown | `GET /api/v1/rider/config/stream (SSE open)` | 1.1 | 1.10 | 1 |
 | homeConfigStreamDown | `GET /api/v1/rider/nearby-vehicles` | 1.4 | 1.30 | 1 |
 | homeConfigStreamDown | `GET /api/v1/rider/trips/active` | 7.5 | 7.50 | 0 |
 | homeConfigStreamDown | `GET /api/v1/rider/trips?kind=scheduled` | 0 | 0.00 | 1 |
@@ -91,7 +91,7 @@ What runs in each state (the code the harness drives):
 | onTrip | 13.50 |
 | tripFinished | 7.50 |
 | background | 0.00 |
-| homeConfigStreamDown | 32.80 |
+| homeConfigStreamDown | 11.00 |
 | arrivingTripStreamDown | 20.50 |
 
 ## Notes
@@ -99,9 +99,13 @@ What runs in each state (the code the harness drives):
 - The booked-driver check (`GET /rider/trips?kind=scheduled&status=…`) runs every
   8 s for the whole ride (searching, arriving, on trip, receipt):
   `rider_trip_watch.dart:91` + `:128`. It is the largest steady cost of a ride.
-- `/rider/config/stream` refused: the watch reconnects every 5 s with no backoff
-  and reads the config each time (`api_rider_config_repository.dart:279`): 24
-  requests a minute per rider while the server is down or restarting.
+- `/rider/config/stream` refused (owner 2026-11-10): the watch reconnects after
+  5, 10, 20, 40 s, then every 60 s (±10 % jitter), back to 5 s after a
+  successful connect, and reads the config each time
+  (`ApiRiderConfigRepository.nextRetryWait`): about 2 requests a minute per
+  rider while the server is down (was 24 with a fixed 5 s).
+- Airport queue: riders see nothing of it (owner job 9 Q6); the rider app
+  never reads it.
 - **Not covered: searching after 3 min.** After the search timeout the finding
   screen asks the server every 15 s (`finding_driver_controller.dart:96-97`,
   `finding_driver_controller_search.dart:42-55`): +4/min, so searching late is
