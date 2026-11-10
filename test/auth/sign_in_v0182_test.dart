@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -110,15 +111,13 @@ void main() {
       expect(language.code, 'fr');
     });
 
-    test('a phone language the app does not ship: the start country decides, '
-        'else English', () async {
-      for (final (zone, region, expected) in [
-        (RiderZones.sweden, 'DE', 'sv'),
-        (RiderZones.france, 'DE', 'fr'),
-        // Tunisia is no start country: the French region is next.
-        (RiderZones.tunisia, 'FR', 'fr'),
-        // ... and without a French region, Sweden.
-        (RiderZones.tunisia, 'TN', 'sv'),
+    test('a phone language the app does not ship: English, wherever the '
+        'phone is (owner 2026-11-10)', () async {
+      for (final (zone, region) in [
+        (RiderZones.sweden, 'DE'),
+        (RiderZones.france, 'DE'),
+        (RiderZones.tunisia, 'FR'),
+        (RiderZones.tunisia, 'TN'),
       ]) {
         final language = AppLanguageController(
           store: MemoryAppLanguageStore(),
@@ -126,8 +125,54 @@ void main() {
           deviceRegion: () => region,
         );
         await language.load(config: seeds, zone: zone);
-        expect(language.code, expected, reason: '${zone.id} $region');
+        expect(language.code, 'en', reason: '${zone.id} $region');
       }
+    });
+
+    test('phone fr_FR → fr, sv_SE → sv, de_DE → en, in every zone; a '
+        'French phone in Tunis no longer opens in Swedish', () async {
+      for (final zone in [
+        RiderZones.sweden,
+        RiderZones.france,
+        RiderZones.tunisia,
+      ]) {
+        for (final (phone, expected) in [
+          ('fr', 'fr'),
+          ('sv', 'sv'),
+          ('de', 'en'),
+          (null, 'en'),
+        ]) {
+          final language = AppLanguageController(
+            store: MemoryAppLanguageStore(),
+            deviceLanguage: () => phone,
+            deviceRegion: () => 'TN',
+          );
+          await language.load(config: seeds, zone: zone);
+          expect(language.code, expected, reason: '${zone.id} $phone');
+        }
+      }
+    });
+
+    testWidgets('a phone language reported after start is followed; a saved '
+        'choice still wins', (tester) async {
+      String? phone;
+      final language = AppLanguageController(
+        store: MemoryAppLanguageStore(),
+        deviceLanguage: () => phone,
+      );
+      await language.load(config: seeds, zone: RiderZones.sweden);
+      expect(language.code, 'en');
+      language.followDevice();
+      phone = 'fr';
+      tester.platformDispatcher.localesTestValue = const [Locale('fr', 'TN')];
+      expect(language.code, 'fr');
+      expect(L10n.code, 'fr');
+      await language.choose('sv');
+      phone = 'en';
+      tester.platformDispatcher.localesTestValue = const [Locale('en', 'US')];
+      expect(language.code, 'sv');
+      tester.platformDispatcher.clearLocalesTestValue();
+      language.dispose();
     });
 
     test('a picked language is kept and wins over the phone', () async {

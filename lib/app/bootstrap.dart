@@ -207,6 +207,7 @@ Future<void> bootstrap() async {
       zone: await currentRiderZone(),
     ),
   );
+  AppScope.instance.language.followDevice();
   HomeLocationController.onGoodFix = (point) {
     final zone = RiderZones.at(point.latitude, point.longitude);
     unawaited(

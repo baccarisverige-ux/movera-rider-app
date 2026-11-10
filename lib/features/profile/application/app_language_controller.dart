@@ -2,7 +2,6 @@ import 'package:flutter/widgets.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
-import 'package:movera_rider/features/auth/domain/phone_country.dart';
 import 'package:movera_rider/features/profile/data/app_language_store.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
@@ -11,21 +10,21 @@ import 'package:movera_rider/l10n/l10n.dart';
 /// The rider's own choice (globe button on Sign in, or Account) wins and
 /// is saved on the device. Without one (contract v0.18.2
 /// `auth.firstLanguage`, owner 2026-10-30 "Phone language (Recommended)")
-/// the app speaks the phone's language when it is sv, fr or en; otherwise
-/// the default of the start country (the zone config's
-/// `languages.rider`, built in: Sweden sv, France fr); else English.
-class AppLanguageController extends ChangeNotifier {
+/// the app speaks the phone's language when it is sv, fr or en; anything
+/// else is English (owner 2026-11-10: a French phone in Tunis opened in
+/// Swedish). Only a zone that does not offer English falls back to its
+/// config's `languages.rider`.
+class AppLanguageController extends ChangeNotifier with WidgetsBindingObserver {
   AppLanguageController({
     AppLanguageStore? store,
     String? Function()? deviceLanguage,
+    // Kept for callers; the region no longer picks the language.
     String? Function()? deviceRegion,
   }) : _store = store ?? const PrefsAppLanguageStore(),
-       _deviceLanguage = deviceLanguage ?? _platformLanguage,
-       _deviceRegion = deviceRegion ?? _platformRegion;
+       _deviceLanguage = deviceLanguage ?? _platformLanguage;
 
   final AppLanguageStore _store;
   final String? Function() _deviceLanguage;
-  final String? Function() _deviceRegion;
 
   /// `auth.firstLanguage.countryDefault`.
   static const Map<String, String> countryDefault = {'SE': 'sv', 'FR': 'fr'};
@@ -33,14 +32,6 @@ class AppLanguageController extends ChangeNotifier {
   static String? _platformLanguage() {
     try {
       return WidgetsBinding.instance.platformDispatcher.locale.languageCode;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  static String? _platformRegion() {
-    try {
-      return WidgetsBinding.instance.platformDispatcher.locale.countryCode;
     } catch (_) {
       return null;
     }
@@ -87,30 +78,29 @@ class AppLanguageController extends ChangeNotifier {
 
   String _startDefault = L10n.fallbackCode;
 
-  /// `auth.firstLanguage`: the default of the start country
-  /// (`auth.startCountry`, Sweden or France). In the start country's own
-  /// zone that is the zone config's `languages.rider`, so the admin's
-  /// setting still decides; else the built-in country default; else en.
-  String _startDefaultFor(RiderZone zone) {
-    String? region;
-    try {
-      region = _deviceRegion();
-    } catch (_) {
-      region = null;
-    }
-    final start = PhoneCountries.defaultFor(
-      lastZone: zone,
-      localeRegion: region,
-    );
-    if (PhoneCountries.ofZone(zone) == start &&
-        _available.contains(_zoneDefault)) {
-      return _zoneDefault;
-    }
-    final byCountry = countryDefault[start.iso];
-    if (byCountry != null && _available.contains(byCountry)) return byCountry;
-    return _available.contains(L10n.fallbackCode)
-        ? L10n.fallbackCode
-        : _zoneDefault;
+  /// Owner 2026-11-10: without a supported phone language, English; the
+  /// zone's default only when the zone does not offer English.
+  String _startDefaultFor(RiderZone zone) =>
+      _available.contains(L10n.fallbackCode) ? L10n.fallbackCode : _zoneDefault;
+
+  bool _following = false;
+
+  /// Follows the phone's language: on Android the engine can report the
+  /// locales only after start, and the phone's settings can change while
+  /// the app runs. A saved choice still wins.
+  void followDevice() {
+    if (_following) return;
+    _following = true;
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeLocales(List<Locale>? locales) => _apply();
+
+  @override
+  void dispose() {
+    if (_following) WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   Locale get locale => Locale(code);
