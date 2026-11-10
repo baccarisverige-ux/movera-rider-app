@@ -452,13 +452,7 @@ class _Step extends StatelessWidget {
     return MoveraMotion.selection(
       selected: selected,
       child: Material(
-        // A step above the ceiling is off: greyed fill and border too, not
-        // only lighter text (owner screenshots, 2026-10-26).
-        color: selected
-            ? MoveraTokens.ink
-            : onTap == null
-            ? const Color(0xFFF1F3F5)
-            : Colors.white,
+        color: selected ? MoveraTokens.ink : Colors.white,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
@@ -468,11 +462,7 @@ class _Step extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: selected
-                    ? MoveraTokens.ink
-                    : onTap == null
-                    ? const Color(0xFFF1F3F5)
-                    : MoveraTokens.line,
+                color: selected ? MoveraTokens.ink : MoveraTokens.line,
               ),
             ),
             child: Text(
