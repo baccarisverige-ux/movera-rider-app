@@ -229,8 +229,8 @@ void main() {
     test('euros and dinars in their own format, to the minor unit', () {
       expect(formatMoney(const Money(741, 'EUR')), '7,41 €');
       expect(formatMoney(const Money(700, 'EUR'), whole: true), '7,00 €');
-      expect(formatMoney(const Money(7410, 'TND')), '7,410 DT');
-      expect(formatMoney(const Money(19500, 'TND'), whole: true), '19,500 DT');
+      expect(formatMoney(const Money(7410, 'TND')), '7.410 DT');
+      expect(formatMoney(const Money(19500, 'TND'), whole: true), '19.500 DT');
       expect(formatMajor(5, 'EUR'), '5,00 €');
     });
   });

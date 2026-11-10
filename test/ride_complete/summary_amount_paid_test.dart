@@ -43,9 +43,9 @@ void main() {
       },
     });
     expect(find.text('Total payment'), findsOneWidget);
-    expect(find.text('12,350 DT'), findsOneWidget);
+    expect(find.text('12.350 DT'), findsOneWidget);
     expect(find.byKey(const ValueKey('receipt-tip')), findsOneWidget);
-    expect(find.text('2,000 DT'), findsOneWidget);
+    expect(find.text('2.000 DT'), findsOneWidget);
     expect(find.text('Trip details unavailable'), findsNothing);
   });
 

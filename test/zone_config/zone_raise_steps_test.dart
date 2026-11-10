@@ -113,7 +113,7 @@ void main() {
     expect(find.textContaining('kr'), findsNothing);
     await tester.tap(find.text('+2 DT'));
     await tester.pump();
-    await tester.tap(find.text('Confirm 20,000 DT'));
+    await tester.tap(find.text('Confirm 20.000 DT'));
     expect(raised, const Money(2000, 'TND'));
   });
 }

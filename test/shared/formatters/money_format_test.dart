@@ -25,4 +25,15 @@ void main() {
       expect(text, isNot(startsWith('kr ')));
     }
   });
+
+  // Contract v0.18.59 §81 (owner 2026-11-10): the dinar is written with a
+  // dot, 3 decimals, a space between thousands; SEK and EUR keep the comma.
+  test('TND with a dot: 12.350 DT, 1 250.000 DT', () {
+    expect(formatMoney(const Money(12350, 'TND')), '12.350 DT');
+    expect(formatMoney(const Money(1250000, 'TND')), '1 250.000 DT');
+    expect(formatMoney(const Money(40, 'TND')), '0.040 DT');
+    expect(formatMoney(const Money(-12350, 'TND')), '-12.350 DT');
+    expect(formatMoney(const Money(12675)), '126,75 kr');
+    expect(formatMoney(const Money(741, 'EUR')), '7,41 €');
+  });
 }
