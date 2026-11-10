@@ -650,14 +650,15 @@ class RideCheckController extends ChangeNotifier {
     );
   }
 
-  /// Opens the phone dialer with 112. Movera never calls; the rider does.
-  /// Calling counts as an answer and alerts the safety team.
-  Future<void> call112() async {
+  /// Opens the phone dialer with the country's main emergency number, or
+  /// [number] (another row, v0.18.57 §79). Movera never calls; the rider
+  /// does. Calling counts as an answer and alerts the safety team.
+  Future<void> call112({String? number}) async {
     final current = _session;
     if (current == null) return;
     String? failure;
     try {
-      await _emergency.callEmergencyNumber();
+      await _emergency.callEmergencyNumber(number: number);
     } on EmergencyCallException catch (error) {
       failure = error.message;
     } catch (error) {

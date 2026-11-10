@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.55",
+  "version": "0.18.57",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -3739,6 +3739,146 @@
     "dontMatchAgain": {
       "on": true,
       "atStars": 1
+    },
+    "chat": {
+      "keepDays": 90,
+      "maxLength": 2000,
+      "spamPerMin": 10,
+      "sound": true,
+      "sheetAutoOpen": "new_message",
+      "readAloudDefault": false,
+      "translation": true,
+      "quickRepliesOn": true,
+      "quickReplies": {
+        "driver": [
+          {
+            "id": "on_my_way",
+            "text": {
+              "sv": "Jag är på väg",
+              "fr": "Je suis en route",
+              "en": "I'm on my way"
+            }
+          },
+          {
+            "id": "five_min",
+            "text": {
+              "sv": "Framme om 5 minuter",
+              "fr": "J'arrive dans 5 minutes",
+              "en": "Arriving in 5 minutes"
+            }
+          },
+          {
+            "id": "traffic",
+            "text": {
+              "sv": "Mycket trafik, jag blir lite sen",
+              "fr": "Il y a des bouchons, j'aurai un peu de retard",
+              "en": "Heavy traffic, I'll be a little late"
+            }
+          },
+          {
+            "id": "where_are_you",
+            "text": {
+              "sv": "Var exakt är du?",
+              "fr": "Où êtes-vous exactement ?",
+              "en": "Where exactly are you?"
+            }
+          },
+          {
+            "id": "ok_got_it",
+            "text": {
+              "sv": "OK, uppfattat!",
+              "fr": "D'accord, bien reçu !",
+              "en": "OK, got it!"
+            }
+          }
+        ],
+        "rider": [
+          {
+            "id": "coming_now",
+            "text": {
+              "sv": "Jag kommer nu",
+              "fr": "J'arrive tout de suite",
+              "en": "I'm coming now"
+            }
+          },
+          {
+            "id": "two_min",
+            "text": {
+              "sv": "Jag är ute om 2 minuter",
+              "fr": "Je sors dans 2 minutes",
+              "en": "I'll be out in 2 minutes"
+            }
+          },
+          {
+            "id": "where_parked",
+            "text": {
+              "sv": "Var står du?",
+              "fr": "Où êtes-vous garé ?",
+              "en": "Where are you parked?"
+            }
+          },
+          {
+            "id": "thanks",
+            "text": {
+              "sv": "Tack!",
+              "fr": "Merci !",
+              "en": "Thanks!"
+            }
+          }
+        ]
+      },
+      "autoArrived": {
+        "on": true,
+        "text": {
+          "sv": "Jag är framme vid upphämtningsplatsen.",
+          "fr": "Je suis au point de prise en charge.",
+          "en": "I've arrived at the pickup point."
+        }
+      }
+    },
+    "emergencyNumbers": {
+      "SE": [
+        {
+          "kind": "general",
+          "number": "112",
+          "label": {
+            "sv": "Nödnummer",
+            "fr": "Numéro d’urgence",
+            "en": "Emergency number"
+          }
+        }
+      ],
+      "FR": [
+        {
+          "kind": "general",
+          "number": "112",
+          "label": {
+            "sv": "Nödnummer",
+            "fr": "Numéro d’urgence",
+            "en": "Emergency number"
+          }
+        }
+      ],
+      "TN": [
+        {
+          "kind": "police",
+          "number": "197",
+          "label": {
+            "sv": "Polis",
+            "fr": "Police",
+            "en": "Police"
+          }
+        },
+        {
+          "kind": "ambulance",
+          "number": "190",
+          "label": {
+            "sv": "Ambulans (SAMU)",
+            "fr": "SAMU (ambulance)",
+            "en": "Ambulance (SAMU)"
+          }
+        }
+      ]
     }
   },
   "realtime": {
@@ -3843,7 +3983,7 @@
       "unavailable",
       "internal"
     ],
-    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit). v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.44 reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress). v0.18.49 reason: sign_out_on_trip (409 conflict, contract.json#auth.signOutOnTrip)."
+    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit). v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.44 reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress). v0.18.49 reason: sign_out_on_trip (409 conflict, contract.json#auth.signOutOnTrip). v0.18.56 reasons: message_too_long, unknown_quick_reply, translate_target_not_allowed (400 invalid_request), translation_off (403 forbidden), coming_soon (503 unavailable) (contract.json#chat, §78)."
   },
   "headers": {
     "Idempotency-Key": "required on every mutation, 16–128 chars",
@@ -4049,7 +4189,8 @@
           "fr": "Appeler le 112",
           "en": "Call 112"
         }
-      }
+      },
+      "v0_18_57": "v0.18.57 §79: \"112\" in these texts and in safety.note / sos.note now means the country's emergency number(s) (emergencyNumbers); texts.call112 stays for older apps; new apps use emergencyNumbers.texts.callNumber."
     }
   },
   "stopWaits": {
@@ -5232,6 +5373,112 @@
           "fr": "Nouveau message",
           "en": "New message"
         }
+      }
+    },
+    "v0.18.56": "v0.18.56 §78 (G9 part 2, owner Q79–Q85 2026-11-10): chat settings with defaults (owner rule 16), quick replies, the automatic \"I've arrived\" message, the badge from the trip stream, the chat header line, admin chat list and admin Message, translation (coming soon). X-Api-Version stays 0.5; additive; older apps keep working. CONTRACT.md §78.",
+    "settings": {
+      "where": "Admin › Pricing › Tips & limits per country › Chat: CountryRules.chat of the country standard (a zone's own country_rules may set them), saved and published with the country_rules document (settings.edit / settings.publish), like CountryRules.calls. Never saved = configDefaults.chat.",
+      "fields": {
+        "keepDays": "Days a trip chat message is kept (replaces the fixed chat.retentionDays 90; the daily purge reads the setting of the trip zone country). Messages of a trip with a safety case stay with the case. Default 90.",
+        "maxLength": "Longest message text in characters; a longer POST /trips/{tripId}/messages is 400 invalid_request, reason message_too_long. Never above 2000 (Message.text). Default 2000.",
+        "spamPerMin": "Messages one sender may post on one trip per minute; more is 429 rate_limited, reason too_many_requests (Retry-After). Support (admin) is not limited. Default 10.",
+        "sound": "Both apps play a short sound on a new message from the other side (the driver app follows its Accessibility sound / vibrate / flash switches). Default true.",
+        "sheetAutoOpen": "new_message: a folded trip sheet opens by itself on a new chat message from the other side and shows the message card (owner Q82: on a new message only; \"near the pickup\" is a later G15 question); off: never opens by itself. Default new_message.",
+        "readAloudDefault": "Starting value of the driver's \"Read new messages aloud\" switch (TTS in the app language); the driver may change it. Default false.",
+        "translation": "true: the apps show \"Translate to <language>\" under each message from the other side (POST /trips/{tripId}/messages/translate); false: the link is hidden and the route answers 403 forbidden, reason translation_off. Default true (answers \"coming soon\" until a provider is set).",
+        "quickRepliesOn": "Quick-reply chips in the chat and on the sheet card. Default true.",
+        "quickReplies": "Lists per side: driver (chips the driver sees) and rider (chips the rider sees), each at most 8 items { id (snake_case, unique in the list), text { sv, fr, en } (1–60 characters each) }. Default: configDefaults.chat.quickReplies.",
+        "autoArrived": "{ on, text { sv, fr, en } (1–200 characters) }: see chat.autoArrived. Default on with configDefaults.chat.autoArrived.text."
+      },
+      "ranges": {
+        "keepDays": [
+          1,
+          365
+        ],
+        "maxLength": [
+          100,
+          2000
+        ],
+        "spamPerMin": [
+          1,
+          60
+        ],
+        "quickRepliesPerSide": [
+          0,
+          8
+        ],
+        "quickReplyTextLength": [
+          1,
+          60
+        ]
+      },
+      "sheetAutoOpenValues": [
+        "new_message",
+        "off"
+      ],
+      "apps": "GET /trips/{tripId}/messages/options (the trip's rider or driver) answers ChatOptions: the caller's side quick replies (all three languages; the app shows its own), maxLength, sound, sheetAutoOpen, readAloudDefault, translation, the header line. Values of the trip zone's country_rules, else configDefaults.chat."
+    },
+    "quickReplies": {
+      "note": "v0.18.56 §78 (G9 part 2, owner Q79–Q85 2026-11-10): quick-reply chips (G9-2.5): a tap sends the chip as a normal chat message.",
+      "send": "POST /trips/{tripId}/messages { text, quickReplyId }: with quickReplyId (an id of the sender's side list) the server writes the text of that chip in the reader's app language (the other side's profile language, else the zone country's language, else en) and ignores text; an unknown id is 400 invalid_request, reason unknown_quick_reply. Message.quickReplyId is set on the stored message.",
+      "perCountryAndSide": "CountryRules.chat.quickReplies { driver: [...], rider: [...] } (admin setting per country; a zone's own rules may set it)."
+    },
+    "autoArrived": {
+      "note": "v0.18.56 §78 (G9 part 2, owner Q79–Q85 2026-11-10): automatic \"I've arrived\" chat message (G9-2.6, owner g9 Q3 + Q85).",
+      "when": "When the trip goes to arrived through POST /trips/{tripId}/arrive, both on the driver's tap and on auto-arrive (the driver app's arrival geofence calls the same route), the server writes ONE chat message from the driver, Message.auto = arrived, once per trip (a second arrive, a retry or a resync writes none).",
+      "language": "The text is CountryRules.chat.autoArrived.text in the RIDER's app language (Rider.language, else the zone country's language, else en).",
+      "off": "CountryRules.chat.autoArrived.on false → no message; arrive works as before.",
+      "event": "It is a normal message: kind message on the trip stream (the rider's badge and sheet card), kept as chat.settings.keepDays."
+    },
+    "stream": {
+      "note": "v0.18.56 §78 (G9 part 2, owner Q79–Q85 2026-11-10): the unread badge and the chat come from the trip stream (G9-2.1, AUDIT R09 L5/N1/W2/W4).",
+      "badge": "Both apps count unread messages from kind message events on the trip stream (GET /trips/{tripId}/events SSE, resync with ?after=sequence); no timer poll of GET /trips/{tripId}/messages (the rider's 3 s / 10 s polls are removed). The chat screen loads the page once (cursor) and then appends message events. A poll that is still needed stops while the tab or app is hidden.",
+      "gate": "The apps' realtime gate admits every kind message and call_* event in sequence order (same seen / gap / resync rules as realtime), not only call_* kinds."
+    },
+    "header": {
+      "note": "v0.18.56 §78 (G9 part 2, owner Q79–Q85 2026-11-10): owner Q81: no report or block button in the chat; one line in the chat header instead (also written in the Apple review notes).",
+      "text": {
+        "sv": "Problem? Använd Support eller SOS",
+        "fr": "Un problème ? Utilisez Support ou SOS",
+        "en": "Problem? Use Support or SOS"
+      },
+      "noReportButton": "The chat has no Report and no Block button; Support (ticket) and SOS are the paths."
+    },
+    "translate": {
+      "note": "v0.18.56 §78 (G9 part 2, owner Q79–Q85 2026-11-10): translation link (G9-2.10, owner g9 2b, 3).",
+      "route": "POST /trips/{tripId}/messages/translate { messageId, to: sv|fr|en } by the trip's rider or driver (open trip, a message of that trip) (to = the reading user's own app language, sv|fr|en; owner answer A1 2026-11-10) → 200 TranslatedMessage { messageId, to, text } when a translation provider is configured on the server (keys only in the server environment). Until one is configured: 503 unavailable, reason coming_soon; the app shows \"Translation coming soon\". CountryRules.chat.translation false → 403 forbidden, reason translation_off. Nothing is stored.",
+      "texts": {
+        "translateTo": {
+          "sv": "Översätt till {language}",
+          "fr": "Traduire en {language}",
+          "en": "Translate to {language}"
+        },
+        "comingSoon": {
+          "sv": "Översättning kommer snart",
+          "fr": "Traduction bientôt disponible",
+          "en": "Translation coming soon"
+        }
+      },
+      "target": "Target language (owner A1): the reading user's own app language; the link reads \"Translate to <that language>\". Under each translated message the app shows a link \"See original\" that switches back to the original text, and then \"Translate\" again (owner 2026-11-10); the original text is always kept in the app. Another to is 400 invalid_request, reason translate_target_not_allowed."
+    },
+    "adminChats": {
+      "note": "v0.18.56 §78 (G9 part 2, owner Q79–Q85 2026-11-10): admin live chat list (G9-2.16, AUDIT A15 N16).",
+      "route": "GET /admin/chats?zoneId&zoneIds&country&cursor&limit (support.reply) → AdminChatPage { items: [AdminChatRow], nextCursor }: only open trips (chat.openStatuses) that have at least one message, newest lastMessageAt first, only trips of the admin's zones (Super admin: all; a zone filter outside them → 403 forbidden, reason zone_out_of_scope). Replaces reading /admin/trips?limit=100 and filtering in the browser.",
+      "row": "AdminChatRow { tripId, zoneId, status, riderFirstName, driverFirstName, messageCount, lastMessageAt, lastFrom (rider|driver|support) }: no message text, no phone number."
+    },
+    "adminMessage": {
+      "note": "v0.18.56 §78 (G9 part 2, owner Q79–Q85 2026-11-10): admin \"Message\" on a driver or rider page (G9-2.12, owner g9 Q5).",
+      "route": "POST /admin/drivers/{driverId}/message and POST /admin/riders/{riderId}/message { text (1–2000) } (support.reply; the person must have a zone in the admin's zones, Super admin: all, else 403 forbidden, reason zone_out_of_scope) → 201 SupportTicket: the server opens a support ticket for that person (openedBy admin, topic help, the text as its first message from support, zoneId = the person's first zone), which the person sees in the app's Support inbox (GET /support/tickets) and answers there. Audited driver.message / rider.message { ticketId } (never the text).",
+      "push": "No push in this version: the push half is IN-OTHER.1, the first job of G13. The person sees the message on the next open of Support."
+    },
+    "retentionV0_18_56": "v0.18.56 §78: chat.retentionDays (90) and the fixed 90 days in chat.retention are replaced by CountryRules.chat.keepDays (default 90, configDefaults.chat.keepDays); the daily purge reads the setting of the trip zone's country. The safety-case rule is unchanged.",
+    "onTheWay": {
+      "note": "v0.18.56 §78: the rider's \"I'm on my way\" also lands in the driver's chat (G9-2.14, owner g9 Q4).",
+      "when": "When the rider calls POST /trips/{tripId}/on-the-way the server, besides the rider_on_the_way event, writes ONE chat message from the rider, Message.auto = on_my_way, once per trip (a repeat writes none), in the DRIVER's app language (Driver.language, else the zone country's language, else en); kind message on the trip stream (the driver's sheet card).",
+      "text": {
+        "sv": "Jag är på väg till bilen.",
+        "fr": "Je suis en route vers la voiture.",
+        "en": "I'm on my way to the car."
       }
     }
   },
@@ -8155,7 +8402,45 @@
         "en": "Call failed"
       }
     },
-    "serverSafety": "Rule 33: every call state lives in trip_calls (Postgres); start/answer/end lock the row (FOR UPDATE); the ring timeout and the length limit are database timers; signals go out as trip events (database sequence). No call state in one server copy's memory."
+    "serverSafety": "Rule 33: every call state lives in trip_calls (Postgres); start/answer/end lock the row (FOR UPDATE); the ring timeout and the length limit are database timers; signals go out as trip events (database sequence). No call state in one server copy's memory.",
+    "push": {
+      "note": "v0.18.56 §78 (G9 part 2, owner Q79–Q85 2026-11-10): incoming-call push (G9-2.2, web half; owner Q79).",
+      "when": "On call_ringing the server also sends a push to every push device of the callee that has no open trip stream (no SSE connection for that trip): kind call_ringing, data { tripId, callId }, deepLink movera://trips/{tripId}/call (rider) / movera-driver://trips/{tripId}/call (driver), not stored in GET /notifications, sent even with Rider.consents.rideUpdates false (a service message). The app opens on the incoming-call sheet while the call still rings; a call that is no longer ringing shows nothing.",
+      "web": "Web (rider and driver web apps): a web push; the service worker shows the notification below.",
+      "iphone": "iPhone (apns tokens): owner Q79: a plain notification first (the text below); the real call screen (CallKit with a VoIP push) comes later (G13).",
+      "texts": {
+        "fromDriver": {
+          "sv": "Inkommande samtal från din förare – öppna Movera",
+          "fr": "Appel entrant de votre chauffeur — ouvrez Movera",
+          "en": "Incoming call from your driver — open Movera"
+        },
+        "fromRider": {
+          "sv": "Inkommande samtal från din passagerare – öppna Movera",
+          "fr": "Appel entrant de votre passager — ouvrez Movera",
+          "en": "Incoming call from your rider — open Movera"
+        }
+      }
+    },
+    "background": {
+      "note": "v0.18.56 §78 (G9 part 2, owner Q79–Q85 2026-11-10): microphone with the screen locked (G9-2.3, owner Q80).",
+      "rule": "During an answered call the microphone stays on with the screen locked: Android a microphone foreground service (FOREGROUND_SERVICE_MICROPHONE, type phoneCall / microphone) with a \"Movera call\" notification while the call lasts (+ the Play Console declaration); iOS the audio background mode in the driver app (the rider app already has it). Built only after the device proof (global plan step 69, T7).",
+      "texts": {
+        "notification": {
+          "sv": "Movera-samtal",
+          "fr": "Appel Movera",
+          "en": "Movera call"
+        }
+      }
+    },
+    "turnEnv": {
+      "note": "v0.18.56 §78 (G9 part 2, owner Q79–Q85 2026-11-10): the STUN/TURN servers of inAppCalls.ice come from the server environment, by these names only (values never in git or Rules).",
+      "names": [
+        "MOVERA_STUN_URLS",
+        "MOVERA_TURN_URLS",
+        "MOVERA_TURN_SECRET"
+      ],
+      "rule": "MOVERA_TURN_URLS (comma-separated turn: / turns: URLs) and MOVERA_TURN_SECRET (shared secret for time-limited TURN credentials) are checked at server start-up (G9-2.4); without them calls work only on open networks. Owner to-do: set them on the hosting service."
+    }
   },
   "noDriverNearby": {
     "note": "v0.18.39 §63 (fix job N2 + P17 + far rider, fix plan A2 / A11-FR 'Proof: far rider', owner N2 answer 2026-11-05 \"'No driver nearby' after 5 min\" (admin setting per zone, search continues until the rider cancels) and P17 answers \"15 min after pickup past\" + admin alert \"Yes\", boss supervisor night answers (afterSec 300, farReachKm 12), Rules decisions/driver-g15.md). Builds on v0.18.38 main. Additive; X-Api-Version stays 0.5; no server migration. Driver app: no change.",
@@ -8507,5 +8792,33 @@
     },
     "export": "There is no CSV or export route today; a future export follows the same masking and the same rights.",
     "apps": "Rule 0 order: contract -> admin (accepts both full and masked values in every people view; shows Reveal with a reason dialog on sensitiveMasked; one click on an open SOS case reveals both numbers) -> server (masks in the admin projections, adds the four routes and the refunds.payouts_viewed audit row). Rider and driver apps: no change needed (own profiles stay full)."
+  },
+  "emergencyNumbers": {
+    "note": "v0.18.57 (CONTRACT.md §79, owner 2026-11-10, Rule 0): the emergency number(s) on the safety check / SOS screens of both apps come from each country's settings in admin, never a fixed 112. Additive; X-Api-Version stays 0.5; no migration.",
+    "kinds": [
+      "police",
+      "ambulance",
+      "fire",
+      "general"
+    ],
+    "item": "EmergencyNumber { kind police | ambulance | fire | general, number (digits only, optional leading +, 2-15 characters: ^\\+?[0-9]{2,15}$), label { sv, fr, en } 1-40 each }. 1-6 numbers per country; the first one is the main number.",
+    "where": "Admin › Pricing › Tips & limits per country › Emergency numbers: CountryRules.emergencyNumbers of the COUNTRY STANDARD only (emergency numbers are national; a zone's own country_rules never carries them and is 400 invalid_request, reason emergency_numbers_country_only), saved and published with the country_rules document (settings.edit / settings.publish), like CountryRules.chat. Never saved = configDefaults.emergencyNumbers[country]. Add, edit, remove and reorder rows; at least one row.",
+    "defaults": "SE: 112 (general). FR: 112 (general). TN: police 197, ambulance (SAMU) 190. A country with no default and nothing saved shows 112.",
+    "validation": "400 invalid_request, reason invalid_emergency_numbers: empty list, more than 6, a number not matching the pattern, a kind not in kinds, or a missing sv / fr / en label.",
+    "apps": "Written by the server from the zone's country into RiderAppConfig.emergencyNumbers and DriverAppConfig.emergencyNumbers (GET /rider/config, GET /driver/config, config_published) when the country standard is published, like dontMatchAgain. The apps keep the last list they got (offline) and fall back to [112 general] only if they never got one.",
+    "screens": "Rider and driver apps: (1) the safety shield with no trip — one \"Call <label> <number>\" button per row (opens the phone dialer, nothing sent to Movera) instead of \"Call 112\"; (2) SOS during a trip — the SOS dials the FIRST number and alerts Movera; the other rows show as extra call buttons on the \"SOS sent\" screen; (3) ride check \"Need help\" — the same call buttons; (4) the driver's emergency contacts screen — the built-in number shown is the country list, not 112. Labels in the app language (sv / fr / en).",
+    "admin": "Admin › Safety case page: the \"Emergency numbers\" box shows the incident country's CountryRules.emergencyNumbers (dialled from the admin's own phone, unchanged). The free-form emergency numbers inside incident settings (v0.18.15) are no longer read by the panel; they stay stored (Rule 21: nothing deleted).",
+    "texts": {
+      "callNumber": {
+        "sv": "Ring {label} {number}",
+        "fr": "Appeler {label} {number}",
+        "en": "Call {label} {number}"
+      },
+      "adminTitle": {
+        "sv": "Nödnummer",
+        "fr": "Numéros d’urgence",
+        "en": "Emergency numbers"
+      }
+    }
   }
 }

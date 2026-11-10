@@ -9,7 +9,10 @@ import 'package:http/http.dart' as http;
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
+import 'package:movera_rider/core/config/emergency_numbers.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+
+import 'emergency_numbers_test.dart' show tunisiaEmergencyNumbers;
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
@@ -581,6 +584,22 @@ void main() {
       (await _safety.rideCheck.records(_rideId)).single.answerSummary,
       'Called 112',
     );
+  });
+
+  testWidgets('v0.18.57 §79: TN "Need help" dials 197 and offers 190', (
+    tester,
+  ) async {
+    await _setUpSafety();
+    await EmergencyNumbers.accept(tunisiaEmergencyNumbers);
+    addTearDown(EmergencyNumbers.reset);
+    await pumpTrip(tester);
+    await openCard(tester, RideCheckTrigger.longStop);
+    expect(find.text('Call Police 197'), findsOneWidget);
+    expect(find.text('Call Ambulance (SAMU) 190'), findsOneWidget);
+    await tapKey(tester, 'ride-check-call-112');
+    expect(_dialer.calls, ['197']);
+    await tapKey(tester, 'ride-check-call-190');
+    expect(_dialer.calls, ['197', '190']);
   });
 
   testWidgets('Call 112 goes to the system dialer as tel:112', (tester) async {

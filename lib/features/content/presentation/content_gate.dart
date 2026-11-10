@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/config/emergency_numbers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -144,7 +145,10 @@ class _SosButton extends StatelessWidget {
       onPressed: onTap,
       icon: const Icon(Icons.sos_rounded, color: _sos),
       label: Text(
-        context.l10n.rcCall112,
+        EmergencyNumbers.labelFor(
+          EmergencyNumbers.main,
+          context.l10n.rcCall112,
+        ),
         style: _text(14, weight: FontWeight.w600, c: _sos),
       ),
     );

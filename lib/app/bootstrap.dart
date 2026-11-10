@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:movera_rider/core/config/emergency_numbers.dart';
 import 'package:movera_rider/core/config/live_data_only.dart';
 import 'package:movera_rider/core/preview/preview_mode.dart';
 import 'package:movera_rider/features/messages/data/chat_read_marks.dart';
@@ -197,6 +198,8 @@ Future<void> bootstrap() async {
   await bootStep('zones.cached', AppScope.instance.zones.loadCached);
   // G9 live 2026-11-02: read chats stay read after a reload.
   await bootStep('chat.read_marks', ChatReadMarks.load);
+  // v0.18.57 §79: the country's emergency numbers kept from the last config.
+  await bootStep('emergency_numbers.restore', EmergencyNumbers.restore);
   // Q48 / v0.18.2 auth.firstLanguage: the saved language, else the phone's
   // language (sv, fr, en), else the start country's default; a later good
   // fix in another zone moves that default with it.

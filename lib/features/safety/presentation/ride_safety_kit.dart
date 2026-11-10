@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/config/emergency_numbers.dart';
 import 'package:movera_rider/core/realtime/sos_availability.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
@@ -174,6 +175,7 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
   late final SafetyController _ctl =
       widget.controller ?? SafetyController.shared;
   String? _audioNote;
+  bool _sosSent = false;
 
   @override
   void initState() {
@@ -227,9 +229,10 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
 
   /// v0.18.5 `safety.onlyDuringTrip.texts.call112`: with no trip only the
   /// phone's dialer opens; nothing is sent to Movera.
-  Future<void> _dial112() async {
+  /// v0.18.57 §79: [number] is a row of the country's emergency numbers.
+  Future<void> _dial112([String? number]) async {
     try {
-      await _ctl.emergency.callEmergencyNumber();
+      await _ctl.emergency.callEmergencyNumber(number: number);
     } on EmergencyCallException catch (error) {
       if (mounted) MoveraToast.show(context, error.message);
     }
@@ -251,6 +254,8 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
       registered = null;
     }
     if (!mounted) return;
+    // v0.18.57 §79: "SOS sent" shows the country's other numbers.
+    if (registered == true) setState(() => _sosSent = true);
     final l10n = context.l10n;
     final String message;
     if (dialError != null) {
@@ -361,16 +366,29 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
               ),
               const SizedBox(height: 16),
               if (!_duringTrip)
-                Row(
+                // v0.18.57 §79: one call button per emergency number of the
+                // country; only the dialer opens, nothing goes to Movera.
+                Column(
                   children: [
-                    Expanded(
-                      child: _Tool(
-                        key: const ValueKey('safety-call-112'),
-                        icon: Icons.call_outlined,
-                        label: context.l10n.safetyCall112,
-                        onTap: _dial112,
+                    for (final (i, row) in EmergencyNumbers.current.indexed)
+                      Padding(
+                        padding: EdgeInsets.only(top: i == 0 ? 0 : 10),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _Tool(
+                                key: ValueKey('safety-call-${row.number}'),
+                                icon: Icons.call_outlined,
+                                label: EmergencyNumbers.labelFor(
+                                  row,
+                                  context.l10n.safetyCall112,
+                                ),
+                                onTap: () => _dial112(row.number),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 )
               else
@@ -380,7 +398,10 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
                       child: _Tool(
                         key: const ValueKey('safety-sos'),
                         icon: Icons.call_outlined,
-                        label: context.l10n.contact112,
+                        label: EmergencyNumbers.labelFor(
+                          EmergencyNumbers.main,
+                          context.l10n.contact112,
+                        ),
                         onTap: _call112,
                       ),
                     ),
@@ -408,6 +429,16 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
                     ),
                   ],
                 ),
+              if (_duringTrip && _sosSent)
+                for (final row in EmergencyNumbers.others) ...[
+                  const SizedBox(height: 10),
+                  _Tool(
+                    key: ValueKey('sos-call-${row.number}'),
+                    icon: Icons.call_outlined,
+                    label: row.callText,
+                    onTap: () => _dial112(row.number),
+                  ),
+                ],
               if (_audioNote != null) ...[
                 const SizedBox(height: 12),
                 Text(_audioNote!, style: _text(12, color: _muted)),

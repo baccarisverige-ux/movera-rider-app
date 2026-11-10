@@ -1,4 +1,5 @@
 import 'package:url_launcher/url_launcher.dart';
+import 'package:movera_rider/core/config/emergency_numbers.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 typedef EmergencyUriLauncher = Future<bool> Function(Uri uri);
@@ -73,8 +74,10 @@ class EmergencyCallService {
   bool get usesRecordingDialer => _dialer is RecordingEmergencyDialer;
 
   /// Requires an explicit rider action. Never called from background logic.
-  Future<void> callEmergencyNumber() async {
+  /// v0.18.57 §79: [number] (a row of the country's list), else the main
+  /// number of the country (112 only if no list was ever received).
+  Future<void> callEmergencyNumber({String? number}) async {
     _explicitCalls += 1;
-    await _dialer.open(swedenEmergencyNumber);
+    await _dialer.open(number ?? EmergencyNumbers.main.number);
   }
 }
