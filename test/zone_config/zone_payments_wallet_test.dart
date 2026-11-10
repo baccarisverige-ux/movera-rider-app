@@ -181,7 +181,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('7,500 DT'), findsOneWidget);
+      expect(find.text('7.500 DT'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('wallet-currency-EUR')));
       await tester.pumpAndSettle();
       expect(find.text('12,00 €'), findsOneWidget);

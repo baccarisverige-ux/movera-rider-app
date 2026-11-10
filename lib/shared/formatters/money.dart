@@ -16,7 +16,8 @@ String formatKr(num amount) =>
 /// * SEK: "35 kr", "35,50 kr"; with [whole] rounded to the krona, "36 kr"
 ///   (the Swedish fare look, unchanged).
 /// * EUR: "7,41 €", always with cents.
-/// * TND: "7,410 DT", always with the three millime digits.
+/// * TND: "7.410 DT", "1 250.000 DT": a dot, always the three millime
+///   digits, a space between thousands (contract v0.18.59 §81).
 /// * Any other code: "12.50 XYZ".
 ///
 /// [whole] only rounds SEK: euro and dinar fares are shown to the minor unit.
@@ -38,10 +39,22 @@ String formatMoney(Money money, {bool whole = false}) {
     case 'EUR':
       return '${money.majorString.replaceFirst('.', ',')} €';
     case 'TND':
-      return '${money.majorString.replaceFirst('.', ',')} DT';
+      return '${_dinarText(money.majorString)} DT';
     default:
       return '${money.majorString} ${money.currency}';
   }
+}
+
+/// "1250.000" → "1 250.000" (contract v0.18.59 §81: dot, space thousands).
+String _dinarText(String major) {
+  final negative = major.startsWith('-');
+  final parts = (negative ? major.substring(1) : major).split('.');
+  final grouped = parts.first.replaceAllMapped(
+    RegExp(r'\B(?=(\d{3})+(?!\d))'),
+    (_) => ' ',
+  );
+  final frac = parts.length > 1 ? '.${parts[1]}' : '';
+  return '${negative ? '-' : ''}$grouped$frac';
 }
 
 /// [money] the short way for amounts a rider picks from a row (tips,
