@@ -1,4 +1,5 @@
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
@@ -126,6 +127,23 @@ class RideCompleteController {
   // ride remembered in LastCompletedRide is never shown for it.
   DriverProfile? driver({String? rideId}) => _drivers.current(rideId: rideId);
   TripReceipt? receipt({String? rideId}) => _trips.last(rideId: rideId);
+
+  /// Owner 2026-11-10: [local] with the server receipt's [serverTotal]
+  /// (contract Receipt.total) as the final amount paid, in the zone
+  /// currency. Without a local copy the total still shows (route fields
+  /// empty); without a server total, [local] as it is.
+  TripReceipt? receiptWithServerTotal(TripReceipt? local, Money? serverTotal) {
+    if (serverTotal == null) return local;
+    return TripReceipt(
+      pickup: local?.pickup ?? '',
+      destination: local?.destination ?? '',
+      total: formatMoney(serverTotal),
+      method: local?.method ?? '',
+      endedEarly: local?.endedEarly ?? false,
+      drivenMeters: local?.drivenMeters,
+    );
+  }
+
   String _tripCurrency(String? rideId) =>
       _tripCurrencyOrNull(rideId) ?? Money.defaultCurrency;
 

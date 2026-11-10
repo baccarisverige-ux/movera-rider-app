@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:movera_rider/features/ride_booking/data/driver_repository.dart';
 import 'package:movera_rider/features/ride_complete/application/server_receipt.dart';
-import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/features/ride_complete/domain/ride_dispute_not_served.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
@@ -64,20 +62,9 @@ class _RideCompletedTripDetailState extends State<RideCompletedTripDetail> {
 
   @override
   Widget build(BuildContext context) {
-    final local = (controller ?? AppScope.instance.rideComplete).receipt(
-      rideId: rideId,
-    );
-    final serverTotal = _server?.total;
-    final trip = serverTotal == null
-        ? local
-        : TripReceipt(
-            pickup: local?.pickup ?? '',
-            destination: local?.destination ?? '',
-            total: formatMoney(serverTotal),
-            method: local?.method ?? '',
-            endedEarly: local?.endedEarly ?? false,
-            drivenMeters: local?.drivenMeters,
-          );
+    final ctl = controller ?? AppScope.instance.rideComplete;
+    final local = ctl.receipt(rideId: rideId);
+    final trip = ctl.receiptWithServerTotal(local, _server?.total);
     final hasRoute = local != null;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
