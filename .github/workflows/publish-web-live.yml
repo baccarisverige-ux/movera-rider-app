@@ -1,7 +1,16 @@
 name: Publish Rider Web Live
 
+# Step 43 / plan U8 (owner Q52 "Yes", 2026-11-10): the live rider web is
+# published only after the "CI gate" workflow (.github/workflows/ci.yml) has
+# succeeded on the same commit, the way the driver's deploy-pages.yml and the
+# admin's pages.yml do. A docs-only push to main does not start the CI gate
+# (its paths-ignore), so nothing is republished for it; a docs-only pull
+# request merge that does start it ends green with the heavy jobs skipped and
+# republishes an unchanged app, which is harmless.
 on:
-  push:
+  workflow_run:
+    workflows: ["CI gate"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -9,11 +18,24 @@ permissions:
   contents: read
 
 concurrency:
-  group: movera-rider-pages
+  # Only a successful CI gate of a push to main in this repository (or a manual
+  # run) joins the shared group; a skipped run (pull request, fork, failure)
+  # gets its own group so it cannot cancel a real deployment in progress.
+  group: movera-rider-pages-${{ (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.repository && github.event.workflow_run.head_branch == 'main')) && 'main' || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   publish:
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_repository.full_name == github.repository &&
+          github.event.workflow_run.head_branch == 'main'
+        )
+      }}
     permissions:
       contents: write # Only the generated web-live branch needs a repository write.
       pages: write
@@ -25,6 +47,10 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The exact commit the CI gate tested (empty on workflow_dispatch:
+          # then the default branch head).
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: subosito/flutter-action@v2
         with:

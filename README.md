@@ -55,8 +55,9 @@ run on PRs; `live-rider-browser-audit.yml` and the `android-*.yml` workflows run
 
 ## Web deployment
 
-`.github/workflows/publish-web-live.yml` ("Publish Rider Web Live") builds the live rider on every push to
-`main` and publishes it to GitHub Pages at `https://baccarisverige-ux.github.io/movera-rider-app/live/` (the
+`.github/workflows/publish-web-live.yml` ("Publish Rider Web Live") builds the live rider only after the
+"CI gate" workflow has succeeded on a push to `main` (same commit; a failed gate publishes nothing; a manual
+`workflow_dispatch` run is still possible) and publishes it to GitHub Pages at `https://baccarisverige-ux.github.io/movera-rider-app/live/` (the
 site root redirects there); it reads the `MOVERA_LIVE_API_URL` repository variable (the server, movera-server
 on Render). Pages deployments are serialized by the publish workflow so overlapping updates do not race each
 other.
