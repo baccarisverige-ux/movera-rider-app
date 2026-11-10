@@ -74,6 +74,8 @@
   "bumpConfirm": "Confirmer {amount}",
   "bumpSetNewPrice": "Fixer un nouveau prix",
   "bumpServerConfirms": "Movera confirme votre tarif final après l’augmentation de votre offre.",
+  "raiseOfferEntry": "Augmenter votre offre",
+  "bumpMaxPrice": "Votre offre peut aller jusqu’à {amount}.",
   "driver": "Chauffeur",
   "driverTrips": "Courses",
   "driverRating": "Note",

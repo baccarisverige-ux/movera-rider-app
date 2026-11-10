@@ -1035,6 +1035,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'bumpConfirm': l.bumpConfirm('<amount>'),
   'bumpSetNewPrice': l.bumpSetNewPrice,
   'bumpServerConfirms': l.bumpServerConfirms,
+  'raiseOfferEntry': l.raiseOfferEntry,
+  'bumpMaxPrice': l.bumpMaxPrice('<amount>'),
   'driver': l.driver,
   'driverTrips': l.driverTrips,
   'driverRating': l.driverRating,
@@ -1864,6 +1866,7 @@ const messagePlaceholders = <String, List<String>>{
   'etaLeaveNowName': ['name'],
   'bumpCurrent': ['amount'],
   'bumpConfirm': ['amount'],
+  'bumpMaxPrice': ['amount'],
   'waitingFeeAmount': ['amount'],
   'routePickupTooFar': ['meters'],
   'pickupSpotMetresFromHere': [],
@@ -4007,6 +4010,10 @@ class _Exhaustive implements AppLocalizations {
   String get bumpSetNewPrice => '';
   @override
   String get bumpServerConfirms => '';
+  @override
+  String get raiseOfferEntry => '';
+  @override
+  String bumpMaxPrice(String amount) => '';
   @override
   String get driver => '';
   @override

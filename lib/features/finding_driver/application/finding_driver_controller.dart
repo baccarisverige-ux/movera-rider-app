@@ -154,6 +154,9 @@ class FindingDriverController {
   bool _disposed = false;
   bool _delayedLogged = false;
   bool _bumpDismissed = false;
+
+  /// The rider opened the raise card themself ([openPriceBump]).
+  bool _bumpOpened = false;
   bool _priceUpdated = false;
   bool _editInFlight = false;
   bool _assignmentPending = false;
@@ -262,15 +265,51 @@ class FindingDriverController {
 
   bool get showPriceBump =>
       !noDriverFound &&
-      elapsedSeconds >= priceBumpAfter.inSeconds &&
+      (_bumpOpened ||
+          (elapsedSeconds >= priceBumpAfter.inSeconds && !_bumpDismissed)) &&
       canRaise &&
-      !_bumpDismissed &&
       !_assigned &&
       !_assignmentPending &&
       !_cancelQueued &&
       !_cancelled &&
       !_terminated;
   double get currentPrice => _snapshot?.price ?? 0;
+
+  /// The rider opened the card from "Raise your offer": it shows even over
+  /// the still-looking card.
+  bool get priceBumpOpened => _bumpOpened && showPriceBump;
+
+  /// Owner, live test 2026-10-26: "while search and wait long time can't
+  /// add money". The card showed once, at 45 s, and never again after a
+  /// raise or Keep waiting, and the still-looking card hid it after 3 min.
+  /// While the search runs and the fare is below its ceiling ([canRaise],
+  /// G4-E4) the rider can open it again at any time.
+  bool get canOpenRaise =>
+      !noDriverFound &&
+      !_assigned &&
+      !_assignmentPending &&
+      !_cancelInFlight &&
+      !_cancelQueued &&
+      !_cancelled &&
+      !_terminated &&
+      _snapshot != null &&
+      canRaise;
+
+  /// "Raise your offer" shows while the card is closed.
+  bool get showRaiseEntry => canOpenRaise && !showPriceBump;
+
+  /// The raise card on the search sheet: not under the still-looking card,
+  /// unless the rider opened it themself.
+  bool get showPriceBumpCard =>
+      showPriceBump && (!showStillLooking || priceBumpOpened);
+
+  void openPriceBump() {
+    if (!canOpenRaise) return;
+    _bumpOpened = true;
+    editFeedback = null;
+    _onTick?.call(elapsedSeconds);
+    _reportQa();
+  }
 
   /// Q7: the currency of this trip (its pickup's zone). [currentPrice] and
   /// [maxOfferPrice] are whole units of it.
@@ -449,6 +488,7 @@ class FindingDriverController {
     _disposed = false;
     _delayedLogged = false;
     _bumpDismissed = false;
+    _bumpOpened = false;
     _priceUpdated = false;
     _editInFlight = false;
     _assignmentPending = false;
@@ -809,6 +849,7 @@ class FindingDriverController {
   void dismissPriceBump() {
     if (_terminated) return;
     _bumpDismissed = true;
+    _bumpOpened = false;
     _onTick?.call(elapsedSeconds);
     _reportQa();
   }
