@@ -9,6 +9,7 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/core/config/rider_zones_controller.dart';
 import 'package:movera_rider/features/ride_selection/presentation/checking_area_view.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
@@ -91,6 +92,7 @@ part 'select_ride_quotes.dart';
 part 'select_ride_reveal.dart';
 part 'select_ride_sheet_control.dart';
 part 'select_ride_tiles.dart';
+part 'select_ride_zone_check.dart';
 
 class SelectRide extends StatefulWidget {
   const SelectRide({
@@ -114,6 +116,7 @@ class SelectRide extends StatefulWidget {
     this.selection,
     this.booking,
     this.realtime,
+    this.zones,
     this.pickupAlreadyConfirmed = false,
     this.pickupIsFallback = false,
     this.geocoding,
@@ -195,6 +198,7 @@ class SelectRide extends StatefulWidget {
   final RideSelectionController? selection;
   final BookingController? booking;
   final RideRealtime? realtime;
+  final RiderZonesController? zones;
   final bool pickupAlreadyConfirmed;
 
   /// True when [pickupPosition] is only a default map point because the app
@@ -257,6 +261,8 @@ class _SelectRideState extends State<SelectRide>
   ({BitmapDescriptor right, BitmapDescriptor left})? _carIcons;
   bool _appInForeground = true;
   late final bool _ownsSelection = widget.selection == null;
+  late final RiderZonesController _zones =
+      widget.zones ?? AppScope.instance.zones;
   late final RideSelectionController _selection =
       widget.selection ??
       RideSelectionController(
@@ -322,7 +328,8 @@ class _SelectRideState extends State<SelectRide>
       _pickupPosition.latitude,
       _pickupPosition.longitude,
     ).currency;
-    if (!RiderZones.known) AppScope.instance.zones.addListener(_onZonesKnown);
+    if (RiderZones.known) _zoneRecheck.servedSeen = _pickupServedHere;
+    _zones.addListener(_onZonesChanged);
     _sheetSlide = AnimationController(
       vsync: this,
       duration: MoveraDurations.sheetOpen,
@@ -368,20 +375,8 @@ class _SelectRideState extends State<SelectRide>
     unawaited(_loadZoneConfig());
   }
 
-  /// L-a R1/R3: the server's zones arrived after this screen opened: the
-  /// pickup's zone and currency are known now, so price it again.
-  void _onZonesKnown() {
-    if (!mounted || !RiderZones.known) return;
-    AppScope.instance.zones.removeListener(_onZonesKnown);
-    setState(() {
-      _selection.currency = RiderZones.at(
-        _pickupPosition.latitude,
-        _pickupPosition.longitude,
-      ).currency;
-    });
-    unawaited(_loadQuotes());
-    unawaited(_loadZoneConfig());
-  }
+  /// Owner 2026-11-10: the kept zone list is read again before "not here".
+  final _zoneRecheck = _ZoneRecheck();
 
   /// The pickup zone's config: its payment methods (Q7) and time zone (Q9).
   RiderAppConfig? _zoneConfig;
@@ -584,7 +579,7 @@ class _SelectRideState extends State<SelectRide>
 
   @override
   void dispose() {
-    AppScope.instance.zones.removeListener(_onZonesKnown);
+    _zones.removeListener(_onZonesChanged);
     WidgetsBinding.instance.removeObserver(this);
     _glideTicker?.cancel();
     _nearby.removeListener(_onNearbyCars);
@@ -1142,15 +1137,14 @@ class _SelectRideState extends State<SelectRide>
     // L-a R1/R3 (owner Q5 A): a live build before the server's zones: no
     // sample zone, no price; an error with Retry when the read fails.
     if (!RiderZones.known) {
-      return CheckingAreaView(zones: AppScope.instance.zones);
+      return CheckingAreaView(zones: _zones);
     }
-    // v0.11.0 §21: outside every open zone there is nothing to book.
-    if (_selection.notServed ||
-        !RiderZones.serves(
-          _pickupPosition.latitude,
-          _pickupPosition.longitude,
-        )) {
-      return const NotHereView();
+    // v0.11.0 §21: outside every open zone there is nothing to book. The
+    // server's quote answer is final; a pickup outside the kept list is
+    // checked against a fresh read first (owner 2026-11-10).
+    if (_selection.notServed) return const NotHereView();
+    if (!_pickupServedHere) {
+      return _zoneRecheckGate() ?? const NotHereView();
     }
     final media = MediaQuery.of(context);
     _media = media;
