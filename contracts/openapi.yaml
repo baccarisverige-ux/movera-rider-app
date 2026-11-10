@@ -1,11 +1,11 @@
-# Movera API v0.18.54 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.55 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.54
+  version: 0.18.55
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.54 in this folder; this file must agree with them.
+    v0.18.55 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.54
+  version: 0.18.55
   source: contract.json
 paths:
   /auth/otp/request:
@@ -697,8 +697,13 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
-      description: ' v0.18.7 (contract.json#pickupWaiting.follow): the apps follow the trip on its stream and poll this only
-        while the stream is down, every 10 s (never under 5).'
+      description: 'v0.18.7 (contract.json#pickupWaiting.follow): the apps follow the trip on its stream and poll this only
+        while the stream is down, every 10 s (never under 5). v0.18.55 §77 (owner Q34): Admin callers need trips.read and
+        the trip''s zone in their zones (a Super admin with all zones passes); otherwise 403 forbidden with reason missing_permission
+        or zone_out_of_scope, the same answers as GET/POST /trips/{tripId}/messages with support.reply. This applies to both
+        the JSON poll and the SSE stream of /events. Riders and drivers: unchanged (own trip only). x-permission applies to
+        admins only.'
+      x-permission: trips.read
     patch:
       operationId: updateTrip
       summary: Move the pickup (v0.18.7); route / payment change later
@@ -1056,7 +1061,10 @@ paths:
       operationId: streamTripEvents
       summary: Trip realtime stream (SSE / WebSocket) or JSON replay
       description: 'Resync: GET /trips/{tripId} then GET /trips/{tripId}/events?after={projection.sequence}. Admin uses the
-        same stream for the live map.'
+        same stream for the live map. v0.18.55 §77 (owner Q34): Admin callers need trips.read and the trip''s zone in their
+        zones (a Super admin with all zones passes); otherwise 403 forbidden with reason missing_permission or zone_out_of_scope,
+        the same answers as GET/POST /trips/{tripId}/messages with support.reply. This applies to both the JSON poll and the
+        SSE stream of /events. Riders and drivers: unchanged (own trip only). x-permission applies to admins only.'
       tags:
       - Realtime
       x-actor:
@@ -1101,6 +1109,7 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      x-permission: trips.read
   /trips/{tripId}/pin:
     get:
       operationId: getTripPin

@@ -1,4 +1,6 @@
-# Movera shared contract v0.18.54
+# Movera shared contract v0.18.55
+
+v0.18.55 (owner Q34, 2026-11-10; global plan step 25 / U10; X-Api-Version stays `0.5`; no migration): **`GET /trips/{tripId}` and `GET /trips/{tripId}/events` (poll + SSE): an admin needs `trips.read` + the trip's zone ("*" = all zones)**; `403 forbidden` `missing_permission` / `zone_out_of_scope`, as trip chat. Riders, drivers and the admin panel (which reads `/admin/trips/{id}`) are unchanged. See §77.
 
 v0.18.54 (owner decisions of 2026-11-09, START-HERE steps 35–37, Q40 « Yes, now », Q41 « Yes, logged », Rules `plan/MASKING-INVENTORY-2026-11-09.md`; X-Api-Version stays `0.5`; no migration): **admin answers mask a rider's or driver's `phone`, `email` and `dateOfBirth` and a fleet's `ownerEmail`** unless the admin has `riders.viewSensitive` (riders) / `drivers.viewSensitive` (drivers, fleets): `+46•••••12`, `a•••@example.com`, `1990`, with `sensitiveMasked: true` on the object; **Reveal with a reason** (new `POST /admin/riders/{riderId}/reveal`, `/admin/drivers/{driverId}/reveal`, `/admin/fleets/{fleetId}/reveal` `{ reason }`, audited `rider.reveal` / `driver.reveal` / `fleet.reveal` without the values); **one SOS reveal of both numbers** (`POST /admin/incidents/{incidentId}/reveal-contacts`, open case only, audited `incident.reveal_contacts`); `GET /admin/refunds/payouts` stays full for `finance.read` but every read is audited `refunds.payouts_viewed { count }`; positions, emergency contacts and the trip reveal-contact are unchanged; own profiles never masked (rider and driver apps: no change). §76.
 
@@ -1427,3 +1429,11 @@ Owner decisions of 2026-11-09 (START-HERE steps 35–37: Q40 "Yes, now", Q41 "Ye
 - **SOS reveal (Q41)**: `POST /admin/incidents/{incidentId}/reveal-contacts { reason? }` → `{ incidentId, rider: { phone } | null, driver: { phone } | null, revealedAt }`: `incidents.read`, the incident's zone in the admin's zones, and the incident OPEN (status `open` or `investigating`; else 409 `invalid_transition`, reason `incident_closed`); `reason` defaults to `"SOS"` when omitted; ONE audit row `incident.reveal_contacts` `{ reason }`. The safety role (which has `riders.viewSensitive` but no `drivers.viewSensitive`) can thus call the driver in an SOS; one click on an open SOS reveals both numbers. `null` for a side the incident has no account for; a driver record without a phone answers `driver: { phone: null }`.
 - **Export**: there is no CSV / export route today; a future export follows the same masking and the same rights.
 - **Order / apps (Rule 0)**: contract → admin (accepts both full and masked values in every people view; shows Reveal with a reason dialog on `sensitiveMasked`; one click on an open SOS case reveals both numbers) → server (masks in the admin projections, adds the four routes and the `refunds.payouts_viewed` audit row). Rider and driver apps: no change needed (own profiles stay full).
+
+## 77. Admin reads of a trip need trips.read and the trip's zone (v0.18.55)
+
+Owner Q34 (2026-11-10; global plan step 25 / U10). X-Api-Version stays `0.5`; no migration.
+
+- **Rule**: on `GET /trips/{tripId}` and `GET /trips/{tripId}/events` (the JSON poll and the SSE stream), an ADMIN caller needs `trips.read` (`x-permission`) and the trip's zone in the admin's zones (`"*"` = all zones; a Super admin passes). Otherwise `403 forbidden` with reason `missing_permission` or `zone_out_of_scope` — the same answers as `GET/POST /trips/{tripId}/messages` with `support.reply` (§23).
+- **Unchanged**: riders and drivers (own trip only); the admin panel, which reads `/admin/trips/{id}`.
+- **Order / apps (Rule 0)**: contract → server (checks the right and zone on both routes) → admin (no change; already reads `/admin/trips/{id}`) → driver and rider apps (no change; copy the contract).
