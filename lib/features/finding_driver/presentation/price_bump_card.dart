@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
@@ -473,6 +474,53 @@ class _Step extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 color: selected ? Colors.white : MoveraTokens.ink,
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Raise your offer" on the search sheet while the raise card is closed
+/// (owner, live test 2026-10-26: "while search and wait long time can't add
+/// money"). Opens the card again through [FindingDriverController.openPriceBump].
+class RaiseOfferEntry extends StatelessWidget {
+  const RaiseOfferEntry({
+    super.key,
+    required this.controller,
+    required this.onOpened,
+  });
+
+  final FindingDriverController controller;
+  final VoidCallback onOpened;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: OutlinedButton.icon(
+          key: const ValueKey('raise-offer-entry'),
+          onPressed: () {
+            controller.openPriceBump();
+            onOpened();
+          },
+          icon: const Icon(Icons.trending_up_rounded, size: 20),
+          label: Text(
+            context.l10n.raiseOfferEntry,
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600,
+              fontSize: 14.5,
+            ),
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: MoveraTokens.ink,
+            side: const BorderSide(color: MoveraTokens.line),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
             ),
           ),
         ),

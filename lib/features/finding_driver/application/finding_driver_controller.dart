@@ -298,6 +298,11 @@ class FindingDriverController {
   /// "Raise your offer" shows while the card is closed.
   bool get showRaiseEntry => canOpenRaise && !showPriceBump;
 
+  /// The raise card on the search sheet: not under the still-looking card,
+  /// unless the rider opened it themself.
+  bool get showPriceBumpCard =>
+      showPriceBump && (!showStillLooking || priceBumpOpened);
+
   void openPriceBump() {
     if (!canOpenRaise) return;
     _bumpOpened = true;
