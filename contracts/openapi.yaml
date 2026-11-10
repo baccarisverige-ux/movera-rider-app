@@ -1,11 +1,11 @@
-# Movera API v0.18.57 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.59 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.57
+  version: 0.18.59
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.57 in this folder; this file must agree with them.
+    v0.18.59 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.57
+  version: 0.18.59
   source: contract.json
 paths:
   /auth/otp/request:
@@ -26031,7 +26031,11 @@ components:
           description: The driver's part of total (TripProjection.driverEarnings after complete).
         earlyEnd:
           type: boolean
-          description: 'The driver is farther than 300 m from the drop-off: priced as what was driven (owner decision 28).'
+          description: 'v0.18.58 §80: POST /trips/{tripId}/complete and GET /driver/trips/{tripId}/complete-preview: with
+            the driver''s latest fix within the limit (or no fix) the trip is a normal finish (booked fare + stop waiting,
+            endedEarly false, drop-off airport fee charged); farther than the limit it is the driver early end as before (finish.earlyEnd.driver,
+            repriceOverKm / repriceOverMin unchanged). The limit is kept at booking time in bookingSnapshot.earlyEnd; a trip
+            booked before v0.18.58 uses 300 / 1000.'
         fareLines:
           type: array
           items:
@@ -26067,6 +26071,16 @@ components:
         shortMin:
           type: number
           description: 'v0.18.10: booked minutes − minutes on board (early end only).'
+        arrivedLimitMeters:
+          type: integer
+          minimum: 0
+          description: 'v0.18.58 §80: CompletePreview.earlyEnd details gain arrivedLimitMeters (the limit used) and distanceToDropoffMeters
+            (from the latest fix, absent with no fix), so the driver app can say why; TripProjection.finish unchanged.'
+        distanceToDropoffMeters:
+          type: integer
+          minimum: 0
+          description: 'v0.18.58 §80: CompletePreview.earlyEnd details gain arrivedLimitMeters (the limit used) and distanceToDropoffMeters
+            (from the latest fix, absent with no fix), so the driver app can say why; TripProjection.finish unchanged.'
       additionalProperties: false
     RouteRequest:
       type: object
@@ -32337,6 +32351,29 @@ components:
           minimum: 0
           maximum: 120
           default: 10
+        arrivedWithinMeters:
+          type: integer
+          minimum: 50
+          maximum: 2000
+          description: 'v0.18.58 §80: DriverAppConfig.cancelFees.earlyEnd gains arrivedWithinMeters (default 300, 50-2000)
+            and airportArrivedWithinMeters (default 1000, 100-3000). A value outside its range, or airportArrivedWithinMeters
+            below arrivedWithinMeters, is 400 invalid_request, reason invalid_arrived_distance on PUT / publish. POST /trips/{tripId}/complete
+            and GET /driver/trips/{tripId}/complete-preview: with the driver''s latest fix within the limit (or no fix) the
+            trip is a normal finish (booked fare + stop waiting, endedEarly false, drop-off airport fee charged); farther
+            than the limit it is the driver early end as before (finish.earlyEnd.driver, repriceOverKm / repriceOverMin unchanged).
+            The limit is kept at booking time in bookingSnapshot.earlyEnd; a trip booked before v0.18.58 uses 300 / 1000.'
+          default: 300
+        airportArrivedWithinMeters:
+          type: integer
+          minimum: 100
+          maximum: 3000
+          description: 'v0.18.58 §80: DriverAppConfig.cancelFees.earlyEnd gains arrivedWithinMeters (default 300, 50-2000)
+            and airportArrivedWithinMeters (default 1000, 100-3000). A value outside its range, or airportArrivedWithinMeters
+            below arrivedWithinMeters, is 400 invalid_request, reason invalid_arrived_distance on PUT / publish. The airport
+            value is used when the trip''s drop-off lies inside a zone of kind airport (Zone.kind airport, the same lookup
+            as fees.airportDropoff in pricing.requestExtras.airport). Otherwise arrivedWithinMeters. The setting is read from
+            the trip''s priced zone (the pickup zone), not from the airport zone.'
+          default: 1000
     TipRules:
       type: object
       description: 'v0.18.10: RiderAppConfig.tipRules { cashAfterTrip (default false), cashInCarMinutes (default 5, 0–60),

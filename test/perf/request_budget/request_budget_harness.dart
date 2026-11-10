@@ -261,7 +261,8 @@ void _enter(
       final rt = ApiRideRealtime(api: api);
       final sub = rt.subscribe(tripId).listen((RideRealtimeEvent _) {});
       stops.add(() => unawaited(sub.cancel()));
-      // waiting_for_driver.dart: the unread badge poll on the trip screen
+      // waiting_for_driver.dart: the chat page read once on the trip screen
+      // (v0.18.56 §78: the badge then follows the trip stream)
       // (Waiting covers arriving and the trip itself).
       if (state == RiderState.driverArriving ||
           state == RiderState.onTrip ||
@@ -269,7 +270,8 @@ void _enter(
         final messages = MessagesController.forRide(
           tripId,
           transport: ApiTripMessages(api: api),
-        )..startPolling(MessagesController.tripPollInterval);
+        );
+        unawaited(messages.refresh());
         stops.add(messages.dispose);
       }
     case RiderState.background:

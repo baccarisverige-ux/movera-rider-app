@@ -9,5 +9,11 @@
   "callEnd": "Avsluta",
   "callMute": "Ljud av",
   "callSpeaker": "Högtalare",
-  "callEnded": "Samtalet avslutat"
+  "callEnded": "Samtalet avslutat",
+  "chatHeaderLine": "Problem? Använd Support eller SOS",
+  "chatTranslate": "Översätt till svenska",
+  "chatSeeOriginal": "Visa original",
+  "chatTranslationComingSoon": "Översättning kommer snart",
+  "chatTranslateFailed": "Kunde inte översätta meddelandet",
+  "chatQuickReplies": "Snabbsvar"
 }

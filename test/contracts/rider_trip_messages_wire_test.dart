@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -13,8 +14,8 @@ import 'package:movera_rider/features/messages/domain/messages.dart';
 
 /// Contract v0.5.4: on the live wire the trip chat is
 /// `POST /trips/{tripId}/messages { text }` (answer: the `Message`) and
-/// `GET /trips/{tripId}/messages` (a `MessagePage`), polled because the
-/// live transport never reads the event stream.
+/// `GET /trips/{tripId}/messages` (a `MessagePage`), read once; v0.18.56
+/// §78: later messages come from the trip stream, nothing polls.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -169,7 +170,7 @@ void main() {
     }
   }
 
-  testWidgets('polling lists /trips/{id}/messages on the interval, merges '
+  testWidgets('a read lists /trips/{id}/messages once (no poll), merges '
       'by messageId and counts driver and support messages unread', (
     tester,
   ) async {
@@ -204,10 +205,10 @@ void main() {
       rideId: 'trp_1',
     );
 
-    controller.startPolling(MessagesController.chatPollInterval);
+    unawaited(controller.refresh());
     await settle(tester);
 
-    // The first listing happens at once.
+    // One listing (v0.18.56 §78: once, then the trip stream).
     expect(requests, hasLength(1));
     expect(requests.single.method, 'GET');
     expect(requests.single.url.path, '/api/v1/trips/trp_1/messages');
@@ -217,7 +218,7 @@ void main() {
     expect(controller.messages.map((m) => m.text), ['I am outside']);
     expect(controller.unreadCount, 1);
 
-    await tester.pump(MessagesController.chatPollInterval);
+    unawaited(controller.refresh());
     await settle(tester);
     expect(requests, hasLength(2));
     expect(controller.messages.map((m) => m.messageId), ['msg_1', 'msg_2']);
@@ -225,7 +226,7 @@ void main() {
     expect(controller.unreadCount, 2);
 
     // The same listing again adds nothing twice.
-    await tester.pump(MessagesController.chatPollInterval);
+    unawaited(controller.refresh());
     await settle(tester);
     expect(requests, hasLength(3));
     expect(controller.messages, hasLength(2));
@@ -233,7 +234,7 @@ void main() {
     controller.markAllRead();
     expect(controller.unreadCount, 0);
 
-    controller.stopPolling();
+    // Nothing polls on its own.
     await tester.pump(const Duration(seconds: 30));
     expect(requests, hasLength(3));
     controller.dispose();
@@ -331,7 +332,6 @@ void main() {
     expect(controller.canSendMessages, isFalse);
     expect(controller.send('Hello'), isFalse);
     expect(controller.messages, isEmpty);
-    controller.startPolling(MessagesController.chatPollInterval);
-    expect(controller.isPolling, isFalse);
+    expect(controller.options.shownQuickReplies, isEmpty);
   });
 }

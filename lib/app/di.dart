@@ -56,6 +56,7 @@ import 'package:movera_rider/features/onboarding/application/onboarding_controll
 import 'package:movera_rider/features/history/data/ride_history_repositories.dart';
 import 'package:movera_rider/features/history/domain/ride_history_repository.dart';
 import 'package:movera_rider/features/messages/data/api_trip_call.dart';
+import 'package:movera_rider/features/messages/application/messages_controller.dart';
 import 'package:movera_rider/features/messages/data/api_trip_messages.dart';
 import 'package:movera_rider/features/messages/data/messages_repository.dart';
 import 'package:movera_rider/features/driver_arriving/application/driver_photo.dart';
@@ -507,8 +508,15 @@ class AppScope {
   /// live wire. The demo's mock transport has no chat server, so there it
   /// is null and Chat stays read-only as before.
   late final TripMessagesTransport? tripMessages = api.contractWire
-      ? ApiTripMessages(api: api)
+      ? _withChatStream(ApiTripMessages(api: api))
       : null;
+
+  /// v0.18.56 §78 `chat.stream`: the trip stream's `message` events feed
+  /// the chat and its unread badge (the 3 s / 10 s polls are gone).
+  static ApiTripMessages _withChatStream(ApiTripMessages transport) {
+    RideMessageEvents.sink = MessagesController.ingestStreamMessage;
+    return transport;
+  }
 
   /// Contract v0.13.0 §22: masked calls (`POST /trips/{tripId}/call`) on
   /// the live wire; the demo has none and says calls are not available.

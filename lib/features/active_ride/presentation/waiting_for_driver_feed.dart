@@ -86,9 +86,8 @@ extension _WaitingFeed on _WaitingForDriverState {
       }
       return;
     }
-    // The chat ends with the trip: no more polling for its messages.
+    // The chat ends with the trip.
     if (status.isTerminal || status.isCompletedSurface) {
-      _messages?.stopPolling();
       // Contract v0.13.0 §22: the chat closes at drop-off.
       MessagesController.closeRide(_rideId ?? '');
     }

@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.57",
+  "version": "0.18.59",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -1094,7 +1094,9 @@
         "SE": "sv",
         "FR": "fr"
       },
-      "fallback": "en"
+      "fallback": "en",
+      "countryDefaultUnused": "v0.18.59 §82 (owner 2026-11-10 'Use phone language'): countryDefault is no longer read (kept, Rule 21). The first language is the phone language when it is sv, fr or en, otherwise en; a choice saved on the phone still wins.",
+      "rule": "v0.18.59 §82: savedChoice ?? (phoneLanguage in supported ? phoneLanguage : fallback). After sign-in the account language (profile.language) is applied only when the person picked one; the server stores null for new accounts and leaves language out of the profile until it is set, so it never forces a default sv."
     },
     "beforeSignIn": {
       "note": "v0.18.2 (owner 2026-10-30, 'Yes, stop it (Recommended)'): with no stored session the apps call only endpoints that need no bearer token; config, config stream, zones, content and profile load right after sign-in. A 401 is never retried in a loop and is not sent as an error report. v0.18.5 (G1-B2): GET /legal/{country} needs no token, so the terms and privacy policy open from the sign-in screen.",
@@ -3683,7 +3685,9 @@
     },
     "earlyEnd": {
       "repriceOverKm": 2,
-      "repriceOverMin": 10
+      "repriceOverMin": 10,
+      "arrivedWithinMeters": 300,
+      "airportArrivedWithinMeters": 1000
     },
     "onTripOffers": {
       "minRouteDonePct": 70,
@@ -6985,6 +6989,14 @@
           "repriceOverMin": [
             0,
             120
+          ],
+          "arrivedWithinMeters": [
+            50,
+            2000
+          ],
+          "airportArrivedWithinMeters": [
+            100,
+            3000
           ]
         }
       },
@@ -8820,5 +8832,64 @@
         "en": "Emergency numbers"
       }
     }
+  },
+  "arrivedDistance": {
+    "note": "v0.18.58 (CONTRACT.md §80, owner 2026-11-10, Rule 0): a Tunis trip was marked \"Terminée plus tôt\" when the driver completed ~940 m from the airport drop pin. The fixed pricing.completeNearDropoffMeters (300) becomes a per-zone admin setting with a larger value for airport drop-offs. Additive; X-Api-Version stays 0.5; no contract migration.",
+    "fields": "DriverAppConfig.cancelFees.earlyEnd gains arrivedWithinMeters (default 300, 50-2000) and airportArrivedWithinMeters (default 1000, 100-3000). A value outside its range, or airportArrivedWithinMeters below arrivedWithinMeters, is 400 invalid_request, reason invalid_arrived_distance on PUT / publish.",
+    "where": "Admin › Cancellation › Ended early, per zone or the country standard (same place as repriceOverKm / repriceOverMin): \"Counts as arrived within (m)\" and \"At an airport: counts as arrived within (m)\". Published with the driver document (settings.edit / settings.publish).",
+    "airport": "The airport value is used when the trip's drop-off lies inside a zone of kind airport (Zone.kind airport, the same lookup as fees.airportDropoff in pricing.requestExtras.airport). Otherwise arrivedWithinMeters. The setting is read from the trip's priced zone (the pickup zone), not from the airport zone.",
+    "rule": "POST /trips/{tripId}/complete and GET /driver/trips/{tripId}/complete-preview: with the driver's latest fix within the limit (or no fix) the trip is a normal finish (booked fare + stop waiting, endedEarly false, drop-off airport fee charged); farther than the limit it is the driver early end as before (finish.earlyEnd.driver, repriceOverKm / repriceOverMin unchanged). The limit is kept at booking time in bookingSnapshot.earlyEnd; a trip booked before v0.18.58 uses 300 / 1000.",
+    "replaces": "pricing.completeNearDropoffMeters (300) stays in the file as the old fixed value and the fallback of arrivedWithinMeters (Rule 21); the server no longer reads it directly.",
+    "projection": "CompletePreview.earlyEnd details gain arrivedLimitMeters (the limit used) and distanceToDropoffMeters (from the latest fix, absent with no fix), so the driver app can say why; TripProjection.finish unchanged.",
+    "pastTrips": "Trips already ended early are not changed; support corrects one with the existing admin tools (driver pay change, refund).",
+    "texts": {
+      "adminArrived": {
+        "sv": "Räknas som framme inom (m)",
+        "fr": "Compte comme arrivé à moins de (m)",
+        "en": "Counts as arrived within (m)"
+      },
+      "adminAirport": {
+        "sv": "Vid flygplats: räknas som framme inom (m)",
+        "fr": "À l’aéroport : compte comme arrivé à moins de (m)",
+        "en": "At an airport: counts as arrived within (m)"
+      },
+      "driverFar": {
+        "sv": "Du är {m} m från destinationen – resan avslutas tidigt",
+        "fr": "Vous êtes à {m} m de la destination – la course se termine plus tôt",
+        "en": "You are {m} m from the destination – the trip ends early"
+      }
+    }
+  },
+  "moneyDisplay": {
+    "note": "v0.18.59 §81 (owner 2026-11-10, Rule 0): how amounts are written in every app, admin page and server text (push, SMS, receipt, e-mail).",
+    "formats": {
+      "TND": {
+        "decimalSign": ".",
+        "thousandsSeparator": " ",
+        "decimals": 3,
+        "pattern": "{amount} DT",
+        "examples": {
+          "12350": "12.350 DT",
+          "1250000": "1 250.000 DT"
+        }
+      },
+      "SEK": {
+        "decimalSign": ",",
+        "decimals": 2,
+        "pattern": "{amount} kr",
+        "examples": {
+          "12675": "126,75 kr"
+        }
+      },
+      "EUR": {
+        "decimalSign": ",",
+        "decimals": 2,
+        "pattern": "{amount} €",
+        "examples": {
+          "741": "7,41 €"
+        }
+      }
+    },
+    "rule": "The format follows the currency, not the app language: a TND amount is always 12.350 DT (dot, 3 decimals, space between thousands), also in French or Swedish. SEK and EUR keep the comma and are unchanged. Amounts on the wire stay integer minor units (currencies.*.exponent)."
   }
 }

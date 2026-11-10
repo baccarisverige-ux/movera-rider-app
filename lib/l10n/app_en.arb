@@ -338,6 +338,30 @@
   "@callEnded": {
     "description": "v0.18.38 §62 in-app call screen (fix job 8)."
   },
+  "chatHeaderLine": "Problem? Use Support or SOS",
+  "@chatHeaderLine": {
+    "description": "v0.18.56 §78 Q81: one line in the chat header; no report/block button."
+  },
+  "chatTranslate": "Translate to English",
+  "@chatTranslate": {
+    "description": "v0.18.56 §78: link under a message; the target is the rider's own app language (so each language names itself)."
+  },
+  "chatSeeOriginal": "See original",
+  "@chatSeeOriginal": {
+    "description": "v0.18.56 §78: link under a translated message, back to the text as written."
+  },
+  "chatTranslationComingSoon": "Translation coming soon",
+  "@chatTranslationComingSoon": {
+    "description": "v0.18.56 §78: the server has no translation provider yet (503 coming_soon)."
+  },
+  "chatTranslateFailed": "Couldn't translate this message",
+  "@chatTranslateFailed": {
+    "description": "v0.18.56 §78: any other translate failure."
+  },
+  "chatQuickReplies": "Quick replies",
+  "@chatQuickReplies": {
+    "description": "v0.18.56 §78: semantics label of the quick-reply chips row."
+  },
   "cancelRide": "Cancel ride",
   "cancelReasonPickupIncorrect": "Pickup point is incorrect",
   "cancelReasonWrongRideOption": "I chose the wrong ride option",

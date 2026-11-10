@@ -201,7 +201,9 @@
     "driverSharePct": 100,
     "earlyEnd": {
       "repriceOverKm": 2,
-      "repriceOverMin": 10
+      "repriceOverMin": 10,
+      "arrivedWithinMeters": 300,
+      "airportArrivedWithinMeters": 1000
     }
   },
   "waiting": {

@@ -1,12 +1,14 @@
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
+import 'package:movera_rider/features/messages/domain/chat_options.dart';
 import 'package:movera_rider/features/messages/domain/messages.dart';
 import 'package:movera_rider/features/messages/domain/trip_messages_transport.dart';
 
 /// The trip chat on the contract wire (openapi.yaml v0.5.4,
 /// `sendTripMessage` / `listTripMessages`). Composed only where
 /// [ApiClient.contractWire] is true.
-class ApiTripMessages implements TripMessagesTransport {
+class ApiTripMessages implements TripMessagesTransport, TripChatExtras {
   ApiTripMessages({
     required ApiClient api,
     this.pageSize = 50,
@@ -42,6 +44,56 @@ class ApiTripMessages implements TripMessagesTransport {
       throw const FormatException('Missing message in the send response');
     }
     return message;
+  }
+
+  @override
+  Future<ChatOptions> options(String tripId) async {
+    final json = await _api.get('${_path(tripId)}/options');
+    return ChatOptions.fromJson(json);
+  }
+
+  @override
+  Future<ChatMessage> sendQuickReply(
+    String tripId,
+    ChatQuickReply reply,
+    String text, {
+    required String idempotencyKey,
+  }) async {
+    // v0.18.56 §78: the server writes the chip in the reader's language.
+    final json = await _api.post(
+      _path(tripId),
+      body: {'text': text, 'quickReplyId': reply.id},
+      idempotencyKey: idempotencyKey,
+    );
+    final message = ChatMessageWire.fromJson(json);
+    if (message == null) {
+      throw const FormatException('Missing message in the send response');
+    }
+    return message;
+  }
+
+  @override
+  Future<ChatTranslation> translate(
+    String tripId,
+    String messageId,
+    String to,
+  ) async {
+    try {
+      final json = await _api.post(
+        '${_path(tripId)}/translate',
+        body: {'messageId': messageId, 'to': to},
+      );
+      final text = json['text'];
+      return text is String && text.isNotEmpty
+          ? ChatTranslated(text)
+          : const ChatTranslationFailed();
+    } on ApiError catch (error) {
+      // 503 unavailable, reason coming_soon: no provider yet.
+      if (error.statusCode == 503 || error.detail == 'coming_soon') {
+        return const ChatTranslationComingSoon();
+      }
+      return const ChatTranslationFailed();
+    }
   }
 
   @override
@@ -102,6 +154,10 @@ abstract final class ChatMessageWire {
       // The rider's own messages come back read; an inbound one is unread
       // until a screen shows it.
       readAt: sender == ChatMessageSender.rider ? at : null,
+      quickReplyId: json['quickReplyId'] is String
+          ? json['quickReplyId'] as String
+          : null,
+      auto: json['auto'] is String ? json['auto'] as String : null,
     );
   }
 }
