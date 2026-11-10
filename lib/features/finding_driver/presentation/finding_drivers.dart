@@ -1399,7 +1399,10 @@ class _FindingDriversState extends State<FindingDrivers> {
             ),
           ],
           if (_match.showRaiseEntry)
-            RaiseOfferEntry(controller: _match, onOpened: () => setState(() {})),
+            RaiseOfferEntry(
+              controller: _match,
+              onOpened: () => setState(() {}),
+            ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.fromLTRB(16, 14, 10, 14),

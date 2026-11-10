@@ -43,11 +43,16 @@ class _TooHigh extends InProcessMockClient {
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     if (request.method == 'PATCH' && request.url.path == '/api/v1/rides/r1') {
       return http.StreamedResponse(
-        Stream.value(utf8.encode(jsonEncode({
-          'code': 'invalid_request',
-          'message': 'The fare can be raised to at most 2 times the quoted price.',
-          'reason': 'raise_too_high',
-        }))),
+        Stream.value(
+          utf8.encode(
+            jsonEncode({
+              'code': 'invalid_request',
+              'message':
+                  'The fare can be raised to at most 2 times the quoted price.',
+              'reason': 'raise_too_high',
+            }),
+          ),
+        ),
         400,
         headers: {'content-type': 'application/json'},
       );
@@ -145,14 +150,16 @@ void main() {
     expect(controller.priceBumpOpened, isFalse);
   });
 
-  test('a raise the server refuses as too high says so (G4-E4 text)',
-      () async {
+  test('a raise the server refuses as too high says so (G4-E4 text)', () async {
     final controller = started(_TooHigh());
     controller.debugAdvance(45);
     expect(await controller.confirmPriceIncrease(20), isFalse);
     expect(controller.editFeedback, startsWith('That’s more than the highest'));
-    expect(controller.showRaiseEntry, isFalse,
-        reason: 'the card stays open for a lower amount');
+    expect(
+      controller.showRaiseEntry,
+      isFalse,
+      reason: 'the card stays open for a lower amount',
+    );
   });
 
   // G4-E4 (owner 2026-10-30): a step above the ceiling is hidden, not
@@ -160,19 +167,21 @@ void main() {
   // most it can be.
   testWidgets('a step above the ceiling is hidden and a typed total '
       'above it says the most it can be', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: SingleChildScrollView(
-          child: PriceBumpCard(
-            currentPrice: 147,
-            maxPrice: 265,
-            steps: const [20, 50, 100, 200],
-            onConfirm: (_) {},
-            onKeepWaiting: () {},
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: PriceBumpCard(
+              currentPrice: 147,
+              maxPrice: 265,
+              steps: const [20, 50, 100, 200],
+              onConfirm: (_) {},
+              onKeepWaiting: () {},
+            ),
           ),
         ),
       ),
-    ));
+    );
     expect(find.text('+200 kr'), findsNothing);
     expect(find.byKey(const ValueKey('price-bump-max')), findsNothing);
 
