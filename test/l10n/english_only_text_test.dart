@@ -34,6 +34,15 @@ const _dataFiles = {
 };
 
 const _allowed = <String, Set<String>>{
+  'contract v0.18.57 §79 texts kept in sv, fr and en and picked by the '
+      'phone language (lib/core/config/emergency_numbers.dart)': {
+    'Ring {label} {number}',
+    'Appeler {label} {number}',
+    'Call {label} {number}',
+    'Nödnummer',
+    'Numéro d’urgence',
+    'Emergency number',
+  },
   'restart diagnostic, never shown: a crash-report message and DOM tag '
       'names (lib/core/*/restart_watch*.dart)': {
     'flutter-view, flt-glass-pane',
