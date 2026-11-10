@@ -28,7 +28,7 @@ Never commit Maps API keys. Android reads `MAPS_API_KEY` from a Gradle property 
 
 ## Contract copy
 
-`contracts/` is the byte-for-byte copy of the shared contract (version **0.18.54**). Never edit it by hand
+`contracts/` is the byte-for-byte copy of the shared contract (version **0.18.55**). Never edit it by hand
 (Rule 43(4)). After a contract merge run `tool/sync_contract.sh v<version>` and commit `contracts/` exactly as
 it comes out. `.github/workflows/contract-copy.yml` runs `tool/check_contract_copy.sh` on every PR and push and
 once a day opens or closes the issue "Contract copy behind movera-contracts main".
