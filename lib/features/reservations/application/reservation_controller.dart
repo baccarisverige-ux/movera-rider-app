@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/config/live_data_only.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/core/contracts/cancel_fee.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/repository_authority.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
@@ -90,7 +91,9 @@ class ReservationController extends ChangeNotifier {
     if (source == null) return;
     try {
       final next = await source.fetch();
-      if (next == null || next == _rules) return;
+      if (next == null) return;
+      _rulesServed = true;
+      if (next == _rules) return;
       _rules = next;
       notifyListeners();
     } catch (error, stackTrace) {
@@ -121,14 +124,28 @@ class ReservationController extends ChangeNotifier {
 
   /// What cancelling [ride] costs the rider right now: the zone's rule for
   /// the ride's category when the config has one (X3), else [rules].
-  ReservationCancelTerms cancelTermsFor(Reservation ride, {DateTime? now}) =>
-      _rules.cancelTermsFor(
-        ride,
-        now ?? _clock(),
-        categoryRule: _configFor(
-          ride.currency,
-        )?.reservationFeeFor(ride.categoryId),
-      );
+  ReservationCancelTerms cancelTermsFor(Reservation ride, {DateTime? now}) {
+    final rule = _configFor(ride.currency)?.reservationFeeFor(ride.categoryId);
+    return _rules.cancelTermsFor(
+      ride,
+      now ?? _clock(),
+      // Owner 2026-11-10 (R10 #3 "Server values only"): on a live build,
+      // before the server's rules are read and without a server fee row,
+      // the built-in default fee is never charged: no fee line.
+      categoryRule:
+          rule ??
+          (LiveDataOnly.on && !_rulesServed
+              ? FeeRule(
+                  freeMin: _rules.freeCancelMinutesBeforePickup,
+                  type: FeeType.fixed,
+                  value: 0,
+                )
+              : null),
+    );
+  }
+
+  /// Whether [_rules] were read from a rules source (the server) at least once.
+  bool _rulesServed = false;
 
   /// Q7: the config of the ride's own zone: the loaded one when it is in
   /// the ride's currency, else the seed of the zone with that currency.

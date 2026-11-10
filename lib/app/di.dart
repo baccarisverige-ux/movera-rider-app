@@ -238,12 +238,14 @@ class AppScope {
       // route.
       rulesSource: flags.scheduledRides || flags.bookingLater
           ? (api.contractWire
-                ? ConfigScheduledRideRulesSource(() => riderConfig.current())
+                ? ConfigScheduledRideRulesSource(_servedConfig)
                 : ApiScheduledRideRulesSource(api))
           : null,
       // X3: reservation cancel fees per category from the rider config.
-      config: SeedRiderConfigRepository.seed,
-      configLoader: () => riderConfig.current(),
+      // Owner 2026-11-10 (R10 #3): on the live wire only the server's
+      // document (never the built-in sample); the demo keeps the seed.
+      config: api.contractWire ? null : SeedRiderConfigRepository.seed,
+      configLoader: _servedConfig,
     );
     // FLOW-7: the name, language and consents go to the server; the device
     // copy is the cache. With the mock transport the in-process mock

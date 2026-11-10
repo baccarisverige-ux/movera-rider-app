@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/config/live_data_only.dart';
 import 'package:movera_rider/core/contracts/cancel_fee.dart';
 import 'package:movera_rider/core/contracts/cancel_reasons.dart';
 import 'package:movera_rider/core/contracts/category_ids.dart';
@@ -332,7 +333,12 @@ class RiderAppConfig {
     final fees = raw['cancelFees'];
     Map<String, FeeRule> table(String name, Map<String, FeeRule> seed) {
       final rows = fees is Map ? fees[name] : null;
-      final out = Map<String, FeeRule>.of(seed);
+      // Owner 2026-11-10 (R10 #2 "Server values only"): a live build keeps
+      // only the rows the server sent; the built-in sample rows fill the
+      // gaps for the demo alone.
+      final out = LiveDataOnly.on
+          ? <String, FeeRule>{}
+          : Map<String, FeeRule>.of(seed);
       if (rows is Map) {
         for (final entry in rows.entries) {
           final id = CategoryIds.tryCanonical(entry.key);
