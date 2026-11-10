@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/features/ride_booking/data/driver_repository.dart';
+import 'package:movera_rider/features/ride_complete/application/server_receipt.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/features/ride_complete/domain/ride_dispute_not_served.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
@@ -15,17 +18,67 @@ import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/widgets/keyboard_anchor.dart';
 import 'package:movera_rider/features/ride_complete/presentation/server_receipt_lines.dart';
 
-class RideCompletedTripDetail extends StatelessWidget {
-  const RideCompletedTripDetail({super.key, this.controller, this.rideId});
+class RideCompletedTripDetail extends StatefulWidget {
+  const RideCompletedTripDetail({
+    super.key,
+    this.controller,
+    this.rideId,
+    this.receiptLoader,
+  });
 
   final RideCompleteController? controller;
   final String? rideId;
 
+  /// Reads the server's receipt (`GET /trips/{tripId}/receipt`); tests
+  /// inject one. Defaults to [ServerReceipt.load].
+  final Future<ServerReceipt?> Function(String rideId)? receiptLoader;
+
+  @override
+  State<RideCompletedTripDetail> createState() =>
+      _RideCompletedTripDetailState();
+}
+
+class _RideCompletedTripDetailState extends State<RideCompletedTripDetail> {
+  /// Owner 2026-11-10: the summary always shows the amount paid. The
+  /// server's receipt `total` (contract Receipt.total, zone currency) is
+  /// the final amount; the phone's booked price is only a stand-in until
+  /// it is read, and the only amount when there is no local copy at all.
+  ServerReceipt? _server;
+
+  RideCompleteController? get controller => widget.controller;
+  String? get rideId => widget.rideId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReceipt();
+  }
+
+  Future<void> _loadReceipt() async {
+    final id = rideId?.trim();
+    if (id == null || id.isEmpty) return;
+    final receipt = await (widget.receiptLoader ?? ServerReceipt.load)(id);
+    if (!mounted || receipt == null) return;
+    setState(() => _server = receipt);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final trip = (controller ?? AppScope.instance.rideComplete).receipt(
+    final local = (controller ?? AppScope.instance.rideComplete).receipt(
       rideId: rideId,
     );
+    final serverTotal = _server?.total;
+    final trip = serverTotal == null
+        ? local
+        : TripReceipt(
+            pickup: local?.pickup ?? '',
+            destination: local?.destination ?? '',
+            total: formatMoney(serverTotal),
+            method: local?.method ?? '',
+            endedEarly: local?.endedEarly ?? false,
+            drivenMeters: local?.drivenMeters,
+          );
+    final hasRoute = local != null;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
       child: Column(
@@ -58,18 +111,20 @@ class RideCompletedTripDetail extends StatelessWidget {
                     compact: true,
                   ),
                 ] else ...[
-                  // B4 (finder 2026-11-07): the stand-in labels in the app
-                  // language and no trailing country.
-                  _detailRow(
-                    context.l10n.pickupLocation,
-                    L10n.place(trip.pickup),
-                  ),
-                  8.height,
-                  _detailRow(
-                    context.l10n.destination,
-                    L10n.place(trip.destination),
-                  ),
-                  8.height,
+                  if (hasRoute) ...[
+                    // B4 (finder 2026-11-07): the stand-in labels in the app
+                    // language and no trailing country.
+                    _detailRow(
+                      context.l10n.pickupLocation,
+                      L10n.place(trip.pickup),
+                    ),
+                    8.height,
+                    _detailRow(
+                      context.l10n.destination,
+                      L10n.place(trip.destination),
+                    ),
+                    8.height,
+                  ],
                   if (trip.endedEarly) ...[
                     // R-O6: the waybill says the trip ended early and how
                     // far it went; the total below is for that distance.
@@ -86,19 +141,24 @@ class RideCompletedTripDetail extends StatelessWidget {
                     trip.total,
                   ),
                   8.height,
-                  _detailRow(
-                    context.l10n.paymentMethod,
-                    // rider-u182: Wallet and Card too, not only Cash.
-                    L10n.isCashLabel(trip.method)
-                        ? context.l10n.payCash
-                        : paymentLabelFor(trip.method),
-                  ),
-                  8.height,
+                  if (hasRoute) ...[
+                    _detailRow(
+                      context.l10n.paymentMethod,
+                      // rider-u182: Wallet and Card too, not only Cash.
+                      L10n.isCashLabel(trip.method)
+                          ? context.l10n.payCash
+                          : paymentLabelFor(trip.method),
+                    ),
+                    8.height,
+                  ],
                   // v0.18.10 (owner G8): the server's receipt: ended early
                   // and by whom, an earlier fee, the tip, refunds.
                   if (rideId != null && rideId!.trim().isNotEmpty)
                     ServerReceiptLines(
+                      // The receipt read above: one read, same tip.
+                      key: ValueKey(_server),
                       rideId: rideId!,
+                      loader: (_) async => _server,
                       showEndedEarly: !trip.endedEarly,
                     ),
                   // RC5: a Ride check on this trip, with its answers.
@@ -233,7 +293,7 @@ class RideCompletedTripDetail extends StatelessWidget {
     );
   }
 
-  Widget _detailRow(String label, String value) {
+  static Widget _detailRow(String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
