@@ -621,7 +621,16 @@ class ActiveRideController {
     final snapshot = await _store.historyCandidate();
     if (snapshot == null || snapshot.rideId?.trim() != rideId.trim()) return;
     final updated = snapshot.copyWith(status: status, savedAt: DateTime.now());
-    LastCompletedRide.remember(updated);
+    // Owner 2026-11-10: a later payment/rating status keeps what the
+    // server said the rider pays; it used to be wiped here, so the summary
+    // fell back to the booked price.
+    final kept = LastCompletedRide.forRide(rideId) != null;
+    LastCompletedRide.remember(
+      updated,
+      charged: kept ? LastCompletedRide.charged : null,
+      endedEarly: kept && LastCompletedRide.endedEarly,
+      drivenMeters: kept ? LastCompletedRide.drivenMeters : null,
+    );
     await _store.save(updated);
   }
 
