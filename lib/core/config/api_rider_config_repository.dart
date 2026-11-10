@@ -2,6 +2,7 @@ import 'package:movera_rider/core/config/dont_match_again.dart';
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/core/api/api_client.dart';
@@ -65,7 +66,10 @@ class ApiRiderConfigRepository extends ChangeNotifier
     RiderConfigCache? cache,
     String? homeZoneId,
     this.retryAfter = const Duration(seconds: 5),
-  }) : homeZoneId = homeZoneId ?? RiderZones.home.id,
+    this.retryMax = const Duration(seconds: 60),
+    math.Random? random,
+  }) : _random = random ?? math.Random(),
+       homeZoneId = homeZoneId ?? RiderZones.home.id,
        _api = api,
        _cache = cache ?? const PrefsRiderConfigCache();
 
@@ -78,6 +82,27 @@ class ApiRiderConfigRepository extends ChangeNotifier
   /// The zone [current] answers for until the rider's zone is known.
   String homeZoneId;
   final Duration retryAfter;
+
+  /// Owner 2026-11-10: a refused stream waits [retryAfter] (5 s), then
+  /// doubles each failure (10, 20, 40) up to [retryMax] (60 s), with a
+  /// small random jitter (±10 %); a successful connect starts again at 5 s.
+  final Duration retryMax;
+  final math.Random _random;
+  int _failures = 0;
+
+  /// The wait before the next reconnect (counts one more failure).
+  Duration nextRetryWait() {
+    final doubled = retryAfter * math.pow(2, math.min(_failures, 16)).toInt();
+    _failures++;
+    final capped = doubled > retryMax ? retryMax : doubled;
+    final factor = 0.9 + 0.2 * _random.nextDouble();
+    final ms = (capped.inMilliseconds * factor).round().clamp(
+      retryAfter.inMilliseconds,
+      retryMax.inMilliseconds,
+    );
+    return Duration(milliseconds: ms);
+  }
+
   final Map<String, RiderAppConfig> _documents = {};
   final Map<String, Future<RiderAppConfig?>> _inFlight = {};
   StreamSubscription<String>? _stream;
@@ -215,6 +240,7 @@ class ApiRiderConfigRepository extends ChangeNotifier
         lastEventId: _documents[zoneId]?.version.toString(),
       );
       _renewTried = false;
+      _failures = 0;
       final events = ConfigEventParser();
       _stream = lines.listen(
         (line) {
@@ -276,7 +302,7 @@ class ApiRiderConfigRepository extends ChangeNotifier
     _stream = null;
     if (_disposed || _watching != zoneId) return;
     _retry?.cancel();
-    _retry = Timer(retryAfter, () {
+    _retry = Timer(nextRetryWait(), () {
       // Whatever was published while the stream was down comes first.
       unawaited(refresh(zoneId));
       unawaited(_connect(zoneId));

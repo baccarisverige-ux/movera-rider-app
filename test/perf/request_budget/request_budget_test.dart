@@ -40,8 +40,8 @@ const Map<RiderState, Map<String, double>> budgets = {
   },
   RiderState.background: {},
   RiderState.homeConfigStreamDown: {
-    'GET /api/v1/rider/config': 12.0,
-    'GET /api/v1/rider/config/stream (SSE open)': 12.0,
+    'GET /api/v1/rider/config': 1.1,
+    'GET /api/v1/rider/config/stream (SSE open)': 1.1,
     'GET /api/v1/rider/trips/active': 7.5,
     'GET /api/v1/rider/nearby-vehicles': 1.4,
   },
