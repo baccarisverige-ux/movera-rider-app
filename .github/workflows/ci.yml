@@ -268,8 +268,18 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ninja-build libgtk-3-dev libsecret-1-dev libjsoncpp-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev xvfb
+          # The Ubuntu mirrors hung this step for 40 min on 11 Nov (DNS
+          # failures). Cap each try at 6 min and retry, so a bad mirror
+          # moment does not use up the whole job.
+          apt_opts="-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
+          for i in 1 2 3; do
+            if timeout 360 sudo apt-get $apt_opts update -qq &&
+               timeout 360 sudo apt-get $apt_opts install -y -qq ninja-build libgtk-3-dev libsecret-1-dev libjsoncpp-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev xvfb; then
+              break
+            fi
+            [ "$i" = 3 ] && exit 1
+            echo "::warning::apt try $i failed; retrying in 30 s"; sleep 30
+          done
       - run: flutter pub get --enforce-lockfile
       - run: flutter config --enable-linux-desktop
       - name: Ride booking, full lifecycle, all lifecycle paths, cross-feature UAT
