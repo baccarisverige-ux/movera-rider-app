@@ -325,6 +325,10 @@ class RiderAppConfig {
     final base = fallback != null && fallback.currency == currency
         ? fallback
         : null;
+    // D1 (R10 #2 "Server values only"): on a live build a fee the server
+    // left out stays absent (the screens show their "no fee" state); the
+    // sample fees fill gaps for the demo alone.
+    final feeBase = LiveDataOnly.on ? null : base;
     Money? money(Object? json) {
       final value = Money.fromWire(json);
       return value != null && value.currency == currency ? value : null;
@@ -433,7 +437,8 @@ class RiderAppConfig {
         'reservation',
         base?.reservationCancelFees ?? const {},
       ),
-      waiting: _waiting(raw['waiting'], money, base?.waiting) ?? base?.waiting,
+      waiting:
+          _waiting(raw['waiting'], money, feeBase?.waiting) ?? feeBase?.waiting,
       cancelAfterArrivedIsNoShow: switch (raw['waiting']) {
         {'cancelAfterArrivedIsNoShow': final bool on} => on,
         _ => fallback?.cancelAfterArrivedIsNoShow ?? true,
@@ -450,7 +455,9 @@ class RiderAppConfig {
           _string(appUpdate is Map ? appUpdate['latestVersion'] : null) ??
           fallback?.latestAppVersion,
       pickupFees:
-          _pickupFees(raw['pickupFee'], money) ?? base?.pickupFees ?? const {},
+          _pickupFees(raw['pickupFee'], money) ??
+          feeBase?.pickupFees ??
+          const {},
       usesStandard: raw['usesStandard'] == true,
       paymentOptions: _paymentOptions(raw['paymentOptions']),
       tipRules:
