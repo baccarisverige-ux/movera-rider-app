@@ -25,6 +25,9 @@ import 'literal_scanner.dart';
 /// English, French and Swedish there), a map style and a web script.
 const _dataFiles = {
   'lib/core/api/in_process_mock_client.dart',
+  'lib/core/api/in_process_mock_client_catalog.dart',
+  'lib/core/api/in_process_mock_client_pricing.dart',
+  'lib/core/api/in_process_mock_client_trips.dart',
   'lib/core/api/safety_mock_api.dart',
   'lib/core/realtime/mock_driver_pool.dart',
   'lib/features/auth/domain/phone_country_list.dart',
