@@ -85,9 +85,10 @@ class WaitingShareButton extends StatelessWidget {
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: () => _share(context),
-          // rider-u64: the 44 px floor; the 20 px icon was a 40 px target.
+          // rider-u64 / D5 (V39-7): the 48 px Android floor (the 20 px icon
+          // was a 40 px target, then 44).
           child: const SizedBox.square(
-            dimension: A11y.minTapIOS,
+            dimension: A11y.minTap,
             child: Icon(
               Icons.ios_share_rounded,
               size: 20,
