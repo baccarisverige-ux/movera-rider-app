@@ -217,6 +217,9 @@ void _enter(
       adopt: () async {
         await ApiActiveTripRepository(api: api).fetchActive();
       },
+      // R09 N5: measured with one booked ride (the banner check runs);
+      // without one it is not sent.
+      hasBooked: () => true,
       bookedOnTheWay: () async {
         await api.get(RiderTripWatch.bookedOnTheWayPath);
         return false;

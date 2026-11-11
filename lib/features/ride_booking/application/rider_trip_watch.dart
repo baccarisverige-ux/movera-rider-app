@@ -21,11 +21,13 @@ class RiderTripWatch {
     Future<void> Function()? adopt,
     Future<bool> Function()? bookedOnTheWay,
     Future<void> Function()? refreshBooked,
+    bool Function()? hasBooked,
     this.pollEvery = const Duration(seconds: 8),
   }) : _showsHome = showsHome ?? _defaultShowsHome,
        _adopt = adopt ?? _defaultAdopt,
        _bookedOnTheWay = bookedOnTheWay ?? _defaultBookedOnTheWay,
-       _refreshBooked = refreshBooked ?? _defaultRefreshBooked;
+       _refreshBooked = refreshBooked ?? _defaultRefreshBooked,
+       _hasBooked = hasBooked ?? _defaultHasBooked;
 
   static RiderTripWatch instance = RiderTripWatch();
 
@@ -38,6 +40,11 @@ class RiderTripWatch {
 
   /// SUP3-R1: reads the booked rides (Upcoming, the Home chrono) again.
   final Future<void> Function() _refreshBooked;
+
+  /// R09 N5: whether the rider has a booked ride (the Upcoming list this
+  /// app already holds). Without one the banner check is not sent;
+  /// `rider_trip_changed` and resume still read the list again.
+  final bool Function() _hasBooked;
 
   /// Owner Q1: the banner "Your booked driver is on the way".
   final ValueNotifier<bool> bookedDriverOnTheWay = ValueNotifier(false);
@@ -61,6 +68,9 @@ class RiderTripWatch {
 
   static Future<void> _defaultRefreshBooked() =>
       AppScope.instance.reservations.refresh();
+
+  static bool _defaultHasBooked() =>
+      AppScope.instance.reservations.upcoming().isNotEmpty;
 
   static Future<bool> _defaultBookedOnTheWay() async {
     final scope = AppScope.instance;
@@ -132,6 +142,9 @@ class RiderTripWatch {
         // rider_trip_changed, on resume, after sign-in and when Home or the
         // chrono opens.
         await _adopt();
+      } else if (!_hasBooked()) {
+        // R09 N5: no booked ride, so no booked driver can be on the way.
+        bookedDriverOnTheWay.value = false;
       } else {
         bookedDriverOnTheWay.value = await _bookedOnTheWay();
       }

@@ -18,7 +18,7 @@ What runs in each state (the code the harness drives):
 |---|---|
 | homeIdle | config watch (`lib/core/config/api_rider_config_repository.dart`), trip watch on Home (`lib/features/ride_booking/application/rider_trip_watch.dart`, 8 s), presence ping (`lib/features/home/application/home_presence.dart`, 45 s) |
 | quoting | config watch, trip watch on Home, cars near the pickup (`lib/features/ride_selection/application/nearby_cars_controller.dart`, server `refreshSeconds`, the fake server answers the contract's 5 s, contract.json#riderNearby); presence stops (Home covered) |
-| searching | config watch, trip watch (ride on screen: booked-driver check, 8 s), trip follow (`lib/core/realtime/api_ride_realtime.dart`: one read + SSE) |
+| searching | config watch, trip watch (ride on screen: booked-driver check, 8 s, only when the rider has a booked ride — R09 N5; measured with one), trip follow (`lib/core/realtime/api_ride_realtime.dart`: one read + SSE) |
 | driverArriving / onTrip | as searching + unread badge poll (`lib/features/messages/application/messages_controller.dart`, 10 s, started in `waiting_for_driver.dart:237`) |
 | tripFinished | config watch, trip watch (receipt counts as a ride on screen), trip follow (`ride_completed.dart:137`) |
 | background | config watch stream only (trip watch stops, `app_lifecycle.dart:58`) |

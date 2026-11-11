@@ -158,6 +158,8 @@ void main() {
     final watch = RiderTripWatch(
       showsHome: () => false,
       adopt: () async => fail('a live ride is never replaced'),
+      // R09 N5: the rider has a booked ride.
+      hasBooked: () => true,
       bookedOnTheWay: () async => true,
     );
     await tester.pumpWidget(
