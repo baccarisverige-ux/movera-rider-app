@@ -300,12 +300,7 @@ class MessagesController extends ChangeNotifier {
   }) async {
     ChatTranslation answer;
     try {
-      answer = await extras.translate(
-        _rideId,
-        id,
-        translateTarget,
-        auto: auto,
-      );
+      answer = await extras.translate(_rideId, id, translateTarget, auto: auto);
     } catch (_) {
       answer = const ChatTranslationFailed();
     }
