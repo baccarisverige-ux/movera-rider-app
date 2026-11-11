@@ -237,7 +237,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         widget.pickupPosition.longitude,
       );
       unawaited(_readArrivalAnnounced(rideId.trim()));
-      if (AppScope.instance.tripMessages case final transport?) {
+      if ((widget.tripMessages ?? AppScope.instance.tripMessages)
+          case final transport?) {
         _startTripChat(rideId, transport);
       }
     } else {

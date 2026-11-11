@@ -309,6 +309,13 @@ class _ChatState extends State<Chat> {
                               ? TextInputAction.send
                               : null,
                           onFieldSubmitted: canSend ? (_) => _send() : null,
+                          // §78 CountryRules.chat.maxLength: the server
+                          // refuses longer text (400 message_too_long).
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(
+                              _chat.options.maxLength,
+                            ),
+                          ],
                         ),
                       ),
                       10.width,

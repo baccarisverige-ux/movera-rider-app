@@ -208,7 +208,12 @@ class ApiRideRealtime implements RideRealtime {
     if (poll.streamUp || poll.streamOpening) return;
     poll.streamOpening = true;
     try {
-      final after = poll.gate.lastSequence;
+      // Rider REMINDERS row 29: a reconnect replays after what the stream
+      // itself had seen, never after a sequence only a poll moved past —
+      // call_* events have no projection, so a poll would skip them and a
+      // call_ringing (its push opened the trip) would never come.
+      final after = poll.streamCursor ?? poll.gate.lastSequence;
+      poll.streamCursor = after;
       final path = _api.tripPath(poll.id, 'events');
       final lines = await _api.openEventStream(
         after > 0 ? '$path?after=$after' : path,
@@ -265,6 +270,11 @@ class ApiRideRealtime implements RideRealtime {
   }
 
   void _streamDown(_RidePoll poll, Object? error) {
+    if (poll.streamUp) {
+      // Everything the gate holds now came while the stream was up.
+      final gateLast = poll.gate.lastSequence;
+      if (gateLast > (poll.streamCursor ?? 0)) poll.streamCursor = gateLast;
+    }
     poll.watchdog?.cancel();
     poll.watchdog = null;
     poll.stream = null;
@@ -311,6 +321,9 @@ class ApiRideRealtime implements RideRealtime {
   /// the cached projection.
   void _onStreamEvent(_RidePoll poll, Map<String, Object?> event) {
     if (_disposed || !identical(_rides[poll.id], poll)) return;
+    final seen = _version(event['sequence']);
+    final cursor = poll.streamCursor ?? 0;
+    if (seen != null && seen > cursor) poll.streamCursor = seen;
     // v0.18.38 §62 (fix job 8): an in-app call event goes to the calls hub;
     // it never changes the trip.
     final wire = event['kind'];
@@ -974,6 +987,10 @@ class _RidePoll {
   int streamFailures = 0;
   Timer? streamRetry;
   Timer? watchdog;
+
+  /// The last sequence the stream (not a poll) has delivered or caught up
+  /// to: the replay cursor of the next stream open.
+  int? streamCursor;
 
   /// The contract realtime gate for this trip.
   final RealtimeGate gate = RealtimeGate();
