@@ -24,11 +24,18 @@ class MoveraEmptyState extends StatelessWidget {
   static const _soft = Color(0xFFF1F5F7);
   static const _accent = Color(0xFF2D5878);
 
+  /// D7 (V39-4b): a title that already ends a sentence (. ! ? … in any
+  /// language) gets no extra full stop.
+  static String _sentence(String title) {
+    final trimmed = title.trimRight();
+    return RegExp(r'[.!?…。！？؟]$').hasMatch(trimmed) ? trimmed : '$trimmed.';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Semantics(
       container: true,
-      label: '$title. $message',
+      label: '${_sentence(title)} $message',
       child: SingleChildScrollView(
         child: Padding(
           padding: EdgeInsets.symmetric(
