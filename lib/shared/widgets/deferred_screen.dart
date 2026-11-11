@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/web/web_reload.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// A screen whose code is loaded the first time it opens (owner 2026-11-03,
@@ -14,6 +16,19 @@ class DeferredScreen extends StatefulWidget {
 
   /// Builds the screen once its library is loaded.
   final WidgetBuilder builder;
+
+  /// Whether a failed load means "the app was republished" (web) rather
+  /// than "try the download again" (phones). Tests switch it.
+  @visibleForTesting
+  static bool isWeb = kIsWeb;
+
+  /// Web: reloads the page once per few minutes; true when it started.
+  @visibleForTesting
+  static bool Function() reloadOnce = reloadPageForNewVersion;
+
+  /// Web Retry: reloads the page now; true when it started.
+  @visibleForTesting
+  static bool Function() reloadNow = reloadPageNow;
 
   @override
   State<DeferredScreen> createState() => _DeferredScreenState();
@@ -35,12 +50,18 @@ class _DeferredScreenState extends State<DeferredScreen> {
         if (mounted) setState(() => _ready = true);
       },
       onError: (Object _) {
+        // Web: a publish while this page was open replaced the screen's
+        // part under the same name, and loading it again fetches the same
+        // rejected file (2026-11-11). A fresh page loads the new app; the
+        // spinner stays while the page goes.
+        if (DeferredScreen.isWeb && DeferredScreen.reloadOnce()) return;
         if (mounted) setState(() => _failed = true);
       },
     );
   }
 
   void _retry() {
+    if (DeferredScreen.isWeb && DeferredScreen.reloadNow()) return;
     setState(() => _failed = false);
     _start();
   }
