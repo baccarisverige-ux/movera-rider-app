@@ -72,7 +72,7 @@ jobs:
             flutter pub get
             # The Account screen's "Version x (build)" line reads MOVERA_APP_VERSION: give it the APK's real build number
             # (owner 2026-11-11: know which APK is installed).
-            app_version="$(sed -n 's/^version: *//p' pubspec.yaml)"; app_version="${app_version%%+*}+$number"
+            app_version="$(sed -n 's/^version: *//p' pubspec.yaml)"; app_version="${app_version%%+*}+${GITHUB_RUN_NUMBER}"
             flutter build apk --release \
               -t lib/main_staging.dart \
               --build-number="$number" \

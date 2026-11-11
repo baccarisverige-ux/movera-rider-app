@@ -81,11 +81,17 @@ void main() {
     }
   });
 
-  test('the test APK passes the real build number to the version line', () {
-    final yml = File(
-      '.github/workflows/android-test-apk.yml',
-    ).readAsStringSync();
-    expect(yml, contains(r'app_version="${app_version%%+*}+$number"'));
-    expect(yml, contains(r'MOVERA_APP_VERSION="$app_version"'));
-  });
+  test(
+    'the test APK passes the real run number to the version line (not the fixed 100000/100001 build number)',
+    () {
+      final yml = File(
+        '.github/workflows/android-test-apk.yml',
+      ).readAsStringSync();
+      expect(
+        yml,
+        contains(r'app_version="${app_version%%+*}+${GITHUB_RUN_NUMBER}"'),
+      );
+      expect(yml, contains(r'MOVERA_APP_VERSION="$app_version"'));
+    },
+  );
 }
