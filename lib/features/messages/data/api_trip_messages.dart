@@ -76,12 +76,15 @@ class ApiTripMessages implements TripMessagesTransport, TripChatExtras {
   Future<ChatTranslation> translate(
     String tripId,
     String messageId,
-    String to,
-  ) async {
+    String to, {
+    bool auto = false,
+  }) async {
     try {
       final json = await _api.post(
         '${_path(tripId)}/translate',
-        body: {'messageId': messageId, 'to': to},
+        // v0.18.64 §85: auto marks the app's own request (as a message
+        // arrives); 403 auto_translate_off when the admin turned it off.
+        body: {'messageId': messageId, 'to': to, if (auto) 'auto': true},
       );
       final text = json['text'];
       return text is String && text.isNotEmpty
@@ -91,6 +94,10 @@ class ApiTripMessages implements TripMessagesTransport, TripChatExtras {
       // 503 unavailable, reason coming_soon: no provider yet.
       if (error.statusCode == 503 || error.detail == 'coming_soon') {
         return const ChatTranslationComingSoon();
+      }
+      if (error.reason == 'translation_off' ||
+          error.reason == 'auto_translate_off') {
+        return const ChatTranslationOff();
       }
       return const ChatTranslationFailed();
     }
@@ -158,6 +165,7 @@ abstract final class ChatMessageWire {
           ? json['quickReplyId'] as String
           : null,
       auto: json['auto'] is String ? json['auto'] as String : null,
+      lang: json['lang'] is String ? json['lang'] as String : null,
     );
   }
 }

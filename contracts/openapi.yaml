@@ -1,11 +1,11 @@
-# Movera API v0.18.59 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.64 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.59
+  version: 0.18.64
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.59 in this folder; this file must agree with them.
+    v0.18.64 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.59
+  version: 0.18.64
   source: contract.json
 paths:
   /auth/otp/request:
@@ -1952,6 +1952,14 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      x-permission: finance.read
+      description: 'v0.18.61 §83: The rider reads only his own payment (another rider''s payment → 404 not_found). An ADMIN
+        caller needs finance.read (x-permission; the same id as GET /admin/payments, GET /admin/payouts and GET /admin/refunds/payouts)
+        and the payment''s trip zone in the admin''s zones ("*" = all; a Super admin passes); otherwise 403 forbidden, reason
+        missing_permission or zone_out_of_scope. Movera is cash-only now (finish.paymentMethods.served): no payment intent
+        exists, so until card payments exist the route answers 400 invalid_request, reason payment_method_not_available, like
+        POST /payment-methods (texts: finish.paymentMethods.texts.payment_method_not_available). The permission and zone checks
+        come first. x-permission applies to admins only.'
   /payments/{paymentId}/confirm:
     post:
       operationId: confirmPayment
@@ -3321,7 +3329,9 @@ paths:
         zone when a trip with scheduledAt in that zone changes (created, accepted, released, cancelled, rescheduled, started),
         and to the stream of the driver the trip names. A trip without scheduledAt (a now-ride) sends nothing. Sent only after
         the change commits; a rolled-back change sends nothing. The driver app re-reads at sign-in, on every stream reconnect
-        and on this event, and debounces bursts (at most 1 re-read per 2 s). Demo rides are cleared at sign-in.'
+        and on this event, and debounces bursts (at most 1 re-read per 2 s). Demo rides are cleared at sign-in. v0.18.63:
+        the server closes the stream when it cannot guarantee delivery (its LISTEN connection reconnects); hints are not replayed,
+        so the re-read on reconnect is what catches up.'
   /driver/earnings:
     get:
       operationId: getDriverEarnings
@@ -15045,7 +15055,12 @@ paths:
         wrong codes in 24 h from one address for one number, that address gets 429 rate_limited reason otp_locked_today for
         that number (Retry-After = until the oldest leaves the 24 h window), on request and verify; an admin can lift it (POST
         /admin/auth/sign-in-locks/unlock { phone }). Codes per number per hour and per address per hour are admin settings
-        (countryLimits).'
+        (countryLimits). v0.18.62 §84: An admin caller needs settings.edit (x-permission); otherwise 403 forbidden, reason
+        missing_permission. 200 { phone, lifted }: phone = the number sent (E.164, not masked); lifted = integer >= 0, how
+        many of the number''s wrong-code sessions of the last 24 h were unlocked (0 when nothing was locked; still 200). Audited
+        auth.sign_in_unlock { lifted } with the number''s last 4 digits hidden. 400 invalid_request reason invalid_body when
+        phone is missing or not a string; 400 invalid_request reason invalid_phone when phone is not international form (^\+[1-9][0-9]{6,14}$);
+        401 unauthenticated; 403 forbidden missing_permission. The server never answers 404 here.'
       tags:
       - Admin · Auth
       x-actor:
@@ -15061,24 +15076,27 @@ paths:
               $ref: '#/components/schemas/SignInUnlock'
       responses:
         '200':
-          description: No content
+          description: 'The lock is lifted: { phone, lifted }.'
           headers:
             X-Request-Id:
               description: Echo of the request id (server-generated if absent).
               schema:
                 type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInUnlockResult'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      x-permission: settings.edit
   /account/phone/change:
     post:
       operationId: startPhoneChange
@@ -17419,7 +17437,23 @@ paths:
         stored. Target language (owner A1): the reading user''s own app language; the link reads "Translate to <that language>".
         Under each translated message the app shows a link "See original" that switches back to the original text, and then
         "Translate" again (owner 2026-11-10); the original text is always kept in the app. Another to is 400 invalid_request,
-        reason translate_target_not_allowed.'
+        reason translate_target_not_allowed. v0.18.64 §85: In the ride chat of the rider and driver apps each message from
+        the other side (or from support) shows already translated into the reader''s own app language (sv|fr|en, chat.translate.target).
+        Under it the link "See original" shows the text as written; tapping the link again ("Translate to <language>") shows
+        the translation again, without a new request. The reader''s own messages always show as written. The original text
+        is always kept in the app while the trip is open (chat.appStorage: nothing is kept after the trip). POST /trips/{tripId}/messages/translate
+        { messageId, to, auto: true }: auto true marks the app''s own request; with CountryRules.chat.autoTranslate false
+        it is 403 forbidden, reason auto_translate_off. A tap (auto absent or false) works as in v0.18.56. When Message.lang
+        equals to, the server answers 200 TranslatedMessage with the text as written, without asking the provider and also
+        while no provider is set. The server translates one message at most once per target language and keeps the result
+        with the message (server table trip_message_translations, migration 0097; deleted with the message after chat.settings.keepDays).
+        Every later request for that message and language (another device, a reopened chat, a retry, another server copy)
+        answers the kept text. Two requests at once may both ask the provider; the first kept text wins and both answer it.
+        This replaces "nothing is stored" of v0.18.56 on the server only; the apps still keep nothing after the trip. If the
+        translation fails (503 unavailable coming_soon while no provider is set, 403 translation_off or auto_translate_off,
+        429, a network error, an empty answer) the app shows the original text with "Translate to <language>" under it and
+        says nothing (no notice, no retry loop). After coming_soon, translation_off or auto_translate_off the app stops asking
+        by itself for that trip. A tap still asks and shows the usual one-line notice (chat.translate.texts).'
       tags:
       - Notifications & messages
       x-actor:
@@ -20621,6 +20655,16 @@ components:
             event, writes ONE chat message from the rider, Message.auto = on_my_way, once per trip (a repeat writes none),
             in the DRIVER''s app language (Driver.language, else the zone country''s language, else en); kind message on the
             trip stream (the driver''s sheet card).'
+        lang:
+          type: string
+          enum:
+          - sv
+          - fr
+          - en
+          description: 'v0.18.64 §85: Message.lang (sv|fr|en, optional, v0.18.64): the language the server wrote the text
+            in or expects it in. Exact for a quick-reply chip and for automatic messages (the reader''s language); for typed
+            text it is the sender''s app language, a hint only (a person may type in another language; the provider translates
+            from what it reads). Absent for support messages and for messages written before v0.18.64.'
     TripCall:
       type: object
       description: 'v0.13.0: a masked call between the trip''s rider and driver (contract.json#chat.call). v0.18.38 §62: POST
@@ -26851,7 +26895,8 @@ components:
             v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.44
             reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress). v0.18.49 reason: sign_out_on_trip
             (409 conflict, contract.json#auth.signOutOnTrip). v0.18.56 reasons: message_too_long, unknown_quick_reply, translate_target_not_allowed
-            (400 invalid_request), translation_off (403 forbidden), coming_soon (503 unavailable) (contract.json#chat, §78).'
+            (400 invalid_request), translation_off (403 forbidden), coming_soon (503 unavailable) (contract.json#chat, §78).
+            v0.18.64 reason: auto_translate_off (403 forbidden, contract.json#chat.autoTranslate, §85).'
         details:
           type: array
           items:
@@ -34546,6 +34591,14 @@ components:
               sv: Jag är framme vid upphämtningsplatsen.
               fr: Je suis au point de prise en charge.
               en: I've arrived at the pickup point.
+        autoTranslate:
+          type: boolean
+          description: 'v0.18.64 §85 (owner 2026-11-11): true: each message from the other side arrives already translated
+            into the reader''s own app language (the app asks POST /trips/{tripId}/messages/translate with auto true as the
+            message arrives); "See original" under it shows the text as written and a second tap shows the translation again.
+            false: messages show as written and the reader taps "Translate to <language>" (as in v0.18.56). Works only with
+            translation true (translation false hides both). Default true.'
+          default: true
     ChatOptions:
       type: object
       description: 'v0.18.56 §78: GET /trips/{tripId}/messages/options (the trip''s rider or driver) answers ChatOptions:
@@ -34603,6 +34656,12 @@ components:
               type: string
               minLength: 1
               maxLength: 200
+        autoTranslate:
+          type: boolean
+          description: 'v0.18.64 §85: The app asks once per message from the other side, as it arrives (trip stream or history
+            read), when ChatOptions.translation and ChatOptions.autoTranslate are both true and Message.lang is not the reader''s
+            language. Until ChatOptions has been read for the trip the app does not translate by itself (the original shows).
+            Absent (an older server): false.'
     TranslateMessageRequest:
       type: object
       description: 'v0.18.56 §78: POST /trips/{tripId}/messages/translate { messageId, to: sv|fr|en } by the trip''s rider
@@ -34626,9 +34685,20 @@ components:
           - sv
           - fr
           - en
+        auto:
+          type: boolean
+          description: 'v0.18.64 §85: POST /trips/{tripId}/messages/translate { messageId, to, auto: true }: auto true marks
+            the app''s own request; with CountryRules.chat.autoTranslate false it is 403 forbidden, reason auto_translate_off.
+            A tap (auto absent or false) works as in v0.18.56.'
     TranslatedMessage:
       type: object
-      description: 'v0.18.56 §78: nothing is stored.'
+      description: 'v0.18.64 §85: The server translates one message at most once per target language and keeps the result
+        with the message (server table trip_message_translations, migration 0097; deleted with the message after chat.settings.keepDays).
+        Every later request for that message and language (another device, a reopened chat, a retry, another server copy)
+        answers the kept text. Two requests at once may both ask the provider; the first kept text wins and both answer it.
+        This replaces "nothing is stored" of v0.18.56 on the server only; the apps still keep nothing after the trip. When
+        Message.lang equals to, the server answers 200 TranslatedMessage with the text as written, without asking the provider
+        and also while no provider is set.'
       required:
       - messageId
       - to
@@ -34754,3 +34824,18 @@ components:
               type: string
               minLength: 1
               maxLength: 40
+    SignInUnlockResult:
+      type: object
+      additionalProperties: false
+      required:
+      - phone
+      - lifted
+      description: '200 { phone, lifted }: phone = the number sent (E.164, not masked); lifted = integer >= 0, how many of
+        the number''s wrong-code sessions of the last 24 h were unlocked (0 when nothing was locked; still 200). Audited auth.sign_in_unlock
+        { lifted } with the number''s last 4 digits hidden.'
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneE164'
+        lifted:
+          type: integer
+          minimum: 0

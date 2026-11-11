@@ -42,8 +42,9 @@ class _Chat implements TripMessagesTransport, TripChatExtras {
   Future<ChatTranslation> translate(
     String tripId,
     String messageId,
-    String to,
-  ) => throw UnimplementedError();
+    String to, {
+    bool auto = false,
+  }) => throw UnimplementedError();
 }
 
 /// Rules REMINDERS row 29 (contract §78 `CountryRules.chat.maxLength`,

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/features/messages/data/chat_read_marks.dart';
+import 'package:movera_rider/features/messages/data/chat_translations.dart';
 import 'package:movera_rider/features/messages/domain/messages.dart';
 
 /// One ride's conversation as this app holds it. Notifies on every change
@@ -68,9 +69,17 @@ class MessagesRepository extends ChangeNotifier {
 
   void _end() {
     _messages.clear();
+    translations.clear();
     _closed = true;
     notifyListeners();
   }
+
+  /// v0.18.64 §85: the translations of this ride's chat, shared by every
+  /// screen (the trip screen asks as messages arrive, Chat shows them).
+  final ChatTranslations translations = ChatTranslations();
+
+  /// A translation arrived or "See original" was tapped.
+  void translationsChanged() => notifyListeners();
 
   final List<ChatMessage> _messages = <ChatMessage>[];
   bool _closed = false;
