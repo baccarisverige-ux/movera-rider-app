@@ -13,7 +13,7 @@ import 'package:movera_rider/features/safety/application/emergency_call_service.
 void main() {
   const production = AppEnv(
     flavor: AppFlavor.production,
-    apiBaseUrl: 'https://api.movera.example',
+    apiBaseUrl: 'https://api.movera.test',
   );
   const dev = AppEnv(
     flavor: AppFlavor.dev,
@@ -25,7 +25,7 @@ void main() {
   );
   const staging = AppEnv(
     flavor: AppFlavor.staging,
-    apiBaseUrl: 'https://api.staging.movera.example',
+    apiBaseUrl: 'https://api.staging.movera.test',
   );
 
   test('production ApiClient never silently chooses in-process mock', () {

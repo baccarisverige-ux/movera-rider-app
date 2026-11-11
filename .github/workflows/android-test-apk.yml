@@ -22,7 +22,9 @@ jobs:
     timeout-minutes: 60
     env:
       LIVE_API: https://movera-server.onrender.com
-      MAPS_API_KEY: ${{ secrets.ANDROID_MAPS_API_KEY || secrets.MAPS_API_KEY || secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS1 || secrets.MAPS || secrets.GOOGLE_MAPS_WEB_API_KEY }}
+      # D11 (R11-11): the Android key only (as android-release-signing.yml);
+      # never a web key, which Google restricts to web referrers.
+      MAPS_API_KEY: ${{ secrets.ANDROID_MAPS_API_KEY || secrets.MAPS_API_KEY }}
       RIDER_MAP_ID: ${{ vars.RIDER_MAP_ID || '9fdc5d9e56d4a0916c77a424' }}
     steps:
       - uses: actions/checkout@v4
@@ -59,10 +61,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${MAPS_API_KEY:-}" ]; then
-            # Test-only build: the owner checks sign-in, not the map. Gradle refuses an empty key.
-            echo '::warning::No Google Maps key secret: test build uses a placeholder, the map will be grey.'
-            echo "MAPS_API_KEY=TEST_BUILD_NO_MAP" >> "$GITHUB_ENV"
-            export MAPS_API_KEY=TEST_BUILD_NO_MAP
+            echo '::error::Missing Android Google Maps key. Add the ANDROID_MAPS_API_KEY (or MAPS_API_KEY) repository secret; the web key does not work in the Android app.'
+            exit 1
           fi
           printf '%s' "$RIDER_MAP_ID" | grep -Eq '^[A-Za-z0-9]+$'
           mkdir -p out

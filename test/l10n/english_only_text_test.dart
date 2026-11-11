@@ -130,6 +130,8 @@ const _allowed = <String, Set<String>>{
     // Release composition refusing a build (transport_composition.dart).
     '" " is not an absolute URL', '" " is not https',
     '" " uses the reserved .invalid placeholder host',
+    '" " uses the reserved .example placeholder host',
+    'MOVERA_APP_VERSION is missing for the  release build',
     // CSS of the hidden safe-area probe (safe_area_insets_web.dart).
     'env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) '
         'env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)',

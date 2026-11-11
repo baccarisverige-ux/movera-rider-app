@@ -38,7 +38,7 @@ void main() {
   );
   const staging = AppEnv(
     flavor: AppFlavor.staging,
-    apiBaseUrl: 'https://api.staging.movera.example',
+    apiBaseUrl: 'https://api.staging.movera.test',
   );
 
   // Fixed wall-clock for the reservation; the chrono's clock is a fake that

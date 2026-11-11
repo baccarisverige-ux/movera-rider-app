@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/core/constants/app_version.dart' as app_version;
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
 import 'package:movera_rider/core/payments/mock_payment_gateway.dart';
@@ -13,7 +15,8 @@ abstract final class TransportComposition {
   /// Why [apiBaseUrl] cannot serve a staging/production build, or null.
   ///
   /// A release built without `--dart-define=MOVERA_API_BASE_URL` falls back to
-  /// the demo default `https://api.demo.movera.invalid`; every request would
+  /// the demo default `https://api.demo.movera.invalid` (or a `.example`
+  /// sample host); every request would
   /// then fail with a DNS error at runtime, so composition refuses it.
   static String? releaseApiBaseUrlProblem(String apiBaseUrl) {
     final value = apiBaseUrl.trim();
@@ -26,6 +29,11 @@ abstract final class TransportComposition {
     final host = uri.host.toLowerCase();
     if (host == 'invalid' || host.endsWith('.invalid')) {
       return '"$value" uses the reserved .invalid placeholder host';
+    }
+    // D9 (R11-14): .example is reserved for documentation (RFC 2606) and
+    // never a real server either.
+    if (host == 'example' || host.endsWith('.example')) {
+      return '"$value" uses the reserved .example placeholder host';
     }
     return null;
   }
@@ -40,8 +48,21 @@ abstract final class TransportComposition {
     required LoggerSink logger,
     required AnalyticsSink analytics,
     required CrashSink crashes,
+    String appVersion = app_version.appVersion,
+    bool releaseBuild = kReleaseMode,
   }) {
     if (environment.allowsMockTransport) return;
+
+    // D14 (R11-17): a shipped build reports its version (telemetry, the
+    // "Update the app" gate); a release built without the define would
+    // report `dev`, so it stops at start instead.
+    final version = appVersion.trim();
+    if (releaseBuild && (version.isEmpty || version == 'dev')) {
+      throw StateError(
+        'MOVERA_APP_VERSION is missing for the '
+        '${environment.flavor.name} release build',
+      );
+    }
 
     final baseUrlProblem = releaseApiBaseUrlProblem(environment.apiBaseUrl);
     if (baseUrlProblem != null) {

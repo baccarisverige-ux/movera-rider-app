@@ -260,6 +260,7 @@ class ApiRiderConfigRepository extends ChangeNotifier
     if (_watching == zoneId && _stream != null) return;
     await _stopStream();
     _watching = zoneId;
+    _asked = zoneId;
     _applyFeatures();
     _renewTried = false;
     unawaited(refresh(zoneId));
@@ -331,6 +332,27 @@ class ApiRiderConfigRepository extends ChangeNotifier
   }
 
   bool _renewTried = false;
+
+  /// The zone [watch] was last asked for (kept when a 401 stops the watch).
+  String? _asked;
+
+  /// D2 (R11-23): the app came back to the front. A socket left open in the
+  /// background may be dead without an error, so the stream is opened again
+  /// and the document read again. A reconnect already waiting keeps its
+  /// backoff wait; a watch stopped by a 401 starts once more (the session
+  /// may have been renewed meanwhile).
+  Future<void> resumeWatch() async {
+    final zoneId = _watching ?? _asked;
+    if (_disposed || zoneId == null) return;
+    if (_retry?.isActive ?? false) return;
+    if (_watching == null) return watch(zoneId);
+    // Not awaited: cancelling a dead socket may never complete.
+    final old = _stream;
+    _stream = null;
+    unawaited(old?.cancel());
+    unawaited(refresh(zoneId));
+    await _connect(zoneId);
+  }
 
   void _reconnect(String zoneId) {
     _stream = null;

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/config/api_rider_config_repository.dart';
 import 'package:movera_rider/core/config/rider_zones_controller.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
@@ -11,9 +12,14 @@ import 'package:movera_rider/features/ride_booking/application/rider_trip_watch.
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 
 class AppLifecycleObserver with WidgetsBindingObserver {
-  AppLifecycleObserver({RiderZonesController? zones}) : _zonesSeam = zones;
+  AppLifecycleObserver({
+    RiderZonesController? zones,
+    ApiRiderConfigRepository? config,
+  }) : _zonesSeam = zones,
+       _configSeam = config;
 
   final RiderZonesController? _zonesSeam;
+  final ApiRiderConfigRepository? _configSeam;
 
   void attach() => WidgetsBinding.instance.addObserver(this);
 
@@ -55,6 +61,12 @@ class AppLifecycleObserver with WidgetsBindingObserver {
         // Owner 2026-11-10 (§21): the kept zone list is read again too, so a
         // zone opened while the app was away is not missed.
         unawaited((_zonesSeam ?? AppScope.instance.zones).refresh());
+        // D2 (R11-23): the settings stream reconnects too (its backoff is
+        // kept when a reconnect is already waiting).
+        final config = _configSeam ?? AppScope.instance.riderConfig;
+        if (config is ApiRiderConfigRepository) {
+          unawaited(config.resumeWatch());
+        }
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:

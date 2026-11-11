@@ -74,4 +74,50 @@ void main() {
           '${rule?.type} ${rule?.value}, free until ${rule?.freeMin} min)',
     );
   });
+
+  Future<ApiRiderConfigRepository> repoFor(Map<String, dynamic> answer) async {
+    return ApiRiderConfigRepository(
+      api: ApiClient(
+        env: staging,
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode(answer),
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      ),
+      cache: MemoryRiderConfigCache(),
+      homeZoneId: answer['zoneId'] as String,
+    );
+  }
+
+  Map<String, dynamic> fixture() =>
+      jsonDecode(
+            File(
+              'contracts/fixtures/config/rider_app_config.json',
+            ).readAsStringSync(),
+          )
+          as Map<String, dynamic>;
+
+  test(
+    'live: no waiting block from the server means no waiting fees',
+    () async {
+      // D1 (R10 #2): the sample per-minute and no-show fees must not stand in.
+      final answer = fixture()..remove('waiting');
+      final served = await (await repoFor(answer)).currentServed();
+      expect(served.waiting, isNull);
+    },
+  );
+
+  test('live: a waiting block without money keeps no sample money', () async {
+    final answer = fixture();
+    final waiting = Map<String, dynamic>.from(answer['waiting'] as Map)
+      ..remove('perMin')
+      ..remove('noShowFee')
+      ..remove('byCategory');
+    answer['waiting'] = waiting;
+    final served = await (await repoFor(answer)).currentServed();
+    expect(served.waiting, isNull);
+  });
 }

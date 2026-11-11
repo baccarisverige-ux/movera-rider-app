@@ -343,9 +343,14 @@ class _IslandPill extends StatelessWidget {
         children: [
           const _PulseDot(),
           const SizedBox(width: 8),
-          Text(
-            context.l10n.rcIsEverythingOk,
-            style: _text(12.5, weight: FontWeight.w600),
+          // D5 (V39-7): large text shortens instead of overflowing.
+          Flexible(
+            child: Text(
+              context.l10n.rcIsEverythingOk,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _text(12.5, weight: FontWeight.w600),
+            ),
           ),
         ],
       ),
@@ -1340,7 +1345,8 @@ class _Footer extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: _text(11.5, color: const Color(0x73FFFFFF)),
+              // D5 (V39-7): 70 % white for 4.5:1 on the dark glass.
+              style: _text(11.5, color: const Color(0xB3FFFFFF)),
             ),
           ),
         ],
