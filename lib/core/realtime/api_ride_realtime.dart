@@ -343,6 +343,26 @@ class ApiRideRealtime implements RideRealtime {
     final wire = event['kind'];
     if (wire is String && wire.startsWith('call_')) {
       final payload = event[wire == 'call_signal' ? 'signal' : 'call'];
+      // R09 N1: a call event takes a trip sequence on the server, so the
+      // gate learns it (same gap rule as a message); otherwise the next
+      // location event looks like a gap and forces a trip read. The call
+      // itself is passed on as before, whatever the gate says.
+      final sequence = _version(event['sequence']);
+      if (sequence != null && sequence >= 1) {
+        final eventId = _eventId(event['eventId']) ?? '${poll.id}:$sequence';
+        final disposition = poll.gate.admit(
+          eventId: eventId,
+          tripId: poll.id,
+          sequence: sequence,
+          kind: RealtimeKindWire.parse(wire) ?? RealtimeKind.callSignal,
+        );
+        if (disposition.passes) {
+          if (disposition == RealtimeDisposition.acceptedWithGap) {
+            unawaited(_poll(poll, force: true));
+          }
+          poll.remember(eventId);
+        }
+      }
       if (wire == 'call_ringing' && _staleRing(event)) return;
       if (payload is Map) {
         RideCallEvents.sink?.call(
