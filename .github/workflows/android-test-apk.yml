@@ -70,7 +70,9 @@ jobs:
             ref="$1"; number="$2"; name="$3"
             git checkout -q --force "$ref" 2>/dev/null || git checkout -q --force "origin/$ref"
             flutter pub get
-            app_version="$(sed -n 's/^version: *//p' pubspec.yaml)"
+            # The Account screen's "Version x (build)" line reads MOVERA_APP_VERSION: give it the APK's real build number
+            # (owner 2026-11-11: know which APK is installed).
+            app_version="$(sed -n 's/^version: *//p' pubspec.yaml)"; app_version="${app_version%%+*}+$number"
             flutter build apk --release \
               -t lib/main_staging.dart \
               --build-number="$number" \

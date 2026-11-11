@@ -253,6 +253,16 @@
   "@accountSuspended": {"description": "Deep-fix 2026-11-02"},
   "errLockedToday": "Too many wrong codes today. Try again later.",
   "@errLockedToday": {"description": "Contract v0.18.14 auth.signInErrors.otp_locked_today."},
+  "appVersionLine": "Version {version} ({build})",
+  "@appVersionLine": {
+    "description": "Owner 2026-11-11 (v0.18.66 §87, app only): bottom line of the Account screen, app version and build number, e.g. Version 1.0.0 (583).",
+    "placeholders": {"version": {"type": "String"}, "build": {"type": "String"}}
+  },
+  "appVersionOnly": "Version {version}",
+  "@appVersionOnly": {
+    "description": "Owner 2026-11-11 (v0.18.66 §87): the Account version line when the build has no build number (a local build says Version dev).",
+    "placeholders": {"version": {"type": "String"}}
+  },
   "@@locale": "en",
   "appTitle": "Movera",
   "previewBanner": "Preview",
@@ -361,6 +371,10 @@
   "chatQuickReplies": "Quick replies",
   "@chatQuickReplies": {
     "description": "v0.18.56 §78: semantics label of the quick-reply chips row."
+  },
+  "callConnectFailedHint": "Couldn't connect. Check your network or use chat.",
+  "@callConnectFailedHint": {
+    "description": "v0.18.66 §87 (owner 2026-11-11 'Add hint'): under 'Call failed' when the call could not connect within the connect time limit (inAppCalls.texts.connectFailedHint)."
   },
   "cancelRide": "Cancel ride",
   "cancelReasonPickupIncorrect": "Pickup point is incorrect",

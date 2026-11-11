@@ -137,5 +137,7 @@
   "authCodeFieldLabel": "Verifieringskod",
   "accountOutstandingFees": "Obetalda avgifter",
   "accountSuspended": "Ditt Movera-konto är pausat. Kontakta Movera support om du har frågor.",
-  "errLockedToday": "För många fel koder i dag. Försök igen senare."
+  "errLockedToday": "För många fel koder i dag. Försök igen senare.",
+  "appVersionLine": "Version {version} ({build})",
+  "appVersionOnly": "Version {version}"
 }

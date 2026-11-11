@@ -34,6 +34,8 @@ void main() {
       'ridesPremium', 'arriveEtaMin',
       // The trip chat shows Movera support under the brand name.
       'chatSupportSender',
+      // v0.18.66 §87: "Version 1.0.0 (583)" is the same word in French.
+      'appVersionLine', 'appVersionOnly',
     },
     'sv': {
       // v0.18.15 (owner QO-2): the brand line "<first name> · Movera Support".
@@ -48,6 +50,8 @@ void main() {
       // Owner round 2: words Swedish shares with English on Select ride.
       'ridesPremium', 'arriveEtaMin',
       'chatSupportSender',
+      // v0.18.66 §87: "Version 1.0.0 (583)" is the same word in Swedish.
+      'appVersionLine', 'appVersionOnly',
     },
   };
 

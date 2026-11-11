@@ -1,11 +1,11 @@
-# Movera API v0.18.65 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.66 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.65
+  version: 0.18.66
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.65 in this folder; this file must agree with them.
+    v0.18.66 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.65
+  version: 0.18.66
   source: contract.json
 paths:
   /auth/otp/request:
@@ -2219,7 +2219,8 @@ paths:
         poll of GET /trips/{tripId}/messages (the rider''s 3 s / 10 s polls are removed). The chat screen loads the page once
         (cursor) and then appends message events. A poll that is still needed stops while the tab or app is hidden. The apps''
         realtime gate admits every kind message and call_* event in sequence order (same seen / gap / resync rules as realtime),
-        not only call_* kinds.'
+        not only call_* kinds. v0.18.66 §87: answered to an admin, each Message carries translations (the kept translations,
+        read-only; never a new provider call). Rider and driver answers never carry translations.'
       tags:
       - Notifications & messages
       x-actor:
@@ -2336,7 +2337,7 @@ paths:
         service (FOREGROUND_SERVICE_MICROPHONE, type phoneCall / microphone) with a "Movera call" notification while the call
         lasts (+ the Play Console declaration); iOS the audio background mode in the driver app (the rider app already has
         it). Built only after the device proof (global plan step 69, T7). Server environment names: MOVERA_STUN_URLS, MOVERA_TURN_URLS,
-        MOVERA_TURN_SECRET.'
+        MOVERA_TURN_SECRET. v0.18.66 §87: TripCall.connectTimeoutSeconds (CountryRules.calls, default 25).'
       tags:
       - Notifications & messages
       x-actor:
@@ -20732,6 +20733,19 @@ components:
             in or expects it in. Exact for a quick-reply chip and for automatic messages (the reader''s language); for typed
             text it is the sender''s app language, a hint only (a person may type in another language; the provider translates
             from what it reads). Absent for support messages and for messages written before v0.18.64.'
+        translations:
+          type: array
+          items:
+            $ref: '#/components/schemas/MessageTranslation'
+          description: 'v0.18.66 §87, admin reads only: v0.18.66 §87 (owner 2026-11-11 ''Original + translation''; replaces
+            ''The admin''s own view of a trip chat shows messages as written'' of v0.18.64 §85): GET /trips/{tripId}/messages
+            answered to an admin (support.reply + the trip''s zone) carries Message.translations [MessageTranslation { to,
+            text }]: every translation the server already keeps for that message (trip_message_translations, chat.autoTranslate.cache),
+            oldest first, [] when none. Read-only: an admin read never asks the provider and never makes a new translation;
+            the admin has no translate button. Rider and driver answers never carry translations (they keep using POST /trips/{tripId}/messages/translate).
+            Admin › Trip details › Chat shows the text as written first and, under it, each kept translation in smaller grey
+            text with its language: ''Translation (EN)'' (sv ''Översättning (EN)'', fr ''Traduction (EN)''). No migration
+            (the cache table is 0097).'
     TripCall:
       type: object
       description: 'v0.13.0: a masked call between the trip''s rider and driver (contract.json#chat.call). v0.18.38 §62: POST
@@ -20789,6 +20803,16 @@ components:
           minimum: 1
           maximum: 60
           description: v0.18.38, mode in_app.
+        connectTimeoutSeconds:
+          type: integer
+          minimum: 10
+          maximum: 60
+          description: 'v0.18.66 §87, mode in_app: the trip zone''s CountryRules.calls.connectTimeoutSeconds. The apps get
+            the value with each call, like ringSeconds and maxCallMin (call settings are not in RiderAppConfig / DriverAppConfig):
+            TripCall.connectTimeoutSeconds on POST /trips/{tripId}/call (caller) and CallView.connectTimeoutSeconds on every
+            CallView (callee: the call_ringing event and the answer of POST /calls/{callId}/answer). The server reads it from
+            the trip zone''s country rules when it builds the answer (no column, no migration). Missing (older server) → 25.'
+          default: 25
     SavedPlace:
       type: object
       description: 'v0.18.26: one of the rider''s saved places. Each list is read and changed only by its owner (the signed-in
@@ -22815,6 +22839,21 @@ components:
               - none
               - twilio
               default: none
+            connectTimeoutSeconds:
+              type: integer
+              minimum: 10
+              maximum: 60
+              description: 'v0.18.66 §87: CountryRules.calls.connectTimeoutSeconds: integer 10–60, default 25 (configDefaults.calls.connectTimeoutSeconds),
+                per country like the other call settings (a zone''s own country_rules may set it). Outside 10–60 the save
+                is 400 invalid_request. Admin › Pricing › Tips & limits per country › Calls, field ''Connect time limit (s)''
+                (sv ''Tid att ansluta (s)'', fr ''Délai de connexion (s)''), saved with Save tips & limits and published with
+                the country_rules document (settings.edit / settings.publish), like Ring time and Longest call. The guard
+                starts when the call is answered (the callee''s Answer tap, the caller''s call_answered event) and again when
+                a connected call loses its link. Not connected within connectTimeoutSeconds → the app sends POST /calls/{callId}/end
+                { reason: failed } and shows the failure hint (failureHint). The caller''s ''Calling…'' also ends as failed
+                ringSeconds + connectTimeoutSeconds after the start when neither call_answered nor call_missed / call_ended
+                reached the phone.'
+              default: 25
         chat:
           $ref: '#/components/schemas/ChatSettings'
         emergencyNumbers:
@@ -34223,6 +34262,16 @@ components:
                 type: integer
                 minimum: 0
           description: 'v0.18.38: on the answer of POST /calls/{callId}/answer only: the callee''s ICE servers.'
+        connectTimeoutSeconds:
+          type: integer
+          minimum: 10
+          maximum: 60
+          description: 'v0.18.66 §87, every CallView: the trip zone''s CountryRules.calls.connectTimeoutSeconds. The apps
+            get the value with each call, like ringSeconds and maxCallMin (call settings are not in RiderAppConfig / DriverAppConfig):
+            TripCall.connectTimeoutSeconds on POST /trips/{tripId}/call (caller) and CallView.connectTimeoutSeconds on every
+            CallView (callee: the call_ringing event and the answer of POST /calls/{callId}/answer). The server reads it from
+            the trip zone''s country rules when it builds the answer (no column, no migration). Missing (older server) → 25.'
+          default: 25
     CallSignal:
       type: object
       description: 'v0.18.38: POST /calls/{callId}/signal { type: offer|answer|ice, sdp?, candidate? } by the call''s caller
@@ -34919,3 +34968,19 @@ components:
         'on':
           type: boolean
           description: 'false: no next-trip offers during this trip; true: they come again.'
+    MessageTranslation:
+      type: object
+      description: 'v0.18.66 §87: one translation the server keeps for a message (trip_message_translations).'
+      required:
+      - to
+      - text
+      properties:
+        to:
+          type: string
+          enum:
+          - sv
+          - fr
+          - en
+        text:
+          type: string
+          minLength: 1
