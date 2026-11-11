@@ -71,6 +71,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: File size ratchet (Rule 25)
         run: python3 tool/size_ratchet.py
+      - name: File size ratchet self-test
+        run: python3 tool/size_ratchet.py --self-test
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
