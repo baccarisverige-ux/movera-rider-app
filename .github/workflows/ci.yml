@@ -278,7 +278,10 @@ jobs:
               break
             fi
             [ "$i" = 3 ] && exit 1
-            echo "::warning::apt try $i failed; retrying in 30 s"; sleep 30
+            echo "::warning::apt try $i failed; retrying in 30 s with the main Ubuntu mirror"; sleep 30
+            # The runner's Azure mirror list was unreachable on 11 Nov: point
+            # apt straight at archive.ubuntu.com for the next try.
+            sudo sed -i 's#mirror+file:/etc/apt/apt-mirrors.txt#http://archive.ubuntu.com/ubuntu/#' /etc/apt/sources.list.d/*.sources /etc/apt/sources.list 2>/dev/null || true
           done
       - run: flutter pub get --enforce-lockfile
       - run: flutter config --enable-linux-desktop
