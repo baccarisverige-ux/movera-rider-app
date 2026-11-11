@@ -255,6 +255,20 @@ class ApiRideRealtime implements RideRealtime {
     }
   }
 
+  /// Rider job J12 (§4 replay, §62 `inAppCalls`): a first open replays
+  /// the whole trip, old rings included. A ring older (server clock:
+  /// serverTime − occurredAt) than the longest ring the contract allows
+  /// ([maxRing], ringSeconds ≤ 120) was already answered, ended or missed,
+  /// so it must not open the incoming-call sheet.
+  static const maxRing = Duration(seconds: 120);
+
+  bool _staleRing(Map<String, Object?> event) {
+    final at = _date(event['occurredAt']);
+    final server = _date(event['serverTime']);
+    if (at == null || server == null) return false;
+    return server.difference(at) > maxRing;
+  }
+
   /// Restarts the silence timer: no line (event or heartbeat) within
   /// [streamSilenceLimit] means the stream dropped without closing.
   void _armWatchdog(_RidePoll poll) {
@@ -329,6 +343,7 @@ class ApiRideRealtime implements RideRealtime {
     final wire = event['kind'];
     if (wire is String && wire.startsWith('call_')) {
       final payload = event[wire == 'call_signal' ? 'signal' : 'call'];
+      if (wire == 'call_ringing' && _staleRing(event)) return;
       if (payload is Map) {
         RideCallEvents.sink?.call(
           poll.id,
