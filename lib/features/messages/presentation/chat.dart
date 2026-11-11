@@ -132,13 +132,13 @@ class _ChatState extends State<Chat> {
 
   Future<void> _translate(ChatMessage message) async {
     final answer = await _chat.translate(message);
-    if (!mounted) return;
+    if (!mounted || answer == null) return;
     switch (answer) {
       case ChatTranslated():
         break;
       case ChatTranslationComingSoon():
         MoveraToast.show(context, context.l10n.chatTranslationComingSoon);
-      case ChatTranslationFailed():
+      case ChatTranslationFailed() || ChatTranslationOff():
         MoveraToast.show(context, context.l10n.chatTranslateFailed);
     }
   }

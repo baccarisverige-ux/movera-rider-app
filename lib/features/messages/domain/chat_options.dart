@@ -24,6 +24,7 @@ class ChatOptions {
     this.sheetAutoOpen = 'new_message',
     this.readAloudDefault = false,
     this.translation = false,
+    this.autoTranslate = false,
     this.headerLine = const {},
   });
 
@@ -40,7 +41,15 @@ class ChatOptions {
   final String sheetAutoOpen;
   final bool readAloudDefault;
   final bool translation;
+
+  /// v0.18.64 §85: messages from the driver arrive translated into the
+  /// rider's language ("See original" under them). Absent (an older
+  /// server) = off.
+  final bool autoTranslate;
   final Map<String, String> headerLine;
+
+  /// The app translates by itself (both switches on).
+  bool get translatesByItself => translation && autoTranslate;
 
   bool get opensSheetOnNewMessage => sheetAutoOpen == 'new_message';
 
@@ -78,6 +87,7 @@ class ChatOptions {
       sheetAutoOpen: open == 'off' ? 'off' : 'new_message',
       readAloudDefault: json['readAloudDefault'] == true,
       translation: json['translation'] == true,
+      autoTranslate: json['autoTranslate'] == true,
       headerLine: _texts(json['headerLine']),
     );
   }
@@ -99,9 +109,15 @@ class ChatTranslationComingSoon extends ChatTranslation {
   const ChatTranslationComingSoon();
 }
 
-/// 403 `translation_off`, or any other failure.
+/// Any other failure (no answer, an empty text, a refusal).
 class ChatTranslationFailed extends ChatTranslation {
   const ChatTranslationFailed();
+}
+
+/// v0.18.64 §85: 403 `translation_off` or `auto_translate_off`: the admin
+/// turned translation (or the automatic one) off.
+class ChatTranslationOff extends ChatTranslation {
+  const ChatTranslationOff();
 }
 
 /// The §78 additions to the chat wire; only the live wire has them.
@@ -117,6 +133,11 @@ abstract interface class TripChatExtras {
     required String idempotencyKey,
   });
 
-  /// `POST /trips/{tripId}/messages/translate { messageId, to }`.
-  Future<ChatTranslation> translate(String tripId, String messageId, String to);
+  /// `POST /trips/{tripId}/messages/translate { messageId, to, auto }`.
+  Future<ChatTranslation> translate(
+    String tripId,
+    String messageId,
+    String to, {
+    bool auto = false,
+  });
 }

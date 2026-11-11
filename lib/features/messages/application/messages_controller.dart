@@ -26,7 +26,7 @@ class MessagesController extends ChangeNotifier {
        _now = now ?? DateTime.now,
        _transport = transport,
        _rideId = rideId?.trim() ?? '' {
-    _store.addListener(notifyListeners);
+    _store.addListener(_onStore);
   }
 
   /// The conversation of [rideId], shared by every screen of this process.
@@ -52,10 +52,13 @@ class MessagesController extends ChangeNotifier {
   final String _rideId;
   bool _refreshing = false;
   ChatOptions _options = ChatOptions.fallback;
-  final Map<String, String> _translations = <String, String>{};
-  final Set<String> _showingTranslation = <String>{};
-  final Set<String> _translating = <String>{};
+  bool _optionsRead = false;
   bool _disposed = false;
+
+  void _onStore() {
+    notifyListeners();
+    _autoTranslate();
+  }
 
   /// Told when a send fails (the server refused it or never answered), so
   /// the screen can say so; the message stays in the list as not sent.
@@ -210,8 +213,10 @@ class MessagesController extends ChangeNotifier {
       final options = await extras.options(_rideId);
       if (_disposed) return;
       _options = options;
+      _optionsRead = true;
       _soundByRide[_rideId] = options.sound;
       notifyListeners();
+      _autoTranslate();
     } catch (error) {
       AppLog.warning(
         'messages.options_failed',
@@ -241,46 +246,101 @@ class MessagesController extends ChangeNotifier {
   /// The translated text of [message] while the rider shows it, else null.
   String? translationOf(ChatMessage message) {
     final id = message.messageId;
-    if (id == null || !_showingTranslation.contains(id)) return null;
-    return _translations[id];
+    final t = _store.translations;
+    if (id == null || !t.showsTranslation(id)) return null;
+    return t.shown(id, message.text);
   }
 
-  bool isTranslating(ChatMessage message) =>
-      _translating.contains(message.messageId);
-
-  /// "Translate to `my language`": `to` is always the rider's own app
-  /// language (owner A1). A translation already fetched is shown again
-  /// without a new request. Returns what the screen should say.
-  Future<ChatTranslation> translate(ChatMessage message) async {
+  bool isTranslating(ChatMessage message) {
     final id = message.messageId;
+    return id != null && _store.translations.busy(id);
+  }
+
+  /// The language a translation goes to: the rider's own app language
+  /// (owner A1).
+  static String get translateTarget => L10n.current.localeName;
+
+  /// v0.18.64 §85 (owner 2026-11-11: "the language must arrive with the
+  /// receiver language"): each message from the driver (or support) is
+  /// translated into the rider's language once, as it arrives, when the
+  /// trip's options say so (read first) and it is not already in that
+  /// language. A failure leaves the original, quietly; `coming_soon`,
+  /// `translation_off` or `auto_translate_off` stop it for the trip.
+  void _autoTranslate() {
     final extras = _extras;
-    if (id == null || extras == null) return const ChatTranslationFailed();
-    if (_translations[id] case final known?) {
-      _showingTranslation.add(id);
-      notifyListeners();
-      return ChatTranslated(known);
+    final t = _store.translations;
+    if (extras == null ||
+        _disposed ||
+        !_optionsRead ||
+        !_options.translatesByItself ||
+        t.autoStopped ||
+        isClosed) {
+      return;
     }
-    if (!_translating.add(id)) return const ChatTranslationFailed();
-    notifyListeners();
+    final target = translateTarget;
+    for (final message in _store.messages) {
+      final id = message.messageId;
+      if (id == null ||
+          message.fromRider ||
+          message.isSystem ||
+          t.autoTried(id) ||
+          t.has(id)) {
+        continue;
+      }
+      t.markAutoTried(id);
+      if (message.lang == target || !t.start(id)) continue;
+      unawaited(_ask(extras, id, auto: true));
+    }
+  }
+
+  Future<ChatTranslation> _ask(
+    TripChatExtras extras,
+    String id, {
+    required bool auto,
+  }) async {
     ChatTranslation answer;
     try {
-      answer = await extras.translate(_rideId, id, L10n.current.localeName);
+      answer = await extras.translate(_rideId, id, translateTarget, auto: auto);
     } catch (_) {
       answer = const ChatTranslationFailed();
     }
-    _translating.remove(id);
-    if (_disposed) return answer;
-    if (answer case ChatTranslated(:final text)) {
-      _translations[id] = text;
-      _showingTranslation.add(id);
+    // The trip may have ended meanwhile: nothing is kept then.
+    if (isClosed) return answer;
+    final t = _store.translations;
+    t.done(id, answer is ChatTranslated ? answer.text : null);
+    if (auto &&
+        (answer is ChatTranslationComingSoon || answer is ChatTranslationOff)) {
+      t.stopAuto();
     }
-    notifyListeners();
+    _store.translationsChanged();
     return answer;
+  }
+
+  /// "Translate to `my language`": `to` is always the rider's own app
+  /// language (owner A1). A translation already here (asked by itself or
+  /// tapped before) is shown again without a new request. Returns what the
+  /// screen should say; null when nothing was asked (one is on its way).
+  Future<ChatTranslation?> translate(ChatMessage message) async {
+    final id = message.messageId;
+    final extras = _extras;
+    if (id == null || extras == null) return const ChatTranslationFailed();
+    final t = _store.translations;
+    if (t.has(id)) {
+      t.showTranslation(id);
+      _store.translationsChanged();
+      return null;
+    }
+    if (!t.start(id)) return null;
+    _store.translationsChanged();
+    return _ask(extras, id, auto: false);
   }
 
   /// "See original": back to the text as written.
   void showOriginal(ChatMessage message) {
-    if (_showingTranslation.remove(message.messageId)) notifyListeners();
+    final id = message.messageId;
+    if (id == null || !_store.translations.showsTranslation(id)) return;
+    _store.translations.showOriginal(id);
+    _store.translationsChanged();
   }
 
   /// One listing from the server (the page, once, when a screen opens),
@@ -307,7 +367,7 @@ class MessagesController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    _store.removeListener(notifyListeners);
+    _store.removeListener(_onStore);
     super.dispose();
   }
 }
