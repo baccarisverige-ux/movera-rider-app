@@ -43,6 +43,7 @@ class WaitingForDriver extends StatefulWidget {
     this.controller,
     this.location,
     this.pickupMove,
+    this.tripMessages,
   });
 
   final String pickupAddress;
@@ -106,6 +107,10 @@ class WaitingForDriver extends StatefulWidget {
   /// /trips/{tripId}`), on the contract wire; the demo's route screen
   /// otherwise. Tests pass their own.
   final PickupMoveController? pickupMove;
+
+  /// Test seam: the trip chat transport (§78 sheet auto-open). Production
+  /// uses the app's (`AppScope.tripMessages`).
+  final TripMessagesTransport? tripMessages;
 
   /// Test seam: the clock the live cancel fee preview is worked out with.
   @visibleForTesting

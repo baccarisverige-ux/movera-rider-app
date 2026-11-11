@@ -91,6 +91,8 @@ class MessagesController extends ChangeNotifier {
   bool send(String raw) {
     final text = raw.trim();
     if (text.isEmpty) return false;
+    // §78 `maxLength`: longer text is refused by the server.
+    if (text.length > _options.maxLength) return false;
     if (_transport == null || isClosed) return false;
     final local = ChatMessage(
       text: text,
