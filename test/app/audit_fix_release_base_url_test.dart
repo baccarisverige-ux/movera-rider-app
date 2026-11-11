@@ -49,6 +49,10 @@ void main() {
         '   ',
         'http://api.movera.example',
         'api.movera.example',
+        // D9 (R11-14): the reserved .example documentation hosts too.
+        'https://api.movera.example',
+        'https://example',
+        'https://API.Movera.EXAMPLE',
       ]) {
         expect(
           () => validate(env(flavor, url)),

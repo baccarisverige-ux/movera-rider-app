@@ -280,7 +280,7 @@ void main() {
     final staging = AppScope.composeForEnvironment(
       const AppEnv(
         flavor: AppFlavor.staging,
-        apiBaseUrl: 'https://api.staging.movera.example',
+        apiBaseUrl: 'https://api.staging.movera.test',
       ),
     );
     addTearDown(staging.disposeForTest);

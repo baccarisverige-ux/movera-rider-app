@@ -58,11 +58,11 @@ void main() {
 
   const production = AppEnv(
     flavor: AppFlavor.production,
-    apiBaseUrl: 'https://api.movera.example',
+    apiBaseUrl: 'https://api.movera.test',
   );
   const staging = AppEnv(
     flavor: AppFlavor.staging,
-    apiBaseUrl: 'https://api.staging.movera.example',
+    apiBaseUrl: 'https://api.staging.movera.test',
   );
   const demo = AppEnv(
     flavor: AppFlavor.demo,

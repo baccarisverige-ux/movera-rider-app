@@ -24,7 +24,7 @@ void main() {
     () async {
       const production = AppEnv(
         flavor: AppFlavor.production,
-        apiBaseUrl: 'https://api.movera.example',
+        apiBaseUrl: 'https://api.movera.test',
       );
 
       final scope = AppScope.composeForEnvironment(production);

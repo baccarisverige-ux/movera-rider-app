@@ -13,7 +13,8 @@ abstract final class TransportComposition {
   /// Why [apiBaseUrl] cannot serve a staging/production build, or null.
   ///
   /// A release built without `--dart-define=MOVERA_API_BASE_URL` falls back to
-  /// the demo default `https://api.demo.movera.invalid`; every request would
+  /// the demo default `https://api.demo.movera.invalid` (or a `.example`
+  /// sample host); every request would
   /// then fail with a DNS error at runtime, so composition refuses it.
   static String? releaseApiBaseUrlProblem(String apiBaseUrl) {
     final value = apiBaseUrl.trim();
@@ -26,6 +27,11 @@ abstract final class TransportComposition {
     final host = uri.host.toLowerCase();
     if (host == 'invalid' || host.endsWith('.invalid')) {
       return '"$value" uses the reserved .invalid placeholder host';
+    }
+    // D9 (R11-14): .example is reserved for documentation (RFC 2606) and
+    // never a real server either.
+    if (host == 'example' || host.endsWith('.example')) {
+      return '"$value" uses the reserved .example placeholder host';
     }
     return null;
   }
