@@ -1,11 +1,11 @@
-# Movera API v0.18.64 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.65 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.64
+  version: 0.18.65
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.64 in this folder; this file must agree with them.
+    v0.18.65 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.64
+  version: 0.18.65
   source: contract.json
 paths:
   /auth/otp/request:
@@ -17645,6 +17645,62 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /driver/next-trips:
+    post:
+      operationId: setDriverNextTrips
+      summary: Stop / start next-trip offers during a trip
+      description: 'v0.18.65 §86: POST /driver/next-trips { on: boolean } (driver, Idempotency-Key) -> 200 Driver. While he
+        has a current trip (onlineStatus on_trip): on false sets Driver.nextTripsOff true (Driver.version up), on true clears
+        it. Sending the state he already has answers the Driver unchanged (idempotent). Off a trip it changes nothing and
+        answers the Driver (nextTripsOff false): the Home radar is the online switch. While nextTripsOff is true the server
+        sends him no on-trip offer (contract.json#afterTestRules.bookedNext: no next-trip Exclusive, live or booked); his
+        open offers are withdrawn at once (the withdraw_driver_offers job). An accept that still reaches the server is refused
+        409 conflict, reason next_trips_off. Radar and lists never go to a driver on a trip anyway. The switch belongs to
+        one trip: when a trip of his ends (completed, cancelled by anyone, no-show), in the same transaction as the trip release
+        (rule 33), nextTripsOff goes back to false, also when a queued next trip or a due held booked ride starts (its trip
+        sheet starts with the radar on). Go offline during a trip (contract.json#goOfflineAfterTrips) stops every offer whatever
+        this switch says. The state is on the server: GET /driver/profile carries nextTripsOff, so the trip sheet''s radar
+        shows off again after a restart.'
+      tags:
+      - Driver · Session
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NextTripsRequest'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Driver'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -19848,6 +19904,17 @@ components:
           - $ref: '#/components/schemas/Timestamp'
           - type: 'null'
           description: 'v0.18.37 §61: when he tapped Go offline during the trip (null without offlineAfterTrip).'
+        nextTripsOff:
+          type: boolean
+          description: 'v0.18.65 §86: he stopped next-trip offers on the trip sheet''s radar for his current trip. While nextTripsOff
+            is true the server sends him no on-trip offer (contract.json#afterTestRules.bookedNext: no next-trip Exclusive,
+            live or booked); his open offers are withdrawn at once (the withdraw_driver_offers job). An accept that still
+            reaches the server is refused 409 conflict, reason next_trips_off. Radar and lists never go to a driver on a trip
+            anyway. The switch belongs to one trip: when a trip of his ends (completed, cancelled by anyone, no-show), in
+            the same transaction as the trip release (rule 33), nextTripsOff goes back to false, also when a queued next trip
+            or a due held booked ride starts (its trip sheet starts with the radar on). Go offline during a trip (contract.json#goOfflineAfterTrips)
+            stops every offer whatever this switch says.'
+          default: false
     DriverScheduledRides:
       type: object
       description: 'Owner decision 2 (v0.4.2): an admin''s reservations on/off for this one driver (CONTRACT.md §6.1). Missing
@@ -26509,6 +26576,11 @@ components:
           description: 'v0.18.37 §61: on a trip and going offline when his trips end (admin label ''Going offline after trips'').
             No setting. The admin driver view and the live drivers list carry offlineAfterTrip; the admin shows ''Going offline
             after trips'' on an on-trip driver.'
+        nextTripsOff:
+          type: boolean
+          description: 'v0.18.65 §86: on a trip with next-trip offers stopped. No setting (the on-trip offer rules stay CountryRules.onTripOffers
+            and DispatchDocument.bookedNext). The admin driver view and the live drivers list carry nextTripsOff; Admin ›
+            Live shows an on-trip driver with it as ''Next trips off'' (sv ''Nästa resor av'', fr ''Courses suivantes désactivées'').'
     ZoneRidersOnline:
       type: object
       description: 'v0.18.4 (G3-R4): G3-R4 (owner ''Real numbers only''): riders online per zone = distinct riders who in
@@ -34839,3 +34911,11 @@ components:
         lifted:
           type: integer
           minimum: 0
+    NextTripsRequest:
+      type: object
+      required:
+      - 'on'
+      properties:
+        'on':
+          type: boolean
+          description: 'false: no next-trip offers during this trip; true: they come again.'

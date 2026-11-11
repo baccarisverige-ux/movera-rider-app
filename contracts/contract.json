@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.64",
+  "version": "0.18.65",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -8343,6 +8343,17 @@
     "admin": "No setting. The admin driver view and the live drivers list carry offlineAfterTrip; the admin shows 'Going offline after trips' on an on-trip driver.",
     "driverApp": "Go offline during a trip: one POST, keep sending location (the trip goes on), show the banner 'Going offline after this trip' with Undo (POST online). After the last trip the offline card shows reasons.after_trip.",
     "riderApp": "No change: the rider's trip goes on as normal; the driver's plan is not shown to riders."
+  },
+  "nextTripsSwitch": {
+    "note": "v0.18.65 §86 (owner phone test 2026-11-11, Rules decisions/session-2026-11-06.md: 'double check if he turn radar off while on trip do offers stop or not'). Builds on v0.18.64 main. X-Api-Version stays 0.5; additive; server migration 0098 (drivers.next_trips_off).",
+    "why": "Before v0.18.64 the trip sheet's radar (hold to stop next trips) was only on the phone: the app hid the on-trip Exclusives, but the server still sent them, so each one held the rider's search for exclusive.seconds and ran out unseen.",
+    "route": "POST /driver/next-trips { on: boolean } (driver, Idempotency-Key) -> 200 Driver. While he has a current trip (onlineStatus on_trip): on false sets Driver.nextTripsOff true (Driver.version up), on true clears it. Sending the state he already has answers the Driver unchanged (idempotent). Off a trip it changes nothing and answers the Driver (nextTripsOff false): the Home radar is the online switch.",
+    "noOffers": "While nextTripsOff is true the server sends him no on-trip offer (contract.json#afterTestRules.bookedNext: no next-trip Exclusive, live or booked); his open offers are withdrawn at once (the withdraw_driver_offers job). An accept that still reaches the server is refused 409 conflict, reason next_trips_off. Radar and lists never go to a driver on a trip anyway.",
+    "end": "The switch belongs to one trip: when a trip of his ends (completed, cancelled by anyone, no-show), in the same transaction as the trip release (rule 33), nextTripsOff goes back to false, also when a queued next trip or a due held booked ride starts (its trip sheet starts with the radar on). Go offline during a trip (contract.json#goOfflineAfterTrips) stops every offer whatever this switch says.",
+    "restart": "The state is on the server: GET /driver/profile carries nextTripsOff, so the trip sheet's radar shows off again after a restart.",
+    "admin": "No setting (the on-trip offer rules stay CountryRules.onTripOffers and DispatchDocument.bookedNext). The admin driver view and the live drivers list carry nextTripsOff; Admin › Live shows an on-trip driver with it as 'Next trips off' (sv 'Nästa resor av', fr 'Courses suivantes désactivées').",
+    "driverApp": "Driver app: holding the trip radar to stop (or start) next trips sends POST /driver/next-trips at once; on a refusal or no connection the radar goes back and says so. Profile reads set the radar from nextTripsOff.",
+    "riderApp": "No change."
   },
   "inAppCalls": {
     "note": "v0.18.38 §62 (fix job 8, Rules plan/FIX-JOBS-8-9-10-PLAN-2026-11-05.md; owner G15 2026-11-05: 'In-app calls only', 'Both rider and driver', \"Just 'Call failed'\"). Builds on v0.18.34 main. X-Api-Version stays 0.5; additive; server migration 0085 (trip_calls).",

@@ -1,4 +1,6 @@
-# Movera shared contract v0.18.64
+# Movera shared contract v0.18.65
+
+v0.18.65 (owner phone test 2026-11-11 "if he turn radar off while on trip do offers stop or not", Rule 0; X-Api-Version stays `0.5`; additive; server migration 0098): **the trip radar's "stop next trips" reaches the server** — `POST /driver/next-trips { on }` → `Driver`; with `Driver.nextTripsOff` the server sends no on-trip Exclusive (live or booked), withdraws his open ones and refuses a late accept `409 conflict` `next_trips_off`; the switch is cleared when each trip ends. Admin Live shows "Next trips off". Rider app: no change. §86.
 
 v0.18.64 (owner 2026-11-11 "the language must arrive with the receiver language and the translate when click on it must open original language", Rule 0; X-Api-Version stays `0.5`; additive; server migration 0097): **ride chat messages arrive already translated into the reader's app language**; "See original" under the message shows the text as written, a second tap shows the translation again; own messages show as written. New `CountryRules.chat.autoTranslate` (default on, Admin › Chat "Translate messages automatically"), `ChatOptions.autoTranslate`, `Message.lang` (source language), `TranslateMessageRequest.auto` (403 `auto_translate_off` when the switch is off); the server answers the text as written when `Message.lang` = `to` and keeps each translation once per message and language (cache, deleted with the message). Failure → the original, no notice. See §85.
 
@@ -1412,3 +1414,13 @@ Owner 2026-11-11: "the language must arrive with the receiver language and the t
 - **Failure**: 503 `coming_soon` (no provider yet), 403 `translation_off` / `auto_translate_off`, 429, network error or empty text → the original shows with "Translate to <language>", no notice, no retry loop; after `coming_soon` / `translation_off` / `auto_translate_off` the app stops asking by itself for that trip. A tap still asks and shows the §78 notice.
 - **Trip sheet card**: shows the same text as the chat; the driver's read aloud reads the translation if it arrives within 3 s, else the original.
 - **Order (Rule 0)**: contract → server (Message.lang, `auto`, same-language answer, cache, migration 0097, setting with default) → admin (Chat settings switch, texts sv / fr / en) → driver and rider apps (translated by default, See original toggle, quiet fallback). The admin's trip chat view shows messages as written (no change).
+
+## 86. Stop next trips during a trip (v0.18.65)
+
+Owner (2026-11-11, phone test): "double check if he turn radar off while on trip do offers stop or not". Before: the trip sheet's radar only hid the offers on the phone; the server still sent them. Full rules: `contract.json#nextTripsSwitch`.
+
+- **Route**: `POST /driver/next-trips { on: boolean }` (driver, Idempotency-Key) → `200 Driver`. On a trip, `on: false` sets `Driver.nextTripsOff` (version up), `on: true` clears it; the same state again is idempotent. Off a trip nothing changes.
+- **Dispatch**: with `nextTripsOff` no on-trip Exclusive (live or booked) is sent to him; open ones are withdrawn at once; an accept that still arrives is `409 conflict`, reason `next_trips_off`.
+- **End**: cleared when each trip of his ends, in the trip-release transaction (rule 33), also when a queued or due booked trip starts.
+- **Restart**: `GET /driver/profile` carries `nextTripsOff`.
+- **Order (Rule 0)**: contract → server (migration 0098 `drivers.next_trips_off`) → admin (Live: "Next trips off", sv "Nästa resor av", fr "Courses suivantes désactivées"; no setting) → driver app (the trip radar sends the switch) → rider app (no change).
