@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/core/constants/app_version.dart' as app_version;
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
 import 'package:movera_rider/core/payments/mock_payment_gateway.dart';
@@ -46,8 +48,21 @@ abstract final class TransportComposition {
     required LoggerSink logger,
     required AnalyticsSink analytics,
     required CrashSink crashes,
+    String appVersion = app_version.appVersion,
+    bool releaseBuild = kReleaseMode,
   }) {
     if (environment.allowsMockTransport) return;
+
+    // D14 (R11-17): a shipped build reports its version (telemetry, the
+    // "Update the app" gate); a release built without the define would
+    // report `dev`, so it stops at start instead.
+    final version = appVersion.trim();
+    if (releaseBuild && (version.isEmpty || version == 'dev')) {
+      throw StateError(
+        'MOVERA_APP_VERSION is missing for the '
+        '${environment.flavor.name} release build',
+      );
+    }
 
     final baseUrlProblem = releaseApiBaseUrlProblem(environment.apiBaseUrl);
     if (baseUrlProblem != null) {
