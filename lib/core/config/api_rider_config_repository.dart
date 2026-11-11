@@ -106,6 +106,11 @@ class ApiRiderConfigRepository extends ChangeNotifier
   }
 
   final Map<String, RiderAppConfig> _documents = {};
+
+  /// R09 N3: the last server answer per zone (encoded), so a fresh read of
+  /// an unchanged document does not notify listeners (the ride catalog
+  /// would read again for nothing).
+  final Map<String, String> _served = {};
   final Map<String, Future<RiderAppConfig?>> _inFlight = {};
   StreamSubscription<String>? _stream;
   Timer? _retry;
@@ -168,8 +173,16 @@ class ApiRiderConfigRepository extends ChangeNotifier
       // (the server copies the zone's driver document settings, e.g.
       // `routeChange`, and live prices into it without a new rider
       // version), so a fresh read replaces an equal version.
+      final encoded = jsonEncode(raw);
+      final known = _documents[zoneId];
+      if (known != null &&
+          known.version == parsed.version &&
+          _served[zoneId] == encoded) {
+        return known;
+      }
       _keep(zoneId, parsed, replaceEqual: true);
       if (_documents[zoneId] == parsed) {
+        _served[zoneId] = encoded;
         try {
           await _cache.write(zoneId, Map<String, Object?>.from(raw));
         } catch (error) {

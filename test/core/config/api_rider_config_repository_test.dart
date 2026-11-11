@@ -107,6 +107,36 @@ void main() {
     expect((await repo.forZone('Z001')).routeChangeBeforePickup, isFalse);
   });
 
+  test('R09 N3: a fresh read of an unchanged document does not notify '
+      'listeners (no second catalog GET); a changed one still does', () async {
+    var beforePickup = true;
+    final repo = ApiRiderConfigRepository(
+      api: ApiClient(
+        env: staging,
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              ...document(5),
+              'routeChange': {'on': true, 'beforePickup': beforePickup},
+            }),
+            200,
+          ),
+        ),
+      ),
+      cache: MemoryRiderConfigCache(),
+    );
+    await repo.forZone('Z001');
+    var notified = 0;
+    repo.addListener(() => notified++);
+    await repo.refresh('Z001');
+    await repo.refresh('Z001');
+    expect(notified, 0, reason: 'same document, nothing changed');
+    beforePickup = false;
+    await repo.refresh('Z001');
+    expect(notified, 1, reason: 'same version, changed document');
+    expect((await repo.forZone('Z001')).routeChangeBeforePickup, isFalse);
+  });
+
   test(
     'no server: the last document received, else the built-in seed',
     () async {
