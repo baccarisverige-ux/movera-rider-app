@@ -20,4 +20,22 @@ void main() {
     );
     expect(filter.hasMatch(xml), isTrue);
   });
+
+  test('D4 (R11-25): no app data in Android backups (like the Driver)', () {
+    final xml = manifest();
+    expect(xml, contains('android:allowBackup="false"'));
+    expect(xml, contains('android:fullBackupContent="@xml/backup_rules"'));
+    expect(
+      xml,
+      contains('android:dataExtractionRules="@xml/data_extraction_rules"'),
+    );
+    for (final name in ['backup_rules', 'data_extraction_rules']) {
+      final rules = File(
+        'android/app/src/main/res/xml/$name.xml',
+      ).readAsStringSync();
+      for (final domain in ['sharedpref', 'database', 'file', 'root']) {
+        expect(rules, contains('<exclude domain="$domain" path="." />'));
+      }
+    }
+  });
 }
