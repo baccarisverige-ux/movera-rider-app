@@ -84,6 +84,14 @@ class RiderTripWatch {
     unawaited(check());
   }
 
+  /// E15: `/rider/config/stream` connected again. Hints sent while it was
+  /// down are lost (no catch-up event), so the booked rides and the active
+  /// trip are read again.
+  void onStreamReconnected() {
+    unawaited(_refreshList());
+    unawaited(check());
+  }
+
   /// The app is in front (start, resume): poll until [stop]. Coming to the
   /// front also reads the booked rides again.
   void start() {

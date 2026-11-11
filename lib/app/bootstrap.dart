@@ -238,6 +238,8 @@ Future<void> bootstrap() async {
     config.eventTaps.add(AppScope.instance.zones.onConfigEvent);
     // v0.18.32 P21: a trip made elsewhere reaches Home at once.
     config.eventTaps.add(RiderTripWatch.instance.onConfigEvent);
+    // E15: hints lost while the stream was down are read again.
+    config.reconnectTaps.add(RiderTripWatch.instance.onStreamReconnected);
     RiderTripWatch.instance.start();
   }
   // v0.18.2 auth.beforeSignIn: the reads that need a session start now

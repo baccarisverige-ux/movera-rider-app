@@ -121,6 +121,14 @@ class ApiRiderConfigRepository extends ChangeNotifier
   /// (contract v0.10.0: `config_published` with doc `content`).
   final List<void Function(Map<String, Object?> event)> eventTaps = [];
 
+  /// E15: called after each successful stream connect except the first one
+  /// of a [watch]. The server closes the stream when its LISTEN connection
+  /// reconnects and `rider_trip_changed` hints sent during the gap are lost
+  /// (no catch-up event), so listeners read their state again.
+  final List<void Function()> reconnectTaps = [];
+
+  bool _connectedOnce = false;
+
   static RiderAppConfig _seed(String zoneId) =>
       SeedRiderConfigRepository.seedFor(zoneId);
 
@@ -263,6 +271,7 @@ class ApiRiderConfigRepository extends ChangeNotifier
     _asked = zoneId;
     _applyFeatures();
     _renewTried = false;
+    _connectedOnce = false;
     unawaited(refresh(zoneId));
     await _connect(zoneId);
   }
@@ -276,6 +285,12 @@ class ApiRiderConfigRepository extends ChangeNotifier
       );
       _renewTried = false;
       _failures = 0;
+      if (_connectedOnce) {
+        for (final tap in List.of(reconnectTaps)) {
+          tap();
+        }
+      }
+      _connectedOnce = true;
       final events = ConfigEventParser();
       _stream = lines.listen(
         (line) {
