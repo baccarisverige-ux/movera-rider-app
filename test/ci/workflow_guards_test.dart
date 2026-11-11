@@ -26,4 +26,12 @@ void main() {
     expect(yml, isNot(contains('TEST_BUILD_NO_MAP')));
     expect(yml, contains('::error::Missing Android Google Maps key'));
   });
+
+  test('D12 (R10 #14): the live web build has the same size budget as CI', () {
+    final budget = RegExp(
+      r'python3 tool/check_web_budget\.py build/web --main-raw \d+ --main-gzip \d+',
+    );
+    final ci = budget.firstMatch(read('ci.yml'))!.group(0)!;
+    expect(read('publish-web-live.yml'), contains(ci));
+  });
 }

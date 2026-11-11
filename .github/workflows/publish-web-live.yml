@@ -97,6 +97,8 @@ jobs:
             --dart-define=MOVERA_APP_VERSION="$app_version" \
             --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID"
           printf '%s\n' '{"flavor":"staging","production":false}' > build/web/movera-environment.json
+          # D12 (R10 #14): the same size budget as ci.yml's production build.
+          python3 tool/check_web_budget.py build/web --main-raw 6500000 --main-gzip 1850000
           python3 - <<'PY'
           import os
           from pathlib import Path
