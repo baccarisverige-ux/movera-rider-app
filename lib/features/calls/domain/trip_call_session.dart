@@ -77,6 +77,16 @@ class TripCallSession extends ChangeNotifier {
   bool _speaker = false;
   bool _engineOpen = false;
 
+  /// 2026-11-11 owner phone test ("we cannot hear each other"): the other
+  /// side's offer / answer / ICE could arrive while this phone was still
+  /// taking the microphone (the first call shows Android's microphone
+  /// question), so the SDP answer had no audio track or the engine was not
+  /// there yet. Signals now wait until the engine is open.
+  final Completer<void> _ready = Completer<void>();
+
+  /// Signals are handled one at a time, in the order they came.
+  Future<void> _signals = Future<void>.value();
+
   TripCallState get state => _state;
   bool get muted => _muted;
   bool get speaker => _speaker;
@@ -105,7 +115,11 @@ class TripCallSession extends ChangeNotifier {
       if (media == CallMediaState.connected) _set(TripCallState.connected);
       if (media == CallMediaState.failed) unawaited(_fail());
     };
-    await _engine.open(_ice);
+    try {
+      await _engine.open(_ice);
+    } finally {
+      if (!_ready.isCompleted) _ready.complete();
+    }
   }
 
   /// The caller: asks the server for the call and gets the microphone ready.
@@ -173,6 +187,7 @@ class TripCallSession extends ChangeNotifier {
         debugPrint("trip_call.cleanup: $error");
       }
     }
+    if (!_ready.isCompleted) _ready.complete();
     await _closeEngine();
   }
 
@@ -198,8 +213,21 @@ class TripCallSession extends ChangeNotifier {
 
   /// A `call_*` event of this trip's stream (`call` = CallView, or for
   /// `call_signal` the relayed signal).
-  Future<void> receive(String kind, Map<String, dynamic> payload) async {
-    if (over || payload['callId'] != callId) return;
+  Future<void> receive(String kind, Map<String, dynamic> payload) {
+    if (over || payload['callId'] != callId) return Future<void>.value();
+    if (kind == 'call_ended' || kind == 'call_missed') {
+      return _receive(kind, payload);
+    }
+    final next = _signals.then((_) async {
+      await _ready.future;
+      await _receive(kind, payload);
+    });
+    _signals = next.catchError((Object _) {});
+    return next;
+  }
+
+  Future<void> _receive(String kind, Map<String, dynamic> payload) async {
+    if (over) return;
     try {
       switch (kind) {
         case 'call_answered':
@@ -227,6 +255,7 @@ class TripCallSession extends ChangeNotifier {
               ? TripCallState.failed
               : TripCallState.ended;
           notifyListeners();
+          if (!_ready.isCompleted) _ready.complete();
           await _closeEngine();
       }
     } catch (_) {
