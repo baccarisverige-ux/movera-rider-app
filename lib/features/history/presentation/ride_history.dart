@@ -8,6 +8,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/features/safety/presentation/ride_check_trip_entry.dart';
 import 'package:movera_rider/features/history/application/on_demand_history_controller.dart';
+import 'package:movera_rider/features/history/domain/ride_history_repository.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -29,6 +30,7 @@ class RideHistory extends StatefulWidget {
     super.key,
     this.reservations,
     this.onDemandReader,
+    this.onDemandPageReader,
     this.receiptLoader,
   });
 
@@ -38,6 +40,10 @@ class RideHistory extends StatefulWidget {
 
   final ReservationController? reservations;
   final Future<List<Reservation>> Function()? onDemandReader;
+
+  /// One page of on-demand history (null cursor = newest). Wins over
+  /// [onDemandReader]; the default reads the repository page by page.
+  final Future<RideHistoryPage> Function(String? cursor)? onDemandPageReader;
 
   /// `GET /trips/{tripId}/receipt` (tests give their own).
   final Future<ServerReceipt?> Function(String rideId)? receiptLoader;
@@ -59,6 +65,14 @@ class _RideHistoryState extends State<RideHistory> {
   bool _onDemandLoading = true;
   bool _onDemandFailed = false;
 
+  /// Cursor of the next older page; null when all pages are shown.
+  String? _nextCursor;
+  bool _moreLoading = false;
+  bool _moreFailed = false;
+
+  /// Bumped on every first-page read so a late older page is dropped.
+  int _generation = 0;
+
   int _tab = 0;
 
   @override
@@ -79,8 +93,18 @@ class _RideHistoryState extends State<RideHistory> {
     if (mounted) setState(() {});
   }
 
+  Future<RideHistoryPage> _readPage(String? cursor) async {
+    final pageReader = widget.onDemandPageReader;
+    if (pageReader != null) return pageReader(cursor);
+    final reader = widget.onDemandReader;
+    if (reader != null) return RideHistoryPage(await reader());
+    return _onDemandController.loadPage(cursor: cursor);
+  }
+
+  /// The newest page; it shows as soon as it arrives.
   Future<void> _loadOnDemand() async {
     if (!mounted) return;
+    final generation = ++_generation;
     if (!_onDemandLoading || _onDemandFailed) {
       setState(() {
         _onDemandLoading = true;
@@ -88,21 +112,96 @@ class _RideHistoryState extends State<RideHistory> {
       });
     }
     try {
-      final reader = widget.onDemandReader ?? _onDemandController.load;
-      final rides = await reader();
-      if (!mounted) return;
+      final page = await _readPage(null);
+      if (!mounted || generation != _generation) return;
       setState(() {
-        _onDemand = rides;
+        _onDemand = page.items;
+        _nextCursor = page.nextCursor;
+        _moreLoading = false;
+        _moreFailed = false;
         _onDemandLoading = false;
         _onDemandFailed = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       setState(() {
         _onDemandLoading = false;
         _onDemandFailed = true;
       });
     }
+  }
+
+  /// The next older page, read when the list nears its end.
+  Future<void> _loadMore() async {
+    final cursor = _nextCursor;
+    if (!mounted || cursor == null || _moreLoading) return;
+    final generation = _generation;
+    setState(() {
+      _moreLoading = true;
+      _moreFailed = false;
+    });
+    try {
+      final page = await _readPage(cursor);
+      if (!mounted || generation != _generation) return;
+      final known = {for (final ride in _onDemand) ride.reservationId};
+      setState(() {
+        _onDemand = [
+          ..._onDemand,
+          ...page.items.where((ride) => !known.contains(ride.reservationId)),
+        ];
+        _nextCursor = page.nextCursor;
+        _moreLoading = false;
+      });
+    } catch (_) {
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _moreLoading = false;
+        _moreFailed = true;
+      });
+    }
+  }
+
+  Widget _moreRow() {
+    if (_moreFailed) {
+      return Padding(
+        key: const ValueKey('history-more-failed'),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline_rounded, size: 20, color: _muted),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                context.l10n.historyLoadFailed,
+                style: _text(14, color: _muted),
+              ),
+            ),
+            TextButton(
+              onPressed: _loadMore,
+              child: Text(
+                context.l10n.retry,
+                style: _text(14, weight: FontWeight.w600, color: _accent),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    // Built only when the list nears its end: read the next page then.
+    if (!_moreLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadMore());
+    }
+    return const Padding(
+      key: ValueKey('history-more-loading'),
+      padding: EdgeInsets.symmetric(vertical: 16),
+      child: Center(
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(strokeWidth: 2.4, color: _accent),
+        ),
+      ),
+    );
   }
 
   TextStyle _text(
@@ -458,7 +557,7 @@ class _RideHistoryState extends State<RideHistory> {
         ),
       );
     }
-    if (reservations.isEmpty) {
+    if (reservations.isEmpty && _nextCursor == null) {
       return Center(
         child: MoveraEmptyState(
           icon: completed ? Icons.route_outlined : Icons.event_busy_outlined,
@@ -474,11 +573,13 @@ class _RideHistoryState extends State<RideHistory> {
         ),
       );
     }
-    // UI-19: cards are built lazily.
+    // UI-19: cards are built lazily; the last row reads older pages.
+    final more = _nextCursor != null;
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
-      itemCount: reservations.length,
+      itemCount: reservations.length + (more ? 1 : 0),
       itemBuilder: (context, index) {
+        if (index == reservations.length) return _moreRow();
         final ride = reservations[index];
         return ReservationHistoryCard(
           ride: ride,

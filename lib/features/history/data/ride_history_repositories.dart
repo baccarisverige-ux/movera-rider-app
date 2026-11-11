@@ -17,10 +17,14 @@ class LocalRideHistoryRepository implements RideHistoryRepository {
   Future<List<Reservation>> loadOnDemand() => OnDemandRideHistoryStore.read();
 }
 
-/// `GET /api/v1/rider/trips?cursor=` (C-5, PROPOSED). Follows `nextCursor`
-/// for at most [maxPages] pages.
+/// `GET /api/v1/rider/trips?cursor=` (C-5, PROPOSED). [loadOnDemand] follows
+/// `nextCursor` for at most [maxPages] pages; History reads one page at a
+/// time with [loadOnDemandPage].
 class ApiRideHistoryRepository
-    implements RideHistoryRepository, ServerBackedRepository {
+    implements
+        RideHistoryRepository,
+        PagedRideHistoryRepository,
+        ServerBackedRepository {
   ApiRideHistoryRepository({
     required ApiClient api,
     this.maxPages = 5,
@@ -40,27 +44,42 @@ class ApiRideHistoryRepository
     final rides = <String, Reservation>{};
     String? cursor;
     for (var page = 0; page < maxPages; page++) {
-      final json = await _api.get(
-        cursor == null
-            ? path
-            : '$path?cursor=${Uri.encodeQueryComponent(cursor)}',
-      );
-      // Contract `TripPage {items, nextCursor}`; `trips` is the older key.
-      final trips = json['items'] ?? json['trips'];
-      if (trips is List) {
-        for (final raw in trips) {
-          if (raw is! Map) continue;
-          final record = _record(Map<String, dynamic>.from(raw));
-          if (record != null) rides[record.reservationId] = record;
-        }
+      final result = await loadOnDemandPage(cursor: cursor);
+      for (final ride in result.items) {
+        rides[ride.reservationId] = ride;
       }
-      final next = json['nextCursor'];
-      if (next is! String || next.isEmpty) break;
-      cursor = next;
+      cursor = result.nextCursor;
+      if (cursor == null) break;
     }
     final list = rides.values.toList()
       ..sort((a, b) => b.scheduledPickupAt.compareTo(a.scheduledPickupAt));
     return list;
+  }
+
+  @override
+  Future<RideHistoryPage> loadOnDemandPage({String? cursor}) async {
+    final json = await _api.get(
+      cursor == null
+          ? path
+          : '$path?cursor=${Uri.encodeQueryComponent(cursor)}',
+    );
+    final rides = <String, Reservation>{};
+    // Contract `TripPage {items, nextCursor}`; `trips` is the older key.
+    final trips = json['items'] ?? json['trips'];
+    if (trips is List) {
+      for (final raw in trips) {
+        if (raw is! Map) continue;
+        final record = _record(Map<String, dynamic>.from(raw));
+        if (record != null) rides[record.reservationId] = record;
+      }
+    }
+    final next = json['nextCursor'];
+    final list = rides.values.toList()
+      ..sort((a, b) => b.scheduledPickupAt.compareTo(a.scheduledPickupAt));
+    return RideHistoryPage(
+      list,
+      nextCursor: next is String && next.isNotEmpty ? next : null,
+    );
   }
 
   static Object? _cancelledAt(Map<String, dynamic> trip) {
