@@ -213,9 +213,10 @@ void main() {
       expect(find.byKey(ValueKey<String>(key)), findsOneWidget);
     }
 
-    /// One 30 s chrono tick at the current fake time.
+    /// One chrono check at the current fake time (R09 N6: the face redraws
+    /// every 30 s, the booked rides are checked every 60 s).
     Future<void> tick(WidgetTester tester) async {
-      await tester.pump(const Duration(seconds: 30));
+      await tester.pump(const Duration(seconds: 60));
       for (var i = 0; i < 6; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }

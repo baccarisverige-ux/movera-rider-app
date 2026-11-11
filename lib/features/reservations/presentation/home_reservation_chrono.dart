@@ -54,28 +54,74 @@ class HomeReservationChrono extends StatefulWidget {
   State<HomeReservationChrono> createState() => _HomeReservationChronoState();
 }
 
-class _HomeReservationChronoState extends State<HomeReservationChrono> {
+class _HomeReservationChronoState extends State<HomeReservationChrono>
+    with WidgetsBindingObserver {
   Timer? _tick;
   String? _openedLiveId;
   String? _promptedNoDriverId;
   bool _noDriverSheetOpen = false;
+  bool _appVisible = true;
+  int _ticks = 0;
+  bool _started = false;
+  bool _ranOnce = false;
+
+  /// The face redraws every 30 s; the booked rides are checked (which can
+  /// read `GET /trips/{id}`) at most every 60 s (R09 N6). Trip events and
+  /// the booked-list refresh carry the changes in between.
+  static const _redrawEvery = Duration(seconds: 30);
 
   @override
   void initState() {
     super.initState();
     moveraNavigationEpoch.addListener(_onNavigationChanged);
-    _tick = Timer.periodic(const Duration(seconds: 30), (_) {
-      unawaited(_onTick());
-    });
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_onTick());
+      _started = true;
+      _syncTick();
     });
     // SUP3-R1: Home is shown again (after Done, a sign-in, a restart):
     // the booked rides are read again, not trusted from the start read.
     unawaited(_reservations.refresh());
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // ModalRoute.of: rebuilt when a route covers or uncovers Home.
+    if (_started) _syncTick();
+  }
+
+  /// R09 N6: the timer runs only while Home is the visible route and the
+  /// app is in the foreground. Coming back restarts it (first check 30 s
+  /// later); the navigation listener and resume reads cover the return.
+  void _syncTick() {
+    if (!mounted) return;
+    final visible = _appVisible && _routeIsCurrent;
+    if (!visible) {
+      _tick?.cancel();
+      _tick = null;
+      return;
+    }
+    if (_tick != null) return;
+    final first = !_ranOnce;
+    _ranOnce = true;
+    _ticks = 0;
+    _tick = Timer.periodic(_redrawEvery, (_) => unawaited(_onTick()));
+    if (first) unawaited(_onTick());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appVisible = state == AppLifecycleState.resumed;
+    _syncTick();
+  }
+
   Future<void> _onTick() async {
+    // Start, then every second 30 s tick: at most one check per 60 s.
+    if ((_ticks++).isOdd) {
+      if (mounted) setState(() {});
+      return;
+    }
     try {
       await _reservations.startLiveIfDue(now: _now);
     } catch (error, stack) {
@@ -99,6 +145,7 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
     // route is open above Home. Never hijack that route; retry only after the
     // user returns to Home and Navigator has finished the pop.
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncTick();
       if (!mounted || !_routeIsCurrent) return;
       _openLiveIfNeeded();
       _promptNoDriverIfNeeded();
@@ -264,6 +311,7 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
   @override
   void dispose() {
     moveraNavigationEpoch.removeListener(_onNavigationChanged);
+    WidgetsBinding.instance.removeObserver(this);
     _tick?.cancel();
     super.dispose();
   }
