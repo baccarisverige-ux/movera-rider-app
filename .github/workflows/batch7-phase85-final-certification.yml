@@ -111,7 +111,14 @@ jobs:
         run: |
           npm init -y >/dev/null 2>&1
           npm install --save-dev playwright@1.55.0 >/dev/null 2>&1
-          if [ "$FULL_MATRIX" = true ]; then npx playwright install --with-deps chromium webkit; else npx playwright install --with-deps chromium; fi
+          if [ "$FULL_MATRIX" = true ]; then browsers="chromium webkit"; else browsers="chromium"; fi
+          # If the Ubuntu mirrors are unreachable (seen 11 Nov: DNS failures),
+          # fall back to the browsers alone; the runner image already has
+          # Chromium's system libraries, so only extra fonts are missing.
+          if ! npx playwright install --with-deps $browsers; then
+            echo "::warning::apt mirrors unreachable; installing browsers without system packages"
+            npx playwright install $browsers
+          fi
 
       - name: Serve exact candidate
         run: |
