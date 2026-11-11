@@ -11,8 +11,56 @@ class WebRtcCallEngine implements CallEngine {
   WebRtcCallEngine({
     bool isWeb = kIsWeb,
     Future<void> Function(bool on)? setSpeakerphone,
+    Future<RTCPeerConnection> Function(Map<String, dynamic> configuration)?
+    peerConnection,
+    Future<MediaStream> Function(Map<String, dynamic> constraints)? microphone,
   }) : _isWeb = isWeb,
-       _setSpeakerphone = setSpeakerphone ?? Helper.setSpeakerphoneOn;
+       _setSpeakerphone = setSpeakerphone ?? Helper.setSpeakerphoneOn,
+       _createPeerConnection =
+           peerConnection ?? ((config) => createPeerConnection(config)),
+       _getUserMedia =
+           microphone ??
+           ((constraints) => navigator.mediaDevices.getUserMedia(constraints));
+
+  /// The real peer connection and microphone; tests pass fakes.
+  final Future<RTCPeerConnection> Function(Map<String, dynamic>)
+  _createPeerConnection;
+  final Future<MediaStream> Function(Map<String, dynamic>) _getUserMedia;
+
+  /// 2026-11-11 owner phone test ("keep write connecting and never
+  /// start"): the peer connection's state and the ICE state, as the
+  /// session reads them. Some phones report only one of the two, so both
+  /// are heard. "disconnected" may come back by itself; "failed" and
+  /// "closed" do not.
+  static CallMediaState? mediaOfConnection(RTCPeerConnectionState state) =>
+      switch (state) {
+        RTCPeerConnectionState.RTCPeerConnectionStateConnected =>
+          CallMediaState.connected,
+        RTCPeerConnectionState.RTCPeerConnectionStateDisconnected =>
+          CallMediaState.disconnected,
+        RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
+        RTCPeerConnectionState.RTCPeerConnectionStateClosed =>
+          CallMediaState.failed,
+        _ => null,
+      };
+
+  static CallMediaState? mediaOfIce(RTCIceConnectionState state) =>
+      switch (state) {
+        RTCIceConnectionState.RTCIceConnectionStateConnected ||
+        RTCIceConnectionState.RTCIceConnectionStateCompleted =>
+          CallMediaState.connected,
+        RTCIceConnectionState.RTCIceConnectionStateDisconnected =>
+          CallMediaState.disconnected,
+        RTCIceConnectionState.RTCIceConnectionStateFailed ||
+        RTCIceConnectionState.RTCIceConnectionStateClosed =>
+          CallMediaState.failed,
+        _ => null,
+      };
+
+  /// After our own [close] the connection's "closed" is no failure.
+  void _media(CallMediaState? state) {
+    if (state != null && !_closed) onMedia?.call(state);
+  }
 
   /// proof5 (3): the speaker switch is a phone (native) call only; on the
   /// web it threw MissingPluginException into the error reports. The
@@ -22,6 +70,7 @@ class WebRtcCallEngine implements CallEngine {
   final Future<void> Function(bool on) _setSpeakerphone;
 
   RTCPeerConnection? _pc;
+  bool _closed = false;
   MediaStream? _local;
   bool _remoteSet = false;
   final List<RTCIceCandidate> _pending = [];
@@ -39,15 +88,12 @@ class WebRtcCallEngine implements CallEngine {
 
   @override
   Future<void> open(List<Map<String, dynamic>> iceServers) async {
-    final pc = await createPeerConnection({
+    final pc = await _createPeerConnection({
       'iceServers': iceServers,
       'sdpSemantics': 'unified-plan',
     });
     _pc = pc;
-    _local = await navigator.mediaDevices.getUserMedia({
-      'audio': true,
-      'video': false,
-    });
+    _local = await _getUserMedia({'audio': true, 'video': false});
     for (final track in _local!.getAudioTracks()) {
       await pc.addTrack(track, _local!);
     }
@@ -65,16 +111,8 @@ class WebRtcCallEngine implements CallEngine {
       if (event.streams.isEmpty) return;
       unawaited(_play(event.streams.first));
     };
-    pc.onConnectionState = (state) {
-      switch (state) {
-        case RTCPeerConnectionState.RTCPeerConnectionStateConnected:
-          onMedia?.call(CallMediaState.connected);
-        case RTCPeerConnectionState.RTCPeerConnectionStateFailed:
-          onMedia?.call(CallMediaState.failed);
-        default:
-          break;
-      }
-    };
+    pc.onConnectionState = (state) => _media(mediaOfConnection(state));
+    pc.onIceConnectionState = (state) => _media(mediaOfIce(state));
   }
 
   Future<void> _play(MediaStream stream) async {
@@ -139,6 +177,7 @@ class WebRtcCallEngine implements CallEngine {
 
   @override
   Future<void> close() async {
+    _closed = true;
     for (final track in _local?.getTracks() ?? <MediaStreamTrack>[]) {
       await track.stop();
     }

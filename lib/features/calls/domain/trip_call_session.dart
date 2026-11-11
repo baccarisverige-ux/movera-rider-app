@@ -44,6 +44,7 @@ class TripCallSession extends ChangeNotifier {
     required CallEngine engine,
     required this.tripId,
     required this.side,
+    this.connectTimeout = defaultConnectTimeout,
   }) : _api = api,
        _engine = engine,
        outgoingCall = true,
@@ -55,6 +56,7 @@ class TripCallSession extends ChangeNotifier {
     required IncomingCall call,
     required this.side,
     required List<Map<String, dynamic>> ice,
+    this.connectTimeout = defaultConnectTimeout,
   }) : _api = api,
        _engine = engine,
        outgoingCall = false,
@@ -66,6 +68,22 @@ class TripCallSession extends ChangeNotifier {
   final CallApi _api;
   final CallEngine _engine;
   final String tripId;
+
+  /// 2026-11-11 owner phone test ("keep write connecting and never
+  /// start"): without a TURN relay the two phones may never reach each
+  /// other, and the offer, the answer or the ICE candidates can be lost on
+  /// the way (a dropped trip stream). Nothing then ever said "connected"
+  /// or "failed", so the screen said "Connecting…" for ever. Now a call
+  /// that is not connected [connectTimeout] after Answer (or after the
+  /// link dropped) ends as failed: "Call failed" (owner G15).
+  static const defaultConnectTimeout = Duration(seconds: 25);
+  final Duration connectTimeout;
+
+  /// The caller's "Calling…" also ends: the server ends an unanswered call
+  /// after `ringSeconds`; if that event never reaches this phone, the call
+  /// ends as failed [connectTimeout] after the ring time.
+  static const defaultRingSeconds = 30;
+  Timer? _guard;
 
   /// `driver` or `rider`: this phone's side.
   final String side;
@@ -95,8 +113,31 @@ class TripCallSession extends ChangeNotifier {
 
   void _set(TripCallState next) {
     if (over) return;
+    if (next == TripCallState.connected) _stopGuard();
+    // The connect time runs once the microphone is ours: the first call
+    // shows Android's microphone question, which is not counted.
+    if (next == TripCallState.connecting &&
+        _ready.isCompleted &&
+        (_state != TripCallState.connecting || _guard == null)) {
+      _startGuard(connectTimeout);
+    }
     _state = next;
     notifyListeners();
+  }
+
+  void _startGuard(Duration wait) {
+    _guard?.cancel();
+    _guard = Timer(wait, () {
+      _guard = null;
+      if (over || _state == TripCallState.connected) return;
+      debugPrint('trip_call.connect_timeout: ${_state.name}');
+      unawaited(_fail());
+    });
+  }
+
+  void _stopGuard() {
+    _guard?.cancel();
+    _guard = null;
   }
 
   Future<void> _openEngine() async {
@@ -112,8 +153,21 @@ class TripCallSession extends ChangeNotifier {
       );
     };
     _engine.onMedia = (media) {
-      if (media == CallMediaState.connected) _set(TripCallState.connected);
-      if (media == CallMediaState.failed) unawaited(_fail());
+      if (over) return;
+      switch (media) {
+        case CallMediaState.connected:
+          _set(TripCallState.connected);
+        case CallMediaState.failed:
+          unawaited(_fail());
+        case CallMediaState.disconnected:
+          // The link dropped: "Connecting…" again, and failed unless it
+          // comes back within [connectTimeout].
+          if (_state == TripCallState.connected) {
+            _set(TripCallState.connecting);
+          }
+        case CallMediaState.connecting:
+          break;
+      }
     };
     try {
       await _engine.open(_ice);
@@ -141,12 +195,19 @@ class TripCallSession extends ChangeNotifier {
         throw StateError('not an in-app call');
       }
       callId = answer['callId'] as String;
+      final ring = answer['ringSeconds'];
       final ice = answer['ice'];
       final servers = ice is Map ? ice['servers'] : null;
       _ice = servers is List
           ? [for (final s in servers) Map<String, dynamic>.from(s as Map)]
           : const [];
       await _openEngine();
+      if (_state == TripCallState.calling) {
+        _startGuard(
+          Duration(seconds: ring is int ? ring : defaultRingSeconds) +
+              connectTimeout,
+        );
+      }
     } catch (_) {
       await _fail();
     }
@@ -165,6 +226,9 @@ class TripCallSession extends ChangeNotifier {
         _ice = [for (final s in servers) Map<String, dynamic>.from(s as Map)];
       }
       await _openEngine();
+      if (_state == TripCallState.connecting && _guard == null) {
+        _startGuard(connectTimeout);
+      }
     } catch (_) {
       await _fail();
     }
@@ -178,6 +242,7 @@ class TripCallSession extends ChangeNotifier {
   Future<void> _endWith(String reason, TripCallState next) async {
     if (over) return;
     final id = callId;
+    _stopGuard();
     _state = next;
     notifyListeners();
     if (id != null) {
@@ -251,6 +316,7 @@ class TripCallSession extends ChangeNotifier {
         case 'call_ended':
         case 'call_missed':
           final reason = payload['endedReason'];
+          _stopGuard();
           _state = reason == 'failed'
               ? TripCallState.failed
               : TripCallState.ended;
