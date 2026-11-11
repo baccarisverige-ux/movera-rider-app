@@ -50,24 +50,22 @@ class _Crashes implements CrashSink {
 void main() {
   tearDown(Observability.reset);
 
-  test(
-    'analytics and logs reach configured sinks with sensitive fields removed',
-    () {
-      final logger = _Logger();
-      final analytics = _Analytics();
-      Observability.configure(loggerSink: logger, analyticsSink: analytics);
+  test('analytics reach the analytics sink once, sensitive fields removed', () {
+    final logger = _Logger();
+    final analytics = _Analytics();
+    Observability.configure(loggerSink: logger, analyticsSink: analytics);
 
-      Analytics.track(
-        'booking_submitted',
-        extra: const {'rideId': 'r1', 'token': 'secret', 'phone': '+46000'},
-      );
+    Analytics.track(
+      'booking_submitted',
+      extra: const {'rideId': 'r1', 'token': 'secret', 'phone': '+46000'},
+    );
 
-      expect(analytics.events, ['booking_submitted']);
-      expect(analytics.lastExtra, {'rideId': 'r1'});
-      expect(logger.events, contains('analytics.booking_submitted'));
-      expect(logger.lastExtra, {'rideId': 'r1'});
-    },
-  );
+    expect(analytics.events, ['booking_submitted']);
+    expect(analytics.lastExtra, {'rideId': 'r1'});
+    // D10 (R10 #10): sent once, to /telemetry/analytics only; not again
+    // as an info line to /telemetry/logs.
+    expect(logger.events, isEmpty);
+  });
 
   test('CrashReporter reaches CrashSink independently of debug console', () {
     final crashes = _Crashes();

@@ -1,11 +1,13 @@
-import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:flutter/foundation.dart';
 import 'package:movera_rider/core/observability/observability.dart';
 
 abstract final class Analytics {
   static void track(String event, {Map<String, Object?> extra = const {}}) {
     final safe = Observability.sanitize(extra);
     Observability.analytics.track(event, extra: safe);
-    AppLog.info('analytics.$event', extra: safe);
+    // D10 (R10 #10): not also an info log (that sent every event a second
+    // time, to /telemetry/logs); the debug console still shows it.
+    if (kDebugMode) debugPrint('[movera:analytics] $event $safe');
   }
 
   static void bookingStarted({String? rideId}) =>
