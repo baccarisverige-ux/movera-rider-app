@@ -17,6 +17,18 @@ class OnDemandHistoryController {
   Future<List<Reservation>> load() =>
       (_repository ?? AppScope.instance.rideHistory).loadOnDemand();
 
+  /// One page for History: the newest with a null [cursor], then older ones.
+  /// A repository without pages answers everything as one last page.
+  Future<RideHistoryPage> loadPage({String? cursor}) async {
+    final repository = _repository ?? AppScope.instance.rideHistory;
+    if (repository is PagedRideHistoryRepository) {
+      return (repository as PagedRideHistoryRepository).loadOnDemandPage(
+        cursor: cursor,
+      );
+    }
+    return RideHistoryPage(await repository.loadOnDemand());
+  }
+
   /// Fires whenever the on-demand history is written (FLOW-13).
   Stream<void> get changes => OnDemandRideHistoryStore.changes;
 

@@ -10,3 +10,20 @@ abstract interface class RideHistoryRepository {
   /// Newest first.
   Future<List<Reservation>> loadOnDemand();
 }
+
+/// One page of finished Book now rides (`TripPage {items, nextCursor}`).
+class RideHistoryPage {
+  const RideHistoryPage(this.items, {this.nextCursor});
+
+  /// Newest first.
+  final List<Reservation> items;
+
+  /// The cursor of the next (older) page; null when this is the last one.
+  final String? nextCursor;
+}
+
+/// A [RideHistoryRepository] that can read one page at a time, so History
+/// shows the newest page at once and reads older ones on scroll.
+abstract interface class PagedRideHistoryRepository {
+  Future<RideHistoryPage> loadOnDemandPage({String? cursor});
+}

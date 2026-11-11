@@ -86,6 +86,8 @@ void main() {
         var banner = 0;
         final watch = RiderTripWatch(
           adopt: () async => adopts++,
+          // R09 N5: the rider has a booked ride.
+          hasBooked: () => true,
           bookedOnTheWay: () async {
             banner++;
             return false;

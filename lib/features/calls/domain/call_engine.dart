@@ -2,7 +2,12 @@
 /// WebRTC engine ([WebRtcCallEngine]) talks to the phone's microphone and
 /// speaker; tests use a fake. Audio goes peer to peer (or through TURN);
 /// the server only relays the offer, the answer and the ICE candidates.
-enum CallMediaState { connecting, connected, failed }
+///
+/// 2026-11-11 owner phone test ("keep write connecting and never start"):
+/// [disconnected] is the link to the other phone dropping (ICE
+/// "disconnected"); it may come back by itself, so the session gives it
+/// the connect time before it ends the call as failed.
+enum CallMediaState { connecting, connected, disconnected, failed }
 
 abstract class CallEngine {
   /// A local ICE candidate to send to the other side
