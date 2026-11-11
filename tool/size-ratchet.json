@@ -1,6 +1,4 @@
 {
   "limit": 1500,
-  "over": {
-    "lib/core/api/in_process_mock_client.dart": 2995
-  }
+  "over": {}
 }

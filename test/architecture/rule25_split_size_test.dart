@@ -11,6 +11,7 @@ void main() {
   const libraries = [
     'lib/features/home/presentation/home.dart',
     'lib/features/pickup/presentation/set_pickup_page.dart',
+    'lib/core/api/in_process_mock_client.dart',
   ];
 
   for (final library in libraries) {
