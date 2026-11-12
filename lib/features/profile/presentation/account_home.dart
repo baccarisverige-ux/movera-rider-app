@@ -95,10 +95,17 @@ class _AccountHomePageState extends State<AccountHomePage> {
         ? context.l10n.serverEmailUnavailable
         : security.email.trim().isEmpty
         ? context.l10n.emailNotAdded
+        // G21: the rider profile does not say whether it is verified.
+        : !security.verificationKnown
+        ? security.email.trim()
         : security.emailVerified
         ? context.l10n.valueVerified(security.email)
         : context.l10n.valueNotVerified(security.email);
-    final checkupComplete = security?.checkupComplete == true;
+    // G21: nothing to finish when the server offers neither 2-step nor a
+    // recovery phone (live today); a failed read still says so.
+    final checkupComplete =
+        security?.checkupComplete == true ||
+        (security != null && !security.offersCheckup);
 
     return AccountScaffold(
       child: ListView(

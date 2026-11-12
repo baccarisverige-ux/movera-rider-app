@@ -264,6 +264,8 @@ class AppScope {
       repository: AccountSecurityRepository(api: api),
       // Audit M3: the server has no /account/security yet (demo only).
       built: environment.allowsMockTransport,
+      // G21: live, the phone and e-mail come from GET /rider/profile.
+      readsRiderProfile: !environment.allowsMockTransport,
     );
 
     geocoding = AppGeocoding(

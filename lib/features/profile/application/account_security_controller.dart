@@ -7,13 +7,20 @@ class AccountSecurityController extends ChangeNotifier {
   AccountSecurityController({
     required AccountSecurityRepository repository,
     this.built = true,
+    this.readsRiderProfile = false,
   }) : _repository = repository;
 
   final AccountSecurityRepository _repository;
 
-  /// Audit M3: movera-server has no /account/security yet. Off, nothing is
-  /// asked of the server and the Security screen's entries are hidden.
+  /// Audit M3: movera-server has no /account/security yet. Off, it is not
+  /// asked and the Security screen's entries are hidden.
   final bool built;
+
+  /// G21 (BrowserStack 2026-11-12): while [built] is off, the phone and
+  /// e-mail are read from the rider's own profile instead, so the Account
+  /// card shows the real e-mail (it said "Server email unavailable" on every
+  /// live build). A failed read still shows that error.
+  final bool readsRiderProfile;
 
   AccountSecurityState? state;
   bool loading = false;
@@ -42,13 +49,15 @@ class AccountSecurityController extends ChangeNotifier {
   }
 
   Future<void> load() async {
-    if (!built) return;
+    if (!built && !readsRiderProfile) return;
     final session = _session;
     loading = true;
     _error = null;
     notifyListeners();
     try {
-      final loaded = await _repository.load();
+      final loaded = built
+          ? await _repository.load()
+          : await _repository.loadFromRiderProfile();
       if (session != _session) return;
       state = loaded;
       available = true;

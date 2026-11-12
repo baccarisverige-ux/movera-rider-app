@@ -76,6 +76,8 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
       return unavailableLabel;
     }
     if (value.trim().isEmpty) return context.l10n.notAdded;
+    // G21: the rider profile does not say whether it is verified.
+    if (!_security.state!.verificationKnown) return value.trim();
     return verified
         ? context.l10n.valueVerified(value)
         : context.l10n.valueNotVerified(value);

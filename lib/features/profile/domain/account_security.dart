@@ -75,7 +75,43 @@ class AccountSecurityState {
     required this.reauthenticatedAt,
     required this.sessions,
     required this.capabilities,
+    this.verificationKnown = true,
   });
+
+  /// G21 (BrowserStack 2026-11-12): the account's phone and e-mail as the
+  /// server's rider profile (`GET /rider/profile`, contract Rider) has
+  /// them. movera-server has no `/account/security` (audit M3 / P5-R5), so
+  /// nothing more is known: no verification dates, no 2-step, no recovery
+  /// phone, no sessions, and every capability off.
+  factory AccountSecurityState.fromRiderProfile(Map<String, dynamic> rider) {
+    String text(Object? value) => value is String ? value.trim() : '';
+    return AccountSecurityState(
+      phone: text(rider['phone']),
+      email: text(rider['email']),
+      phoneVerifiedAt: null,
+      emailVerifiedAt: null,
+      passkeyEnabled: false,
+      twoStepEnabled: false,
+      authenticatorEnabled: false,
+      passwordUpdatedAt: null,
+      recoveryPhone: null,
+      googleConnected: false,
+      appleConnected: false,
+      reauthenticatedAt: null,
+      sessions: const [],
+      capabilities: const AccountSecurityCapabilities(),
+      verificationKnown: false,
+    );
+  }
+
+  /// False when the server does not say whether the phone and e-mail are
+  /// verified (the rider profile carries no verification dates): the
+  /// screens then show the value alone, never "Not verified".
+  final bool verificationKnown;
+
+  /// Something on this account can still be finished here (2-step or a
+  /// recovery phone are offered by the server).
+  bool get offersCheckup => capabilities.twoStep || capabilities.recoveryPhone;
 
   final String phone;
   final String email;
