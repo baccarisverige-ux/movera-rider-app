@@ -15,6 +15,8 @@ abstract final class LastCompletedRide {
   static Money? _charged;
   static bool _endedEarly = false;
   static int? _drivenMeters;
+  static Money? _cashToCollect;
+  static bool _finishedEarly = false;
 
   static RideSnapshot? get value => _snapshot;
 
@@ -43,16 +45,30 @@ abstract final class LastCompletedRide {
   /// app tracked one.
   static int? get drivenMeters => _drivenMeters;
 
+  /// G33 (contract v0.18.78 `finish.payInCarLine`): the completed
+  /// projection's `finish.cashToCollect`, what the rider pays the driver in
+  /// the car. Null when the wire did not say (a reload: the receipt's
+  /// cashPaid is read instead).
+  static Money? get cashToCollect => _cashToCollect;
+
+  /// G33: the completed projection's `finish.endedEarly` (a driver early end
+  /// with the rider on board shows only "You pay", no pay-in-car line).
+  static bool get finishedEarly => _finishedEarly;
+
   static void remember(
     RideSnapshot? snapshot, {
     Money? charged,
     bool endedEarly = false,
     int? drivenMeters,
+    Money? cashToCollect,
+    bool finishedEarly = false,
   }) {
     _snapshot = snapshot;
     _charged = charged;
     _endedEarly = endedEarly;
     _drivenMeters = endedEarly ? drivenMeters : null;
+    _cashToCollect = cashToCollect;
+    _finishedEarly = finishedEarly;
   }
 
   static void clear() {
@@ -60,5 +76,7 @@ abstract final class LastCompletedRide {
     _charged = null;
     _endedEarly = false;
     _drivenMeters = null;
+    _cashToCollect = null;
+    _finishedEarly = false;
   }
 }

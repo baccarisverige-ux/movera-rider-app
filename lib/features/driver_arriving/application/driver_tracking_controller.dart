@@ -51,6 +51,11 @@ class DriverTrackingController {
   /// server's final fare once the trip ends). Null until the wire says.
   Money? fare;
 
+  /// G33: the projection's `finish.cashToCollect` (what the rider pays the
+  /// driver in the car), and whether `finish.endedEarly` was set.
+  Money? cashToCollect;
+  bool finishedEarly = false;
+
   /// Q12: when the driver accepted, from the projection's `acceptedAt`.
   /// Null when the server has not said (the caller falls back to when it
   /// first saw the driver).
@@ -477,6 +482,10 @@ class DriverTrackingController {
                 _clearWaitingDeadlines();
               }
               fare = event.fare ?? fare;
+              if (event.cashToCollect case final cash?) {
+                cashToCollect = cash;
+                finishedEarly = event.finishedEarly;
+              }
               // Q5: the waiting cost grows while the driver waits; it is
               // over (and in the fare) once the rider is on board.
               if (event.status == RideStatus.driverWaiting) {

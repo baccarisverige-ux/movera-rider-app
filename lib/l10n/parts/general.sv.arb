@@ -153,6 +153,7 @@
   "endedEarlyBodyAmount": "Du avslutade resan före destinationen. Du betalar {amount} för sträckan som körts.",
   "paidByDistance": "Betalas efter körd sträcka",
   "youPayAmount": "Du betalar {amount}",
+  "payDriverInCar": "Betala föraren {amount} i bilen",
   "completeProcessingBody": "Din resa är slut. Betalningen bekräftas fortfarande.",
   "completeConfirmedBody": "Din resa är slut och betalningen har bekräftats.",
   "completeRateBody": "Din resa och betalning är klara. Nu kan du betygsätta din förare.",

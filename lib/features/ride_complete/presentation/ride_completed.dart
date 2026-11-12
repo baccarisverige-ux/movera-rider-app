@@ -16,6 +16,8 @@ import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/contracts/trip_transitions.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
+import 'package:movera_rider/features/active_ride/presentation/route_change_sheet.dart'
+    show isCashPayment;
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/features/ride_complete/application/server_receipt.dart';
@@ -113,6 +115,10 @@ class _RideCompletedState extends State<RideCompleted> {
 
   /// G23: the server receipt's total once the trip details read it.
   Money? _serverTotal;
+
+  /// G33: the server receipt once the trip details read it (its cashPaid
+  /// is the pay-in-car amount after a reload).
+  ServerReceipt? _serverReceipt;
 
   @override
   void initState() {
@@ -394,6 +400,38 @@ class _RideCompletedState extends State<RideCompleted> {
     );
   }
 
+  /// G33 (owner 2026-11-12 "Yes, clear line"; contract v0.18.78
+  /// `finish.payInCarLine`): "Pay the driver {amount} in the car" on a
+  /// completed trip paid in the car, {amount} = the projection's
+  /// `finish.cashToCollect` (the cashDue the driver collected), after a
+  /// reload the receipt's `cashPaid`. None for card / Apple Pay / wallet
+  /// trips, when the amount is 0, or after an early end (rider end_early or
+  /// a driver end with the rider on board: only "You pay").
+  String? get _payInCarLine {
+    if (widget.endedEarly != null) return null;
+    final receipt = _serverReceipt;
+    if (receipt != null && receipt.endedEarly) return null;
+    final ride = _controller.payInCar(widget.rideId);
+    final wire = ride?.cashToCollect;
+    final Money? amount;
+    final bool payInCar;
+    if (ride != null && wire != null) {
+      if (ride.endedEarly) return null;
+      amount = wire;
+      payInCar = isCashPayment(ride.paymentMethod);
+    } else if (receipt != null) {
+      amount = receipt.cashPaid;
+      final method = receipt.paymentMethod;
+      payInCar = method != null
+          ? method == 'cash'
+          : ride != null && isCashPayment(ride.paymentMethod);
+    } else {
+      return null;
+    }
+    if (!payInCar || amount == null || amount.amountMinor <= 0) return null;
+    return L10n.current.payDriverInCar(formatMoney(amount));
+  }
+
   _CompletionSpec get _spec {
     final endedEarly = widget.endedEarly;
     if (endedEarly != null) return _CompletionSpec.endedEarly(endedEarly);
@@ -469,7 +507,11 @@ class _RideCompletedState extends State<RideCompleted> {
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
                     child: Column(
                       children: [
-                        _CompletionHero(spec: spec, amount: _heroAmount),
+                        _CompletionHero(
+                          spec: spec,
+                          amount: _heroAmount,
+                          payInCar: _payInCarLine,
+                        ),
                         if (showFeedbackSurface) ...[
                           const SizedBox(height: 14),
                           IgnorePointer(
@@ -542,7 +584,10 @@ class _RideCompletedState extends State<RideCompleted> {
                             receiptLoader: widget.receiptLoader,
                             onServerReceipt: (receipt) {
                               if (!mounted) return;
-                              setState(() => _serverTotal = receipt.total);
+                              setState(() {
+                                _serverTotal = receipt.total;
+                                _serverReceipt = receipt;
+                              });
                             },
                           ),
                         ),
@@ -607,10 +652,13 @@ class _HeroAmount {
 }
 
 class _CompletionHero extends StatelessWidget {
-  const _CompletionHero({required this.spec, this.amount});
+  const _CompletionHero({required this.spec, this.amount, this.payInCar});
 
   final _CompletionSpec spec;
   final _HeroAmount? amount;
+
+  /// G33: "Pay the driver {amount} in the car", an instruction (ink, bold).
+  final String? payInCar;
 
   @override
   Widget build(BuildContext context) {
@@ -671,6 +719,19 @@ class _CompletionHero extends StatelessWidget {
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
                 color: MoveraTokens.muted,
+              ),
+            ),
+          ],
+          if (payInCar case final line?) ...[
+            const SizedBox(height: 10),
+            Text(
+              line,
+              key: const ValueKey('completion-pay-in-car'),
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: MoveraTokens.ink,
               ),
             ),
           ],

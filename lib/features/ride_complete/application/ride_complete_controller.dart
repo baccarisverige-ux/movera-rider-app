@@ -187,6 +187,25 @@ class RideCompleteController {
         TipRules.forCountry(ZoneDefaults.countryOf(currency), currency);
   }
 
+  /// G33 (contract v0.18.78 `finish.payInCarLine`): what the completed
+  /// trip [rideId] told this app about paying in the car: the projection's
+  /// `finish.cashToCollect` (null when the wire did not say, e.g. after a
+  /// reload), whether the trip ended early (driver end with the rider on
+  /// board, or the rider's end_early) and the ride's payment method label.
+  /// Null when the remembered ride is another one.
+  ({Money? cashToCollect, bool endedEarly, String paymentMethod})? payInCar(
+    String? rideId,
+  ) {
+    final ride = LastCompletedRide.forRide(rideId);
+    if (ride == null) return null;
+    return (
+      cashToCollect: LastCompletedRide.cashToCollect,
+      endedEarly:
+          LastCompletedRide.finishedEarly || LastCompletedRide.endedEarly,
+      paymentMethod: ride.paymentMethod,
+    );
+  }
+
   Future<void> submitDispute({
     required String rideId,
     required String reason,

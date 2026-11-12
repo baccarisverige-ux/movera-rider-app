@@ -373,6 +373,23 @@ extension _MockTrips on InProcessMockClient {
     if (to == TripStatus.completed) {
       // Payment and rating start as fields once the trip is done.
       ride['ratingStatus'] = TripRatingStatus.notRequested.wireName;
+      // G33 (v0.18.78 `finish.payInCarLine`): TripFinish as the rider
+      // view carries it; cashToCollect = fare − the wallet part on a trip
+      // paid in the car, 0 for any other method.
+      final fareMinor = _fareMinor(ride);
+      if (fareMinor != null) {
+        final code = _currencyOf(ride);
+        final wallet = (ride['walletAmountMinor'] as num?)?.round() ?? 0;
+        final cash = ride['paymentMethod'] == 'cash'
+            ? (fareMinor - wallet).clamp(0, fareMinor)
+            : 0;
+        ride['finish'] = {
+          'endedEarly': false,
+          'total': _money(fareMinor, code),
+          'cashToCollect': _money(cash, code),
+          'ratingAllowed': true,
+        };
+      }
     }
     if (actor != TripActor.rider &&
         to.isTerminal &&

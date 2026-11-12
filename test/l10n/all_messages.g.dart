@@ -392,6 +392,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'endedEarlyBodyAmount': l.endedEarlyBodyAmount('<amount>'),
   'paidByDistance': l.paidByDistance,
   'youPayAmount': l.youPayAmount('<amount>'),
+  'payDriverInCar': l.payDriverInCar('<amount>'),
   'completeProcessingBody': l.completeProcessingBody,
   'completeConfirmedBody': l.completeConfirmedBody,
   'completeRateBody': l.completeRateBody,
@@ -1792,6 +1793,7 @@ const messagePlaceholders = <String, List<String>>{
   'confirmRefundTo': ['method'],
   'endedEarlyBodyAmount': ['amount'],
   'youPayAmount': ['amount'],
+  'payDriverInCar': ['amount'],
   'droppedPinLabel': ['lat', 'latSide', 'lng', 'lngSide'],
   'kmDriven': ['km'],
   'inDuration': ['duration'],
@@ -2740,6 +2742,8 @@ class _Exhaustive implements AppLocalizations {
   String get paidByDistance => '';
   @override
   String youPayAmount(String amount) => '';
+  @override
+  String payDriverInCar(String amount) => '';
   @override
   String get completeProcessingBody => '';
   @override
