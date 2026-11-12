@@ -15,5 +15,6 @@
   "chatSeeOriginal": "Voir l'original",
   "chatTranslationComingSoon": "Traduction bientôt disponible",
   "chatTranslateFailed": "Impossible de traduire ce message",
-  "chatQuickReplies": "Réponses rapides"
+  "chatQuickReplies": "Réponses rapides",
+  "callConnectFailedHint": "Connexion impossible. Vérifiez votre réseau ou utilisez le chat."
 }

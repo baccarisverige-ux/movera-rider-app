@@ -68,6 +68,21 @@ void main() {
     expect(autoReloads, 1);
   });
 
+  testWidgets('web Retry: the spinner shows while the page reloads', (
+    tester,
+  ) async {
+    // The reload first downloads the app shell fresh (up to a few seconds);
+    // the retry icon must not stay on screen as if nothing happened.
+    DeferredScreen.isWeb = true;
+    autoResult = false;
+    await pumpFailing(tester);
+    await tester.tap(find.byKey(const ValueKey('deferred-screen-retry')));
+    await tester.pump();
+    expect(retryReloads, 1);
+    expect(find.byKey(const ValueKey('deferred-screen-retry')), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
+
   testWidgets('phones: no reload, Retry loads the part again', (tester) async {
     DeferredScreen.isWeb = false;
     var loads = 0;

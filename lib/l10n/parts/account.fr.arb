@@ -137,5 +137,7 @@
   "authCodeFieldLabel": "Code de vérification",
   "accountOutstandingFees": "Frais impayés",
   "accountSuspended": "Votre compte Movera est en pause. Contactez l’assistance Movera si vous avez des questions.",
-  "errLockedToday": "Trop de codes erronés aujourd’hui. Réessayez plus tard."
+  "errLockedToday": "Trop de codes erronés aujourd’hui. Réessayez plus tard.",
+  "appVersionLine": "Version {version} ({build})",
+  "appVersionOnly": "Version {version}"
 }

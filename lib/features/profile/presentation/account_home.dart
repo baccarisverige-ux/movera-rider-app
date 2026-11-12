@@ -14,6 +14,7 @@ import 'package:movera_rider/features/profile/domain/rider_outstanding.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/features/profile/presentation/account_checkup.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
+import 'package:movera_rider/features/profile/presentation/app_version_line.dart';
 import 'package:movera_rider/features/profile/presentation/delete_account.dart';
 import 'package:movera_rider/features/profile/presentation/language_picker.dart';
 import 'package:movera_rider/features/profile/presentation/personal_info.dart';
@@ -291,6 +292,8 @@ class _AccountHomePageState extends State<AccountHomePage> {
               ),
             ],
           ),
+          // Owner 2026-11-11 (v0.18.66 §87): "Version 1.0.0 (583)".
+          const AppVersionLine(),
         ],
       ),
     );

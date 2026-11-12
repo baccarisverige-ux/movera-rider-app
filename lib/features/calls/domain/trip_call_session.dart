@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:movera_rider/features/calls/domain/call_connect_rules.dart';
 import 'package:movera_rider/features/calls/domain/call_engine.dart';
 
 /// v0.18.38 §62 (fix job 8, contract.json#inAppCalls): the server side of
@@ -20,15 +21,21 @@ class IncomingCall {
     required this.callId,
     required this.tripId,
     required this.from,
+    this.connectTimeout,
   });
   factory IncomingCall.fromJson(Map<String, dynamic> json) => IncomingCall(
     callId: json['callId'] as String,
     tripId: json['tripId'] as String,
     from: json['from'] as String,
+    connectTimeout: CallConnectRules.timeoutOf(json),
   );
   final String callId;
   final String tripId;
   final String from;
+
+  /// v0.18.66 §87: `CallView.connectTimeoutSeconds` of `call_ringing`;
+  /// null when the server sent none.
+  final Duration? connectTimeout;
 }
 
 enum TripCallState { calling, ringing, connecting, connected, ended, failed }
@@ -44,10 +51,13 @@ class TripCallSession extends ChangeNotifier {
     required CallEngine engine,
     required this.tripId,
     required this.side,
-    this.connectTimeout = defaultConnectTimeout,
+    Duration? connectTimeout,
+    bool Function()? isTablet,
   }) : _api = api,
        _engine = engine,
        outgoingCall = true,
+       _connectTimeout = connectTimeout ?? defaultConnectTimeout,
+       _isTablet = isTablet ?? CallConnectRules.isTabletScreen,
        _state = TripCallState.calling;
 
   TripCallSession.incoming({
@@ -56,13 +66,17 @@ class TripCallSession extends ChangeNotifier {
     required IncomingCall call,
     required this.side,
     required List<Map<String, dynamic>> ice,
-    this.connectTimeout = defaultConnectTimeout,
+    Duration? connectTimeout,
+    bool Function()? isTablet,
   }) : _api = api,
        _engine = engine,
        outgoingCall = false,
        tripId = call.tripId,
        callId = call.callId,
        _ice = ice,
+       _connectTimeout =
+           call.connectTimeout ?? connectTimeout ?? defaultConnectTimeout,
+       _isTablet = isTablet ?? CallConnectRules.isTabletScreen,
        _state = TripCallState.ringing;
 
   final CallApi _api;
@@ -76,8 +90,27 @@ class TripCallSession extends ChangeNotifier {
   /// or "failed", so the screen said "Connecting…" for ever. Now a call
   /// that is not connected [connectTimeout] after Answer (or after the
   /// link dropped) ends as failed: "Call failed" (owner G15).
-  static const defaultConnectTimeout = Duration(seconds: 25);
-  final Duration connectTimeout;
+  ///
+  /// Contract v0.18.66 §87 (owner 2026-11-11, Rule 16): the limit is an
+  /// admin setting the server sends with each call
+  /// (`TripCall.connectTimeoutSeconds`, `CallView.connectTimeoutSeconds`);
+  /// 25 s when it sends none (an older server), held to 10–60.
+  static const defaultConnectTimeout = CallConnectRules.defaultTimeout;
+  Duration _connectTimeout;
+  Duration get connectTimeout => _connectTimeout;
+
+  /// §87 "Tablet ON, phone OFF": read when the call first connects.
+  final bool Function() _isTablet;
+
+  /// The speaker was set once (the default on first connect, or the
+  /// rider's own Speaker tap): later connects keep it.
+  bool _speakerSet = false;
+
+  /// §87 "Add hint": the call failed because the connect time limit ran
+  /// out (also "Calling…" running out); the screen shows the hint under
+  /// "Call failed".
+  bool _connectTimedOut = false;
+  bool get connectTimedOut => _connectTimedOut;
 
   /// The caller's "Calling…" also ends: the server ends an unanswered call
   /// after `ringSeconds`; if that event never reaches this phone, the call
@@ -113,7 +146,10 @@ class TripCallSession extends ChangeNotifier {
 
   void _set(TripCallState next) {
     if (over) return;
-    if (next == TripCallState.connected) _stopGuard();
+    if (next == TripCallState.connected) {
+      _stopGuard();
+      _speakerDefault();
+    }
     // The connect time runs once the microphone is ours: the first call
     // shows Android's microphone question, which is not counted.
     if (next == TripCallState.connecting &&
@@ -131,8 +167,20 @@ class TripCallSession extends ChangeNotifier {
       _guard = null;
       if (over || _state == TripCallState.connected) return;
       debugPrint('trip_call.connect_timeout: ${_state.name}');
+      _connectTimedOut = true;
       unawaited(_fail());
     });
+  }
+
+  /// The first time the call connects: speaker ON on a tablet, OFF
+  /// (earpiece) on a phone, unless the rider already chose with the
+  /// Speaker button. A link that drops and comes back keeps his choice.
+  /// Web: the engine's setSpeaker does nothing (the browser picks).
+  void _speakerDefault() {
+    if (_speakerSet) return;
+    _speakerSet = true;
+    _speaker = _isTablet();
+    unawaited(_engine.setSpeaker(_speaker).catchError((Object _) {}));
   }
 
   void _stopGuard() {
@@ -195,6 +243,7 @@ class TripCallSession extends ChangeNotifier {
         throw StateError('not an in-app call');
       }
       callId = answer['callId'] as String;
+      _connectTimeout = CallConnectRules.timeoutOf(answer) ?? _connectTimeout;
       final ring = answer['ringSeconds'];
       final ice = answer['ice'];
       final servers = ice is Map ? ice['servers'] : null;
@@ -220,6 +269,7 @@ class TripCallSession extends ChangeNotifier {
     try {
       _set(TripCallState.connecting);
       final answered = await _api.answer(id);
+      _connectTimeout = CallConnectRules.timeoutOf(answered) ?? _connectTimeout;
       final ice = answered['ice'];
       final servers = ice is Map ? ice['servers'] : null;
       if (servers is List) {
@@ -271,6 +321,7 @@ class TripCallSession extends ChangeNotifier {
   }
 
   Future<void> toggleSpeaker() async {
+    _speakerSet = true;
     _speaker = !_speaker;
     await _engine.setSpeaker(_speaker);
     notifyListeners();

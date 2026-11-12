@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.65",
+  "version": "0.18.66",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -3737,6 +3737,7 @@
       "callWindowAfterTripMin": 60,
       "ringSeconds": 30,
       "maxCallMin": 15,
+      "connectTimeoutSeconds": 25,
       "adminCallRoles": [],
       "phoneProvider": "none"
     },
@@ -5510,7 +5511,8 @@
           "en": "Messages arrive translated into the receiver's language. \"See original\" shows the text as it was written."
         }
       },
-      "apps": "Rule 0 order: contract -> server (Message.lang, auto flag, same-language answer, per-language cache, migration 0097, autoTranslate setting with default) -> admin (Chat settings switch) -> driver app and rider app (translated by default, See original toggle, quiet fallback to the original)."
+      "apps": "Rule 0 order: contract -> server (Message.lang, auto flag, same-language answer, per-language cache, migration 0097, autoTranslate setting with default) -> admin (Chat settings switch) -> driver app and rider app (translated by default, See original toggle, quiet fallback to the original).",
+      "adminView": "v0.18.66 §87 (owner 2026-11-11 'Original + translation'; replaces 'The admin's own view of a trip chat shows messages as written' of v0.18.64 §85): GET /trips/{tripId}/messages answered to an admin (support.reply + the trip's zone) carries Message.translations [MessageTranslation { to, text }]: every translation the server already keeps for that message (trip_message_translations, chat.autoTranslate.cache), oldest first, [] when none. Read-only: an admin read never asks the provider and never makes a new translation; the admin has no translate button. Rider and driver answers never carry translations (they keep using POST /trips/{tripId}/messages/translate). Admin › Trip details › Chat shows the text as written first and, under it, each kept translation in smaller grey text with its language: 'Translation (EN)' (sv 'Översättning (EN)', fr 'Traduction (EN)'). No migration (the cache table is 0097)."
     }
   },
   "tripPath": {
@@ -8355,6 +8357,32 @@
     "driverApp": "Driver app: holding the trip radar to stop (or start) next trips sends POST /driver/next-trips at once; on a refusal or no connection the radar goes back and says so. Profile reads set the radar from nextTripsOff.",
     "riderApp": "No change."
   },
+  "callConnect": {
+    "note": "v0.18.66 §87 (owner answers 2026-11-11 evening, Rule 0 / Rule 16). Builds on v0.18.65 main. X-Api-Version stays 0.5; additive; no migration. Today both apps end a call that never connects after a fixed 25 s (driver app PR #560, rider app PR #592: 'a call never stays on Connecting…').",
+    "connectTimeout": {
+      "owner": "Owner 2026-11-11: the connect timeout becomes an admin setting (Rule 16: adjustable values are admin settings with today's default).",
+      "setting": "CountryRules.calls.connectTimeoutSeconds: integer 10–60, default 25 (configDefaults.calls.connectTimeoutSeconds), per country like the other call settings (a zone's own country_rules may set it). Outside 10–60 the save is 400 invalid_request.",
+      "admin": "Admin › Pricing › Tips & limits per country › Calls, field 'Connect time limit (s)' (sv 'Tid att ansluta (s)', fr 'Délai de connexion (s)'), saved with Save tips & limits and published with the country_rules document (settings.edit / settings.publish), like Ring time and Longest call.",
+      "delivery": "The apps get the value with each call, like ringSeconds and maxCallMin (call settings are not in RiderAppConfig / DriverAppConfig): TripCall.connectTimeoutSeconds on POST /trips/{tripId}/call (caller) and CallView.connectTimeoutSeconds on every CallView (callee: the call_ringing event and the answer of POST /calls/{callId}/answer). The server reads it from the trip zone's country rules when it builds the answer (no column, no migration). Missing (older server) → 25.",
+      "rule": "The guard starts when the call is answered (the callee's Answer tap, the caller's call_answered event) and again when a connected call loses its link. Not connected within connectTimeoutSeconds → the app sends POST /calls/{callId}/end { reason: failed } and shows the failure hint (failureHint). The caller's 'Calling…' also ends as failed ringSeconds + connectTimeoutSeconds after the start when neither call_answered nor call_missed / call_ended reached the phone."
+    },
+    "speakerDefault": {
+      "owner": "Owner 2026-11-11: 'Tablet ON, phone OFF'.",
+      "rule": "App behaviour only (no setting, no field: the contract has no speaker field; inAppCalls.texts.speaker is only the button label). When a call connects the speaker is ON on a tablet (shortest screen side ≥ 600 dp) and OFF (earpiece) on a phone; the Speaker button still switches it during the call."
+    },
+    "failureHint": {
+      "owner": "Owner 2026-11-11: 'Add hint'.",
+      "rule": "When a call cannot connect within connectTimeoutSeconds, both apps show 'Call failed' (inAppCalls.texts.callFailed, owner G15) with the line inAppCalls.texts.connectFailedHint under it, in the app language.",
+      "texts": "inAppCalls.texts.connectFailedHint: sv 'Kunde inte ansluta. Kontrollera nätverket eller använd chatten.', fr 'Connexion impossible. Vérifiez votre réseau ou utilisez le chat.', en 'Couldn't connect. Check your network or use chat.'"
+    },
+    "apps": "Driver and rider apps: read connectTimeoutSeconds from TripCall / CallView (fallback 25), speaker default by screen size, hint under 'Call failed' on a connect timeout. Server: CountryRules.calls.connectTimeoutSeconds with default and range, copied into TripCall and CallView. Admin: the Calls field with its range."
+  },
+  "noticeLanguage": {
+    "note": "v0.18.66 §87 (owner 2026-11-11 'French for TN'). X-Api-Version stays 0.5; no wire change; no migration.",
+    "rule": "One language rule for every push and every Notifications-list notice (bell) the server writes, to a rider, a driver or an admin: the person's own language (account language) when set; else the language of the country (configDefaults.countries.<country>.defaultLanguage: SE sv, FR fr, TN fr); else en. The country is the trip zone's country for a trip notice, otherwise the person's zone's country.",
+    "replaces": "Replaces every shorter list written before ('SE sv, FR fr, else en' in riderTripPush, driverTripPush, onTrip.rideCheck.push, bookLater.push and the others): Tunisia was missing there, so TN notices fell back to English; they are now French.",
+    "notFirstLanguage": "Not the apps' first language before sign-in: that stays auth.firstLanguage (phone language, else en; §82)."
+  },
   "inAppCalls": {
     "note": "v0.18.38 §62 (fix job 8, Rules plan/FIX-JOBS-8-9-10-PLAN-2026-11-05.md; owner G15 2026-11-05: 'In-app calls only', 'Both rider and driver', \"Just 'Call failed'\"). Builds on v0.18.34 main. X-Api-Version stays 0.5; additive; server migration 0085 (trip_calls).",
     "who": [
@@ -8392,6 +8420,10 @@
         ],
         "maxCallMin": [
           1,
+          60
+        ],
+        "connectTimeoutSeconds": [
+          10,
           60
         ]
       },
@@ -8450,6 +8482,11 @@
         "sv": "Samtalet misslyckades",
         "fr": "L'appel a échoué",
         "en": "Call failed"
+      },
+      "connectFailedHint": {
+        "sv": "Kunde inte ansluta. Kontrollera nätverket eller använd chatten.",
+        "fr": "Connexion impossible. Vérifiez votre réseau ou utilisez le chat.",
+        "en": "Couldn't connect. Check your network or use chat."
       }
     },
     "serverSafety": "Rule 33: every call state lives in trip_calls (Postgres); start/answer/end lock the row (FOR UPDATE); the ring timeout and the length limit are database timers; signals go out as trip events (database sequence). No call state in one server copy's memory.",

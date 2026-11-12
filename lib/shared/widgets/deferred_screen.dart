@@ -26,7 +26,8 @@ class DeferredScreen extends StatefulWidget {
   @visibleForTesting
   static bool Function() reloadOnce = reloadPageForNewVersion;
 
-  /// Web Retry: reloads the page now; true when it started.
+  /// Web Retry: reloads the page now (after refreshing the cached app
+  /// shell); true when it started.
   @visibleForTesting
   static bool Function() reloadNow = reloadPageNow;
 
@@ -61,9 +62,11 @@ class _DeferredScreenState extends State<DeferredScreen> {
   }
 
   void _retry() {
-    if (DeferredScreen.isWeb && DeferredScreen.reloadNow()) return;
+    // Web: the reload first downloads the app shell fresh (a few seconds at
+    // most); the spinner shows meanwhile instead of the retry icon.
+    final reloading = DeferredScreen.isWeb && DeferredScreen.reloadNow();
     setState(() => _failed = false);
-    _start();
+    if (!reloading) _start();
   }
 
   @override

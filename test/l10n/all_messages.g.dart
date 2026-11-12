@@ -145,6 +145,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'accountOutstandingFees': l.accountOutstandingFees,
   'accountSuspended': l.accountSuspended,
   'errLockedToday': l.errLockedToday,
+  'appVersionLine': l.appVersionLine('<version>', '<build>'),
+  'appVersionOnly': l.appVersionOnly('<version>'),
   'appTitle': l.appTitle,
   'previewBanner': l.previewBanner,
   'previewNotSent': l.previewNotSent,
@@ -173,6 +175,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'chatTranslationComingSoon': l.chatTranslationComingSoon,
   'chatTranslateFailed': l.chatTranslateFailed,
   'chatQuickReplies': l.chatQuickReplies,
+  'callConnectFailedHint': l.callConnectFailedHint,
   'cancelRide': l.cancelRide,
   'cancelReasonPickupIncorrect': l.cancelReasonPickupIncorrect,
   'cancelReasonWrongRideOption': l.cancelReasonWrongRideOption,
@@ -1743,6 +1746,8 @@ const messagePlaceholders = <String, List<String>>{
   'notifYesterday': ['clock'],
   'phoneCountryCode': ['country', 'dial'],
   'errTooManyWrongCodes': ['button'],
+  'appVersionLine': ['version', 'build'],
+  'appVersionOnly': ['version'],
   'accountPausedUntil': ['date'],
   'cancelCostsNow': ['amount'],
   'cancelFreeMinutes': ['minutes'],
@@ -2237,6 +2242,10 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get errLockedToday => '';
   @override
+  String appVersionLine(String version, String build) => '';
+  @override
+  String appVersionOnly(String version) => '';
+  @override
   String get appTitle => '';
   @override
   String get previewBanner => '';
@@ -2292,6 +2301,8 @@ class _Exhaustive implements AppLocalizations {
   String get chatTranslateFailed => '';
   @override
   String get chatQuickReplies => '';
+  @override
+  String get callConnectFailedHint => '';
   @override
   String get cancelRide => '';
   @override

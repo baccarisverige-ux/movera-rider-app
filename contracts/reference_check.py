@@ -768,14 +768,14 @@ _ic = c.get('inAppCalls')
 if not isinstance(_ic, dict): bad += 1; print('IN-APP CALLS section missing')
 else:
     _cd = c['configDefaults'].get('calls', {})
-    if _cd != {'on': True, 'mode': 'in_app', 'callWindowAfterTripMin': 60, 'ringSeconds': 30, 'maxCallMin': 15, 'adminCallRoles': [], 'phoneProvider': 'none'}: bad += 1; print('IN-APP CALLS defaults', _cd)
-    if set(_ic['settings']['ranges']) != {'callWindowAfterTripMin', 'ringSeconds', 'maxCallMin'}: bad += 1; print('IN-APP CALLS ranges')
+    if _cd != {'on': True, 'mode': 'in_app', 'callWindowAfterTripMin': 60, 'ringSeconds': 30, 'maxCallMin': 15, 'connectTimeoutSeconds': 25, 'adminCallRoles': [], 'phoneProvider': 'none'}: bad += 1; print('IN-APP CALLS defaults', _cd)
+    if set(_ic['settings']['ranges']) != {'callWindowAfterTripMin', 'ringSeconds', 'maxCallMin', 'connectTimeoutSeconds'}: bad += 1; print('IN-APP CALLS ranges')
     for _k, (_lo, _hi) in _ic['settings']['ranges'].items():
         if not (_lo <= _cd.get(_k, -1) <= _hi): bad += 1; print('IN-APP CALLS default outside range', _k)
     _kinds = ['call_ringing', 'call_answered', 'call_signal', 'call_ended', 'call_missed']
     if any(_k not in c['realtime']['kinds'] or _k not in c['realtime']['afterTerminal'] for _k in _kinds): bad += 1; print('IN-APP CALLS realtime kinds')
     if set(_ic['endedReasons']) != {'hangup', 'declined', 'failed', 'missed', 'max_length', 'trip_cancelled'}: bad += 1; print('IN-APP CALLS ended reasons')
-    if set(_ic['texts']) != {'callFailed', 'incoming', 'calling', 'end', 'mute', 'speaker', 'answer', 'decline', 'call'} or any(set(v) != {'sv', 'fr', 'en'} for v in _ic['texts'].values()): bad += 1; print('IN-APP CALLS texts sv/fr/en')
+    if set(_ic['texts']) != {'callFailed', 'incoming', 'calling', 'end', 'mute', 'speaker', 'answer', 'decline', 'call', 'connectFailedHint'} or any(set(v) != {'sv', 'fr', 'en'} for v in _ic['texts'].values()): bad += 1; print('IN-APP CALLS texts sv/fr/en')
     if 'call_window_closed' not in _ic['errors'] or 'calls_off' not in _ic['errors'] or 'call_busy' not in _ic['errors']: bad += 1; print('IN-APP CALLS errors')
     if _ic['texts']['callFailed']['en'] != 'Call failed': bad += 1; print('IN-APP CALLS owner: "Call failed" only')
     if _ic['who'] != ['rider', 'driver']: bad += 1; print('IN-APP CALLS owner: both sides call')

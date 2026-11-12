@@ -66,5 +66,9 @@
   "chatQuickReplies": "Quick replies",
   "@chatQuickReplies": {
     "description": "v0.18.56 §78: semantics label of the quick-reply chips row."
+  },
+  "callConnectFailedHint": "Couldn't connect. Check your network or use chat.",
+  "@callConnectFailedHint": {
+    "description": "v0.18.66 §87 (owner 2026-11-11 'Add hint'): under 'Call failed' when the call could not connect within the connect time limit (inAppCalls.texts.connectFailedHint)."
   }
 }
