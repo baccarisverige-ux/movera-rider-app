@@ -12,6 +12,7 @@ import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
+import 'package:movera_rider/shared/widgets/parkable_map.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -57,8 +58,15 @@ void main() {
     LocationRepository.noteSessionFix(const GeoPoint(59.3293, 18.0686));
     RideSnapshotStore.epoch = 0;
     CustomGoogleMap.debugMounted.clear();
+    // G25 step A: these pin the web rule (every map lives on in the page);
+    // on native a covered map stays mounted on purpose
+    // (test/home/g25_home_map_survives_cover_test.dart).
+    ParkableMap.debugKeepWhileParked = false;
   });
-  tearDown(CustomGoogleMap.debugMounted.clear);
+  tearDown(() {
+    CustomGoogleMap.debugMounted.clear();
+    ParkableMap.debugKeepWhileParked = null;
+  });
 
   Future<void> pumpHome(WidgetTester tester) async {
     tester.view.physicalSize = const Size(390, 844);

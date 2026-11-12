@@ -14,6 +14,7 @@ import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
+import 'package:movera_rider/shared/widgets/parkable_map.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -29,8 +30,15 @@ void main() {
     // Item 9: Home no longer opens a made-up Stockholm map when no GPS
     // answers; these map tests start from a position this session knows.
     LocationRepository.noteSessionFix(const GeoPoint(59.3293, 18.0686));
+    // G25 step A: NAV-3 is the web rule (two Google maps at once crash the
+    // tab); on native a covered map stays mounted on purpose
+    // (test/home/g25_home_map_survives_cover_test.dart).
+    ParkableMap.debugKeepWhileParked = false;
   });
-  tearDown(LocationRepository.debugForgetSessionFix);
+  tearDown(() {
+    LocationRepository.debugForgetSessionFix();
+    ParkableMap.debugKeepWhileParked = null;
+  });
 
   int mapsMounted() =>
       find.byType(CustomGoogleMap, skipOffstage: false).evaluate().length;

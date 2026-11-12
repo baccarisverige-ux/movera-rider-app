@@ -16,6 +16,10 @@ class FakeMapsPlatform extends GoogleMapsFlutterPlatform {
   final List<int> disposed = <int>[];
   final Set<int> _created = <int>{};
 
+  /// The creation ids of every view built so far, in order (one per new
+  /// platform map).
+  List<int> get createdIds => List<int>.unmodifiable(_created);
+
   /// The configuration of the last view built (traffic layer, gestures…).
   MapConfiguration? lastConfiguration;
   final StreamController<MapEvent<Object?>> _events =

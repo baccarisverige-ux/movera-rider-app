@@ -69,6 +69,32 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
   Widget? _leaf;
   bool _approximateRoute = false;
 
+  /// G25 step A: kept mounted under a covering screen (native). No camera
+  /// fit (it would move the covering screen's map), no marker easing, no
+  /// route reads until [resumeAfterPark].
+  bool _paused = false;
+  GoogleMapController? _controller;
+
+  void pauseWhileParked() {
+    _paused = true;
+    _pendingRepaint?.cancel();
+    _driverAnim.stop();
+  }
+
+  /// Shown again: take the map back and catch up with the live trip.
+  void resumeAfterPark() {
+    if (!_paused) return;
+    _paused = false;
+    final controller = _controller;
+    if (controller != null) {
+      AppScope.instance.maps.attach(controller, owner: MapOwners.waiting);
+    }
+    _lastFitDriverPoint = null;
+    _lastPaint = null;
+    paintIfDue();
+    if (_mapReady) unawaited(_refreshRoadRoute(force: true));
+  }
+
   // M-01/M-02: the driver marker used to teleport to each new fix. Ease
   // between the last displayed position/heading and the new one instead.
   //
@@ -153,6 +179,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
   }
 
   void paintIfDue() {
+    if (_paused) return;
     final now = DateTime.now();
     if (_lastPaint != null &&
         now.difference(_lastPaint!) < const Duration(milliseconds: 400)) {
@@ -271,6 +298,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
   }
 
   void _maybeFitCamera() {
+    if (_paused) return;
     final driver = _currentDriverPosition();
     if (driver == null) return;
     final target = _inTrip ? widget.destinationPosition : widget.pickupPosition;
@@ -519,7 +547,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
   }
 
   Future<void> _refreshRoadRoute({bool force = false}) async {
-    if (!_mapReady) return;
+    if (!_mapReady || _paused) return;
     final endpoints = _routeEndpoints();
     if (endpoints == null) return;
 
@@ -584,6 +612,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
       mapType: MapType.normal,
       onMapCreated: (controller) {
         _mapReady = true;
+        _controller = controller;
         AppScope.instance.maps.attach(controller, owner: MapOwners.waiting);
         unawaited(_refreshRoadRoute(force: true));
       },

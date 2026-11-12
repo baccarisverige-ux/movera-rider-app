@@ -511,6 +511,15 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     _placeNewMapOn(target, _mapBornAt ?? target);
   }
 
+  /// G25 step A (native): the map kept under a covering page is Home's
+  /// again. Its camera stays where the rider left it; the live location
+  /// resumes with [_resumeHomeMap].
+  void _onHomeMapResumed(GoogleMapController controller) {
+    AppScope.instance.maps.attach(controller, owner: MapOwners.home);
+    AppScope.instance.mapLifecycle.created();
+    _updateLocationVisuals();
+  }
+
   void _handleMapCameraMove(CameraPosition camera) {
     _lastMapZoom = camera.zoom;
     _lastMapTarget = camera.target;
@@ -821,6 +830,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                     mapStyle: homeMapStyle,
                                     onCameraMove: _handleMapCameraMove,
                                     onMapCreated: _onHomeMapCreated,
+                                    onMapResumed: _onHomeMapResumed,
                                   ),
                           ),
                         ),

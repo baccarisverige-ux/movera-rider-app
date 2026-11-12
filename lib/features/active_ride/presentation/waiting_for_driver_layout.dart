@@ -56,6 +56,9 @@ extension _WaitingLayout on _WaitingForDriverState {
     _mapParked = true;
     setWebOverlayOpen(false);
     AppScope.instance.maps.detach(owner: MapOwners.waiting);
+    // G25: a map kept mounted under the next screen (native) stops its
+    // camera and marker work until it is shown again.
+    _mapKey.currentState?.pauseWhileParked();
     if (mounted) setState(() {});
     await WidgetsBinding.instance.endOfFrame;
   }

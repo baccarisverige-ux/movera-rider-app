@@ -53,6 +53,7 @@ import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/shared/widgets/parkable_map.dart';
 import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -155,6 +156,10 @@ class _FindingDriversState extends State<FindingDrivers> {
       widget.controller ?? FindingDriverController(realtime: widget.realtime);
   bool _mapParked = false;
   bool _mapReady = false;
+
+  /// G25: the map's controller, so a map kept while parked (native) is
+  /// attached again when this screen is back on top.
+  GoogleMapController? _mapController;
   bool _leaving = false;
 
   /// rider-u106: "Try again" is creating the new booking. The screen must
@@ -535,6 +540,14 @@ class _FindingDriversState extends State<FindingDrivers> {
     if (_mapReady) unawaited(_refreshRoadRoute());
   }
 
+  /// G25: the map kept under a covering screen is this screen's again.
+  void _onKeptMapResumed() {
+    final controller = _mapController;
+    if (controller == null || _mapParked) return;
+    AppScope.instance.maps.attach(controller, owner: MapOwners.finding);
+    unawaited(_refreshRoadRoute());
+  }
+
   Future<void> _openWaiting() async {
     if (!mounted || _leaving) return;
     _leaving = true;
@@ -892,38 +905,43 @@ class _FindingDriversState extends State<FindingDrivers> {
               right: 0,
               bottom: mapReserve,
               child: RepaintBoundary(
-                child: _mapParked
-                    ? const ColoredBox(color: Color(0xFFF6F5F1))
-                    : CustomGoogleMap(
-                        key: const ValueKey('finding-map'),
-                        // Owner, live test 2026-10-26 (N6): the booking and trip maps stay
-                        // flat; the route is read from above, never along a tilted horizon.
-                        tiltWithZoom: false,
-                        initialPosition: CameraPosition(
-                          target: _pickupPosition,
-                          zoom: 14.0,
-                        ),
-                        markers: _markers,
-                        polylines: _polylines,
-                        myLocationEnabled: false,
-                        myLocationButtonEnabled: false,
-                        zoomControlsEnabled: false,
-                        mapToolbarEnabled: false,
-                        compassEnabled: false,
-                        buildingsEnabled: false,
-                        indoorViewEnabled: false,
-                        tiltGesturesEnabled: false,
-                        rotateGesturesEnabled: false,
-                        mapType: MapType.normal,
-                        onMapCreated: (controller) {
-                          _mapReady = true;
-                          AppScope.instance.maps.attach(
-                            controller,
-                            owner: MapOwners.finding,
-                          );
-                          unawaited(_refreshRoadRoute());
-                        },
-                      ),
+                // G25 step A: on native the parked map stays mounted.
+                child: ParkableMap(
+                  parked: _mapParked,
+                  placeholder: const ColoredBox(color: Color(0xFFF6F5F1)),
+                  onResumed: _onKeptMapResumed,
+                  child: CustomGoogleMap(
+                    key: const ValueKey('finding-map'),
+                    // Owner, live test 2026-10-26 (N6): the booking and trip maps stay
+                    // flat; the route is read from above, never along a tilted horizon.
+                    tiltWithZoom: false,
+                    initialPosition: CameraPosition(
+                      target: _pickupPosition,
+                      zoom: 14.0,
+                    ),
+                    markers: _markers,
+                    polylines: _polylines,
+                    myLocationEnabled: false,
+                    myLocationButtonEnabled: false,
+                    zoomControlsEnabled: false,
+                    mapToolbarEnabled: false,
+                    compassEnabled: false,
+                    buildingsEnabled: false,
+                    indoorViewEnabled: false,
+                    tiltGesturesEnabled: false,
+                    rotateGesturesEnabled: false,
+                    mapType: MapType.normal,
+                    onMapCreated: (controller) {
+                      _mapReady = true;
+                      _mapController = controller;
+                      AppScope.instance.maps.attach(
+                        controller,
+                        owner: MapOwners.finding,
+                      );
+                      unawaited(_refreshRoadRoute());
+                    },
+                  ),
+                ),
               ),
             ),
             // Owner N2/A14: a leg without road (direct line): say so.
