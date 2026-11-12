@@ -386,6 +386,7 @@
   "endedEarlyBodyAmount": "Vous avez arrêté la course avant votre destination. Vous payez {amount} pour la distance parcourue.",
   "paidByDistance": "Payé selon la distance parcourue",
   "youPayAmount": "Vous payez {amount}",
+  "payDriverInCar": "Payez {amount} au chauffeur",
   "completeProcessingBody": "Votre course est terminée. La confirmation du paiement est en cours.",
   "completeConfirmedBody": "Votre course est terminée et le paiement a été confirmé.",
   "completeRateBody": "Votre course et votre paiement sont terminés. Vous pouvez maintenant noter votre chauffeur.",

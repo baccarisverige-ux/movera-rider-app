@@ -734,6 +734,11 @@ class ApiRideRealtime implements RideRealtime {
           // one when it ended early) travels with the status, so the
           // summary and the receipt show what the rider pays.
           if (ride['fare'] is Map) fareKey: ride['fare'],
+          // G33 (v0.18.78 `finish.payInCarLine`): what the rider pays the
+          // driver in the car, and whether the trip ended early.
+          if (ride['finish'] case {'cashToCollect': final Map cash})
+            cashToCollectKey: cash,
+          if (ride['finish'] case {'endedEarly': true}) finishedEarlyKey: true,
           // Contract v0.4.0: when the driver accepted (Q12) and when the
           // waiting clock started (Q42), as the server stamped them.
           if (ride['acceptedAt'] is String) acceptedAtKey: ride['acceptedAt'],

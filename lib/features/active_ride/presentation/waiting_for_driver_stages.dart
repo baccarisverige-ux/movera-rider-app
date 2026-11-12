@@ -176,7 +176,13 @@ extension _WaitingStages on _WaitingForDriverState {
     // completion UI at tripCompleted.
     // N9: the fare the server settled the trip at (the booked fare, or
     // less when the driver finished before the drop-off).
-    await _ride.markCompleted(status, charged: _tracking.fare);
+    // G33: what the rider pays the driver in the car (finish.cashToCollect).
+    await _ride.markCompleted(
+      status,
+      charged: _tracking.fare,
+      cashToCollect: _tracking.cashToCollect,
+      finishedEarly: _tracking.finishedEarly,
+    );
     if (!mounted) return;
     await _parkMapForStageChange();
     if (!mounted) return;

@@ -925,6 +925,15 @@
       }
     }
   },
+  "payDriverInCar": "Pay the driver {amount} in the car",
+  "@payDriverInCar": {
+    "description": "G33 (contract v0.18.78 finish.paymentMethods.texts.payDriverInCar): completion screen of a trip paid in the car; amount = finish.cashToCollect.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "completeProcessingBody": "Your ride has ended. Payment confirmation is still processing.",
   "completeConfirmedBody": "Your ride has ended and the payment has been confirmed.",
   "completeRateBody": "Your ride and payment are complete. You can now rate your driver.",

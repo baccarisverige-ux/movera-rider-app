@@ -1,11 +1,11 @@
-# Movera API v0.18.77 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.78 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.77
+  version: 0.18.78
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.77 in this folder; this file must agree with them.
+    v0.18.78 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.77
+  version: 0.18.78
   source: contract.json
 paths:
   /auth/otp/request:
@@ -4278,7 +4278,8 @@ paths:
         unknown_filter). v0.18.7: Admin phase item: every GET /admin/trips row of a trip with a driver that is not over carries
         driverLocation (GeoFix) and eta (TripEta), so the live trips table shows driver_to_pickup with the live ETA and a
         map link (the driver''s position and the pickup coordinates; the admin opens its own map). GET /admin/trips/{tripId}
-        carries the same.'
+        carries the same. v0.18.78: the page carries total (v0.18.78 (owner 2026-11-12 ~17:30 item 5 "Yes, build"): admin
+        lists show "50 of N". contract.json#adminListFilters.total).'
       tags:
       - Admin · Lists
       x-actor:
@@ -4368,7 +4369,8 @@ paths:
         unknown_filter). v0.18.54 §76: GET /admin/riders rows and the rider commands that answer the rider view (POST /admin/riders/{riderId}/status,
         /moderation, /wallet-credit, /fees/{tripId}/mark-paid): phone, email (riders.viewSensitive). GET /admin/riders?q=
         keeps searching the full phone number on the server for every role: a masked role can confirm a number by searching
-        for it (the row still comes back masked).'
+        for it (the row still comes back masked). v0.18.78: the page carries total (v0.18.78 (owner 2026-11-12 ~17:30 item
+        5 "Yes, build"): admin lists show "50 of N". contract.json#adminListFilters.total).'
       tags:
       - Admin · Lists
       x-actor:
@@ -4423,7 +4425,8 @@ paths:
         zoneId, zoneIds and country narrow the list inside those zones; an unknown query key → 400 invalid_request (reason
         unknown_filter). v0.18.54 §76: GET /admin/drivers rows, GET /admin/drivers/{driverId} and the driver commands that
         answer the driver view (POST /admin/drivers/{driverId}/status, /payout-hold, the vehicle driver-link actions): phone
-        (when the record has one), email, dateOfBirth (drivers.viewSensitive).'
+        (when the record has one), email, dateOfBirth (drivers.viewSensitive). v0.18.78: the page carries total (v0.18.78
+        (owner 2026-11-12 ~17:30 item 5 "Yes, build"): admin lists show "50 of N". contract.json#adminListFilters.total).'
       tags:
       - Admin · Lists
       x-actor:
@@ -4491,7 +4494,8 @@ paths:
       summary: List fleets (cursor paging)
       description: 'Results are limited to the zones in the admin''s token scope. v0.18.54 §76: GET /admin/fleets rows, GET
         /admin/fleets/{fleetId} (FleetView.fleet) and the fleet commands (POST /admin/fleets/{fleetId}/review, /code, the
-        invitations): ownerEmail (drivers.viewSensitive).'
+        invitations): ownerEmail (drivers.viewSensitive). v0.18.78: the page carries total (v0.18.78 (owner 2026-11-12 ~17:30
+        item 5 "Yes, build"): admin lists show "50 of N". contract.json#adminListFilters.total).'
       tags:
       - Admin · Lists
       x-actor:
@@ -4546,7 +4550,8 @@ paths:
     get:
       operationId: adminListVehicles
       summary: List vehicles (cursor paging)
-      description: Results are limited to the zones in the admin's token scope.
+      description: 'Results are limited to the zones in the admin''s token scope. v0.18.78: the page carries total (v0.18.78
+        (owner 2026-11-12 ~17:30 item 5 "Yes, build"): admin lists show "50 of N". contract.json#adminListFilters.total).'
       tags:
       - Admin · Lists
       x-actor:
@@ -4613,7 +4618,8 @@ paths:
       summary: List payments (cursor paging)
       description: 'Results are limited to the zones in the admin''s token scope. v0.17.2 (contract.json#adminListFilters):
         zoneId, zoneIds and country narrow the list inside those zones; an unknown query key → 400 invalid_request (reason
-        unknown_filter).'
+        unknown_filter). v0.18.78: the page carries total (v0.18.78 (owner 2026-11-12 ~17:30 item 5 "Yes, build"): admin lists
+        show "50 of N". contract.json#adminListFilters.total).'
       tags:
       - Admin · Lists
       x-actor:
@@ -4684,7 +4690,8 @@ paths:
       summary: List refunds (cursor paging)
       description: 'Results are limited to the zones in the admin''s token scope. v0.17.2 (contract.json#adminListFilters):
         zoneId, zoneIds and country narrow the list inside those zones; an unknown query key → 400 invalid_request (reason
-        unknown_filter).'
+        unknown_filter). v0.18.78: the page carries total (v0.18.78 (owner 2026-11-12 ~17:30 item 5 "Yes, build"): admin lists
+        show "50 of N". contract.json#adminListFilters.total).'
       tags:
       - Admin · Lists
       x-actor:
@@ -4750,7 +4757,8 @@ paths:
       summary: List payouts (cursor paging)
       description: 'Results are limited to the zones in the admin''s token scope. v0.17.2 (contract.json#adminListFilters):
         zoneId, zoneIds and country narrow the list inside those zones; an unknown query key → 400 invalid_request (reason
-        unknown_filter).'
+        unknown_filter). v0.18.78: the page carries total (v0.18.78 (owner 2026-11-12 ~17:30 item 5 "Yes, build"): admin lists
+        show "50 of N". contract.json#adminListFilters.total).'
       tags:
       - Admin · Lists
       x-actor:
@@ -4863,7 +4871,8 @@ paths:
       summary: List tickets (cursor paging)
       description: 'Results are limited to the zones in the admin''s token scope. v0.17.2 (contract.json#adminListFilters):
         zoneId, zoneIds and country narrow the list inside those zones; an unknown query key → 400 invalid_request (reason
-        unknown_filter).'
+        unknown_filter). v0.18.78: the page carries total (v0.18.78 (owner 2026-11-12 ~17:30 item 5 "Yes, build"): admin lists
+        show "50 of N". contract.json#adminListFilters.total).'
       tags:
       - Admin · Lists
       x-actor:
@@ -4954,7 +4963,8 @@ paths:
       summary: List incidents (cursor paging)
       description: 'Results are limited to the zones in the admin''s token scope. v0.17.2 (contract.json#adminListFilters):
         zoneId, zoneIds and country narrow the list inside those zones; an unknown query key → 400 invalid_request (reason
-        unknown_filter).'
+        unknown_filter). v0.18.78: the page carries total (v0.18.78 (owner 2026-11-12 ~17:30 item 5 "Yes, build"): admin lists
+        show "50 of N". contract.json#adminListFilters.total).'
       tags:
       - Admin · Lists
       x-actor:
@@ -5005,6 +5015,34 @@ paths:
       - $ref: '#/components/parameters/To'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
+      - name: driverId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+        description: 'v0.18.78: cases whose Incident.driverId is this driver. v0.18.78 (owner 2026-11-12 ~17:30 item 5): GET
+          /admin/incidents takes two more optional filters: driverId (cases whose Incident.driverId is that driver) and riderId
+          (cases whose Incident.riderId is that rider). Both together: cases that match both. They only narrow inside the
+          admin''s own zones and with the other filters (status, severity, kind, tripId, zoneId / zoneIds / country, from
+          / to); an id with no case → an empty page (no 404); a malformed id → 400 invalid_request. Used by the driver and
+          rider detail pages and Reports › Care instead of reading every case. A server before v0.18.78 answers these keys
+          with 400 invalid_request (reason unknown_filter), so the panel sends them only to a server of v0.18.78 or later.
+          Rule 33: the server may add an index on incidents.driver_id and incidents.rider_id (built without locking the table,
+          Rule 46) so these filters stay fast at 10,000+ drivers and riders.'
+      - name: riderId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+        description: 'v0.18.78: cases whose Incident.riderId is this rider. v0.18.78 (owner 2026-11-12 ~17:30 item 5): GET
+          /admin/incidents takes two more optional filters: driverId (cases whose Incident.driverId is that driver) and riderId
+          (cases whose Incident.riderId is that rider). Both together: cases that match both. They only narrow inside the
+          admin''s own zones and with the other filters (status, severity, kind, tripId, zoneId / zoneIds / country, from
+          / to); an id with no case → an empty page (no 404); a malformed id → 400 invalid_request. Used by the driver and
+          rider detail pages and Reports › Care instead of reading every case. A server before v0.18.78 answers these keys
+          with 400 invalid_request (reason unknown_filter), so the panel sends them only to a server of v0.18.78 or later.
+          Rule 33: the server may add an index on incidents.driver_id and incidents.rider_id (built without locking the table,
+          Rule 46) so these filters stay fast at 10,000+ drivers and riders.'
       responses:
         '200':
           description: OK
@@ -27264,6 +27302,23 @@ components:
             type: array
             items:
               $ref: '#/components/schemas/TripProjection'
+          total:
+            type: integer
+            minimum: 0
+            description: 'v0.18.78 (owner item 5): only on GET /admin/trips, GET /admin/riders, GET /admin/drivers, GET /admin/fleets,
+              GET /admin/vehicles, GET /admin/payments, GET /admin/refunds, GET /admin/payouts, GET /admin/tickets, GET /admin/incidents.
+              The page answer of these lists carries total (integer ≥ 0): how many rows match the same query (the admin''s
+              own zones, zoneId / zoneIds / country, every other filter and q), counted without cursor and limit, so it is
+              the same number on every page of one query. Rule 33: the server sends total on the first page (no cursor) when
+              it can count it exactly within the list''s time budget; never a guess. If the count cannot be made exactly and
+              cheaply (its own bounded statement times out, or it would be an unbounded query on a very large table), total
+              is left out and the page is still served; the count never fails or slows the list. Later pages may leave it
+              out and the panel keeps the first page''s number. It is counted when the page is read (a row added or closed
+              later changes the next read, not this one). Additive and optional: absent = not counted (older server, or not
+              counted exactly and cheaply), the panel then shows the rows and "Load more" without "of N", as before. Other
+              routes that answer the same page shapes (GET /rider/trips, /driver/vehicles, /driver/payouts, /support/tickets)
+              never send total. The count is exact (the owner asked for a total count); this supersedes the S5 J16 idea of
+              a totalAtLeast: there is no totalAtLeast.'
       description: Page<TripProjection>
     OfferPage:
       allOf:
@@ -27284,6 +27339,23 @@ components:
             type: array
             items:
               $ref: '#/components/schemas/Rider'
+          total:
+            type: integer
+            minimum: 0
+            description: 'v0.18.78 (owner item 5): only on GET /admin/trips, GET /admin/riders, GET /admin/drivers, GET /admin/fleets,
+              GET /admin/vehicles, GET /admin/payments, GET /admin/refunds, GET /admin/payouts, GET /admin/tickets, GET /admin/incidents.
+              The page answer of these lists carries total (integer ≥ 0): how many rows match the same query (the admin''s
+              own zones, zoneId / zoneIds / country, every other filter and q), counted without cursor and limit, so it is
+              the same number on every page of one query. Rule 33: the server sends total on the first page (no cursor) when
+              it can count it exactly within the list''s time budget; never a guess. If the count cannot be made exactly and
+              cheaply (its own bounded statement times out, or it would be an unbounded query on a very large table), total
+              is left out and the page is still served; the count never fails or slows the list. Later pages may leave it
+              out and the panel keeps the first page''s number. It is counted when the page is read (a row added or closed
+              later changes the next read, not this one). Additive and optional: absent = not counted (older server, or not
+              counted exactly and cheaply), the panel then shows the rows and "Load more" without "of N", as before. Other
+              routes that answer the same page shapes (GET /rider/trips, /driver/vehicles, /driver/payouts, /support/tickets)
+              never send total. The count is exact (the owner asked for a total count); this supersedes the S5 J16 idea of
+              a totalAtLeast: there is no totalAtLeast.'
       description: Page<Rider>
     DriverPage:
       allOf:
@@ -27294,6 +27366,23 @@ components:
             type: array
             items:
               $ref: '#/components/schemas/Driver'
+          total:
+            type: integer
+            minimum: 0
+            description: 'v0.18.78 (owner item 5): only on GET /admin/trips, GET /admin/riders, GET /admin/drivers, GET /admin/fleets,
+              GET /admin/vehicles, GET /admin/payments, GET /admin/refunds, GET /admin/payouts, GET /admin/tickets, GET /admin/incidents.
+              The page answer of these lists carries total (integer ≥ 0): how many rows match the same query (the admin''s
+              own zones, zoneId / zoneIds / country, every other filter and q), counted without cursor and limit, so it is
+              the same number on every page of one query. Rule 33: the server sends total on the first page (no cursor) when
+              it can count it exactly within the list''s time budget; never a guess. If the count cannot be made exactly and
+              cheaply (its own bounded statement times out, or it would be an unbounded query on a very large table), total
+              is left out and the page is still served; the count never fails or slows the list. Later pages may leave it
+              out and the panel keeps the first page''s number. It is counted when the page is read (a row added or closed
+              later changes the next read, not this one). Additive and optional: absent = not counted (older server, or not
+              counted exactly and cheaply), the panel then shows the rows and "Load more" without "of N", as before. Other
+              routes that answer the same page shapes (GET /rider/trips, /driver/vehicles, /driver/payouts, /support/tickets)
+              never send total. The count is exact (the owner asked for a total count); this supersedes the S5 J16 idea of
+              a totalAtLeast: there is no totalAtLeast.'
       description: Page<Driver>
     VehiclePage:
       allOf:
@@ -27304,6 +27393,23 @@ components:
             type: array
             items:
               $ref: '#/components/schemas/Vehicle'
+          total:
+            type: integer
+            minimum: 0
+            description: 'v0.18.78 (owner item 5): only on GET /admin/trips, GET /admin/riders, GET /admin/drivers, GET /admin/fleets,
+              GET /admin/vehicles, GET /admin/payments, GET /admin/refunds, GET /admin/payouts, GET /admin/tickets, GET /admin/incidents.
+              The page answer of these lists carries total (integer ≥ 0): how many rows match the same query (the admin''s
+              own zones, zoneId / zoneIds / country, every other filter and q), counted without cursor and limit, so it is
+              the same number on every page of one query. Rule 33: the server sends total on the first page (no cursor) when
+              it can count it exactly within the list''s time budget; never a guess. If the count cannot be made exactly and
+              cheaply (its own bounded statement times out, or it would be an unbounded query on a very large table), total
+              is left out and the page is still served; the count never fails or slows the list. Later pages may leave it
+              out and the panel keeps the first page''s number. It is counted when the page is read (a row added or closed
+              later changes the next read, not this one). Additive and optional: absent = not counted (older server, or not
+              counted exactly and cheaply), the panel then shows the rows and "Load more" without "of N", as before. Other
+              routes that answer the same page shapes (GET /rider/trips, /driver/vehicles, /driver/payouts, /support/tickets)
+              never send total. The count is exact (the owner asked for a total count); this supersedes the S5 J16 idea of
+              a totalAtLeast: there is no totalAtLeast.'
       description: Page<Vehicle>
     DocumentPage:
       allOf:
@@ -27324,6 +27430,23 @@ components:
             type: array
             items:
               $ref: '#/components/schemas/PaymentIntent'
+          total:
+            type: integer
+            minimum: 0
+            description: 'v0.18.78 (owner item 5): only on GET /admin/trips, GET /admin/riders, GET /admin/drivers, GET /admin/fleets,
+              GET /admin/vehicles, GET /admin/payments, GET /admin/refunds, GET /admin/payouts, GET /admin/tickets, GET /admin/incidents.
+              The page answer of these lists carries total (integer ≥ 0): how many rows match the same query (the admin''s
+              own zones, zoneId / zoneIds / country, every other filter and q), counted without cursor and limit, so it is
+              the same number on every page of one query. Rule 33: the server sends total on the first page (no cursor) when
+              it can count it exactly within the list''s time budget; never a guess. If the count cannot be made exactly and
+              cheaply (its own bounded statement times out, or it would be an unbounded query on a very large table), total
+              is left out and the page is still served; the count never fails or slows the list. Later pages may leave it
+              out and the panel keeps the first page''s number. It is counted when the page is read (a row added or closed
+              later changes the next read, not this one). Additive and optional: absent = not counted (older server, or not
+              counted exactly and cheaply), the panel then shows the rows and "Load more" without "of N", as before. Other
+              routes that answer the same page shapes (GET /rider/trips, /driver/vehicles, /driver/payouts, /support/tickets)
+              never send total. The count is exact (the owner asked for a total count); this supersedes the S5 J16 idea of
+              a totalAtLeast: there is no totalAtLeast.'
       description: Page<PaymentIntent>
     RefundPage:
       allOf:
@@ -27334,6 +27457,23 @@ components:
             type: array
             items:
               $ref: '#/components/schemas/Refund'
+          total:
+            type: integer
+            minimum: 0
+            description: 'v0.18.78 (owner item 5): only on GET /admin/trips, GET /admin/riders, GET /admin/drivers, GET /admin/fleets,
+              GET /admin/vehicles, GET /admin/payments, GET /admin/refunds, GET /admin/payouts, GET /admin/tickets, GET /admin/incidents.
+              The page answer of these lists carries total (integer ≥ 0): how many rows match the same query (the admin''s
+              own zones, zoneId / zoneIds / country, every other filter and q), counted without cursor and limit, so it is
+              the same number on every page of one query. Rule 33: the server sends total on the first page (no cursor) when
+              it can count it exactly within the list''s time budget; never a guess. If the count cannot be made exactly and
+              cheaply (its own bounded statement times out, or it would be an unbounded query on a very large table), total
+              is left out and the page is still served; the count never fails or slows the list. Later pages may leave it
+              out and the panel keeps the first page''s number. It is counted when the page is read (a row added or closed
+              later changes the next read, not this one). Additive and optional: absent = not counted (older server, or not
+              counted exactly and cheaply), the panel then shows the rows and "Load more" without "of N", as before. Other
+              routes that answer the same page shapes (GET /rider/trips, /driver/vehicles, /driver/payouts, /support/tickets)
+              never send total. The count is exact (the owner asked for a total count); this supersedes the S5 J16 idea of
+              a totalAtLeast: there is no totalAtLeast.'
       description: Page<Refund>
     PayoutPage:
       allOf:
@@ -27344,6 +27484,23 @@ components:
             type: array
             items:
               $ref: '#/components/schemas/Payout'
+          total:
+            type: integer
+            minimum: 0
+            description: 'v0.18.78 (owner item 5): only on GET /admin/trips, GET /admin/riders, GET /admin/drivers, GET /admin/fleets,
+              GET /admin/vehicles, GET /admin/payments, GET /admin/refunds, GET /admin/payouts, GET /admin/tickets, GET /admin/incidents.
+              The page answer of these lists carries total (integer ≥ 0): how many rows match the same query (the admin''s
+              own zones, zoneId / zoneIds / country, every other filter and q), counted without cursor and limit, so it is
+              the same number on every page of one query. Rule 33: the server sends total on the first page (no cursor) when
+              it can count it exactly within the list''s time budget; never a guess. If the count cannot be made exactly and
+              cheaply (its own bounded statement times out, or it would be an unbounded query on a very large table), total
+              is left out and the page is still served; the count never fails or slows the list. Later pages may leave it
+              out and the panel keeps the first page''s number. It is counted when the page is read (a row added or closed
+              later changes the next read, not this one). Additive and optional: absent = not counted (older server, or not
+              counted exactly and cheaply), the panel then shows the rows and "Load more" without "of N", as before. Other
+              routes that answer the same page shapes (GET /rider/trips, /driver/vehicles, /driver/payouts, /support/tickets)
+              never send total. The count is exact (the owner asked for a total count); this supersedes the S5 J16 idea of
+              a totalAtLeast: there is no totalAtLeast.'
       description: Page<Payout>
     WalletEntryPage:
       allOf:
@@ -27387,6 +27544,23 @@ components:
             type: array
             items:
               $ref: '#/components/schemas/SupportTicket'
+          total:
+            type: integer
+            minimum: 0
+            description: 'v0.18.78 (owner item 5): only on GET /admin/trips, GET /admin/riders, GET /admin/drivers, GET /admin/fleets,
+              GET /admin/vehicles, GET /admin/payments, GET /admin/refunds, GET /admin/payouts, GET /admin/tickets, GET /admin/incidents.
+              The page answer of these lists carries total (integer ≥ 0): how many rows match the same query (the admin''s
+              own zones, zoneId / zoneIds / country, every other filter and q), counted without cursor and limit, so it is
+              the same number on every page of one query. Rule 33: the server sends total on the first page (no cursor) when
+              it can count it exactly within the list''s time budget; never a guess. If the count cannot be made exactly and
+              cheaply (its own bounded statement times out, or it would be an unbounded query on a very large table), total
+              is left out and the page is still served; the count never fails or slows the list. Later pages may leave it
+              out and the panel keeps the first page''s number. It is counted when the page is read (a row added or closed
+              later changes the next read, not this one). Additive and optional: absent = not counted (older server, or not
+              counted exactly and cheaply), the panel then shows the rows and "Load more" without "of N", as before. Other
+              routes that answer the same page shapes (GET /rider/trips, /driver/vehicles, /driver/payouts, /support/tickets)
+              never send total. The count is exact (the owner asked for a total count); this supersedes the S5 J16 idea of
+              a totalAtLeast: there is no totalAtLeast.'
       description: Page<SupportTicket>
     IncidentPage:
       allOf:
@@ -27397,6 +27571,23 @@ components:
             type: array
             items:
               $ref: '#/components/schemas/Incident'
+          total:
+            type: integer
+            minimum: 0
+            description: 'v0.18.78 (owner item 5): only on GET /admin/trips, GET /admin/riders, GET /admin/drivers, GET /admin/fleets,
+              GET /admin/vehicles, GET /admin/payments, GET /admin/refunds, GET /admin/payouts, GET /admin/tickets, GET /admin/incidents.
+              The page answer of these lists carries total (integer ≥ 0): how many rows match the same query (the admin''s
+              own zones, zoneId / zoneIds / country, every other filter and q), counted without cursor and limit, so it is
+              the same number on every page of one query. Rule 33: the server sends total on the first page (no cursor) when
+              it can count it exactly within the list''s time budget; never a guess. If the count cannot be made exactly and
+              cheaply (its own bounded statement times out, or it would be an unbounded query on a very large table), total
+              is left out and the page is still served; the count never fails or slows the list. Later pages may leave it
+              out and the panel keeps the first page''s number. It is counted when the page is read (a row added or closed
+              later changes the next read, not this one). Additive and optional: absent = not counted (older server, or not
+              counted exactly and cheaply), the panel then shows the rows and "Load more" without "of N", as before. Other
+              routes that answer the same page shapes (GET /rider/trips, /driver/vehicles, /driver/payouts, /support/tickets)
+              never send total. The count is exact (the owner asked for a total count); this supersedes the S5 J16 idea of
+              a totalAtLeast: there is no totalAtLeast.'
       description: Page<Incident>
     AuditEntryPage:
       allOf:
@@ -27477,6 +27668,23 @@ components:
             type: array
             items:
               $ref: '#/components/schemas/Fleet'
+          total:
+            type: integer
+            minimum: 0
+            description: 'v0.18.78 (owner item 5): only on GET /admin/trips, GET /admin/riders, GET /admin/drivers, GET /admin/fleets,
+              GET /admin/vehicles, GET /admin/payments, GET /admin/refunds, GET /admin/payouts, GET /admin/tickets, GET /admin/incidents.
+              The page answer of these lists carries total (integer ≥ 0): how many rows match the same query (the admin''s
+              own zones, zoneId / zoneIds / country, every other filter and q), counted without cursor and limit, so it is
+              the same number on every page of one query. Rule 33: the server sends total on the first page (no cursor) when
+              it can count it exactly within the list''s time budget; never a guess. If the count cannot be made exactly and
+              cheaply (its own bounded statement times out, or it would be an unbounded query on a very large table), total
+              is left out and the page is still served; the count never fails or slows the list. Later pages may leave it
+              out and the panel keeps the first page''s number. It is counted when the page is read (a row added or closed
+              later changes the next read, not this one). Additive and optional: absent = not counted (older server, or not
+              counted exactly and cheaply), the panel then shows the rows and "Load more" without "of N", as before. Other
+              routes that answer the same page shapes (GET /rider/trips, /driver/vehicles, /driver/payouts, /support/tickets)
+              never send total. The count is exact (the owner asked for a total count); this supersedes the S5 J16 idea of
+              a totalAtLeast: there is no totalAtLeast.'
       description: Page<Fleet>
     AdminIncidentEventPage:
       allOf:
@@ -32891,7 +33099,21 @@ components:
         total:
           $ref: '#/components/schemas/Money'
         cashToCollect:
-          $ref: '#/components/schemas/Money'
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.78 (G33): v0.18.78 (G33, owner 2026-11-12 ~16:45 "Yes, clear line" + ~17:30 "OK"): rider app,
+            end of a trip paid in the car (paymentMethod cash) that is in status completed, completed by the driver or by
+            an admin (POST /admin/trips/{tripId}/complete): the completion screen shows texts.payDriverInCar (paymentMethods.texts)
+            with {amount} = TripProjection.finish.cashToCollect, which is the CompletePreview.cashDue the driver collected
+            (when the driver completed it) and the receipt''s cashPaid (the wallet part is already taken off; an old debt
+            inside the fare is in it). The line shows when the trip is finished (status completed), never earlier, and only
+            when cashToCollect is above 0. Not shown when cashToCollect is 0 (the wallet paid all), for card / Apple Pay /
+            wallet trips, or for a trip ended early (rider end_early: the early-end screen; driver end with the rider on board:
+            only lifecycle0_18_50.l10 texts.youPay). After a reload without the trip event the app takes the amount from GET
+            /trips/{tripId}/receipt cashPaid. Money is formatted by moneyDisplay. Wording only: no API shape change. Server:
+            no change (the rider view already carries finish.cashToCollect). Admin: none (rider-only line, no setting). Driver:
+            none (its collect screen is the source of the amount). sv wording owner OK 2026-11-12 ~17:30; fr = the owner''s
+            words (no « dans la voiture », Q13).'
         driverTotal:
           allOf:
           - $ref: '#/components/schemas/Money'

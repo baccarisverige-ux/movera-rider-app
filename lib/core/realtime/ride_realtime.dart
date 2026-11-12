@@ -21,6 +21,12 @@ const String acceptedAtKey = 'acceptedAt';
 
 /// N9: the projection's `fare` (Money) on a realtime event.
 const String fareKey = 'fare';
+
+/// G33 (contract v0.18.78 `finish.payInCarLine`): the projection's
+/// `finish.cashToCollect` (Money, what the rider pays the driver in the car)
+/// and whether `finish.endedEarly` is true, on a realtime event.
+const String cashToCollectKey = 'cashToCollect';
+const String finishedEarlyKey = 'finishedEarly';
 const String waitingArrivedAtKey = 'waitingArrivedAt';
 
 /// rider-r4-13: the projection's `waiting.freeUntil` (when the waiting fee
@@ -136,6 +142,15 @@ class RideRealtimeEvent {
   /// N9: the trip's `fare` as the projection carried it with this event
   /// (the server's final fare once the trip ends). Null when absent.
   Money? get fare => Money.fromWire(payload[fareKey]);
+
+  /// G33: the projection's `finish.cashToCollect` with this event (the
+  /// driver's collected cashDue once the trip is completed). Null when the
+  /// projection has no `finish`.
+  Money? get cashToCollect => Money.fromWire(payload[cashToCollectKey]);
+
+  /// G33: the projection's `finish.endedEarly` (a trip ended early keeps
+  /// only "You pay", no pay-in-car line).
+  bool get finishedEarly => payload[finishedEarlyKey] == true;
 
   /// When the driver accepted, as the server stamped it (Q12); null when
   /// the projection does not say.

@@ -14,7 +14,17 @@ class ServerReceipt {
     this.debtIncluded,
     this.refunded,
     this.total,
+    this.cashPaid,
+    this.paymentMethod,
   });
+
+  /// G33 (contract v0.18.78 `finish.payInCarLine`): the receipt's
+  /// `cashPaid`, what the rider paid the driver in the car; after a reload
+  /// the summary's pay-in-car line takes its amount from here.
+  final Money? cashPaid;
+
+  /// The receipt's `paymentMethod` (`cash | card | apple_pay | wallet`).
+  final String? paymentMethod;
 
   /// The receipt's `total` (what the rider paid for the trip), so History
   /// shows the server's receipt, not the phone's copy (live sweep M-11).
@@ -32,6 +42,7 @@ class ServerReceipt {
     if (json['tripId'] is! String) return null;
     final tip = json['tip'];
     final by = json['endedBy'];
+    final method = json['paymentMethod'];
     final refunded = Money.fromWire(json['refunded']);
     return ServerReceipt(
       endedEarly: json['endedEarly'] == true,
@@ -40,6 +51,8 @@ class ServerReceipt {
       debtIncluded: Money.fromWire(json['debtIncluded']),
       refunded: refunded != null && refunded.amountMinor > 0 ? refunded : null,
       total: Money.fromWire(json['total']),
+      cashPaid: Money.fromWire(json['cashPaid']),
+      paymentMethod: method is String ? method : null,
     );
   }
 

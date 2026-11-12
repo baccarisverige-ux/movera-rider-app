@@ -567,7 +567,17 @@ class ActiveRideController {
   /// drop-off ends the trip at the driven fare (km + minutes, never under the
   /// minimum, never over the booked fare), and the summary, receipt and
   /// History show that, not the price booked at the quote.
-  Future<void> markCompleted(RideStatus status, {Money? charged}) async {
+  ///
+  /// G33 (contract v0.18.78 `finish.payInCarLine`): [cashToCollect] is the
+  /// completed projection's `finish.cashToCollect` (what the rider pays the
+  /// driver in the car) and [finishedEarly] its `finish.endedEarly`; the
+  /// summary's "Pay the driver {amount} in the car" line reads them.
+  Future<void> markCompleted(
+    RideStatus status, {
+    Money? charged,
+    Money? cashToCollect,
+    bool finishedEarly = false,
+  }) async {
     if (!status.isCompletedSurface) {
       throw ArgumentError.value(
         status,
@@ -599,9 +609,20 @@ class ActiveRideController {
       completedAt: snapshot.completedAt ?? now,
       price: settled?.major ?? snapshot.price,
     );
+    // G33: only an amount in the trip's currency is this trip's; a repeat
+    // without one (a resync on the summary) keeps the first.
+    final kept = id != null && LastCompletedRide.forRide(id) != null;
+    final cash =
+        cashToCollect != null && cashToCollect.currency == snapshot.currency
+        ? cashToCollect
+        : null;
     LastCompletedRide.remember(
       completed,
       charged: settled ?? LastCompletedRide.charged,
+      cashToCollect: cash ?? (kept ? LastCompletedRide.cashToCollect : null),
+      finishedEarly: cash != null
+          ? finishedEarly
+          : kept && LastCompletedRide.finishedEarly,
     );
     await _archive(completed, status, expectedRideId: id);
     await _store.save(completed);
@@ -630,6 +651,8 @@ class ActiveRideController {
       charged: kept ? LastCompletedRide.charged : null,
       endedEarly: kept && LastCompletedRide.endedEarly,
       drivenMeters: kept ? LastCompletedRide.drivenMeters : null,
+      cashToCollect: kept ? LastCompletedRide.cashToCollect : null,
+      finishedEarly: kept && LastCompletedRide.finishedEarly,
     );
     await _store.save(updated);
   }
