@@ -15,10 +15,19 @@ import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 class PersonalInfoPage extends StatefulWidget {
-  const PersonalInfoPage({super.key, this.controller, this.securityController});
+  const PersonalInfoPage({
+    super.key,
+    this.controller,
+    this.securityController,
+    this.contactPost,
+  });
 
   final ProfileController? controller;
   final AccountSecurityController? securityController;
+
+  /// The phone / e-mail change requests; the app's API when null (tests
+  /// pass their own).
+  final ContactPost? contactPost;
 
   @override
   State<PersonalInfoPage> createState() => _PersonalInfoPageState();
@@ -70,28 +79,45 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
   String _serverContact(
     String value, {
     required bool verified,
+    required bool known,
     required String unavailableLabel,
   }) {
     if (!_security.available || _security.state == null) {
       return unavailableLabel;
     }
     if (value.trim().isEmpty) return context.l10n.notAdded;
-    // G21: the rider profile does not say whether it is verified.
-    if (!_security.state!.verificationKnown) return value.trim();
+    // G21: the rider profile does not say whether the phone is verified;
+    // G30 (contract v0.18.76): it does say it for the e-mail.
+    if (!known) return value.trim();
     return verified
         ? context.l10n.valueVerified(value)
         : context.l10n.valueNotVerified(value);
   }
 
   /// Decision driver-g1: phone / e-mail changed by the rider (code to the
-  /// new one), then the account read again.
+  /// new one), then the account read again. G30 (contract v0.18.76
+  /// `emailVerified.apps.rider`): a Not verified e-mail opens the code check
+  /// of that address (filled, read-only).
   Future<void> _changeContact(ContactKind kind) async {
-    final api = AppScope.instance.api;
+    final post =
+        widget.contactPost ??
+        (String path, Map<String, dynamic> body) =>
+            AppScope.instance.api.post(path, body: body);
+    final account = _security.state;
+    final verifyCurrent =
+        kind == ContactKind.email &&
+            account != null &&
+            account.emailVerificationKnown &&
+            !account.emailVerified &&
+            account.email.trim().isNotEmpty
+        ? account.email.trim()
+        : null;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ContactChangePage(
           kind: kind,
-          post: (path, body) => api.post(path, body: body),
+          verifyCurrent: verifyCurrent,
+          post: post,
           onSaved: _security.load,
         ),
       ),
@@ -189,6 +215,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 body: _serverContact(
                   account?.phone ?? '',
                   verified: account?.phoneVerified == true,
+                  known: account?.phoneVerificationKnown == true,
                   unavailableLabel: context.l10n.serverPhoneUnavailable,
                 ),
                 onTap: () => _changeContact(ContactKind.phone),
@@ -199,6 +226,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 body: _serverContact(
                   account?.email ?? '',
                   verified: account?.emailVerified == true,
+                  known: account?.emailVerificationKnown == true,
                   unavailableLabel: context.l10n.serverEmailStatusUnavailable,
                 ),
                 onTap: () => _changeContact(ContactKind.email),

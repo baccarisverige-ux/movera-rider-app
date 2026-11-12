@@ -98,7 +98,11 @@ void main() {
         securityController: security,
       ),
     );
-    expect(find.text('ada@example.com'), findsOneWidget);
+    // G30 (contract v0.18.76): no emailVerifiedAt = Not verified.
+    expect(
+      find.text(L10n.current.valueNotVerified('ada@example.com')),
+      findsOneWidget,
+    );
     expect(find.text(L10n.current.serverEmailUnavailable), findsNothing);
     expect(find.text(L10n.current.securityStatusUnavailableDot), findsNothing);
     // Nothing to finish: the server offers neither 2-step nor recovery.
@@ -140,8 +144,8 @@ void main() {
     );
   });
 
-  testWidgets('live: Personal info shows the phone and e-mail, never '
-      '"not verified" (the profile does not say)', (tester) async {
+  testWidgets('live: Personal info shows the phone alone (the profile has '
+      'no phone date) and the e-mail with its G30 state', (tester) async {
     final (security, _) = liveSecurity(rider: rider());
     await pumpPhone(
       tester,
@@ -151,10 +155,14 @@ void main() {
       ),
     );
     expect(find.text('+21620123456'), findsOneWidget);
-    expect(find.text('ada@example.com'), findsOneWidget);
+    expect(
+      find.text(L10n.current.valueNotVerified('+21620123456')),
+      findsNothing,
+    );
+    // G30 (contract v0.18.76): no emailVerifiedAt = Not verified.
     expect(
       find.text(L10n.current.valueNotVerified('ada@example.com')),
-      findsNothing,
+      findsOneWidget,
     );
     expect(find.text(L10n.current.serverPhoneUnavailable), findsNothing);
     expect(find.text(L10n.current.serverEmailStatusUnavailable), findsNothing);

@@ -95,8 +95,8 @@ class _AccountHomePageState extends State<AccountHomePage> {
         ? context.l10n.serverEmailUnavailable
         : security.email.trim().isEmpty
         ? context.l10n.emailNotAdded
-        // G21: the rider profile does not say whether it is verified.
-        : !security.verificationKnown
+        // G30 (contract v0.18.76): the rider profile says it.
+        : !security.emailVerificationKnown
         ? security.email.trim()
         : security.emailVerified
         ? context.l10n.valueVerified(security.email)

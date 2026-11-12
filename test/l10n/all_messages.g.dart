@@ -1434,6 +1434,10 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'contactChangeFailed': l.contactChangeFailed,
   'contactReauthRequired': l.contactReauthRequired,
   'contactChangeTooMany': l.contactChangeTooMany,
+  'contactVerifyEmail': l.contactVerifyEmail,
+  'contactCodeSentTo': l.contactCodeSentTo('<email>'),
+  'contactCodeNotSentYet': l.contactCodeNotSentYet,
+  'contactEmailVerifiedDone': l.contactEmailVerifiedDone,
   'placeGym': l.placeGym,
   'placeMall': l.placeMall,
   'placeSchool': l.placeSchool,
@@ -1920,6 +1924,7 @@ const messagePlaceholders = <String, List<String>>{
   'safetyContactsCount': [],
   'contactDeleteQ': ['name'],
   'contactPrimaryFailed': ['name'],
+  'contactCodeSentTo': ['email'],
   'spReplaceQ': ['label'],
   'spReplaceBody': ['label', 'location'],
   'spReplaceConfirm': ['label'],
@@ -4819,6 +4824,14 @@ class _Exhaustive implements AppLocalizations {
   String get contactReauthRequired => '';
   @override
   String get contactChangeTooMany => '';
+  @override
+  String get contactVerifyEmail => '';
+  @override
+  String contactCodeSentTo(String email) => '';
+  @override
+  String get contactCodeNotSentYet => '';
+  @override
+  String get contactEmailVerifiedDone => '';
   @override
   String get placeGym => '';
   @override

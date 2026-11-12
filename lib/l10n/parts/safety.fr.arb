@@ -103,5 +103,9 @@
   "contactEmailTaken": "Cette adresse e-mail est déjà associée à un compte.",
   "contactChangeFailed": "Impossible de le modifier. Réessayez.",
   "contactReauthRequired": "Reconnectez-vous d'abord, puis modifiez votre numéro/e-mail",
-  "contactChangeTooMany": "Trop de modifications — réessayez dans une heure"
+  "contactChangeTooMany": "Trop de modifications — réessayez dans une heure",
+  "contactVerifyEmail": "Vérifier l’e-mail",
+  "contactCodeSentTo": "Nous avons envoyé un code à {email}.",
+  "contactCodeNotSentYet": "Les codes par e-mail ne peuvent pas encore être envoyés. Réessayez plus tard.",
+  "contactEmailVerifiedDone": "E-mail vérifié"
 }

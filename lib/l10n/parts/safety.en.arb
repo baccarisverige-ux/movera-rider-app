@@ -144,5 +144,13 @@
   "contactReauthRequired": "Sign in again first, then change your number/e-mail",
   "contactChangeTooMany": "Too many changes — try again in an hour",
   "@contactReauthRequired": {"description": "403 reauth_required on phone/e-mail change."},
-  "@contactChangeTooMany": {"description": "429 change_too_many on phone/e-mail change."}
+  "@contactChangeTooMany": {"description": "429 change_too_many on phone/e-mail change."},
+  "contactVerifyEmail": "Verify e-mail",
+  "@contactVerifyEmail": {"description": "G30 (contract v0.18.76 emailVerified, owner 2026-11-12): rider e-mail check."},
+  "contactCodeSentTo": "We sent a code to {email}.",
+  "@contactCodeSentTo": {"description": "G30 (contract v0.18.76 emailVerified, owner 2026-11-12): rider e-mail check. Shown only when the server answered delivery sent (Rule 35).", "placeholders": {"email": {"type": "String"}}},
+  "contactCodeNotSentYet": "E-mail codes cannot be sent yet. Try again later.",
+  "@contactCodeNotSentYet": {"description": "G30 (contract v0.18.76 emailVerified, owner 2026-11-12): rider e-mail check. contract.json#emailVerified.texts.codeNotSentYet: delivery pending_provider (or none)."},
+  "contactEmailVerifiedDone": "E-mail verified",
+  "@contactEmailVerifiedDone": {"description": "G30 (contract v0.18.76 emailVerified, owner 2026-11-12): rider e-mail check."}
 }
