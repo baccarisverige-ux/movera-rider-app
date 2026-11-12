@@ -112,17 +112,21 @@ class FakeMapsPlatform extends GoogleMapsFlutterPlatform {
   @override
   Future<String?> getStyleError({required int mapId}) async => null;
 
+  /// Every camera command sent to a view, in order (fixture only).
+  final List<({int mapId, CameraUpdate update})> cameraUpdates =
+      <({int mapId, CameraUpdate update})>[];
+
   @override
   Future<void> animateCamera(
     CameraUpdate cameraUpdate, {
     required int mapId,
-  }) async {}
+  }) async => cameraUpdates.add((mapId: mapId, update: cameraUpdate));
 
   @override
   Future<void> moveCamera(
     CameraUpdate cameraUpdate, {
     required int mapId,
-  }) async {}
+  }) async => cameraUpdates.add((mapId: mapId, update: cameraUpdate));
 
   @override
   Future<void> setMapStyle(String? mapStyle, {required int mapId}) async {}

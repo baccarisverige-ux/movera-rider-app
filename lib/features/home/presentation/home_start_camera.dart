@@ -12,6 +12,10 @@ part of 'home.dart';
 /// no longer opens its map when it runs out.
 const Duration homeStartWaitLimit = Duration(seconds: 3);
 
+/// G25: a kept Home map shown again (native, after a trip) is placed on the
+/// rider when they are farther than this (metres) from its camera.
+const double homeKeptMapRecentreMeters = 200;
+
 /// Item 9: the city a refused-location map opens at, per zone country.
 const LatLng homeStockholm = LatLng(59.3293, 18.0686);
 const LatLng homeParis = LatLng(48.8566, 2.3522);

@@ -416,6 +416,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           _locationHeading = heading;
           _updateLocationVisuals();
           _refreshPickupLabelIfMoved(latLng);
+          _checkKeptMapOnFix(latLng);
         },
       );
     }
@@ -512,12 +513,63 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   }
 
   /// G25 step A (native): the map kept under a covering page is Home's
-  /// again. Its camera stays where the rider left it; the live location
-  /// resumes with [_resumeHomeMap].
+  /// again. The live location resumes with [_resumeHomeMap]; the camera is
+  /// placed back on the rider when they are far from what it shows
+  /// ([_placeKeptMapOnRider]).
   void _onHomeMapResumed(GoogleMapController controller) {
     AppScope.instance.maps.attach(controller, owner: MapOwners.home);
     AppScope.instance.mapLifecycle.created();
     _updateLocationVisuals();
+    // The first fix after the cover (U2 asks for one on resume) may show
+    // the rider somewhere else (a trip).
+    _keptMapAwaitsFix = true;
+    final at = _currentLatLng;
+    if (at != null) _placeKeptMapOnRider(at);
+  }
+
+  /// Whether the first fix after a kept map was shown again is still due.
+  bool _keptMapAwaitsFix = false;
+
+  /// G25 (supervisor NO-GO 2026-11-12, finding 1): a trip ends with
+  /// popUntil back to this Home, whose kept map still shows the camera from
+  /// before booking; a new map used to be born on the rider (owner decision
+  /// "Home map start"). Placed at once (no flight), at the opening zoom,
+  /// when [at] is farther than [homeKeptMapRecentreMeters] from the map's
+  /// camera. Only on Home's own map (rider-44: never the screen on top).
+  void _placeKeptMapOnRider(LatLng at) {
+    final maps = AppScope.instance.maps;
+    if (!mounted || _mapParked.value || maps.activeOwner != MapOwners.home) {
+      return;
+    }
+    final map = maps.controller;
+    final shown =
+        (map == null ? null : mapViewOf(map).pose?.target) ??
+        _locationCtl.lastMapTarget;
+    final apart = AppScope.instance.location.distanceBetween(
+      shown.latitude,
+      shown.longitude,
+      at.latitude,
+      at.longitude,
+    );
+    if (apart <= homeKeptMapRecentreMeters) return;
+    _lastMapTarget = at;
+    unawaited(
+      maps.moveCamera(
+        GeoPoint(at.latitude, at.longitude),
+        zoom: homeOpeningZoom,
+      ),
+    );
+  }
+
+  /// A live fix: the first one after a kept map came back checks its camera.
+  void _checkKeptMapOnFix(LatLng at) {
+    if (!_keptMapAwaitsFix) return;
+    if (_mapParked.value ||
+        AppScope.instance.maps.activeOwner != MapOwners.home) {
+      return;
+    }
+    _keptMapAwaitsFix = false;
+    _placeKeptMapOnRider(at);
   }
 
   void _handleMapCameraMove(CameraPosition camera) {

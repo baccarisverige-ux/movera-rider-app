@@ -48,6 +48,13 @@ class _ParkableMapState extends State<ParkableMap> {
   /// The map as it was when parked; null while none is kept.
   Widget? _kept;
 
+  /// Whether the map was ever shown unparked. A screen that parks before
+  /// its map was shown (Select ride parks before `_mapReady`) gets
+  /// [ParkableMap.placeholder]: a map built hidden would run its
+  /// onMapCreated under the covering screen and take its camera (the owner
+  /// stack: the last attach wins).
+  bool _shown = false;
+
   @override
   void didUpdateWidget(ParkableMap oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -62,9 +69,10 @@ class _ParkableMapState extends State<ParkableMap> {
   @override
   Widget build(BuildContext context) {
     if (!widget.parked) {
+      _shown = true;
       return TickerMode(enabled: true, child: widget.child);
     }
-    if (!ParkableMap.keepsMapWhileParked) {
+    if (!ParkableMap.keepsMapWhileParked || !_shown) {
       _kept = null;
       return widget.placeholder;
     }
