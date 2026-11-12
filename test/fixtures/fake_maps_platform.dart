@@ -16,6 +16,10 @@ class FakeMapsPlatform extends GoogleMapsFlutterPlatform {
   final List<int> disposed = <int>[];
   final Set<int> _created = <int>{};
 
+  /// The creation ids of every view built so far, in order (one per new
+  /// platform map).
+  List<int> get createdIds => List<int>.unmodifiable(_created);
+
   /// The configuration of the last view built (traffic layer, gestures…).
   MapConfiguration? lastConfiguration;
   final StreamController<MapEvent<Object?>> _events =
@@ -108,17 +112,21 @@ class FakeMapsPlatform extends GoogleMapsFlutterPlatform {
   @override
   Future<String?> getStyleError({required int mapId}) async => null;
 
+  /// Every camera command sent to a view, in order (fixture only).
+  final List<({int mapId, CameraUpdate update})> cameraUpdates =
+      <({int mapId, CameraUpdate update})>[];
+
   @override
   Future<void> animateCamera(
     CameraUpdate cameraUpdate, {
     required int mapId,
-  }) async {}
+  }) async => cameraUpdates.add((mapId: mapId, update: cameraUpdate));
 
   @override
   Future<void> moveCamera(
     CameraUpdate cameraUpdate, {
     required int mapId,
-  }) async {}
+  }) async => cameraUpdates.add((mapId: mapId, update: cameraUpdate));
 
   @override
   Future<void> setMapStyle(String? mapStyle, {required int mapId}) async {}

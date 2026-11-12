@@ -5,10 +5,16 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
+import 'package:movera_rider/shared/widgets/parkable_map.dart';
 
-/// Home's live map. Shows a plain placeholder while [parked], and otherwise
-/// reuses the same map widget until markers, circles, polygons or padding
-/// actually change.
+/// Home's live map. Reuses the same map widget until markers, circles,
+/// polygons or padding actually change.
+///
+/// While [parked] (a page covers Home): on native (G25 step A) a map that
+/// exists stays mounted, frozen as it was, and [onMapResumed] gives it back
+/// to Home when Home is on top again: no new platform map, no flash, no
+/// camera jump. On the web, and before any map was made, a plain
+/// placeholder shows instead (the web's map pool keeps its own parking).
 class HomeMapLayer extends StatefulWidget {
   const HomeMapLayer({
     super.key,
@@ -19,6 +25,7 @@ class HomeMapLayer extends StatefulWidget {
     required this.mapStyle,
     required this.onCameraMove,
     required this.onMapCreated,
+    this.onMapResumed,
     this.birthCamera,
   });
 
@@ -29,6 +36,9 @@ class HomeMapLayer extends StatefulWidget {
   final String mapStyle;
   final void Function(CameraPosition) onCameraMove;
   final void Function(GoogleMapController) onMapCreated;
+
+  /// G25: the map kept while parked is shown again (native only).
+  final void Function(GoogleMapController)? onMapResumed;
 
   /// Owner decision "Home map start" (2026-11-07): read each time a new map
   /// is made (the first one, and again after being parked), so the map is
@@ -70,11 +80,41 @@ class HomeMapLayerState extends State<HomeMapLayer> {
   /// (owner's iPhone, grey band after a trip): it used to be dropped.
   bool _redrawPending = false;
 
+  /// G25: the live map stays mounted (frozen) while parked.
+  bool _held = false;
+
+  /// G25: the kept map's platform view came up while Home was covered; Home
+  /// is told when it is on top again, not under the cover.
+  bool _createdWhileParked = false;
+
   @override
   void initState() {
     super.initState();
     widget.location.addListener(_onChange);
-    widget.parked.addListener(_onChange);
+    widget.parked.addListener(_onParkedChange);
+  }
+
+  bool get _hasLiveMap => _cached != null && _parked == false;
+
+  void _onParkedChange() {
+    if (widget.parked.value) {
+      _held = ParkableMap.keepsMapWhileParked && _hasLiveMap;
+    } else if (_held) {
+      _held = false;
+      final controller = _controller;
+      if (_createdWhileParked && controller != null) {
+        _createdWhileParked = false;
+        widget.onMapCreated(controller);
+        _mapReady();
+      } else if (controller != null) {
+        widget.onMapResumed?.call(controller);
+      }
+      if (_redrawPending) {
+        _redrawTimer?.cancel();
+        _redrawTimer = Timer(HomeMapLayer.redrawSettle, _redraw);
+      }
+    }
+    _onChange();
   }
 
   @override
@@ -85,8 +125,8 @@ class HomeMapLayerState extends State<HomeMapLayer> {
       widget.location.addListener(_onChange);
     }
     if (oldWidget.parked != widget.parked) {
-      oldWidget.parked.removeListener(_onChange);
-      widget.parked.addListener(_onChange);
+      oldWidget.parked.removeListener(_onParkedChange);
+      widget.parked.addListener(_onParkedChange);
     }
   }
 
@@ -131,6 +171,10 @@ class HomeMapLayerState extends State<HomeMapLayer> {
 
   void _onMapCreated(GoogleMapController controller) {
     _controller = controller;
+    if (widget.parked.value) {
+      _createdWhileParked = true;
+      return;
+    }
     widget.onMapCreated(controller);
     _mapReady();
   }
@@ -166,7 +210,7 @@ class HomeMapLayerState extends State<HomeMapLayer> {
   void dispose() {
     _redrawTimer?.cancel();
     widget.location.removeListener(_onChange);
-    widget.parked.removeListener(_onChange);
+    widget.parked.removeListener(_onParkedChange);
     super.dispose();
   }
 
@@ -184,6 +228,9 @@ class HomeMapLayerState extends State<HomeMapLayer> {
 
   Widget _buildMap() {
     if (widget.parked.value) {
+      // G25: the kept map, as it was: no overlay or padding updates while
+      // it is hidden (Home also stops its location and camera work).
+      if (_held && _hasLiveMap) return _cached!;
       const parked = ColoredBox(color: Color(0xFFEEF1E8));
       _cached = parked;
       _parked = true;

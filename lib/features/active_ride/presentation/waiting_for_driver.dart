@@ -80,6 +80,7 @@ import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/shared/widgets/parkable_map.dart';
 import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -434,7 +435,14 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         if (_isInTrip) {
           await _openDetails();
         } else {
-          await _confirmCancel();
+          // G26-back, owner 2026-11-12 "Nothing / collapse", contract
+          // v0.18.73 `contract.json#riderBack` (beforePickup: back
+          // lower_sheet_or_nothing, opensCancel false, cancelEntry
+          // close_button; onBoard: open_trip_details; rideCheckOpen:
+          // nothing; cancelInFlight: never leaves): back before pickup
+          // never opens the cancel flow (the X does); it only lowers a
+          // fully raised sheet.
+          _lowerSheetOnBack();
         }
       },
       child: Scaffold(
@@ -446,27 +454,28 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
               left: 0,
               right: 0,
               bottom: 0,
-              child: _mapParked
-                  ? const ColoredBox(color: Color(0xFFF6F5F1))
-                  : _WaitingRideMap(
-                      key: _mapKey,
-                      initialPosition: _initialPosition,
-                      pickupPosition: _pickupPosition,
-                      destinationPosition: _destinationPosition,
-                      pickupAddress: _pickupAddress,
-                      destinationAddress: _destinationAddress,
-                      stops: _stops,
-                      tracking: _tracking,
-                      cameraBottomPadding: _cameraClearance(media),
-                      onTripRoute: (points) {
-                        final rideId = _rideId?.trim();
-                        if (rideId == null || rideId.isEmpty) return;
-                        RideCheckController.shared.setPlannedRoute(
-                          rideId,
-                          points,
-                        );
-                      },
-                    ),
+              // G25 step A: on native the parked map stays mounted (paused).
+              child: ParkableMap(
+                parked: _mapParked,
+                placeholder: const ColoredBox(color: Color(0xFFF6F5F1)),
+                onResumed: () => _mapKey.currentState?.resumeAfterPark(),
+                child: _WaitingRideMap(
+                  key: _mapKey,
+                  initialPosition: _initialPosition,
+                  pickupPosition: _pickupPosition,
+                  destinationPosition: _destinationPosition,
+                  pickupAddress: _pickupAddress,
+                  destinationAddress: _destinationAddress,
+                  stops: _stops,
+                  tracking: _tracking,
+                  cameraBottomPadding: _cameraClearance(media),
+                  onTripRoute: (points) {
+                    final rideId = _rideId?.trim();
+                    if (rideId == null || rideId.isEmpty) return;
+                    RideCheckController.shared.setPlannedRoute(rideId, points);
+                  },
+                ),
+              ),
             ),
             Positioned(
               top: media.padding.top + 8,

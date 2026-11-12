@@ -12,6 +12,7 @@ import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/features/home/presentation/home_map_style.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_map_layer.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/shared/widgets/parkable_map.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -101,24 +102,59 @@ void main() {
       ),
     );
 
+    final placeholder = find.byWidgetPredicate(
+      (w) => w is ColoredBox && w.color == const Color(0xFFEEF1E8),
+    );
+
     testWidgets(
-      'parked shows only the placeholder; unparking restores the map',
+      'parked before any map shows only the placeholder; unparking makes the map',
       (tester) async {
         parked.value = true;
         await tester.pumpWidget(layer());
         expect(mapKey, findsNothing);
-        expect(
-          find.byWidgetPredicate(
-            (w) => w is ColoredBox && w.color == const Color(0xFFEEF1E8),
-          ),
-          findsOneWidget,
-        );
+        expect(placeholder, findsOneWidget);
 
         parked.value = false;
         await tester.pump();
         expect(mapKey, findsOneWidget);
       },
     );
+
+    // G25 step A: on native a covered Home keeps its map mounted (no new
+    // platform view on the way back); the web still swaps in the placeholder.
+    testWidgets('native: parking a live map keeps it, frozen', (tester) async {
+      ParkableMap.debugKeepWhileParked = true;
+      addTearDown(() => ParkableMap.debugKeepWhileParked = null);
+      await tester.pumpWidget(layer());
+      final live = tester.widget(mapKey);
+
+      parked.value = true;
+      await tester.pump();
+      expect(identical(tester.widget(mapKey), live), isTrue);
+      expect(placeholder, findsNothing);
+
+      parked.value = false;
+      await tester.pump();
+      expect(identical(tester.widget(mapKey), live), isTrue);
+    });
+
+    testWidgets('web: parking a live map shows only the placeholder', (
+      tester,
+    ) async {
+      ParkableMap.debugKeepWhileParked = false;
+      addTearDown(() => ParkableMap.debugKeepWhileParked = null);
+      await tester.pumpWidget(layer());
+      expect(mapKey, findsOneWidget);
+
+      parked.value = true;
+      await tester.pump();
+      expect(mapKey, findsNothing);
+      expect(placeholder, findsOneWidget);
+
+      parked.value = false;
+      await tester.pump();
+      expect(mapKey, findsOneWidget);
+    });
 
     testWidgets('reuses the same map widget until overlays or padding change', (
       tester,

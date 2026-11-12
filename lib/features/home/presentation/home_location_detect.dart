@@ -146,6 +146,7 @@ extension _HomeLocationDetect on _HomeState {
           _locationHeading = heading;
           _updateLocationVisuals();
           _refreshPickupLabelIfMoved(latLng);
+          _checkKeptMapOnFix(latLng);
         },
         onHeading: (heading) {
           _locationHeading = heading;
@@ -156,7 +157,8 @@ extension _HomeLocationDetect on _HomeState {
       );
       // rider-44: a late fix must not glide the map of the screen on top
       // (pickup, Set pickup, Select ride). Home's own map re-centres on
-      // [_currentLatLng] when it is created again.
+      // [_currentLatLng] when it is created again (web), or when the kept
+      // map is shown again (native, [_onHomeMapResumed]).
       final maps = AppScope.instance.maps;
       if (!mounted || _mapParked.value || maps.activeOwner != MapOwners.home) {
         return;
