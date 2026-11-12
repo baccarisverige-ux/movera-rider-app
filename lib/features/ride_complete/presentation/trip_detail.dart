@@ -26,7 +26,12 @@ class RideCompletedTripDetail extends StatefulWidget {
     this.rideId,
     this.receiptLoader,
     this.receiptRetryDelays = defaultReceiptRetryDelays,
+    this.onServerReceipt,
   });
+
+  /// G23: told once the server's receipt is read, so the summary's hero
+  /// shows the same final amount as these details.
+  final ValueChanged<ServerReceipt>? onServerReceipt;
 
   /// Owner 2026-11-10 "Yes, auto-update": while the server has no receipt
   /// yet (`receipt_not_ready`: a cash trip before the payment is captured)
@@ -99,6 +104,7 @@ class _RideCompletedTripDetailState extends State<RideCompletedTripDetail> {
     if (receipt != null) {
       _retry?.cancel();
       setState(() => _server = receipt);
+      widget.onServerReceipt?.call(receipt);
       return;
     }
     // Not ready yet (payment not captured): read again, a bounded number

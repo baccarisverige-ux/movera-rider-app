@@ -40,6 +40,7 @@ import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
+import 'package:movera_rider/features/ride_complete/presentation/trip_detail.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_catalog_cache.dart';
@@ -529,8 +530,18 @@ void main() {
           ),
         );
         await tester.pump();
-        expect(find.text('Booked price'), findsOneWidget);
-        expect(find.text(shown), findsOneWidget);
+        // G23: the summary hero shows the same amount as the trip details.
+        final details = find.byType(RideCompletedTripDetail);
+        final hero = find.byKey(const ValueKey('completion-hero-amount'));
+        expect(
+          find.descendant(of: details, matching: find.text('Booked price')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: details, matching: find.text(shown)),
+          findsOneWidget,
+        );
+        expect(tester.widget<Text>(hero).data, shown);
         expect(find.textContaining(' kr'), findsNothing);
         // Tip amounts are kronor: none are offered on this trip.
         expect(find.text('10 kr'), findsNothing);

@@ -15,6 +15,25 @@ class AccountSecurityRepository {
     return _decode(response);
   }
 
+  /// G21: what the server does keep, the phone and e-mail on the rider's
+  /// own profile (`GET /rider/profile`, contract Rider), for the Account
+  /// screens while `/account/security` is not served.
+  Future<AccountSecurityState> loadFromRiderProfile() async {
+    final response = await _api.get(riderProfilePath);
+    // The server answers the bare Rider; the device-only mock {profile}.
+    final rider = response.containsKey('riderId')
+        ? response
+        : response['profile'];
+    if (rider is! Map) {
+      throw StateError('Rider profile response was incomplete.');
+    }
+    return AccountSecurityState.fromRiderProfile(
+      Map<String, dynamic>.from(rider),
+    );
+  }
+
+  static const riderProfilePath = '/api/v1/rider/profile';
+
   /// rider-u146: the sign-out answer carries the new `security`, so it is
   /// read from there. A separate GET could fail after the sign-out went
   /// through and report that as a failure (a retry then gets 403

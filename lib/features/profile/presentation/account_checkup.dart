@@ -78,6 +78,9 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
                       ? context.l10n.verificationUnavailable
                       : security.phone.isEmpty
                       ? context.l10n.noPhoneAdded
+                      // G21: the rider profile does not say it is verified.
+                      : !security.verificationKnown
+                      ? security.phone
                       : phoneVerified
                       ? context.l10n.valueVerified(security.phone)
                       : context.l10n.valueNotVerified(security.phone),

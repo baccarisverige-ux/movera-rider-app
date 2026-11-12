@@ -12,11 +12,13 @@ import 'package:movera_rider/core/api/mutation_attempt.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/contracts/trip_transitions.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
+import 'package:movera_rider/features/ride_complete/application/server_receipt.dart';
 import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
 import 'package:movera_rider/features/ride_complete/presentation/driver_info.dart';
 import 'package:movera_rider/features/ratings/domain/rating_tags.dart';
@@ -41,7 +43,12 @@ class RideCompleted extends StatefulWidget {
     this.onClose,
     this.controller,
     this.endedEarly,
+    this.receiptLoader,
   });
+
+  /// Reads the server's receipt for the trip details; tests inject one.
+  /// Defaults to [ServerReceipt.load].
+  final Future<ServerReceipt?> Function(String rideId)? receiptLoader;
 
   /// UI-01: the rider ended the trip on board. The summary says so and
   /// shows what they pay for the distance driven, instead of dropping them
@@ -103,6 +110,9 @@ class _RideCompletedState extends State<RideCompleted> {
   final MutationAttempt _feedbackMutation = MutationAttempt('ride-feedback');
   String? _acceptedFeedbackIntent;
   bool _walletChargeRequested = false;
+
+  /// G23: the server receipt's total once the trip details read it.
+  Money? _serverTotal;
 
   @override
   void initState() {
@@ -365,6 +375,25 @@ class _RideCompletedState extends State<RideCompleted> {
     });
   }
 
+  /// G23 (owner 2026-11-10 "rider summary always shows the final amount"):
+  /// the amount in the hero, the same one the trip details show: the
+  /// server receipt's total once read, the booked price until then. None
+  /// for an ended-early trip whose hero already says what is paid.
+  _HeroAmount? get _heroAmount {
+    if (widget.endedEarly?.charged != null) return null;
+    final trip = _controller.receiptWithServerTotal(
+      _controller.receipt(rideId: widget.rideId),
+      _serverTotal,
+    );
+    if (trip == null || trip.total.trim().isEmpty) return null;
+    return _HeroAmount(
+      label: trip.isFinal
+          ? L10n.current.totalPayment
+          : L10n.current.bookedPrice,
+      value: trip.total,
+    );
+  }
+
   _CompletionSpec get _spec {
     final endedEarly = widget.endedEarly;
     if (endedEarly != null) return _CompletionSpec.endedEarly(endedEarly);
@@ -440,7 +469,7 @@ class _RideCompletedState extends State<RideCompleted> {
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
                     child: Column(
                       children: [
-                        _CompletionHero(spec: spec),
+                        _CompletionHero(spec: spec, amount: _heroAmount),
                         if (showFeedbackSurface) ...[
                           const SizedBox(height: 14),
                           IgnorePointer(
@@ -510,6 +539,11 @@ class _RideCompletedState extends State<RideCompleted> {
                           child: RideCompletedTripDetail(
                             controller: _controller,
                             rideId: widget.rideId,
+                            receiptLoader: widget.receiptLoader,
+                            onServerReceipt: (receipt) {
+                              if (!mounted) return;
+                              setState(() => _serverTotal = receipt.total);
+                            },
                           ),
                         ),
                         const SizedBox(height: 18),
@@ -565,10 +599,18 @@ class _RideCompletedState extends State<RideCompleted> {
   );
 }
 
+class _HeroAmount {
+  const _HeroAmount({required this.label, required this.value});
+
+  final String label;
+  final String value;
+}
+
 class _CompletionHero extends StatelessWidget {
-  const _CompletionHero({required this.spec});
+  const _CompletionHero({required this.spec, this.amount});
 
   final _CompletionSpec spec;
+  final _HeroAmount? amount;
 
   @override
   Widget build(BuildContext context) {
@@ -609,6 +651,29 @@ class _CompletionHero extends StatelessWidget {
               color: MoveraTokens.ink,
             ),
           ),
+          if (amount case final amount?) ...[
+            const SizedBox(height: 6),
+            Text(
+              amount.value,
+              key: const ValueKey('completion-hero-amount'),
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                color: MoveraTokens.ink,
+              ),
+            ),
+            Text(
+              amount.label,
+              key: const ValueKey('completion-hero-amount-label'),
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: MoveraTokens.muted,
+              ),
+            ),
+          ],
           const SizedBox(height: 6),
           ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 76),
