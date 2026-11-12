@@ -17,9 +17,10 @@ extension _WaitingLayout on _WaitingForDriverState {
     setWebOverlayOpen(cover);
   }
 
-  /// G26-back: Android back before pickup. A sheet raised above its
-  /// resting stop goes back down to it; otherwise nothing happens (the
-  /// screen stays, and cancelling is the close button's job).
+  /// G26-back (contract v0.18.73 `riderBack.beforePickup`,
+  /// `lower_sheet_or_nothing`): Android back before pickup. A sheet raised
+  /// above its resting stop goes back down to it; otherwise nothing happens
+  /// (the screen stays, and cancelling is the close button's job).
   void _lowerSheetOnBack() {
     if (!_sheetController.hasClient) return;
     final media = MediaQuery.maybeOf(context);

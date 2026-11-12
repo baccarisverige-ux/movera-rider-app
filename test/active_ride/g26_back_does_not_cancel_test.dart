@@ -10,7 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'audit_fix_cancel_in_flight_harness.dart';
 
-/// G26-back, owner decision 2026-11-12 "Nothing / collapse": Android back on
+/// G26-back, owner decision 2026-11-12 "Nothing / collapse" (contract
+/// v0.18.73 `contract.json#riderBack`): Android back on
 /// the "driver is coming" screen before pickup never opens the cancel flow
 /// (one tap from a paid cancel). It lowers the sheet when it is fully up,
 /// and otherwise does nothing; the screen stays. Cancel is the close (X)

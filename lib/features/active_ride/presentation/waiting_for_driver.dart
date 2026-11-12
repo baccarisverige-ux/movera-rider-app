@@ -435,9 +435,13 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         if (_isInTrip) {
           await _openDetails();
         } else {
-          // G26-back, owner 2026-11-12 "Nothing / collapse": back before
-          // pickup never opens the cancel flow (the X does); it only lowers
-          // a fully raised sheet.
+          // G26-back, owner 2026-11-12 "Nothing / collapse", contract
+          // v0.18.73 `contract.json#riderBack` (beforePickup: back
+          // lower_sheet_or_nothing, opensCancel false, cancelEntry
+          // close_button; onBoard: open_trip_details; rideCheckOpen:
+          // nothing; cancelInFlight: never leaves): back before pickup
+          // never opens the cancel flow (the X does); it only lowers a
+          // fully raised sheet.
           _lowerSheetOnBack();
         }
       },
