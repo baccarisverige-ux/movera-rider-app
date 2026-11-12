@@ -128,6 +128,9 @@ class InProcessMockClient extends http.BaseClient {
   final Map<String, Map<String, dynamic>> pushDevices = {};
   final Map<String, Map<String, dynamic>> paymentIntents = {};
 
+  /// G30: open e-mail checks, challengeId → address.
+  final Map<String, String> emailChallenges = {};
+
   /// Last profile sent with `PATCH /api/v1/rider/profile` (FLOW-7).
   Map<String, dynamic>? riderProfile;
 
@@ -552,6 +555,42 @@ class InProcessMockClient extends http.BaseClient {
           'status': 'unregistered',
           'requestId': requestId,
         };
+      }
+    } else if (path == '/api/v1/account/email/change' && method == 'POST') {
+      // G30 (contract v0.18.76): the mock "sends" code 1234 at once.
+      final email = '${body['email'] ?? ''}'.trim().toLowerCase();
+      if (!email.contains('@')) {
+        status = 400;
+        payload = _error('invalid_request', requestId, reason: 'invalid_email');
+      } else {
+        final id = 'emc_${newRequestId()}';
+        emailChallenges[id] = email;
+        payload = {
+          'challengeId': id,
+          'expiresAt': DateTime.now()
+              .toUtc()
+              .add(const Duration(minutes: 5))
+              .toIso8601String(),
+          'delivery': 'sent',
+        };
+      }
+    } else if (path == '/api/v1/account/email/verify' && method == 'POST') {
+      final email = emailChallenges[body['challengeId']];
+      if (email == null || body['code'] != '1234') {
+        status = 400;
+        payload = _error(
+          'invalid_request',
+          requestId,
+          reason: email == null
+              ? 'invalid_email_challenge'
+              : 'invalid_otp_code',
+        );
+      } else {
+        emailChallenges.remove(body['challengeId']);
+        final at = DateTime.now().toUtc().toIso8601String();
+        accountSecurity['email'] = email;
+        accountSecurity['emailVerifiedAt'] = at;
+        payload = {'email': email, 'emailVerifiedAt': at};
       }
     } else if (path == '/api/v1/account/security' && method == 'GET') {
       payload = {
@@ -1244,7 +1283,17 @@ class InProcessMockClient extends http.BaseClient {
       // The contract's RiderProfileUpdate says firstName; older callers name.
       final name = body['firstName'] ?? body['name'];
       final consents = body['consents'];
-      if ((name != null && (name is! String || name.trim().length > 80)) ||
+      if (body.containsKey('email')) {
+        // G30 (contract v0.18.76 emailVerified.writePaths.riderPatch): the
+        // e-mail changes only with a code; nothing saved.
+        status = 400;
+        payload = _error(
+          'invalid_request',
+          requestId,
+          reason: 'email_needs_code',
+        );
+      } else if ((name != null &&
+              (name is! String || name.trim().length > 80)) ||
           (consents != null && consents is! Map)) {
         status = 422;
         payload = _error(

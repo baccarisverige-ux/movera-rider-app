@@ -71,7 +71,9 @@ void main() {
       tester,
       ContactKind.email,
       (path) => path.endsWith('/change')
-          ? {'challengeId': 'ch_1', 'delivery': 'pending_provider'}
+          // G30 (contract v0.18.76, Rule 35): only 'sent' shows the code
+          // field; pending_provider is covered by g30_email_verified_test.
+          ? {'challengeId': 'ch_1', 'delivery': 'sent'}
           : {'email': 'ny@example.test'},
     );
     await tester.enterText(

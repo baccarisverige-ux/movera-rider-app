@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.73",
+  "version": "0.18.77",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -1555,7 +1555,9 @@
     "keepDays": 30,
     "privacy": "clients scrub e-mails, phone numbers and coordinates; the server scrubs again before storing",
     "perAddressPerMinute": 120,
-    "limits": "B1.22: its own budget, outside the general write limit (rateLimit): perAddressPerMinute per client address (default 120; server env TELEMETRY_PER_ADDRESS_PER_MINUTE), fixed 60 s window in each server copy's memory, each copy allowing 1/WEB_COPIES of it; over it 429 rate_limited, reason telemetry_too_many, Retry-After. A token sent with telemetry does not use the user's write budget. A body over maxBodyBytes is 400 invalid_request (reason payload_too_large); one over 4 × maxBodyBytes is refused before it is read: 400 invalid_request (reason body_too_large).",
+    "anonRowsPerMinute": 600,
+    "anonBytesPerMinute": 2097152,
+    "limits": "B1.22: its own budget, outside the general write limit (rateLimit): perAddressPerMinute per client address (default 120; server env TELEMETRY_PER_ADDRESS_PER_MINUTE), fixed 60 s window in each server copy's memory, each copy allowing 1/WEB_COPIES of it; over it 429 rate_limited, reason telemetry_too_many, Retry-After. A token sent with telemetry does not use the user's write budget. A body over maxBodyBytes is 400 invalid_request (reason payload_too_large); one over 4 × maxBodyBytes is refused before it is read: 400 invalid_request (reason body_too_large). v0.18.75 (server B1.25, owner W1 Q85): calls without a valid token (none sent, or stale/bad) also share a total per server copy: anonRowsPerMinute lines and anonBytesPerMinute body bytes per fixed 60 s window, all addresses together (server env TELEMETRY_ANON_ROWS_PER_MINUTE / TELEMETRY_ANON_BYTES_PER_MINUTE; per copy, NOT divided by WEB_COPIES, so the fleet total is copies × cap). Over it the call still answers 202 with an empty body but is not stored (the server counts the drop); the apps treat it as delivered and do not retry. A signed-in caller is never counted here (only its per-address budget applies).",
     "crashReport": {
       "note": "v0.16.0 (owner 2026-10-29, \"Want section on dispatch to show all crash droids and bugs detected from server\"): POST /telemetry/crashes takes optional app, platform, appVersion, build, screen, kind and occurredAt next to error, stack and extra (additive; an older app sends none). The server scrubs again, groups each report and keeps the reports keepDays days.",
       "apps": [
@@ -2220,7 +2222,8 @@
           "customTypes": [],
           "texts": {},
           "validMonths": {},
-          "guides": {}
+          "guides": {},
+          "emailVerifiedForApproval": false
         },
         "FR": {
           "documents": {
@@ -2390,7 +2393,8 @@
           "validMonths": {
             "urssaf_certificate": 6
           },
-          "guides": {}
+          "guides": {},
+          "emailVerifiedForApproval": false
         },
         "TN": {
           "documents": {
@@ -2530,7 +2534,8 @@
           "customTypes": [],
           "texts": {},
           "validMonths": {},
-          "guides": {}
+          "guides": {},
+          "emailVerifiedForApproval": false
         }
       },
       "stepIds": [
@@ -2595,7 +2600,8 @@
         "expiry.warnDays: 1 to 3 numbers within limits.warnDays, largest first, each smaller than the one before.",
         "vehicles.categories: each category of the catalog at most once; minYear, minSeats within limits; a category that is on allows at least one fuel of fuels; vehicles.warnDays within limits.vehicleWarnDays.",
         "customTypes: ids unique and of idPattern; the scope list a custom type is in matches its owner (driver → documents.driver, fleet → documents.fleet, vehicle → documents.vehicle); names and help in sv, fr and en.",
-        "v0.18.3: guides and validMonths keys are types of the country (contract types or its customTypes); guide lines within guideLimits; validMonths within limits.validMonths."
+        "v0.18.3: guides and validMonths keys are types of the country (contract types or its customTypes); guide lines within guideLimits; validMonths within limits.validMonths.",
+        "v0.18.76: emailVerifiedForApproval is a boolean; missing = false (contract.json#emailVerified.approvalSetting)."
       ],
       "driverRead": "GET /driver/onboarding/settings → OnboardingSettings of the driver's country (published, else defaults; version 0 = defaults), so the app offers only the car categories a car fits, asks the photos and shows the warnings the server uses. A driver with no country yet names it: ?country=SE. v0.18.0 (item 14): the answer also has documentTypes: { [type]: { owner, kind, expires, name, help? } } for every type in the country's lists, contract types with the admin's texts and the custom types, so the app renders a type it does not know from this data. v0.18.3: DocumentTypeInfo.name is the country's name (documents.namesByCountry); DocumentTypeInfo.guide (R8) and validMonths (R9) when the country has them.",
       "admin": "The draft and publish calls take country only; a zoneId is 400 invalid_request (reason scope_country_only).",
@@ -2662,14 +2668,15 @@
         "document_expiring": "due_soon: approved, expires within the warning window (fix: document)",
         "document_in_review": "waiting: uploaded, Movera reviews it (no fix)",
         "info_session_waiting": "waiting: the info session (kind admin_check) is not marked held yet; status waiting_for_movera; fix: info_session (content slot driver-info-session \"How to book your info session\")",
-        "account_not_active": "blocks_online: the account is pending / on_hold / suspended and every document is done (v0.18.3 R10: no line document_needed, document_rejected, document_expired, document_in_review, info_session_waiting, admin_check_waiting or vehicle_photos_needed is left); Movera activates it (no fix)",
+        "account_not_active": "blocks_online: the account is pending / on_hold / suspended and every document is done (v0.18.3 R10: no line document_needed, document_rejected, document_expired, document_in_review, info_session_waiting, admin_check_waiting or vehicle_photos_needed is left; v0.18.76: nor a red email_not_verified line actually sent in this answer, since Movera cannot approve him before the check; a driver app below 0.18.76 never gets that line, so it still gets account_not_active); Movera activates it (no fix)",
         "fleet_not_approved": "blocks_online: the fleet is pending / rejected / blocked (no fix)",
         "no_fleet": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R4 \"Red 'Join a fleet' line (Recommended)\"): blocks_online: an account of type driver that is in no fleet; text texts.no_fleet; fix join_fleet (My fleet › Join a fleet) and actions [join_fleet, start_company] (two buttons, labels texts.actions); the line goes once the driver is in a fleet (or his account becomes a fleet)",
         "fleet_no_approved_car": "blocks_online: the fleet has no car that can be picked (approved, every car document approved); owner fix: fleet_vehicles (add / finish a car); member: no fix (\"Your fleet has no approved car yet…\")",
         "no_vehicle": "blocks_online: the fleet has a car that can be picked but this driver has none picked (fix: pick_vehicle)",
         "admin_check_waiting": "waiting: a custom admin_check document not marked yet; status waiting_for_movera (no fix)",
         "vehicle_photos_needed": "blocks_online: a car's four photos are not all uploaded and approved (fix: document, the first photo missing); text \"Add 4 photos of your car\"",
-        "fleet_invitation": "v0.18.5 (G2-D5.6): waiting: an owner invited this driver (invitationId, fleetName); actions accept_invitation and decline_invitation; text texts.fleet_invitation; the line goes when he answers or it expires"
+        "fleet_invitation": "v0.18.5 (G2-D5.6): waiting: an owner invited this driver (invitationId, fleetName); actions accept_invitation and decline_invitation; text texts.fleet_invitation; the line goes when he answers or it expires",
+        "email_not_verified": "v0.18.76 (G30, owner Q3 \"show on sheet home screen as no verify\"): the driver has an e-mail without emailVerifiedAt; no expiresAt; fix verify_email (Account › E-mail, the code check with his address filled); the line goes once emailVerifiedAt is set. Level (owner 2026-11-12 ~14:10, S2): blocks_online (red) with text texts.email_not_verified_approval (\"needed for approval\") when his country's OnboardingSettings.emailVerifiedForApproval is on and he was never active before (pending or on_hold, or suspended without ever having been active; contract.json#emailVerified.neverActive), because Movera cannot approve him until it is verified; otherwise due_soon (orange, still works) with text texts.email_not_verified. Sent only to driver apps whose X-Contract-Version is 0.18.76 or higher (an older app would show an unknown line). The line itself never blocks going online: a red one is only sent to a driver who is not active yet."
       },
       "fixTargets": [
         "document",
@@ -2679,7 +2686,8 @@
         "join_fleet",
         "start_company",
         "accept_invitation",
-        "decline_invitation"
+        "decline_invitation",
+        "verify_email"
       ],
       "scope": "driver (Driver.requiredDocuments), fleet (requiredFleetDocuments), vehicle (the picked car, or for a fleet owner every car of the fleet)",
       "texts": {
@@ -2719,6 +2727,16 @@
           "sv": "{fleet} bjöd in dig",
           "fr": "{fleet} vous a invité",
           "en": "{fleet} invited you"
+        },
+        "email_not_verified": {
+          "sv": "Din e-post är inte verifierad. Tryck för att verifiera den.",
+          "fr": "Votre e-mail n’est pas vérifié. Appuyez pour le vérifier.",
+          "en": "Your e-mail is not verified. Tap to verify it."
+        },
+        "email_not_verified_approval": {
+          "sv": "Din e-post är inte verifierad. Det behövs för att bli godkänd. Tryck för att verifiera den.",
+          "fr": "Votre e-mail n’est pas vérifié. C’est nécessaire pour l’approbation. Appuyez pour le vérifier.",
+          "en": "Your e-mail is not verified. It is needed for approval. Tap to verify it."
         }
       },
       "actions": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R4): DriverReminder.actions, when present, are the buttons of the line in order (each a ReminderFix); fix stays the tap on the line itself. join_fleet = My fleet › Join a fleet (code, owner's name and e-mail); start_company = My fleet › Start my own company (POST /driver/fleet/start-company).",
@@ -3957,7 +3975,7 @@
     "acceptVersion": "POST /offers/{offerId}/accept with an expectedVersion OLDER than the offer's while the offer is still open is accepted (an open offer's version only moves for money / badge refreshes, offer_updated). A newer-than-real version, or an offer no longer open, is refused as before.",
     "backPressure": "503 unavailable, reason server_busy, retryable, Retry-After 2: while the server's database queue (SHED_POOL_WAITING, default 200) or event-loop delay (SHED_LOOP_DELAY_MS, default 500) is over its limit, new low-priority requests are refused at once (shedOnly); a request whose client has gone is not started; a query that waits too long for a connection, runs over DATABASE_STATEMENT_TIMEOUT_MS (default 30 s) or over a lock timeout also answers server_busy. v0.18.67 (server #189): start-up migrations run without the statement limit and with DATABASE_MIGRATION_LOCK_TIMEOUT_MS instead (default 5000 ms, 0 = none), the longest a migration statement waits for a lock; CREATE / DROP INDEX CONCURRENTLY and VALIDATE CONSTRAINT statements wait without it.",
     "adminMapBox": "GET /admin/live/drivers takes an optional map box minLat, minLng, maxLat, maxLng (all four, degrees; min above max → 400 invalid_request, reason invalid_map_box): only drivers whose last position is inside are read and the answer is { items, staleAfterSeconds, serverTime } for the map only (no ridersOnline / zoneSupply, which need every driver). GET /rider/nearby-vehicles reads at most 4 × maxVehicles cars, nearest first.",
-    "shedOnly": "Only new low-priority work is ever refused with server_busy: POST /quotes, POST /locations/*, GET /rider/nearby-vehicles, GET /places/*, GET /admin/* lists (never a stream). SOS / safety, offer accept / decline, trip changes, payment and cash, trip GPS, event streams and their resume, sign-in are never shed.",
+    "shedOnly": "Only new low-priority work is ever refused with server_busy: POST /quotes, POST /locations/*, GET /rider/nearby-vehicles, GET /places/*, GET /admin/* lists (never a stream). SOS / safety, offer accept / decline, trip changes, payment and cash, trip GPS, event streams and their resume, sign-in are never shed. v0.18.74 (server B1.24, owner W1 Q84 + 2026-11-12 \"None of these\": exactly six, no more): the admin safety reads are never shed either: GET /admin/incidents, GET /admin/incidents/{incidentId}, GET /admin/incidents/{incidentId}/emergency-contacts, GET /admin/ride-checks, GET /admin/alerts/book, GET /admin/trips/{tripId} (matched on the route pattern, not the raw path; a path that matches no route is still shed). Every other GET /admin/* read is still shed. A query of theirs that runs past the statement or lock timeout can still answer server_busy.",
     "clients": "All three apps treat 503 unavailable (server_busy) like 429: retryable, wait Retry-After (else a short backoff), then try again; nothing is shown as a failure while retries remain.",
     "reads": "Live settings documents are kept in memory (at most 15 s; emptied at once by every config_published). GET /driver/offers reads the offers' trips in one query. GET /admin/live/drivers reads only drivers of the admin's zones and their current trips in one query."
   },
@@ -3992,7 +4010,7 @@
       "unavailable",
       "internal"
     ],
-    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit). v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.44 reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress). v0.18.49 reason: sign_out_on_trip (409 conflict, contract.json#auth.signOutOnTrip). v0.18.56 reasons: message_too_long, unknown_quick_reply, translate_target_not_allowed (400 invalid_request), translation_off (403 forbidden), coming_soon (503 unavailable) (contract.json#chat, §78). v0.18.64 reason: auto_translate_off (403 forbidden, contract.json#chat.autoTranslate, §85)."
+    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit). v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.44 reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress). v0.18.49 reason: sign_out_on_trip (409 conflict, contract.json#auth.signOutOnTrip). v0.18.56 reasons: message_too_long, unknown_quick_reply, translate_target_not_allowed (400 invalid_request), translation_off (403 forbidden), coming_soon (503 unavailable) (contract.json#chat, §78). v0.18.64 reason: auto_translate_off (403 forbidden, contract.json#chat.autoTranslate, §85). v0.18.76 reasons: email_needs_code (400 invalid_request), email_not_verified (409 invalid_transition) (contract.json#emailVerified)."
   },
   "headers": {
     "Idempotency-Key": "required on every mutation, 16–128 chars",
@@ -7409,7 +7427,7 @@
     "vehicles": "GET /driver/vehicles always lists the driver's active car (Driver.vehicleId) first even when it is not one of his fleet's cars; every item has active: true|false. Dispatch offers a trip only when the active car is approved and has the trip's category (a Komfort trip needs a Komfort car); re-approving a car without a ride type removes it from the chosen types of its drivers. An approved car with no categories stored does not narrow the driver's chosen types (older rows; the admin should re-approve it with its categories).",
     "documents": "A driver gets no offer while one of his REQUIRED documents, or a required paper of the car he drives, is past its end date (the same rule as the offline sweep); online drivers are set offline by the expiry sweep (offlineReason documents_expired); one on a trip at its end.",
     "signIn": "Codes stay 4 digits (owner). otp_locked_today per number + address; admin unlock; countryLimits (wrongCodesPerDay, codesPerAddressPerHour, codesPerPhonePerHour, uploadsPerHour). One phone at a time for drivers: a new driver sign-in ends his other sessions — their calls and POST /auth/refresh answer 401 reason signed_in_elsewhere (auth.signedOut.reasons); the old phone is set offline (the driver goes online again from the new phone) and a notice kind signed_in_elsewhere is sent. Riders keep several phones.",
-    "accountChange": "POST /account/phone/change { phone } → OtpChallenge; POST /account/phone/verify { phone, sessionId, code } → { phone }. POST /account/email/change { email } → { challengeId, expiresAt, delivery: pending_provider }; POST /account/email/verify { challengeId, code } → { email }. Only within 10 minutes of signing in on this phone (403 reauth_required: sign in again first); at most 3 starts per hour per account and kind (429 change_too_many). A number or address that already has any account (rider or driver) gets the same answer and no code, and the verify fails like a wrong session (invalid_otp_session / invalid_email_challenge) — the answer never tells. Wrong tries carry over a restart (5 per hour, auth.otp). After the change: a notice to the OLD number / OLD address (sent by SMS / e-mail once a provider is connected; recorded as pending until then), an in-app notice (phone_changed / email_changed), and every other session of the account ends.",
+    "accountChange": "POST /account/phone/change { phone } → OtpChallenge; POST /account/phone/verify { phone, sessionId, code } → { phone }. POST /account/email/change { email } → { challengeId, expiresAt, delivery } (v0.18.76: delivery 'sent' only when the sending service accepted the e-mail, else 'pending_provider', also on a refused or failed send, which does not count toward the 3 starts per hour; contract.json#emailVerified.delivery); POST /account/email/verify { challengeId, code } → { email, emailVerifiedAt } (v0.18.76). Only within 10 minutes of signing in on this phone (403 reauth_required: sign in again first); at most 3 starts per hour per account and kind (429 change_too_many); v0.18.77: for e-mail also at most 10 starts per hour per account, counting every start, sent or pending_provider (429 change_too_many; contract.json#emailVerified.delivery). A number that already has any account (rider or driver), or (v0.18.76) an address VERIFIED on another account of the same app (contract.json#emailVerified.unique), gets the same answer and no code, and the verify fails like a wrong session (invalid_otp_session / invalid_email_challenge) — the answer never tells. Wrong tries carry over a restart (5 per hour, auth.otp). After the change: a notice to the OLD number / OLD address (sent by SMS / e-mail once a provider is connected; recorded as pending until then), an in-app notice (phone_changed / email_changed), and every other session of the account ends. v0.18.76: the account's own current e-mail may be verified the same way (contract.json#emailVerified.verifyCurrent: no 10-minute rule, no change notice, no session ends).",
     "notifications": "GET /notifications shows title and body in the account's current language when the notice was stored with every language (data.texts, taken out of the answer): set_offline, signed_in_elsewhere, phone/email changed, rider trip moments. Rider trip moments (riderTripPush) are now also kept in the list (bell true). A refund sends the rider a notice kind refund (bell + push).",
     "legal": "GET /legal/{country} carries company { companyName?, orgNumber?, address?, supportEmail?, supportPhone? } from admin Content › Legal (the sign-in 'Need help?' box).",
     "pin": "board / start never skip the PIN: X-Contract-Version no longer matters; a PIN trip without a verified PIN is 409 pin_required.",
@@ -9036,5 +9054,60 @@
     "answer": "200 { phone, lifted }: phone = the number sent (E.164, not masked); lifted = integer >= 0, how many of the number's wrong-code sessions of the last 24 h were unlocked (0 when nothing was locked; still 200). Audited auth.sign_in_unlock { lifted } with the number's last 4 digits hidden.",
     "errors": "400 invalid_request reason invalid_body when phone is missing or not a string; 400 invalid_request reason invalid_phone when phone is not international form (^\\+[1-9][0-9]{6,14}$); 401 unauthenticated; 403 forbidden missing_permission. The server never answers 404 here.",
     "apps": "Rule 0 order: contract -> server (no change) -> admin (reads { phone, lifted }; Unlock shown only with settings.edit) -> driver app (no change) -> rider app (no change)."
+  },
+  "emailVerified": {
+    "note": "v0.18.76 (G30, owner 2026-11-12 13:41 \"fix everything like must be now\" + answers Q1–Q6 13:40–13:50). An e-mail is saved only after a code check; the server records when; admin and both apps show Verified / Not verified. X-Api-Version stays 0.5. Server migration: email_verified_at on riders and drivers (number per plan/NUMBERS.md).",
+    "field": "Rider.emailVerifiedAt and Driver.emailVerifiedAt (Timestamp): when the CURRENT e-mail was proven, by a code (POST /account/email/verify) or by Apple / Google (provider). Absent = Not verified (also when there is no e-mail). Sent on the own profile (GET/PATCH /rider/profile, GET/PATCH /driver/profile, POST /driver/onboarding) and on the admin rider / driver views; never masked (a masked e-mail still carries it). A new e-mail clears it until proven.",
+    "writePaths": {
+      "codeChange": "POST /account/email/verify saves email (lower-cased) with emailVerifiedAt = now; answer { email, emailVerifiedAt }.",
+      "riderPatch": "PATCH /rider/profile no longer takes email: a body with email → 400 invalid_request, reason email_needs_code; nothing saved, version unchanged. Change it with POST /account/email/change + verify.",
+      "driverSignUp": "POST /driver/onboarding: email stays required and sign-up is never blocked (owner Q3). Saved trimmed and lower-cased; Not verified unless it equals the account's already verified address (then emailVerifiedAt is kept).",
+      "provider": "A NEW account from Apple / Google (POST /auth/provider → PHONE_REQUIRED → phone verify): the provider e-mail is Verified (emailVerifiedAt = account creation) when the provider's token says email_verified true, else Not verified (owner Q4). Apple hidden relay addresses count.",
+      "seed": "Staging test accounts (@movera.test) stay Not verified."
+    },
+    "existing": "Every e-mail already saved is kept (owner Q2, Rule 21): one whose current address matches a successful code check on record (POST /account/email/verify) starts Verified at that time; every other one shows Not verified until checked.",
+    "verifyCurrent": "POST /account/email/change with the account's own current address (case ignored) starts a check of it: no 10-minute sign-in rule (403 reauth_required is not used), still at most 3 starts per hour. Its verify sets emailVerifiedAt only: no change notice to the old address, no email_changed notice, no other session ends.",
+    "unique": "Addresses are compared lower-cased. Only an address VERIFIED on another account of the SAME app blocks (rider ↔ rider, driver ↔ driver: the same answer, no code, the verify fails like a wrong challenge); a Not verified copy elsewhere never blocks. The same person may use the same address on his own rider and driver accounts (owner Q5). Two accounts verifying the same address at once: the first verify wins, the other fails like a wrong challenge.",
+    "delivery": "The server sends the code by e-mail through its sending service (owner Q1: Resend; job G30b; the key lives only in the server's environment, never in the contract or the apps). AccountEmailChallenge.delivery is 'sent' only when the sending service accepted the e-mail. It is 'pending_provider' while no service is connected AND (owner 2026-11-12 ~14:10, S1) when the service refused the send or it failed (e.g. Resend without an own domain, which delivers only to the Resend account owner's address; an error or a time-out): never 'sent' unless the provider accepted it. On 'pending_provider' the apps say texts.codeNotSentYet (\"Codes can't be sent yet\") and never that a code was sent; the provider's error is never shown to the user. A start counts toward the at most 3 starts per hour (429 change_too_many) only when its answer is delivery 'sent' (the provider accepted the e-mail); a 'pending_provider' start (no service, or a refused or failed send) does not count, since the person never got a code. v0.18.77 (owner 2026-11-12 ~15:02 \"Max 10 tries/hour\"): besides those 3 accepted sends, at most 10 e-mail code starts per hour per account, counting EVERY start, sent or pending_provider (also the start of a check of the account's own current address, and the start for an address VERIFIED on another account, which gets the same answer and no code, so the answer never tells). The 11th start within the hour → 429 change_too_many (Retry-After), before any e-mail is sent and before anything is saved; whichever limit is reached first refuses. A start refused before it begins (400, 403 reauth_required, or a 429 itself) does not count. Same rolling hour as the 3 accepted sends; phone starts are unchanged.",
+    "approvalSetting": "Admin setting per country (owner Q6), OFF by default: OnboardingSettings.emailVerifiedForApproval (the onboarding document, Admin › Drivers › Onboarding, saved and published like the other onboarding settings, settings.edit / settings.publish; missing = false). On: POST /admin/drivers/{driverId}/status active for a driver who was NEVER active before (owner 2026-11-12 ~14:10, S3; contract.json#emailVerified.neverActive: pending, on_hold, or suspended without ever having been active, e.g. pending → suspended → active) and who has no emailVerifiedAt → 409 invalid_transition, reason email_not_verified (like details_missing) (after the documents check). Not checked when a once-active driver is made active again (after on_hold or a suspension); never sets an active driver back. Off: approval ignores the e-mail.",
+    "neverActive": "Never active (owner 2026-11-12 ~14:10, S3): the driver's account has never had account_status active. The API has no field for it today; the server adds a server-internal column (e.g. drivers.first_activated_at, in the G30 migration, number per plan/NUMBERS.md), set once in the same write the first time account_status becomes active by any path (the admin approval POST /admin/drivers/{driverId}/status, the server's seed and test paths seedDriver and seedTest, which write no audit row, and any other write that sets active) and never cleared, also not when he leaves active (\"start my own company\" active → on_hold, which writes no audit row, or a suspension); it is not sent in any view. The migration only fills it (never deletes or changes other data) for every existing driver who was once active: now active, or with an audit row driver.status whose detail.to is active or whose detail.from is 'active', or with any trip carrying his driver_id; the value is the earliest such time (audit row time, trip creation time; for an active driver with neither, its created_at). A driver with none of these counts as never active. Used by the approval check (approvalSetting) and by the red level of the reminder email_not_verified.",
+    "apps": {
+      "admin": "Rider and driver detail: after the e-mail a badge texts.verified (title: texts.verifiedOn with the date) or texts.notVerified; nothing when there is no e-mail; masked rows show the badge too. The onboarding settings page has the switch texts.approvalSetting. A 409 email_not_verified on approval shows texts.approvalRefused.",
+      "driver": "Account shows the e-mail with Verified / Not verified (none: 'No e-mail'); tapping a Not verified one opens the code check with the address filled. The Home sheet's Important reminders shows the line email_not_verified (contract.json#driverOnboarding.reminders.kinds, owner Q3) until it is verified; fix verify_email opens that check. Its level comes from the server: blocks_online (red, text texts.email_not_verified_approval \"needed for approval\") when his country's approval setting is on and he was never active, else due_soon (orange, texts.email_not_verified). The line itself never blocks going online (a red one is only sent to a driver who is not active yet).",
+      "rider": "Account and Personal info show the e-mail with the existing Verified / Not verified labels; a Not verified one opens the code check with the address filled. The app never sends email in PATCH /rider/profile."
+    },
+    "texts": {
+      "verified": {
+        "en": "Verified",
+        "fr": "Vérifié",
+        "sv": "Verifierad"
+      },
+      "notVerified": {
+        "en": "Not verified",
+        "fr": "Non vérifié",
+        "sv": "Inte verifierad"
+      },
+      "verifiedOn": {
+        "en": "E-mail verified {0}",
+        "fr": "E-mail vérifié le {0}",
+        "sv": "E-post verifierad {0}"
+      },
+      "codeNotSentYet": {
+        "en": "E-mail codes cannot be sent yet. Try again later.",
+        "fr": "Les codes par e-mail ne peuvent pas encore être envoyés. Réessayez plus tard.",
+        "sv": "E-postkoder kan inte skickas än. Försök igen senare."
+      },
+      "approvalSetting": {
+        "en": "Driver needs a verified e-mail before approval",
+        "fr": "Le chauffeur doit avoir un e-mail vérifié avant l’approbation",
+        "sv": "Föraren måste ha en verifierad e-post före godkännande"
+      },
+      "approvalRefused": {
+        "en": "The driver's e-mail is not verified yet.",
+        "fr": "L’e-mail du chauffeur n’est pas encore vérifié.",
+        "sv": "Förarens e-post är inte verifierad än."
+      }
+    },
+    "rule0": "Order: contract → server (migration incl. the internal first-activated column, routes, views, approval check, reminder level) → admin (badge + setting) → driver (Account row, verify mode, Home notice red / orange) → rider (labels, verify mode)."
   }
 }

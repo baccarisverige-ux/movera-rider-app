@@ -75,21 +75,31 @@ class AccountSecurityState {
     required this.reauthenticatedAt,
     required this.sessions,
     required this.capabilities,
-    this.verificationKnown = true,
+    this.phoneVerificationKnown = true,
+    this.emailVerificationKnown = true,
   });
 
   /// G21 (BrowserStack 2026-11-12): the account's phone and e-mail as the
   /// server's rider profile (`GET /rider/profile`, contract Rider) has
   /// them. movera-server has no `/account/security` (audit M3 / P5-R5), so
-  /// nothing more is known: no verification dates, no 2-step, no recovery
-  /// phone, no sessions, and every capability off.
+  /// nothing more is known: no phone verification date, no 2-step, no
+  /// recovery phone, no sessions, and every capability off.
+  ///
+  /// G30 (contract v0.18.76 `emailVerified.field`): `emailVerifiedAt` is
+  /// when the CURRENT e-mail was proven; absent = Not verified, so the
+  /// e-mail's state is always known. A date without an e-mail proves
+  /// nothing.
   factory AccountSecurityState.fromRiderProfile(Map<String, dynamic> rider) {
     String text(Object? value) => value is String ? value.trim() : '';
+    final email = text(rider['email']);
+    final verifiedAt = rider['emailVerifiedAt'];
     return AccountSecurityState(
       phone: text(rider['phone']),
-      email: text(rider['email']),
+      email: email,
       phoneVerifiedAt: null,
-      emailVerifiedAt: null,
+      emailVerifiedAt: email.isEmpty || verifiedAt is! String
+          ? null
+          : DateTime.tryParse(verifiedAt)?.toUtc(),
       passkeyEnabled: false,
       twoStepEnabled: false,
       authenticatorEnabled: false,
@@ -100,14 +110,19 @@ class AccountSecurityState {
       reauthenticatedAt: null,
       sessions: const [],
       capabilities: const AccountSecurityCapabilities(),
-      verificationKnown: false,
+      phoneVerificationKnown: false,
     );
   }
 
-  /// False when the server does not say whether the phone and e-mail are
-  /// verified (the rider profile carries no verification dates): the
-  /// screens then show the value alone, never "Not verified".
-  final bool verificationKnown;
+  /// False when the server does not say whether the phone is verified (the
+  /// rider profile carries no phone date): the screens then show the number
+  /// alone, never "Not verified".
+  final bool phoneVerificationKnown;
+
+  /// Whether the e-mail's Verified / Not verified state is known: always on
+  /// `/account/security` and, since contract v0.18.76 (G30), on the rider
+  /// profile too.
+  final bool emailVerificationKnown;
 
   /// Something on this account can still be finished here (2-step or a
   /// recovery phone are offered by the server).

@@ -301,7 +301,9 @@ for path, opid, summ, body in [("/telemetry/logs", "postTelemetryLog", "App log 
                                ("/telemetry/crashes", "postTelemetryCrash", "App crash report", "TelemetryCrash")]:
     o = op("post", path, opid, summ, ["rider", "driver", "admin"], "Telemetry", body=body, ok=(202, None), read_only=True, ok_desc="Accepted (empty body)",
            desc=f"Fire-and-forget. Body at most {C['telemetry']['maxBodyBytes']} bytes (else 400 invalid_request, payload_too_large); rate limited per address and device; "
-                f"scrubbed again by the server and kept {C['telemetry']['keepDays']} days. A bearer token is used when sent.")
+                f"scrubbed again by the server and kept {C['telemetry']['keepDays']} days. A bearer token is used when sent. "
+                f"v0.18.75 (B1.25): without a valid token, a server copy stores at most contract.json#telemetry.anonRowsPerMinute ({C['telemetry']['anonRowsPerMinute']}) "
+                f"lines and anonBytesPerMinute ({C['telemetry']['anonBytesPerMinute']}) bytes per minute in total; over it the call still answers 202 but is not stored.")
     o["security"] = [{}, {"bearerAuth": []}]
 # Rider: keep waiting, account deletion
 op("post", "/trips/{tripId}/raise-price", "raisePrice", "Raise the offer while searching", ["rider"], "Rider · Booking",
