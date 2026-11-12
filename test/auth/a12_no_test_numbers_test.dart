@@ -39,6 +39,50 @@ void main() {
     expect(hits, isEmpty);
   });
 
+  // G31 rider: the Test Lab device suite gets the test rider / driver
+  // numbers and the staging code ONLY at run time (Test Lab environment
+  // variables -> MainActivityTest -> the process environment). No dart-define
+  // and no literal may put one into the app or the test APK.
+  test('the device suite takes test numbers only at run time', () {
+    final suite = [
+      ..._files('integration_test', (p) => p.endsWith('.dart')),
+      ..._files('android/app/src/androidTest', (p) => p.endsWith('.java')),
+      ..._files(
+        'tool',
+        (p) =>
+            p.endsWith('.py') && !p.contains('${Platform.pathSeparator}tests'),
+      ),
+    ];
+    expect(suite, isNotEmpty);
+    final number = RegExp(r'\+\d{8,15}|\b0\d{8,10}\b');
+    final hits = <String>[
+      for (final f in suite)
+        for (final bad in [
+          'MOVERA_TEST_NUMBERS=',
+          "fromEnvironment('MOVERA_TL",
+          'fromEnvironment("MOVERA_TL',
+          "fromEnvironment('MOVERA_TEST",
+        ])
+          if (f.readAsStringSync().contains(bad)) '${f.path}: $bad',
+      // The suite's own files (older demo UAT tests type the demo number).
+      for (final f in suite.where(
+        (f) =>
+            f.path.contains('${Platform.pathSeparator}staging') ||
+            f.path.endsWith('trip_lifecycle_test.dart'),
+      ))
+        if (number.hasMatch(f.readAsStringSync()))
+          '${f.path}: a phone-number-like literal',
+      for (final f in _files('.github/workflows', (p) => p.endsWith('.yml')))
+        if (f.readAsStringSync().contains('--dart-define=MOVERA_TL'))
+          '${f.path}: --dart-define=MOVERA_TL',
+    ];
+    expect(hits, isEmpty);
+    final runner = File(
+      'android/app/src/androidTest/java/com/movera/rider/MainActivityTest.java',
+    ).readAsStringSync();
+    expect(runner, contains('Os.setenv'));
+  });
+
   test('no sign-in test-numbers text in any language', () {
     final hits = <String>[
       for (final f in _files(

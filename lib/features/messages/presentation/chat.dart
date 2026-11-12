@@ -297,30 +297,34 @@ class _ChatState extends State<Chat> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: customTextfield(
-                          borderColor: Colors.transparent,
-                          borderWidth: 0,
-                          textColor: AppColor.black,
-                          controller: _messageController,
-                          enabled: !closed,
-                          fontSize: 14,
-                          hint: context.l10n.chatSendHint,
-                          fillColor: const Color(0xffF6F6F6),
-                          borderRadius: 32,
-                          hintTextColor: const Color(0xff969696),
-                          contentHorizPadding: 14,
-                          contentVertPadding: 14,
-                          textInputAction: canSend
-                              ? TextInputAction.send
-                              : null,
-                          onFieldSubmitted: canSend ? (_) => _send() : null,
-                          // §78 CountryRules.chat.maxLength: the server
-                          // refuses longer text (400 message_too_long).
-                          inputFormatters: [
-                            LengthLimitingTextInputFormatter(
-                              _chat.options.maxLength,
-                            ),
-                          ],
+                        // Test name for the device suite; no visual change.
+                        child: KeyedSubtree(
+                          key: const ValueKey('chat-field'),
+                          child: customTextfield(
+                            borderColor: Colors.transparent,
+                            borderWidth: 0,
+                            textColor: AppColor.black,
+                            controller: _messageController,
+                            enabled: !closed,
+                            fontSize: 14,
+                            hint: context.l10n.chatSendHint,
+                            fillColor: const Color(0xffF6F6F6),
+                            borderRadius: 32,
+                            hintTextColor: const Color(0xff969696),
+                            contentHorizPadding: 14,
+                            contentVertPadding: 14,
+                            textInputAction: canSend
+                                ? TextInputAction.send
+                                : null,
+                            onFieldSubmitted: canSend ? (_) => _send() : null,
+                            // §78 CountryRules.chat.maxLength: the server
+                            // refuses longer text (400 message_too_long).
+                            inputFormatters: [
+                              LengthLimitingTextInputFormatter(
+                                _chat.options.maxLength,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       10.width,
@@ -337,6 +341,7 @@ class _ChatState extends State<Chat> {
                                 : const Color(0xffF6F6F6),
                             shape: const CircleBorder(),
                             child: InkWell(
+                              key: const ValueKey('chat-send'),
                               onTap: canSend ? _send : null,
                               customBorder: const CircleBorder(),
                               child: SizedBox(

@@ -296,6 +296,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
             child: Semantics(
               label: context.l10n.authCodeFieldLabel,
               child: Pinput(
+                key: const ValueKey('auth-code'),
                 length: 4,
                 controller: _pin,
                 focusNode: _pinFocus,
@@ -345,6 +346,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
           ),
           const SizedBox(height: 14),
           AuthPrimaryButton(
+            key: const ValueKey('auth-verify'),
             label: context.l10n.verify,
             showArrow: false,
             busy: _submitting,

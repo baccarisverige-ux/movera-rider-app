@@ -395,6 +395,7 @@ class _HomeReservationChronoState extends State<HomeReservationChrono>
                 ? context.l10n.reservationNow
                 : context.l10n.reservationIn(compact),
             child: GestureDetector(
+              key: ValueKey('home-reservation-${ride.reservationId}'),
               onTap: () => _openRide(ride),
               child: SizedBox(
                 width: 54,

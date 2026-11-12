@@ -258,6 +258,7 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
               child: Column(
                 children: [
                   ReservationFillButton(
+                    key: const ValueKey('reservation-scheduled-done'),
                     label: context.l10n.done,
                     onTap: _closeHome,
                   ),

@@ -73,6 +73,10 @@ jobs:
         run: python3 tool/size_ratchet.py
       - name: File size ratchet self-test
         run: python3 tool/size_ratchet.py --self-test
+      # G31 rider: the Test Lab summary tool's scrub / verdict tests (fake
+      # numbers only; a few seconds).
+      - name: Test Lab tool tests
+        run: python3 -m unittest discover -s tool/tests
       - uses: subosito/flutter-action@v2
         with:
           channel: stable

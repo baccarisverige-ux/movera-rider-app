@@ -622,6 +622,11 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
           const SizedBox(width: 10),
           Expanded(
             child: TextField(
+              key: ValueKey(
+                field == 'stop'
+                    ? 'route-picker-field-stop-$stop'
+                    : 'route-picker-field-$field',
+              ),
               controller: controller,
               focusNode: focus,
               autofocus: active,
@@ -868,6 +873,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   }
 
   Widget _row({
+    Key? key,
     IconData? icon,
     Widget? leading,
     required Widget title,
@@ -878,6 +884,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     bool last = false,
   }) {
     return InkWell(
+      key: key,
       onTap: onTap,
       child: Container(
         constraints: const BoxConstraints(minHeight: 70),
@@ -1084,9 +1091,10 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
             onTap: () => _choose(address),
           );
         }(),
-      for (final s in shown)
+      for (final (i, s) in shown.indexed)
         if (!recentMatches.any((r) => _sameAsRecent(s, r)))
           _row(
+            key: ValueKey('route-picker-row-$i'),
             icon: Icons.location_on_outlined,
             title: _highlighted(s.title),
             subtitle: s.subtitle,

@@ -43,6 +43,7 @@ class SafetyKitMapButton extends StatelessWidget {
         shadowColor: Colors.black26,
         borderRadius: BorderRadius.circular(28),
         child: InkWell(
+          key: const ValueKey('trip-safety-button'),
           onTap: () => showRideSafetyKit(
             context,
             rideId: rideId,
@@ -94,6 +95,7 @@ class SafetyKitSheetRow extends StatelessWidget {
       color: Colors.white,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
+        key: const ValueKey('trip-safety-row'),
         onTap: () => showRideSafetyKit(
           context,
           rideId: rideId,

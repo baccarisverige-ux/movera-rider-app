@@ -517,6 +517,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                     width: double.infinity,
                     height: 54,
                     child: TextButton(
+                      key: const ValueKey('reservation-cancel'),
                       onPressed: _actionBusy ? null : () => _cancel(ride),
                       style: TextButton.styleFrom(
                         backgroundColor: const Color(0xFFF4F5F6),

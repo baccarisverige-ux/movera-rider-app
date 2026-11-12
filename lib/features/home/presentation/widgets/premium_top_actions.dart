@@ -65,6 +65,7 @@ class PremiumTopActions extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               _PremiumTopAction(
+                key: const ValueKey('home-menu'),
                 icon: Icons.menu_open_rounded,
                 onTap: onMenuTap,
               ),
@@ -113,7 +114,7 @@ class PremiumTopActions extends StatelessWidget {
 }
 
 class _PremiumTopAction extends StatelessWidget {
-  const _PremiumTopAction({required this.icon, required this.onTap});
+  const _PremiumTopAction({super.key, required this.icon, required this.onTap});
 
   final IconData icon;
   final VoidCallback onTap;

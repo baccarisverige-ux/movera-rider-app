@@ -64,6 +64,7 @@ extension _SelectRideFooter on _SelectRideState {
                   color: _SelectRideState._cta,
                   borderRadius: BorderRadius.circular(18),
                   child: InkWell(
+                    key: const ValueKey('select-ride-book'),
                     onTap: _bookingInFlight ? null : _book,
                     borderRadius: BorderRadius.circular(18),
                     child: SizedBox(
@@ -97,6 +98,7 @@ extension _SelectRideFooter on _SelectRideState {
                   color: _SelectRideState._cta,
                   shape: const CircleBorder(),
                   child: InkWell(
+                    key: const ValueKey('select-ride-book-later'),
                     customBorder: const CircleBorder(),
                     onTap: _showBookingPicker,
                     child: const SizedBox(

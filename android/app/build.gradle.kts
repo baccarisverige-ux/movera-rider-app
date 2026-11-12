@@ -64,6 +64,10 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
+        // G31 rider (owner 2026-11-12): the Firebase Test Lab device suite
+        // (android/app/src/androidTest + integration_test/). Only the
+        // androidTest APK uses it; the app APK does not change.
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -95,4 +99,11 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // G31 rider: the instrumentation runner of the device suite (test APK only).
+    androidTestImplementation("androidx.test:runner:1.2.0")
+    androidTestImplementation("androidx.test:rules:1.2.0")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.3.0")
 }

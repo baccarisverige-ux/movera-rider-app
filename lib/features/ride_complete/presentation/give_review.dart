@@ -138,8 +138,11 @@ class _RideCompletedGiveReviewState extends State<RideCompletedGiveReview> {
                     itemPadding: EdgeInsets.symmetric(
                       horizontal: ResSize.w * 6,
                     ),
-                    itemBuilder: (context, _) =>
-                        Icon(Icons.star_rounded, color: Color(0xffF99417)),
+                    itemBuilder: (context, i) => Icon(
+                      Icons.star_rounded,
+                      key: ValueKey('rating-star-${i + 1}'),
+                      color: Color(0xffF99417),
+                    ),
                     onRatingUpdate: _rate,
                     updateOnDrag: true,
                   ),
