@@ -104,6 +104,53 @@ void main() {
     expect(find.byType(TripCallScreen), findsNothing);
   });
 
+  // Driver G27 (c) twin: Back or Close on a call still ringing declines
+  // it ("declined", the admin's "how it ended"), never "hangup".
+  TripCallSession incoming(FakeApi api) => TripCallSession.incoming(
+    api: api,
+    engine: FakeEngine(),
+    call: const IncomingCall(callId: 'cll_1', tripId: 't1', from: 'driver'),
+    side: 'rider',
+    ice: const [],
+  );
+
+  testWidgets('Android back on a ringing incoming call declines it', (
+    tester,
+  ) async {
+    final api = FakeApi();
+    final s = incoming(api);
+    await _host(tester, s, const Size(390, 844));
+    expect(s.state, TripCallState.ringing);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(TripCallScreen), findsNothing);
+    expect(api.sent, contains('end:cll_1:declined'));
+    expect(api.sent, isNot(contains('end:cll_1:hangup')));
+  });
+
+  testWidgets('Close on a ringing incoming call declines it', (tester) async {
+    final api = FakeApi();
+    final s = incoming(api);
+    await _host(tester, s, const Size(390, 844));
+    await tester.tap(find.byKey(const ValueKey<String>('call-close')));
+    await tester.pumpAndSettle();
+    expect(find.byType(TripCallScreen), findsNothing);
+    expect(api.sent, contains('end:cll_1:declined'));
+    expect(api.sent, isNot(contains('end:cll_1:hangup')));
+  });
+
+  testWidgets('Android back on an outgoing call still hangs up', (
+    tester,
+  ) async {
+    final api = FakeApi();
+    final s = _outgoing(api);
+    await tester.runAsync(s.start);
+    await _host(tester, s, const Size(390, 844));
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(api.sent, contains('end:cll_1:hangup'));
+  });
+
   testWidgets('a screen opened on a call already over closes by itself', (
     tester,
   ) async {

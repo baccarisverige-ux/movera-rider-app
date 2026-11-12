@@ -68,7 +68,7 @@ class _TripCallScreenState extends State<TripCallScreen> {
   }
 
   /// Leaves the call screen (back to the trip). A call still going on is
-  /// hung up in [dispose].
+  /// hung up in [dispose], or declined while it still rings.
   void _leave() {
     if (!mounted) return;
     final nav = Navigator.of(context);
@@ -99,8 +99,9 @@ class _TripCallScreenState extends State<TripCallScreen> {
     _ring?.dispose();
     _close?.cancel();
     _tick?.cancel();
-    // Leaving the screen (back) hangs up a call still going on.
-    if (!_s.over) unawaited(_s.hangUp());
+    // Leaving the screen (back) hangs up a call still going on; a driver's
+    // call still ringing is declined (admin "how it ended"; driver G27).
+    if (!_s.over) unawaited(_ringing ? _s.decline() : _s.hangUp());
     super.dispose();
   }
 
