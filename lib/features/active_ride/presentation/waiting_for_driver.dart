@@ -434,7 +434,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         if (_isInTrip) {
           await _openDetails();
         } else {
-          await _confirmCancel();
+          // G26-back, owner 2026-11-12 "Nothing / collapse": back before
+          // pickup never opens the cancel flow (the X does); it only lowers
+          // a fully raised sheet.
+          _lowerSheetOnBack();
         }
       },
       child: Scaffold(

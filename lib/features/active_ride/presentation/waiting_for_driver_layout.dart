@@ -17,6 +17,23 @@ extension _WaitingLayout on _WaitingForDriverState {
     setWebOverlayOpen(cover);
   }
 
+  /// G26-back: Android back before pickup. A sheet raised above its
+  /// resting stop goes back down to it; otherwise nothing happens (the
+  /// screen stays, and cancelling is the close button's job).
+  void _lowerSheetOnBack() {
+    if (!_sheetController.hasClient) return;
+    final media = MediaQuery.maybeOf(context);
+    final offset = _sheetController.metrics?.offset;
+    if (media == null || offset == null) return;
+    final rest = _minSheet(media);
+    if (offset <= rest + 1.5) return;
+    _sheetController.animateTo(
+      SheetOffset.absolute(rest),
+      duration: MoveraDurations.normal,
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   /// A light haptic when the sheet lands on a stop; the map then reframes
   /// gently so the driver and the pickup stay above the sheet.
   void _onSheetSettled() {
