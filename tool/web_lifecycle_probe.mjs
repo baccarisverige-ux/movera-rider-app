@@ -18,7 +18,14 @@
 //   node tool/web_lifecycle_probe.mjs [--dir build/web] [--cycles 3]
 //        [--maps-key KEY] [--out probe.json] [--mode cancel|trip]
 //        [--multi-surface] [--raster] [--no-semantics] [--headed] [--shots DIR]
-//        [--gps-minute]
+//        [--gps-minute] [--watchdog-ms 900000] [--call-timeout-ms 60000]
+//
+// Time limits (CI hang 2026-11-13, tool/probe_watchdog.mjs): every
+// page.evaluate, CDP call and touch tap may take at most --call-timeout-ms
+// (env PROBE_CALL_TIMEOUT_MS, default 60 s) and fails with the step's name;
+// the whole run may take at most --watchdog-ms (env PROBE_WATCHDOG_MS,
+// default 15 min), after which the rows so far and the current step go to
+// --out, "WATCHDOG: no progress in <step>" is logged and the exit code is 3.
 //
 // Each snapshot also records the frame callbacks drawn while the screen sat
 // still (frameCost: count, p95, worst, over 16/32 ms); --gps-minute adds one
@@ -37,6 +44,7 @@ import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
+import { DEFAULT_CALL_TIMEOUT_MS, DEFAULT_WATCHDOG_MS, pickMs, setStep, startWatchdog, withTimeout, writePartial } from './probe_watchdog.mjs';
 
 // Playwright is resolved through Node's module path (NODE_PATH or a local
 // install), which ESM imports ignore.
@@ -66,6 +74,21 @@ const useSemantics = !has('no-semantics');
 // --raster strips the cloud Map ID from every map, so Google draws raster
 // tiles (no WebGL) and the Flutter contexts can be counted on their own.
 const raster = has('raster');
+const watchdogMs = pickMs(DEFAULT_WATCHDOG_MS, opt('watchdog-ms'), process.env.PROBE_WATCHDOG_MS);
+const callMs = pickMs(DEFAULT_CALL_TIMEOUT_MS, opt('call-timeout-ms'), process.env.PROBE_CALL_TIMEOUT_MS);
+
+// Rows measured so far: the watchdog writes them out if the run hangs.
+const rows = [];
+const watchdog = startWatchdog({ ms: watchdogMs, out, rows });
+// Any failure (a time-out included): keep the rows measured so far, exit 1.
+process.on('uncaughtException', (e) => {
+  console.log(`PROBE FAILED: ${e && e.stack ? e.stack : e}`);
+  writePartial(out, rows, { error: String(e && e.message ? e.message : e) });
+  process.exit(1);
+});
+// What the probe is doing now (named in time-out and watchdog messages).
+let phase = 'boot';
+const at = (what) => `${phase} / ${what}`;
 
 if (shots) fs.mkdirSync(shots, { recursive: true });
 
@@ -336,20 +359,22 @@ page.on('console', (m) => {
   if (m.type() === 'error' || m.type() === 'warning') consoleErrors.push(`${m.type()}: ${m.text().slice(0, 300)}`);
 });
 const cdp = await context.newCDPSession(page);
-await cdp.send('Performance.enable');
-await cdp.send('HeapProfiler.enable');
+// The calls below have no time limit of their own in Playwright.
+const ev = (what, fn, arg) => withTimeout(at(what), page.evaluate(fn, arg), callMs);
+const cdpSend = (method) => withTimeout(at(`cdp ${method}`), cdp.send(method), callMs);
+await cdpSend('Performance.enable');
+await cdpSend('HeapProfiler.enable');
 
-const rows = [];
 let step = 0;
 // Without an API key Google shows a modal over every map: close it.
 async function dismissMapsDialog() {
-  await page.evaluate(() => document.querySelectorAll('.dismissButton').forEach((b) => b.click()));
+  await ev('dismiss maps dialog', () => document.querySelectorAll('.dismissButton').forEach((b) => b.click()));
 }
 
 // Frame callbacks since `since` (performance.now() in the page): count, p95
 // and worst main-thread time, and how many ran over 16 ms and 32 ms.
 async function frameStats(since) {
-  return page.evaluate((t0) => {
+  return ev('frame stats', (t0) => {
     const d = window.__probe.frames.filter(([t]) => t >= t0).map(([, ms]) => ms).sort((a, b) => a - b);
     const q = (p) => (d.length ? +d[Math.min(d.length - 1, Math.floor(p * d.length))].toFixed(1) : 0);
     return { frames: d.length, p50: q(0.5), p95: q(0.95), max: d.length ? +d[d.length - 1].toFixed(1) : 0, over16: d.filter((x) => x > 16).length, over32: d.filter((x) => x > 32).length };
@@ -357,16 +382,17 @@ async function frameStats(since) {
 }
 
 async function snapshot(label, cycle) {
-  const settleStart = await page.evaluate(() => performance.now());
+  phase = `snapshot c${cycle} ${label}`;
+  const settleStart = await ev('now', () => performance.now());
   await page.waitForTimeout(settle);
   const frameCost = await frameStats(settleStart);
   await dismissMapsDialog();
-  await cdp.send('HeapProfiler.collectGarbage');
-  await page.evaluate(() => window.gc && window.gc());
+  await cdpSend('HeapProfiler.collectGarbage');
+  await ev('gc', () => window.gc && window.gc());
   await page.waitForTimeout(300);
-  await cdp.send('HeapProfiler.collectGarbage');
-  const state = await page.evaluate(readState);
-  const metrics = (await cdp.send('Performance.getMetrics')).metrics;
+  await cdpSend('HeapProfiler.collectGarbage');
+  const state = await ev('read state', readState);
+  const metrics = (await cdpSend('Performance.getMetrics')).metrics;
   const m = Object.fromEntries(metrics.map((x) => [x.name, x.value]));
   const row = {
     step: step++,
@@ -394,22 +420,24 @@ async function snapshot(label, cycle) {
     `idle frames=${frameCost.frames} p95=${frameCost.p95}ms max=${frameCost.max}ms >32ms=${frameCost.over32}`;
   console.log(short);
   if (shots) await page.screenshot({ path: path.join(shots, `${String(row.step).padStart(2, '0')}-c${cycle}-${label}.png`) });
+  phase = `after c${cycle} ${label}`;
   return row;
 }
 
 async function waitOwner(expected, timeout = 20000) {
+  setStep(at(`wait owner ${expected}`));
   try {
     await page.waitForFunction((o) => window.moveraMapOwner === o, expected, { timeout });
     return true;
   } catch (_) {
-    const actual = await page.evaluate(() => window.moveraMapOwner || '');
+    const actual = await ev('read owner', () => window.moveraMapOwner || '');
     console.log(`  ! expected map owner ${expected}, got ${actual || 'none'}`);
     return false;
   }
 }
 
 async function tap(x, y) {
-  await page.touchscreen.tap(x, y);
+  await withTimeout(at(`tap ${x},${y}`), page.touchscreen.tap(x, y), callMs);
 }
 
 async function typeDestination(text) {
@@ -449,7 +477,7 @@ async function enableSemantics() {
   if (!(await placeholder.count())) return false;
   await placeholder.first().click({ force: true }).catch(() => {});
   await page.waitForTimeout(1500);
-  const nodes = await page.evaluate(() => document.querySelectorAll('flt-semantics').length);
+  const nodes = await ev('count semantics', () => document.querySelectorAll('flt-semantics').length);
   console.log(`semantics nodes: ${nodes}`);
   return nodes > 0;
 }
@@ -457,6 +485,7 @@ async function enableSemantics() {
 // Taps a control by its label; falls back to the position.
 async function press(label, fallback, { exact = true, timeout = 4000 } = {}) {
   const match = page.getByText(label, { exact });
+  setStep(at(`press "${label}"`));
   try {
     await match.last().waitFor({ state: 'visible', timeout });
     await match.last().click({ force: true });
@@ -469,20 +498,22 @@ async function press(label, fallback, { exact = true, timeout = 4000 } = {}) {
 }
 
 async function home() {
+  setStep(at('wait Home built'));
   await page.waitForFunction(() => window.moveraHomeBuilt === true, null, { timeout: 60000 });
   await waitOwner('home', 30000);
 }
 
 // Waits until the map owner is one of [expected]; returns it, or '' on timeout.
 async function waitAnyOwner(expected, timeout = 30000) {
+  setStep(at(`wait owner ${expected.join('|')}`));
   try {
     await page.waitForFunction((list) => list.includes(window.moveraMapOwner || ''), expected, { timeout });
   } catch (_) {
-    const actual = await page.evaluate(() => window.moveraMapOwner || '');
+    const actual = await ev('read owner', () => window.moveraMapOwner || '');
     console.log(`  ! expected map owner in ${expected.join('|')}, got ${actual || 'none'}`);
     return '';
   }
-  return page.evaluate(() => window.moveraMapOwner || '');
+  return ev('read owner', () => window.moveraMapOwner || '');
 }
 
 // Home -> Plan your ride -> Select ride (categories) -> Set pickup
@@ -493,6 +524,7 @@ async function book(cycle) {
   await press('Where to', UI.whereTo, { exact: false });
   await page.waitForTimeout(1200);
   await snapshot('address', cycle);
+  phase = `book c${cycle}`;
   await press('Where to?', UI.destinationField).catch(() => tap(...UI.destinationField));
   await page.waitForTimeout(400);
   await typeDestination('Stockholm Central Station');
@@ -515,11 +547,13 @@ async function book(cycle) {
       break;
     }
   }
+  phase = `book c${cycle}`;
   if (owner !== 'finding') throw new Error(`cycle ${cycle}: never reached Finding (owner ${owner || 'none'})`);
   await snapshot('finding', cycle);
 }
 
 async function cancelSearch(cycle) {
+  phase = `cancel c${cycle}`;
   await dismissMapsDialog();
   await press('Cancel request', UI.findingCancel, { exact: false });
   await page.waitForTimeout(1200);
@@ -535,18 +569,23 @@ async function cancelSearch(cycle) {
 }
 
 async function ridTrip(cycle) {
-  const r = await page.evaluate(() => (typeof window.moveraAssignDriver === 'function' ? window.moveraAssignDriver() : 'missing'));
+  phase = `trip c${cycle}`;
+  const r = await ev('assign driver', () => (typeof window.moveraAssignDriver === 'function' ? window.moveraAssignDriver() : 'missing'));
   if (r !== 'ok') console.log(`  ! moveraAssignDriver -> ${r}`);
   await waitOwner('waiting', 60000);
   await snapshot('waiting', cycle);
   // The demo driver walks to the pickup, then the trip runs: about a minute.
+  phase = `trip c${cycle}`;
+  setStep(at('wait trip end'));
   await page.waitForFunction(() => window.moveraMapOwner !== 'waiting', null, { timeout: 180000 }).catch(() => {});
   await page.waitForTimeout(2000);
   await snapshot('completed', cycle);
+  phase = `trip c${cycle}`;
   await press('Done', UI.completedDone);
   await waitOwner('home', 30000);
 }
 
+setStep(at('load page'));
 await page.goto(base, { waitUntil: 'load', timeout: 120000 });
 await home();
 await page.waitForTimeout(3000);
@@ -558,14 +597,14 @@ await snapshot('boot', 0);
 // moving puck costs and the main-thread time (CDP TaskDuration) it takes.
 let gpsMinute;
 if (has('gps-minute')) {
-  const before = Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map((x) => [x.name, x.value]));
-  const t0 = await page.evaluate(() => performance.now());
+  const before = Object.fromEntries((await cdpSend('Performance.getMetrics')).metrics.map((x) => [x.name, x.value]));
+  const t0 = await ev('now', () => performance.now());
   for (let i = 0; i < 60; i++) {
     const j = (Math.sin(i * 1.7) * 3) / 111000;
     await context.setGeolocation({ latitude: 59.33258 + i * 0.00001 + j, longitude: 18.0649 + j, accuracy: 8 });
     await page.waitForTimeout(1000);
   }
-  const after = Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map((x) => [x.name, x.value]));
+  const after = Object.fromEntries((await cdpSend('Performance.getMetrics')).metrics.map((x) => [x.name, x.value]));
   gpsMinute = {
     ...(await frameStats(t0)),
     taskSeconds: +(after.TaskDuration - before.TaskDuration).toFixed(2),
@@ -602,11 +641,12 @@ const summary = {
   listenersLastHome: last.listeners,
   gpsMinute,
   pageErrors: [...new Set(pageErrors)].slice(0, 10),
-  ownerTimeline: await page.evaluate(() => window.__probe.owners),
-  inPageErrors: await page.evaluate(() => [...new Set(window.__probe.pageErrors)].slice(0, 10)),
+  ownerTimeline: await ev('owner timeline', () => window.__probe.owners),
+  inPageErrors: await ev('page errors', () => [...new Set(window.__probe.pageErrors)].slice(0, 10)),
   consoleErrors: [...new Set(consoleErrors)].slice(0, 40),
 };
 console.log('SUMMARY ' + JSON.stringify(summary, null, 2));
 fs.writeFileSync(out, JSON.stringify({ summary, rows }, null, 2));
+watchdog.stop();
 await browser.close();
 server.close();
