@@ -76,7 +76,9 @@ void main() {
           (contract['configDefaults'] as Map)['tipRules']
               as Map<String, dynamic>;
       final byCountry = defaults['customMax'] as Map<String, dynamic>;
-      expect(byCountry.keys, containsAll(<String>['SE', 'FR']));
+      expect(byCountry.keys, containsAll(<String>['SE', 'FR', 'TN']));
+      // v0.18.82 (owner Q-S5-6): TN = 30.000 DT in the copy itself.
+      expect(money(byCountry['TN']), const Money(30000, 'TND'));
       for (final entry in byCountry.entries) {
         final want = money(entry.value)!;
         expect(
