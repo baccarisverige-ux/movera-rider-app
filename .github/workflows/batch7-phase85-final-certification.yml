@@ -349,6 +349,13 @@ jobs:
           npm install playwright@1.55.0 >/dev/null 2>&1
           npx playwright install --with-deps chromium
       - name: Six bookings in a row (book, search, cancel), heap after GC per booking
+        # Normal run about 6.5 min. A frozen headless browser (hang
+        # 2026-11-13) now fails fast: each browser call has 60 s, the probe's
+        # own watchdog stops it after 13 min (exit 3, partial probe.json with
+        # the step it hung in), and the step itself stops at 15 min.
+        timeout-minutes: 15
+        env:
+          PROBE_WATCHDOG_MS: '780000'
         run: |
           NODE_PATH="$RUNNER_TEMP/pw/node_modules" node tool/web_lifecycle_probe.mjs \
             --dir build/web --cycles 6 --mode cancel --multi-surface --raster --out probe.json
