@@ -25,8 +25,8 @@ class ScheduledQuoteRequiredException implements Exception {
 class BookLaterRefusedException implements Exception {
   const BookLaterRefusedException(this.reason, {this.limit});
 
-  /// `booking_too_soon`, `booking_too_far`, `trip_too_long` or
-  /// `change_too_late`.
+  /// `booking_too_soon`, `booking_too_far`, `trip_too_long`,
+  /// `change_too_late`, `reservations_off` or `booked_rides_limit`.
   final String reason;
   final int? limit;
 
@@ -37,6 +37,10 @@ class BookLaterRefusedException implements Exception {
     'change_too_late',
     // Owner A (v0.18.19): Book later is off in this zone.
     'reservations_off',
+    // B1.34 (v0.18.81, contract.json#bookLater.riderCap): the rider holds
+    // the zone's maxOpenPerRider booked rides already (409, the number in
+    // the server's message).
+    'booked_rides_limit',
   };
 
   @override

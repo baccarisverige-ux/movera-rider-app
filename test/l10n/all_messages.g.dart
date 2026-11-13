@@ -964,6 +964,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'resErrTooSoon': l.resErrTooSoon(37),
   'resErrTooFar': l.resErrTooFar(37),
   'resErrTripTooLong': l.resErrTripTooLong,
+  'resErrBookedRidesLimit': l.resErrBookedRidesLimit(37),
   'resErrChangeTooLate': l.resErrChangeTooLate(37),
   'resErrZoneOff': l.resErrZoneOff,
   'bookingFreeRule': l.bookingFreeRule('<time>'),
@@ -1724,6 +1725,7 @@ Map<String, String> allMessagesWithOne(AppLocalizations l) => {
   'resSeatsPayment': l.resSeatsPayment(1, '<payment>'),
   'resErrTooSoon': l.resErrTooSoon(1),
   'resErrTooFar': l.resErrTooFar(1),
+  'resErrBookedRidesLimit': l.resErrBookedRidesLimit(1),
   'resErrChangeTooLate': l.resErrChangeTooLate(1),
   'ridesLeft': l.ridesLeft(1),
   'pickupSpotMetresFromHere': l.pickupSpotMetresFromHere(1),
@@ -1864,6 +1866,7 @@ const messagePlaceholders = <String, List<String>>{
   'resTermsOtherFees': ['rule'],
   'resErrTooSoon': [],
   'resErrTooFar': [],
+  'resErrBookedRidesLimit': [],
   'resErrChangeTooLate': [],
   'bookingFreeRule': ['time'],
   'bookingCancelCosts': ['min', 'fee'],
@@ -1952,6 +1955,7 @@ const messageCounts = <String, List<String>>{
   'resSeatsPayment': ['count'],
   'resErrTooSoon': ['minutes'],
   'resErrTooFar': ['days'],
+  'resErrBookedRidesLimit': ['count'],
   'resErrChangeTooLate': ['minutes'],
   'ridesLeft': ['count'],
   'pickupSpotMetresFromHere': ['metres'],
@@ -3886,6 +3890,8 @@ class _Exhaustive implements AppLocalizations {
   String resErrTooFar(int days) => '';
   @override
   String get resErrTripTooLong => '';
+  @override
+  String resErrBookedRidesLimit(int count) => '';
   @override
   String resErrChangeTooLate(int minutes) => '';
   @override

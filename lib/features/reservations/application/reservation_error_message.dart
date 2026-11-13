@@ -24,6 +24,8 @@ String reservationErrorMessage(Object error, ReservationAction action) {
       'booking_too_far' => l.resErrTooFar(error.limit ?? 90),
       'trip_too_long' => l.resErrTripTooLong,
       'reservations_off' => l.resErrZoneOff,
+      // B1.34 (v0.18.81): default 3 = contract configDefaults.reservations.
+      'booked_rides_limit' => l.resErrBookedRidesLimit(error.limit ?? 3),
       _ => l.resErrChangeTooLate(error.limit ?? 60),
     };
   }
