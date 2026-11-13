@@ -144,13 +144,17 @@ jobs:
   # One device-check run at a time: the driver app's suite uses the same
   # pair (se.d38 / se.r35), so this job has the same concurrency group name.
   # GitHub concurrency groups only hold runs of ONE repository, so the
-  # first step also waits while the driver repo's "Android test APK
-  # (staging)" run is going, and gives up without using Test Lab when it
-  # does not end. Never dispatch while a 5x5 screen run is going.
+  # first step also waits (at most 14 min) while the driver repo's "Android
+  # test APK (staging)" run is going, and gives up without using Test Lab
+  # when it does not end or cannot be read. Never dispatch while a 5x5
+  # screen run is going.
   device-checks:
     if: inputs.testlab_device != '' && inputs.testlab_test != 'robo'
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    # Budget (F2): lock <= 16 m + set-up and build ~15 m + wake <= 1.5 m +
+    # Test Lab 25 m (step cut at 30 m) + download / scrub / upload ~5 m
+    # = ~70 m worst case, with margin.
+    timeout-minutes: 80
     concurrency:
       group: movera-device-checks-d38-r35
       cancel-in-progress: false
@@ -163,29 +167,43 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.new_ref }}
+      # F2/F3 (supervisor 2026-11-13): at most 14 rounds of 60 s (the step
+      # is cut at 16 min), and fail-closed: each read is tried 3 times; a
+      # read that still fails, or a driver run still going after the last
+      # round, means NOT CHECKED and no Test Lab run (no quota used). A run
+      # seen busy stays busy until a later round sees none.
       - name: Wait while the driver app's device run is going (shared test pair)
         id: lock
+        timeout-minutes: 16
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
           url="https://api.github.com/repos/baccarisverige-ux/Movera-driver-app/actions/workflows/android-test-apk.yml/runs"
-          for i in $(seq 1 40); do
-            busy=0; checked=0
+          runs="$RUNNER_TEMP/driver-runs.json"
+          for round in $(seq 1 14); do
+            busy=0
             for status in in_progress queued; do
-              n="$(curl -fsS -m 20 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
-                "$url?status=$status&per_page=1" | python3 -I -c 'import json,sys; print(json.load(sys.stdin).get("total_count", 0))')" \
-                && checked=$((checked + 1)) && busy=$((busy + n))
+              n=""
+              for try in 1 2 3; do
+                if curl -fsS -m 20 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+                     -o "$runs" "$url?status=$status&per_page=1" \
+                   && n="$(python3 -I tool/testlab_summary.py count-runs "$runs")"; then
+                  break
+                fi
+                n=""; sleep 5
+              done
+              if [ -z "$n" ]; then
+                echo "::warning::NOT CHECKED: the driver repo's runs could not be read (3 tries); no Test Lab run was used, so a driver device run can never overlap this one."
+                echo "free=false" >> "$GITHUB_OUTPUT"; exit 0
+              fi
+              busy=$((busy + n))
             done
-            if [ "$checked" -lt 2 ]; then
-              echo "::warning::could not read the driver repo's runs; going on (check by hand that no driver device run is going)"
-              echo "free=true" >> "$GITHUB_OUTPUT"; exit 0
-            fi
             if [ "$busy" -eq 0 ]; then echo "free=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-            echo "driver app device run going ($busy); waiting 60 s ($i/40)"
+            echo "driver app device run going ($busy); waiting 60 s (round $round/14)"
             sleep 60
           done
-          echo "::warning::NOT CHECKED: the driver app's device run did not end in 40 min; no Test Lab run was used."
+          echo "::warning::NOT CHECKED: the driver app's device run was still going after 14 min; no Test Lab run was used."
           echo "free=false" >> "$GITHUB_OUTPUT"
       - name: Test rider and driver for this run (from secrets, never built in)
         id: peers
@@ -276,6 +294,7 @@ jobs:
       - name: Rider trip on a real phone (Firebase Test Lab)
         id: run
         if: steps.peers.outputs.ready == 'true'
+        timeout-minutes: 30
         env:
           RESULTS_BUCKET: ${{ vars.TESTLAB_RESULTS_BUCKET }}
           TL_TIMEOUT: ${{ steps.peers.outputs.tl_timeout }}

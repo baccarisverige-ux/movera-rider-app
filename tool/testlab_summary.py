@@ -36,6 +36,11 @@ Usage (from .github/workflows/android-test-apk.yml, plain Python 3):
       print passed/failed per check, JUnit totals and crash lines from
       logcat; also into $GITHUB_STEP_SUMMARY when set. Exit 0 (the
       `verdict` below decides the job).
+  python3 -I tool/testlab_summary.py count-runs FILE
+      G31 rider lock step: FILE is a GitHub "list workflow runs" answer;
+      prints its total_count (a whole number >= 0). Exit 1, printing
+      nothing, when the answer is not that shape (the workflow then counts
+      the read as failed: fail-closed).
   RC=<gcloud exit code> python3 -I tool/testlab_summary.py verdict DIR
       the job's pass/fail, run on the SCRUBBED results after the upload.
       Run 6 (2026-11-12) was a false pass: gcloud exit 0 and Test Lab
@@ -634,13 +639,38 @@ def verdict(root, rc):
     return 0
 
 
+def count_runs(path):
+    """total_count of a GitHub workflow-runs answer, or None when FILE is
+    not one (missing, not JSON, no whole total_count >= 0)."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    n = data.get("total_count")
+    if isinstance(n, bool) or not isinstance(n, int) or n < 0:
+        return None
+    if not isinstance(data.get("workflow_runs", []), list):
+        return None
+    return n
+
+
 def main(argv):
-    if len(argv) != 3 or argv[1] not in ("driver", "trip", "rider-trip", "scrub", "summary", "verdict"):
+    if len(argv) != 3 or argv[1] not in ("driver", "trip", "rider-trip", "count-runs", "scrub",
+                                         "summary", "verdict"):
         print(__doc__)
         return 2
     root = argv[2]
     if argv[1] == "rider-trip":
         return write_rider_trip(root, os.environ)
+    if argv[1] == "count-runs":
+        n = count_runs(root)
+        if n is None:
+            return 1
+        print(n)
+        return 0
     if argv[1] in ("driver", "trip"):
         return write_driver(root, os.environ, with_rider=argv[1] == "trip")
     if argv[1] == "scrub":

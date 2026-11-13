@@ -24,22 +24,33 @@ extension _TripCleanup on TripRun {
     }
 
     refreshRiderToken();
-    // A booking whose answer the app got but the test did not see.
-    if (riderApi.signedIn) {
-      final open = await riderApi.openTripIds().timeout(
+    // F1: only trips this run made; trips new since the snapshot only when
+    // a booking answer was lost; never a trip from before the run.
+    Set<String>? openNow;
+    if (bookAnswerLost && riderApi.signedIn) {
+      openNow = await riderApi.openTripIds().timeout(
         const Duration(seconds: 20),
         onTimeout: () => null,
       );
-      for (final id in open ?? const <String>{}) {
-        if (!booked.contains(id)) booked.add(id);
-      }
     }
-    if (booked.isEmpty) {
-      return log.skip('CLEANUP', title, 'no trip was booked');
+    final scope = cleanupScope(
+      booked: booked,
+      answerLost: bookAnswerLost,
+      openBefore: openBeforeBook,
+      openNow: openNow,
+    );
+    final note = scope.unknown
+        ? ' (a booking answer was lost and the open trips before/now are '
+              'not known: a lost trip may be left; check se.r35 by hand)'
+        : '';
+    if (scope.ids.isEmpty) {
+      return scope.unknown
+          ? log.fail('CLEANUP', title, 'no recorded booking$note')
+          : log.skip('CLEANUP', title, 'no trip was booked');
     }
     final lines = <String>[];
     var allClosed = true;
-    for (final id in booked) {
+    for (final id in scope.ids) {
       try {
         var answer = await boxed(riderApi.trip(id));
         var status = answer.map?['status'] as String?;
@@ -64,9 +75,9 @@ extension _TripCleanup on TripRun {
         lines.add('$id stopped by ${error.runtimeType}');
       }
     }
-    allClosed
+    allClosed && !scope.unknown
         ? log.pass('CLEANUP', title, lines.join('; '))
-        : log.fail('CLEANUP', title, lines.join('; '));
+        : log.fail('CLEANUP', title, '${lines.join('; ')}$note');
   }
 
   /// The test driver offline (feeder stopped), ALWAYS: in the test's

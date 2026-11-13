@@ -4,15 +4,29 @@ part of 'trip_run.dart';
 /// rider on board (G31 rider).
 extension _TripBook on TripRun {
   /// The id of the trip the app just booked: its recorded `POST /trips`
-  /// answer, else the app's ride session.
+  /// answer only (F1: never the app's ride session, which may hold a trip
+  /// from before the run). Notes a lost answer for the clean-up.
   String? _bookedTripId(int from) {
-    for (final c in rec.since(from).reversed) {
-      if (c.method == 'POST' && c.path == '/api/v1/trips' && c.answer is Map) {
-        final id = (c.answer! as Map)['tripId'];
-        if (id is String) return id;
-      }
+    final posts = calls('/api/v1/trips', method: 'POST', from: from).toList();
+    for (final c in posts.reversed) {
+      final id = bookedTripIdOf(c.answer);
+      if (id != null && !c.failed) return id;
     }
-    return AppScope.instance.ride.rideId;
+    if (posts.isEmpty ||
+        posts.any(
+          (c) => bookingAnswerLost(
+            status: c.status,
+            error: c.error,
+            answer: c.answer,
+          ),
+        )) {
+      bookAnswerLost = true;
+      CheckLog.say(
+        'STEP booking answer lost or missing: the clean-up looks for '
+        'trips new since the run started',
+      );
+    }
+    return null;
   }
 
   /// Home -> Where to -> drop-off row -> Choose ride (the test driver's

@@ -581,5 +581,62 @@ class TestlabSummaryTest(unittest.TestCase):
         self.assertNotIn(FAKE_SPELLED_CODE, self.logcat.read_text())
 
 
+    # --- F2/F3 (supervisor 2026-11-13): the cross-repo lock -------------
+
+    def _count(self, content):
+        f = self.root / 'runs.json'
+        f.write_text(content)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = testlab_summary.main(['testlab_summary.py', 'count-runs', str(f)])
+        return rc, buf.getvalue().strip()
+
+    def test_count_runs_reads_total_count(self):
+        self.assertEqual(self._count(json.dumps({'total_count': 0, 'workflow_runs': []})), (0, '0'))
+        self.assertEqual(self._count(json.dumps({'total_count': 2, 'workflow_runs': [{}]})), (0, '2'))
+
+    def test_count_runs_fails_closed_on_any_other_shape(self):
+        for bad in ('', 'not json', '[]', '{}', json.dumps({'total_count': -1}),
+                    json.dumps({'total_count': '1'}), json.dumps({'total_count': True}),
+                    json.dumps({'total_count': 1.5}),
+                    json.dumps({'message': 'API rate limit exceeded'}),
+                    json.dumps({'total_count': 0, 'workflow_runs': 'x'})):
+            rc, out = self._count(bad)
+            self.assertEqual(rc, 1, bad)
+            self.assertEqual(out, '', bad)
+        self.assertIsNone(testlab_summary.count_runs(str(self.root / 'missing.json')))
+
+    def test_workflow_lock_is_short_and_fail_closed(self):
+        workflow = pathlib.Path(__file__).resolve().parents[2] / '.github/workflows/android-test-apk.yml'
+        job = workflow.read_text().split('  device-checks:', 1)[1]
+        lock = job.split('id: lock', 1)[1].split('\n      - ', 1)[0]
+        self.assertIn('timeout-minutes: 16', lock)
+        self.assertIn('for round in $(seq 1 14)', lock)
+        self.assertIn('for try in 1 2 3', lock)
+        self.assertIn('testlab_summary.py count-runs', lock)
+        # Unreadable -> not free (no Test Lab); never a fail-open "going on".
+        self.assertNotIn('free=true" >> "$GITHUB_OUTPUT"; exit 0\n              fi', lock)
+        self.assertEqual(lock.count('free=true'), 1)
+        self.assertGreaterEqual(lock.count('free=false'), 2)
+        self.assertNotIn('going on', lock)
+        # The 14 rounds of 60 s fit the step's 16 min.
+        self.assertIn('sleep 60', lock)
+
+    def test_workflow_job_time_fits_lock_build_test_lab_and_upload(self):
+        import re as _re
+        workflow = pathlib.Path(__file__).resolve().parents[2] / '.github/workflows/android-test-apk.yml'
+        job = workflow.read_text().split('  device-checks:', 1)[1]
+        head = job.split('    steps:', 1)[0]
+        job_min = int(_re.search(r'timeout-minutes: (\d+)', head).group(1))
+        lock_min = int(_re.search(r'id: lock\n\s+timeout-minutes: (\d+)', job).group(1))
+        run = job.split('id: run', 1)[1].split('\n      - ', 1)[0]
+        tl_step = int(_re.search(r'timeout-minutes: (\d+)', run).group(1))
+        self.assertIn('echo "tl_timeout=25m"', job)
+        self.assertGreaterEqual(tl_step, 25 + 3)
+        # lock + set-up/build (~15) + wake (2) + Test Lab step + results (~5)
+        self.assertLessEqual(lock_min + 15 + 2 + tl_step + 5, job_min)
+        self.assertLessEqual(lock_min, 16)
+
+
 if __name__ == '__main__':
     unittest.main()

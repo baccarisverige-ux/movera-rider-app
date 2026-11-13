@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/config/emergency_numbers.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
@@ -19,6 +18,7 @@ import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 
 import 'check_log.dart';
+import 'cleanup_scope.dart';
 import 'driver_peer.dart';
 import 'movera_api.dart';
 import 'rider_session.dart';
@@ -58,8 +58,16 @@ class TripRun extends RiderSession {
   /// cancel case) instead of a live one.
   final bool scheduled;
 
-  /// Trip ids this run booked (the clean-up closes every one).
+  /// Trip ids this run booked: their recorded `POST /trips` answers (the
+  /// clean-up closes these, see [cleanupScope]).
   final List<String> booked = <String>[];
+
+  /// The rider's open trips (active + booked) read before the run's first
+  /// booking; null = not readable. Never closed by the clean-up.
+  Set<String>? openBeforeBook;
+
+  /// A `POST /trips` of this run got no usable answer: the trip may exist.
+  bool bookAnswerLost = false;
 
   /// The driver starts ~350 m south-west of the rider's pickup (the
   /// phone's mock position); the drop-off is where the rider typed.
@@ -301,23 +309,20 @@ class TripRun extends RiderSession {
       return false;
     }
     final session = await adoptAppSession();
-    // A trip left open by an earlier run is restored on start: close it
-    // over HTTP first so Booking starts from Home.
+    // F1 (supervisor 2026-11-13): a trip the rider had before the run is
+    // never touched. The snapshot is taken before the first booking; an
+    // active one (restored on start) stops the run with a clear line.
+    openBeforeBook = await riderApi.openTripIds();
     final active = await riderApi.activeTrip();
     if (active.status == 200 && active.map?['tripId'] is String) {
-      final old = active.map!;
-      final cancel = await riderApi.cancel(
-        old['tripId'] as String,
-        (old['version'] as num).toInt(),
-        'plans_changed',
+      log.fail(
+        'SIGN-IN',
+        title,
+        'the test rider has an open trip from before the run '
+            '(${active.map!['status']}); not touched: close it by hand, then '
+            'run again',
       );
-      CheckLog.say(
-        'STEP rider had an open trip (${old['status']}): cancel ${cancel.short}',
-      );
-      await wait(tester, const Duration(seconds: 3));
-      if (tester.any(byKey('ride-terminal-acknowledge').hitTestable())) {
-        await tapKey(tester, 'ride-terminal-acknowledge');
-      }
+      return false;
     }
     await backToHome(tester);
     final home = await pumpUntil(
@@ -327,7 +332,8 @@ class TripRun extends RiderSession {
     );
     final detail =
         'Home alone=$home app session=${session ? 'yes' : 'no'} '
-        'active trip before=${active.short}';
+        'active trip before=${active.short} open before the run='
+        '${openBeforeBook?.length ?? 'unknown'}';
     if (!home || !session) {
       log.fail('SIGN-IN', title, detail);
       return false;
