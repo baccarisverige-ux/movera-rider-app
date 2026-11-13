@@ -25,8 +25,9 @@ const _sergels = GeoPoint(59.3326, 18.0649);
 /// covering Select ride, the app away and back, a map park) or a small
 /// pickup move read again right after the last read.
 void main() {
-  testWidgets('a pause and resume 1 s after a read waits until 5 s after it',
-      (tester) async {
+  testWidgets('a pause and resume 1 s after a read waits until 5 s after it', (
+    tester,
+  ) async {
     final source = _Source();
     final cars = NearbyCarsController(source: source);
     cars.watch(_sergels);
