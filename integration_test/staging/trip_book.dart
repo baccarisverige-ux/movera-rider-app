@@ -210,14 +210,38 @@ extension _TripBook on TripRun {
       );
     }
     final confirm = byKey('set-pickup-confirm');
-    await pumpUntil(tester, () {
-      if (!tester.any(confirm.hitTestable())) return false;
-      return (tester.widget(confirm) as FilledButton).onPressed != null;
-    }, timeout: const Duration(seconds: 30));
+    // Run 1: a tap while Set pickup was still opening was ignored by the
+    // app (P5-R6), and nothing said so. Wait for the screen to be open.
+    await pumpUntil(
+      tester,
+      () => readyToTap(tester, confirm),
+      timeout: const Duration(seconds: 30),
+    );
     await watch.run(
       scheduled ? 'set-pickup->booked' : 'set-pickup->finding',
       () async {
         if (!await tapHit(tester, confirm, '"set-pickup-confirm"')) return;
+        // The app shows its spinner (or leaves) when it takes the tap. A
+        // tap it ignored (map still settling: set_pickup.confirm_ignored in
+        // the app log) is said, and tapped once more.
+        final taken = await pumpUntil(
+          tester,
+          () =>
+              shows(byKey('set-pickup-confirm-waiting')) ||
+              !shows(find.byType(SetPickupPage)),
+          timeout: const Duration(seconds: 5),
+        );
+        if (!taken) {
+          CheckLog.say('STEP Confirm tap not taken in 5 s; tapping again');
+          await pumpUntil(
+            tester,
+            () => readyToTap(tester, confirm),
+            timeout: const Duration(seconds: 10),
+          );
+          if (!await tapHit(tester, confirm, '"set-pickup-confirm" (2nd)')) {
+            return;
+          }
+        }
         await pumpUntil(
           tester,
           () => scheduled

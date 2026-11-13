@@ -104,6 +104,7 @@ class TransitionWatch {
     final genBefore = maps.generation;
     final ownerBefore = maps.activeOwner;
     var blank = 0, loader = 0;
+    _loaderIn.clear();
     final previousProbe = pumpProbe;
     pumpProbe = () {
       previousProbe?.call();
@@ -145,6 +146,9 @@ class TransitionWatch {
     }
   }
 
+  /// The screens that showed a full-screen spinner in this change.
+  final Set<String> _loaderIn = <String>{};
+
   bool _fullScreenLoader() {
     if (shows(byKey('start-spinner')) ||
         shows(byKey('deferred-screen-loading'))) {
@@ -170,6 +174,20 @@ class TransitionWatch {
       });
       final b = box;
       if (!inButton && b != null && b.width * b.height >= 0.6 * area) {
+        // G31 run 1: say WHICH screen shows the loader (the route picker's
+        // own "finishing" overlay, Select ride's "Checking your area", ...).
+        e.visitAncestorElements((a) {
+          final name = a.widget.runtimeType.toString();
+          const framework = {'PageView', 'ListView', 'GridView'};
+          if (!framework.contains(name) &&
+              (name.endsWith('Page') ||
+                  name.endsWith('View') ||
+                  name == 'SelectRide')) {
+            _loaderIn.add(name);
+            return false;
+          }
+          return true;
+        });
         return true;
       }
     }
@@ -263,6 +281,7 @@ class TransitionWatch {
         'GET reads=${gets.length} $perPath repeated<4s=${repeated.toList()}; '
         'maps before=${_ids(before)} after=${_ids(after)} map owner $owners '
         'recreated=$recreated; full-screen loader samples=$loader '
+        '${_loaderIn.isEmpty ? '' : 'in=${_loaderIn.toList()} '}'
         'blank samples=$blank';
     final errorDetail =
         'calls=${calls.length} failed=$failed expected=$allowed '

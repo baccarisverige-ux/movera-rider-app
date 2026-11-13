@@ -23,6 +23,7 @@ import 'driver_peer.dart';
 import 'movera_api.dart';
 import 'rider_session.dart';
 import 'rider_steps.dart';
+import 'tap_ready.dart';
 import 'transition_watch.dart';
 import 'trip_steps.dart';
 

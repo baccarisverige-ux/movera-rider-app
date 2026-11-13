@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -862,7 +863,11 @@ class _SetPickupPageState extends State<SetPickupPage>
     // of a double tap on "Select" (same spot), not the rider confirming a
     // pickup they have not seen: it booked a ride on the live build.
     final opening = ModalRoute.of(context)?.animation;
-    if (opening != null && !opening.isCompleted) return;
+    if (opening != null && !opening.isCompleted) {
+      // G31 phone run 1: a Confirm that does nothing is said in the log.
+      AppLog.info('set_pickup.confirm_ignored', extra: {'why': 'opening'});
+      return;
+    }
     _confirming = true;
     HapticFeedback.mediumImpact();
     // rider-u140: mid-glide the pin's street and fare are still the old
@@ -877,6 +882,10 @@ class _SetPickupPageState extends State<SetPickupPage>
       if (!mounted) return;
       setState(() => _confirmWaiting = false);
       if (_moving || _isAwayFrom(_center, _routeStart)) {
+        AppLog.info(
+          'set_pickup.confirm_ignored',
+          extra: {'why': _moving ? 'map_moving' : 'pin_not_settled'},
+        );
         _confirming = false;
         return;
       }
@@ -897,6 +906,10 @@ class _SetPickupPageState extends State<SetPickupPage>
       setState(() => _confirmWaiting = false);
       if (_isAwayFrom(at, _center)) {
         // The pin moved while waiting: the rider confirms again.
+        AppLog.info(
+          'set_pickup.confirm_ignored',
+          extra: {'why': 'pin_moved_while_waiting'},
+        );
         _confirming = false;
         return;
       }
