@@ -1,11 +1,11 @@
-# Movera API v0.18.85 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.86 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.85
+  version: 0.18.86
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.85 in this folder; this file must agree with them.
+    v0.18.86 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.85
+  version: 0.18.86
   source: contract.json
 paths:
   /auth/otp/request:
@@ -9193,7 +9193,10 @@ paths:
       operationId: adminPutConfigDraft
       summary: Replace the config draft
       description: 'The draft''s document must be the doc''s schema (pricing → PricingDocument, dispatch → DispatchDocument,
-        v0.5.1). x-permission-by-doc: the admin panel saves dispatch rules with dispatch.edit.'
+        v0.5.1). x-permission-by-doc: the admin panel saves dispatch rules with dispatch.edit. v0.18.86 (J5b, contract.json#commissionSteps.validation):
+        pricing with invalid CategoryPricing.commissionSteps → invalid_request, reason commission_steps_invalid, details ["step:<index>",
+        "problem:<code>"] (not_a_list, too_many_steps, pct_or_amount, up_to_missing, pct_out_of_range, amount_out_of_range,
+        above_not_last, last_not_above, up_to_out_of_range, up_to_not_increasing); nothing is saved.'
       tags:
       - Admin · Config
       x-actor:
@@ -9231,7 +9234,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ConfigDraft'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: 'invalid_request: malformed body, unknown enum, wrong reasonCode group, bad PIN. v0.18.86 (J5b, contract.json#commissionSteps.validation):
+            pricing with invalid CategoryPricing.commissionSteps → invalid_request, reason commission_steps_invalid, details
+            ["step:<index>", "problem:<code>"] (not_a_list, too_many_steps, pct_or_amount, up_to_missing, pct_out_of_range,
+            amount_out_of_range, above_not_last, last_not_above, up_to_out_of_range, up_to_not_increasing); nothing is saved.'
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
@@ -9252,7 +9267,10 @@ paths:
         dispatch.edit for dispatch; settings.publish for country_rules) publishes at once: 200 ConfigPublication, never 202.
         dispatch.approve and approval.decide no longer apply to config. The server stamps version and publishedAt (contract.json#configVersion).
         Emits config_published on the app streams for rider_app_config and driver_app_config only; pricing and dispatch (server-only)
-        are published with the same version rule but never reach the apps.'
+        are published with the same version rule but never reach the apps. v0.18.86 (J5b, contract.json#commissionSteps.validation):
+        pricing with invalid CategoryPricing.commissionSteps → invalid_request, reason commission_steps_invalid, details ["step:<index>",
+        "problem:<code>"] (not_a_list, too_many_steps, pct_or_amount, up_to_missing, pct_out_of_range, amount_out_of_range,
+        above_not_last, last_not_above, up_to_out_of_range, up_to_not_increasing); nothing is saved.'
       tags:
       - Admin · Config
       x-actor:
@@ -9290,7 +9308,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ConfigPublication'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: 'invalid_request: malformed body, unknown enum, wrong reasonCode group, bad PIN. v0.18.86 (J5b, contract.json#commissionSteps.validation):
+            pricing with invalid CategoryPricing.commissionSteps → invalid_request, reason commission_steps_invalid, details
+            ["step:<index>", "problem:<code>"] (not_a_list, too_many_steps, pct_or_amount, up_to_missing, pct_out_of_range,
+            amount_out_of_range, above_not_last, last_not_above, up_to_out_of_range, up_to_not_increasing); nothing is saved.'
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
@@ -25537,7 +25567,8 @@ components:
           type: number
           minimum: 0
           maximum: 60
-          description: Movera's commission on the ride part and the extras except waiting (owner decisions 17, 18).
+          description: 'Movera''s commission on the ride part and the extras except waiting (owner decisions 17, 18). v0.18.86:
+            used only when commissionSteps is absent, null or [] (empty) (contract.json#commissionSteps.noSteps).'
         extraStopFee:
           $ref: '#/components/schemas/Money'
         stopWaitPerMin:
@@ -25554,6 +25585,32 @@ components:
           $ref: '#/components/schemas/CategoryPricingWaiting'
         riderPickupFee:
           $ref: '#/components/schemas/RiderPickupFee'
+        commissionSteps:
+          oneOf:
+          - type: array
+            items:
+              $ref: '#/components/schemas/CommissionStep'
+            maxItems: 50
+          - type: 'null'
+          description: 'v0.18.86 (J5b, owner 2026-11-13): optional; absent, null or [] = no steps (commissionPct applies,
+            unchanged). CategoryPricing.commissionSteps?: [CommissionStep] — in the zone''s own pricing document and in the
+            country standard (PricingDocument.categories[categoryId]), beside commissionPct. CommissionStep { upToMinor: integer
+            | null, pct?: number, amountMinor?: integer }: upToMinor = "trip price up to X" in minor units of the document''s
+            currency (null = "above", only on the last step); exactly one of pct (0–60, like commissionPct) or amountMinor
+            (a fixed commission, ≥ 0, minor units of the zone currency: SEK öre, EUR cents, TND millimes — 3 decimals). commissionPct
+            stays required and is used only when there are no steps. driverEarnings = max(0, min(total before outstanding_fee,
+            driverRidePart + waiting line + stop_waiting line)) with driverRidePart = half_up(base − commission) to a whole
+            minor unit (half_up = floor(x + 1/2), pricing.halfUp); waiting and stop waiting stay 100 % the driver''s (decision
+            17). moneyBase.commission (v0.18.82) is unchanged: commission = fare − debtCollected − driverEarnings − pickupPay
+            − driverBonus; the apps show the server''s numbers and never work out a step themselves. v0.18.86 (owner 2026-11-13
+            ~21:40 UTC: "same place in admin which set commission per cathegories not global"): the steps are edited in the
+            SAME admin place as today''s commission: the zone''s Commission panel, inside EACH car-type card, next to that
+            card''s "% commission" field (commissionPct). Per zone and per car type (PricingDocument.categories[categoryId].commissionSteps;
+            the country standard''s Commission panel alike), NEVER a global setting and never a separate page. The card shows
+            the % field (used when there are no steps), the step rows, "Add step", and the warn texts of that card''s steps.
+            Warning (admin only): ADVISORY ONLY: the admin editor shows the warning (texts.warnDrop) in that car-type card,
+            next to the step, and STILL ALLOWS SAVING. The server does NOT refuse it: no 400, no reason code, no problem code;
+            PUT and publish save the steps exactly as with no warning. The driver and rider apps show nothing.'
     PricingFees:
       type: object
       required:
@@ -27715,7 +27772,8 @@ components:
             v0.18.82 reason: fare_is_driver_pay (400 invalid_request, admin adjust / complete sent the old fare field; contract.json#moneyBase.adminFare).
             v0.18.84 reasons (contract.json#debtModel): rider_debt_above_max (409 conflict, POST /trips pay in car), driver_owes_movera
             (409 conflict, admin assign of a cash trip to a driver at or over the owes-limit), owed_changed (409 conflict,
-            paid-movera), paid_above_owed and owes_limit_needs_amount (400 invalid_request).'
+            paid-movera), paid_above_owed and owes_limit_needs_amount (400 invalid_request). v0.18.86 reason: commission_steps_invalid
+            (400 invalid_request, PUT /admin/config/pricing and its publish; details ["step:<index>", "problem:<code>"], contract.json#commissionSteps.validation).'
         details:
           type: array
           items:
@@ -36165,3 +36223,44 @@ components:
           maxLength: 300
           description: 1..300 characters.
       additionalProperties: false
+    CommissionStep:
+      type: object
+      description: 'v0.18.86 (J5b): one commission step. The step is picked by the trip''s commission base (pricing.moneySplit.commissionBase
+        = ride part + extras − waiting − stop waiting; owner decisions 17/18), the exact amount before rounding — never by
+        the driver''s gain, the total, the app fee or the pickup fee. Steps are read in order: the first step whose upToMinor
+        is null or ≥ the commission base ("up to X" includes X). A % step: Movera''s commission = base − half_up(base × (1
+        − pct / 100)) (the driver''s ride part is rounded, the commission is the rest). A fixed step: commission = min(amountMinor,
+        base) — a fixed commission is never bigger than the commission base, so the driver''s ride part is never below 0.'
+      required:
+      - upToMinor
+      properties:
+        upToMinor:
+          oneOf:
+          - type: integer
+            minimum: 1
+            description: '"Trip price up to X": the commission base in minor units of the document''s currency, X included;
+              strictly higher than the step before.'
+          - type: 'null'
+          description: 'null = "above": allowed, and required, only on the last step.'
+        pct:
+          type: number
+          minimum: 0
+          maximum: 60
+          description: Movera's commission in % of the commission base (like commissionPct). Exactly one of pct or amountMinor.
+        amountMinor:
+          type: integer
+          minimum: 0
+          description: A fixed commission in minor units of the zone currency (TND millimes, 3 decimals); never more than
+            the commission base (capped). Exactly one of pct or amountMinor.
+      additionalProperties: false
+      oneOf:
+      - required:
+        - pct
+        not:
+          required:
+          - amountMinor
+      - required:
+        - amountMinor
+        not:
+          required:
+          - pct
