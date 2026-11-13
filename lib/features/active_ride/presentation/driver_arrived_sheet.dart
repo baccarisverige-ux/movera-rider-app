@@ -174,6 +174,7 @@ class DriverArrivedSheet extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
+                key: const ValueKey('driver-arrived-on-way'),
                 onPressed: () => _sendOnWayAndClose(context),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF11181D),

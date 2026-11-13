@@ -582,6 +582,10 @@ class _RideHistoryState extends State<RideHistory> {
         if (index == reservations.length) return _moreRow();
         final ride = reservations[index];
         return ReservationHistoryCard(
+          // Test name for the device suite: the server trip id.
+          key: ValueKey(
+            'history-ride-${ride.reservationId.replaceFirst('ondemand-', '')}',
+          ),
           ride: ride,
           onTap: () => _openHistoryRide(ride),
         );

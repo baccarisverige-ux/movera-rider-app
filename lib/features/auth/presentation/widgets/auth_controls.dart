@@ -426,6 +426,7 @@ class AuthPhoneField extends StatelessWidget {
     final current = country ?? PhoneCountries.sweden;
     final onChanged = onCountryChanged;
     return TextField(
+      key: const ValueKey('auth-phone-field'),
       controller: controller,
       focusNode: focusNode,
       autofocus: autofocus,

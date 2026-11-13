@@ -51,6 +51,7 @@ class WhereToCard extends StatelessWidget {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
+                key: const ValueKey('home-where-to'),
                 onTap: onDestinationTap,
                 borderRadius: BorderRadius.circular(18),
                 child: Semantics(
@@ -94,6 +95,7 @@ class WhereToCard extends StatelessWidget {
           Material(
             color: Colors.transparent,
             child: InkWell(
+              key: const ValueKey('home-schedule-later'),
               onTap: onOpenSchedule,
               borderRadius: BorderRadius.circular(18),
               child: Semantics(

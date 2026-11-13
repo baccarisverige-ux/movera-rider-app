@@ -59,6 +59,7 @@ Future<CancelOutcome> showCancelReservationFlow(
               width: double.infinity,
               height: 52,
               child: TextButton(
+                key: const ValueKey('reservation-cancel-confirm'),
                 onPressed: () => Navigator.pop(sheetContext, true),
                 style: TextButton.styleFrom(
                   backgroundColor: const Color(0xFFF4F5F6),

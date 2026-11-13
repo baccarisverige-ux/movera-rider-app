@@ -516,7 +516,12 @@ class RiderMenuPage extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(child: tile(items[0])),
+            Expanded(
+              child: KeyedSubtree(
+                key: const ValueKey('menu-ride-history'),
+                child: tile(items[0]),
+              ),
+            ),
             const SizedBox(width: 10),
             Expanded(child: tile(items[1])),
           ],

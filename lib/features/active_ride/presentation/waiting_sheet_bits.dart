@@ -428,6 +428,7 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
                   color: const Color(0xFFF6F8FA),
                   borderRadius: BorderRadius.circular(14),
                   child: InkWell(
+                    key: const ValueKey('waiting-chat'),
                     onTap: () => _openChat(rideId, d.displayFirstName),
                     borderRadius: BorderRadius.circular(14),
                     child: Padding(
@@ -454,6 +455,7 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
                           if (unreadMessages > 0) ...[
                             const SizedBox(width: 7),
                             Container(
+                              key: const ValueKey('waiting-chat-unread'),
                               constraints: const BoxConstraints(minWidth: 20),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 6,
@@ -482,6 +484,7 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
               ),
               const SizedBox(width: 8),
               _IconChip(
+                key: const ValueKey('waiting-call'),
                 icon: Icons.phone_outlined,
                 onTap: onCall,
                 semanticLabel: context.l10n.callDriver,
@@ -611,6 +614,7 @@ class WaitingNotesAndPin extends StatelessWidget {
 
 class _IconChip extends StatelessWidget {
   const _IconChip({
+    super.key,
     required this.icon,
     required this.onTap,
     required this.semanticLabel,

@@ -366,6 +366,7 @@ class _SignInState extends State<SignIn> with SingleTickerProviderStateMixin {
             behavior: HitTestBehavior.opaque,
             onTap: _agreed ? null : _nudgeConsent,
             child: AuthPrimaryButton(
+              key: const ValueKey('auth-continue'),
               label: context.l10n.continueLabel,
               busy: _busy == _Busy.phone,
               onPressed: idle ? _continue : null,

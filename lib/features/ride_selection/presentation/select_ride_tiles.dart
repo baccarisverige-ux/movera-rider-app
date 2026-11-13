@@ -372,6 +372,7 @@ extension _SelectRideTiles on _SelectRideState {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
+            key: ValueKey('select-ride-tile-${ride.id}'),
             onTap: () => _selectRide(ride.id),
             borderRadius: BorderRadius.circular(20),
             child: AnimatedContainer(
@@ -683,6 +684,7 @@ extension _SelectRideTiles on _SelectRideState {
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
+        key: const ValueKey('select-ride-payment'),
         // rider-u189: Set pickup changes the method of a booking under way.
         onTap: _bookingInFlight ? null : _showPaymentPicker,
         borderRadius: BorderRadius.circular(14),

@@ -142,6 +142,7 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
                     ),
                   ),
                   child: InkWell(
+                    key: ValueKey('cancel-reason-${reason.id}'),
                     borderRadius: BorderRadius.circular(14),
                     onTap: () => setState(() => _selected = reason.id),
                     child: Padding(
@@ -190,6 +191,7 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
               width: double.infinity,
               height: 52,
               child: TextButton(
+                key: const ValueKey('cancel-reason-submit'),
                 onPressed: _selected == null
                     ? null
                     : () => Navigator.pop(
