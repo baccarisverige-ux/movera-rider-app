@@ -67,18 +67,25 @@ extension _SelectRideTiles on _SelectRideState {
                   height: _SelectRideState._titleHeight,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 16, 6),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        context.l10n.chooseYourRide,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _text(
-                          20,
-                          weight: FontWeight.w700,
-                          letterSpacing: -0.4,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              context.l10n.chooseYourRide,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: _text(
+                                20,
+                                weight: FontWeight.w700,
+                                letterSpacing: -0.4,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        if (_selection.busyRetry.gaveUp) _busyRetryButton(),
+                      ],
                     ),
                   ),
                 ),
@@ -252,8 +259,21 @@ extension _SelectRideTiles on _SelectRideState {
   }
 
   /// "30 % promotion applied ⓘ" in teal; tap for the details.
+  /// fastDispatch.clients (R1, owner 2026-11-13): the automatic retries of
+  /// a busy server ran out; the rider asks again. Beside the title, or at
+  /// the end of the promotion line when one replaces the title, so it is
+  /// always there.
+  Widget _busyRetryButton() => TextButton(
+    key: const ValueKey('select-ride-quotes-retry'),
+    onPressed: _retryBusyQuotes,
+    child: Text(
+      context.l10n.tryAgain,
+      style: _text(13, weight: FontWeight.w600, color: _SelectRideState._ink),
+    ),
+  );
+
   Widget _promotionLine(RiderPromotion promotion) {
-    return Semantics(
+    final line = Semantics(
       button: true,
       child: InkWell(
         key: const ValueKey('select-ride-promotion-line'),
@@ -293,6 +313,21 @@ extension _SelectRideTiles on _SelectRideState {
             ),
           ),
         ),
+      ),
+    );
+    if (!_selection.busyRetry.gaveUp) return line;
+    // The promotion line keeps its place and its tap; "Try again" sits at
+    // its end, outside its tap area.
+    return SizedBox(
+      height: _SelectRideState._promotionLineHeight,
+      child: Row(
+        children: [
+          Expanded(child: line),
+          Padding(
+            padding: const EdgeInsets.only(right: 8, bottom: 6),
+            child: _busyRetryButton(),
+          ),
+        ],
       ),
     );
   }

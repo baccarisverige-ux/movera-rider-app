@@ -549,11 +549,16 @@ class _SelectRideState extends State<SelectRide>
     }
     setState(() {});
     _scheduleExpiryRequote();
+    _scheduleBusyRequote();
   }
 
   /// rider-u185: prices the rides again when their quotes run out, so the
   /// list never sits on a fare that is no longer offered.
   Timer? _expiryRequote;
+
+  /// fastDispatch.clients: the next price round after a busy one (503 /
+  /// 429 / timeout), at the server's Retry-After or a short backoff.
+  Timer? _busyRequote;
 
   void _onQuotesExpired() {
     _expiryRequote = null;
@@ -587,6 +592,7 @@ class _SelectRideState extends State<SelectRide>
     _nearby.dispose();
     _carTick.dispose();
     _expiryRequote?.cancel();
+    _busyRequote?.cancel();
     _fits.dispose();
     _selection.catalogChanges?.removeListener(_onCatalogChanged);
     if (_ownsSelection) _selection.dispose();
@@ -616,6 +622,13 @@ class _SelectRideState extends State<SelectRide>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appInForeground = state == AppLifecycleState.resumed;
     _syncNearbyWatch();
+    // A busy retry that fell due while the app was away runs now.
+    if (_appInForeground &&
+        _busyRequote == null &&
+        _selection.busyRetry.nextWait != null &&
+        !_bookingInFlight) {
+      unawaited(_loadQuotes());
+    }
   }
 
   bool _nearbySyncScheduled = false;

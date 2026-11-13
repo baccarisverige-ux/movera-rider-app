@@ -21,6 +21,34 @@ extension _SelectRideQuotes on _SelectRideState {
     _expiryRequote = Timer(wait, _onQuotesExpired);
   }
 
+  /// fastDispatch.clients: a round in which a price got a retryable answer
+  /// (503 server_busy, 429, a timeout) is asked again by itself, at the
+  /// server's Retry-After or a short backoff; nothing is shown as failed
+  /// while retries remain. The quote repository keeps a request still on
+  /// its way for a few seconds, so a late answer is picked up by the retry
+  /// without a second request.
+  void _scheduleBusyRequote() {
+    _busyRequote?.cancel();
+    _busyRequote = null;
+    final wait = _selection.busyRetry.nextWait;
+    if (wait == null) return;
+    _busyRequote = Timer(wait, () {
+      _busyRequote = null;
+      // Hidden or booking: resume (didChangeAppLifecycleState) or the
+      // booking lock's release asks again.
+      if (!mounted || _bookingInFlight || !_appInForeground) return;
+      unawaited(_loadQuotes());
+    });
+  }
+
+  /// "Try again" once the automatic retries ran out.
+  void _retryBusyQuotes() {
+    _selection.busyRetry.reset();
+    // ignore: invalid_use_of_protected_member
+    setState(() {});
+    unawaited(_loadQuotes());
+  }
+
   /// Set location moved the pin: price [ride] again from that exact point
   /// and adopt the quote, so Confirm books the price shown there. Goes
   /// through the selection, which keeps only the latest pin's answer.
