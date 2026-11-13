@@ -111,22 +111,56 @@ class NearbyCarsController extends ChangeNotifier {
             ) >
             30;
     if (!moved && _active) return;
-    if (previous != null &&
+    final newArea =
+        previous != null &&
         _meters(
               previous.latitude,
               previous.longitude,
               point.latitude,
               point.longitude,
             ) >
-            newAreaMeters &&
-        _tracks.isNotEmpty) {
+            newAreaMeters;
+    if (newArea && _tracks.isNotEmpty) {
       _tracks.clear();
       notifyListeners();
     }
     _point = point;
     if (moved) _generation++;
     _active = true;
-    unawaited(_fetch());
+    _fetchSoon(now: newArea);
+  }
+
+  /// Runs for [NearbyCarsRepository.minRefresh] after each request: while
+  /// it runs, a new ask waits for it (a Timer, so it follows the test clock).
+  Timer? _spacing;
+  bool _waitingForSpacing = false;
+
+  /// G31 phone run 1 (route-picker -> select-ride: nearby-vehicles read
+  /// twice within 4 s) and G34 load: a pause / resume (a sheet or page
+  /// covering the screen, the app going away and back, the map parked) or
+  /// a small pickup move asks again, but never sooner than
+  /// [NearbyCarsRepository.minRefresh] after the last request. Only a new
+  /// area ([now]) is asked at once.
+  void _fetchSoon({bool now = false}) {
+    if (now || _spacing == null) {
+      unawaited(_fetch());
+      return;
+    }
+    if (_inFlight) return;
+    _next?.cancel();
+    _next = null;
+    _waitingForSpacing = true;
+  }
+
+  void _startSpacing() {
+    _spacing?.cancel();
+    _spacing = Timer(NearbyCarsRepository.minRefresh, () {
+      _spacing = null;
+      if (_waitingForSpacing) {
+        _waitingForSpacing = false;
+        unawaited(_fetch());
+      }
+    });
   }
 
   /// Stops asking (the screen is covered or leaving); the cars stay drawn.
@@ -134,13 +168,14 @@ class NearbyCarsController extends ChangeNotifier {
     _active = false;
     _next?.cancel();
     _next = null;
+    _waitingForSpacing = false;
   }
 
   /// Asks again at once after a [pause].
   void resume() {
     if (_disposed || _active || _point == null) return;
     _active = true;
-    unawaited(_fetch());
+    _fetchSoon();
   }
 
   Future<void> _fetch() async {
@@ -149,6 +184,8 @@ class NearbyCarsController extends ChangeNotifier {
     final point = _point;
     if (_inFlight || !_active || _disposed || point == null) return;
     _inFlight = true;
+    _waitingForSpacing = false;
+    _startSpacing();
     final generation = _generation;
     var wait = NearbyCarsRepository.defaultRefresh;
     try {
@@ -174,8 +211,15 @@ class NearbyCarsController extends ChangeNotifier {
     }
     if (_disposed || !_active) return;
     // The pickup moved while this answer was on its way: ask for the new
-    // place at once.
-    if (generation != _generation) wait = Duration.zero;
+    // place soon (at least minRefresh after the last request).
+    if (generation != _generation) {
+      if (_spacing == null) {
+        wait = Duration.zero;
+      } else {
+        _waitingForSpacing = true;
+        return;
+      }
+    }
     _next = Timer(wait, () => unawaited(_fetch()));
   }
 
@@ -247,6 +291,8 @@ class NearbyCarsController extends ChangeNotifier {
     _disposed = true;
     _next?.cancel();
     _next = null;
+    _spacing?.cancel();
+    _spacing = null;
     super.dispose();
   }
 
