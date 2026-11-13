@@ -158,7 +158,8 @@ def seats(cat, inp, amt, cid):
     if cid != 'child_seat' and any(inp.get(k, 0) for k in ('babySeats', 'childSeats')): raise ValueError('seat_not_offered')
     return amt(cat['childSeatFee']) if cid == 'child_seat' and 'childSeatFee' in cat else Fr(0)
 def price(doc, inp):
-    """Every line exact until rounded half-up to a minor unit; the total rounded once to priceStep; outstanding_fee after that."""
+    """Every line exact until rounded half-up to a minor unit; the total rounded once to priceStep; outstanding_fee after that
+    (v0.18.84: only in the price of the trip being PAID, the debt read from the wallet then — never on a quote, debtModel.readAtPayment)."""
     cat, amt, lines = doc['categories'][inp['categoryId']], (lambda m: Fr(m['amountMinor'])), []
     add = lambda code, v, keep=False: lines.append((code, v)) if (v != 0 or keep) else None
     ee = inp.get('endEarly')
@@ -779,5 +780,57 @@ else:
     if 'call_window_closed' not in _ic['errors'] or 'calls_off' not in _ic['errors'] or 'call_busy' not in _ic['errors']: bad += 1; print('IN-APP CALLS errors')
     if _ic['texts']['callFailed']['en'] != 'Call failed': bad += 1; print('IN-APP CALLS owner: "Call failed" only')
     if _ic['who'] != ['rider', 'driver']: bad += 1; print('IN-APP CALLS owner: both sides call')
+
+# v0.18.84 (S5 J7, contract.json#debtModel; owner Q-M1, Q-M2, Q-S5-1..5): the unpaid fee is a negative wallet balance, read at
+# payment; max rider debt refuses only pay-in-car bookings; the driver owes-limit (OFF by default) and "Driver paid Movera".
+_dm, _dmf = c['debtModel'], json.load(open('fixtures/debt_model.json'))
+def _pay(bal, cur):   # debtModel.readAtPayment: the debt of the trip's currency becomes the outstanding_fee line; debt_paid brings it to 0
+    owed = sum(-min(0, b['amountMinor']) for b in bal if b['currency'] == cur)
+    return owed, [{'amountMinor': (b['amountMinor'] + owed if b['currency'] == cur else b['amountMinor']), 'currency': b['currency']} for b in bal]
+for _x in _dmf['payment']:
+    _o, _after = _pay(_x['balances'], _x['tripCurrency'])
+    if (_o, _after) != (_x['expect']['outstandingFee'], _x['expect']['balancesAfter']): bad += 1; print('DEBT PAYMENT', _x['id'], _o, _after)
+_floor = _dm['dbFloor']
+for _x in _dmf['fee']:   # a fee is always saved (never refused at the max); it stays above the DB floor
+    _b = {'amountMinor': _x['balance']['amountMinor'] - _x['fee']['amountMinor'], 'currency': _x['balance']['currency']}
+    if _b != _x['expect'] or _b['amountMinor'] < _floor[_b['currency']]: bad += 1; print('DEBT FEE', _x['id'])
+for _cc, _mx in c['configDefaults']['maxRiderDebt'].items():
+    if _floor[_mx['currency']] != -3 * _mx['amountMinor']: bad += 1; print('DEBT FLOOR not 3 x default max', _cc)
+for _x in _dmf['cashBooking']:   # owner Q-S5-4: only pay-in-car bookings at or above the max are refused
+    _r = 'rider_debt_above_max' if _x['paymentMethod'] == 'cash' and _x['debt']['amountMinor'] >= _x['max']['amountMinor'] else 'ok'
+    if _r != _x['expect'] or _x['paymentMethod'] not in c['paymentMethods']: bad += 1; print('DEBT BOOKING', _x['id'])
+for _x in _dmf['walletSwitch']:
+    if (_x['walletFirst'] or _x['balance']['amountMinor'] < 0) != _x['expect']: bad += 1; print('DEBT WALLET SWITCH', _x['id'])
+for _x in _dmf['driverOwed']:   # owed = −min(0, next payout now + carried rest)
+    _o = -min(0, _x['unpaidSum']['amountMinor'] + _x['carried']['amountMinor'])
+    if {'amountMinor': _o, 'currency': _x['unpaidSum']['currency']} != _x['expect']: bad += 1; print('DRIVER OWED', _x['id'])
+for _x in _dmf['walletApplied']:   # supervisor M2: walletApplied = max(0, min(balance, fare)); the debt only through outstanding_fee
+    _b, _f = _x['balance']['amountMinor'], _x['fare']['amountMinor']
+    _w = max(0, min(_b, _f)); _o = -min(0, _b)
+    if {'walletApplied': _w, 'outstandingFee': _o, 'cashToCollect': _f - _w + _o} != _x['expect']: bad += 1; print('DEBT WALLET APPLIED', _x['id'])
+for _x in _dmf['changeover']:   # supervisor M3: a pre-J8 trip drops its copied line at payment and reads the wallet; paid once
+    _base = _x['fareWithCopiedLine']['amountMinor'] - _x['copiedLine']['amountMinor']; _d = -min(0, _x['walletBalance']['amountMinor'])
+    _r = {'riderPays': _base + _d, 'debtPaid': _d, 'balanceAfter': _x['walletBalance']['amountMinor'] + _d}
+    if _r != _x['expect'] or _r['riderPays'] != _base + _d: bad += 1; print('DEBT CHANGEOVER', _x['id'])   # R2-3: whole debt, the copied amount never on top
+for _x in _dmf['floorFollowsMax']:   # owner 15:00 + supervisor R2-1/R2-2: the floor only moves down, room for 4 fees; every case: the fee is saved
+    _mx, _fee = _x['max']['amountMinor'], _x['largestFee']['amountMinor']
+    _fl = min(_x['currentFloor'], -3 * _mx, -(_mx + 4 * _fee))
+    _sv = _x['balance']['amountMinor'] - _x['feesOnOpenRides'] * _fee >= _fl and _fl <= _x['currentFloor']
+    if {'floor': _fl, 'saved': _sv} != _x['expect'] or not _sv: bad += 1; print('DEBT FLOOR FOLLOWS MAX', _x['id'], _fl, _sv)
+for _x in _dmf['cashOffers']:   # owner Q-S5-1 + 2026-11-13 14:54: at or over the limit (only when on): no cash offers; online never refused
+    _l = _x['limit']
+    _over = bool(_l['enabled'] and _l['max'] and _x['owed']['amountMinor'] >= _l['max']['amountMinor'])
+    _r = 'no_offer' if _over and _x['paymentMethod'] == 'cash' else 'offered'
+    if _r != _x['expect'] or _x['goOnline'] != 'ok' or _x['paymentMethod'] not in c['paymentMethods']: bad += 1; print('DRIVER CASH OFFERS', _x['id'])
+for _x in _dmf['paidMovera']:
+    _n, _e, _a = _x['owedNow'], _x['expectedOwed'], _x['amount']
+    if _a['amountMinor'] <= 0 or _a['currency'] != _e['currency']: _r = {'error': 'invalid_request'}
+    elif _e != _n: _r = {'error': 'owed_changed'}
+    elif _a['amountMinor'] > _n['amountMinor']: _r = {'error': 'paid_above_owed'}
+    else: _r = {'owedAfter': {'amountMinor': _n['amountMinor'] - _a['amountMinor'], 'currency': _n['currency']}}
+    if _r != _x['expect']: bad += 1; print('PAID MOVERA', _x['id'], _r)
+if any(v['enabled'] for v in c['configDefaults']['driverOwesLimit'].values()): bad += 1; print('DRIVER OWES LIMIT must ship OFF (owner Q-S5-1)')
+if c['configDefaults']['driverOwesLimit']['TN']['max'] != {'amountMinor': 150000, 'currency': 'TND'}: bad += 1; print('DRIVER OWES LIMIT TN 150 DT (owner 2026-11-13 14:22)')
+if c['driverOnboarding']['reminders']['texts']['owes_movera_over_limit'] != _dm['texts']['owesMoveraLine']: bad += 1; print('DRIVER OWES home line text')
 
 print('OK' if not bad else f'{bad} mismatches'); sys.exit(1 if bad else 0)
