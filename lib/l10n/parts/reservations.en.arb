@@ -268,6 +268,15 @@
     }
   },
   "resErrTripTooLong": "This ride is too long to book ahead. Book it when you want to go.",
+  "resErrBookedRidesLimit": "You can have at most {count} booked rides. Cancel one to book another.",
+  "@resErrBookedRidesLimit": {
+    "description": "B1.34 (contract v0.18.81, bookLater.texts.bookedRidesLimit): the rider already has the zone's most booked rides.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "resErrChangeTooLate": "Less than {minutes} minutes before pickup the ride can't be changed. Your ride is unchanged.",
   "@resErrChangeTooLate": {
     "placeholders": {

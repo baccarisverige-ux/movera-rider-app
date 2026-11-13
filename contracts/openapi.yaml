@@ -1,11 +1,11 @@
-# Movera API v0.18.78 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.81 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.78
+  version: 0.18.81
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.78 in this folder; this file must agree with them.
+    v0.18.81 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.78
+  version: 0.18.81
   source: contract.json
 paths:
   /auth/otp/request:
@@ -638,7 +638,18 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: 'version_mismatch / invalid_transition (with projection) or conflict (active_trip_exists, quote_used,
+            quote_expired, ...). v0.18.81 (B1.34): kind scheduled and the rider already holds maxOpenPerRider booked rides
+            that have not ended → conflict, reason booked_rides_limit, the number in the message (contract.json#bookLater.riderCap).'
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictError'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -6305,8 +6316,10 @@ paths:
       operationId: adminTicketAssign
       summary: Assign a ticket
       description: 'v0.18.15. POST /admin/tickets/{ticketId}/assign { adminId | null, reason } -> SupportTicket: hands the
-        ticket to an active admin who has support.reply and covers the ticket''s zone (else 400 invalid_request, reason assignee_not_allowed);
-        null = nobody. Audited ticket.assign. The admin''s zones only (else 403 zone_out_of_scope).'
+        ticket to an active admin who has support.reply and covers the ticket (its zone; a ticket without a zone: a zone in
+        the ticket''s country, or all zones — the countryTeam rule) (else 400 invalid_request, reason assignee_not_allowed);
+        null = nobody. Audited ticket.assign. The admin''s zones only; a ticket without a zone: an admin with a zone in its
+        country, or all zones (contract.json#supportDesk.countryTeam); else 403 zone_out_of_scope.'
       tags:
       - Admin · Support
       x-actor:
@@ -23802,6 +23815,21 @@ components:
           description: 'v0.18.19 (owner C): the highest raise of a booked ride, in the zone''s money (major units, e.g. 500
             = 500 kr); the server also keeps the live-ride bonus limit, whichever is lower. Missing or null = the live-ride
             limit only. Over it: 400 invalid_request, reason bonus_over_limit.'
+        maxOpenPerRider:
+          type: integer
+          minimum: 1
+          maximum: 50
+          description: 'v0.18.81 (server B1.34, owner Q94 ''A) Yes'' — one account must not fill a zone''s list; owner 2026-11-13:
+            default 3, texts): POST /trips with kind scheduled refuses when the rider already has maxOpenPerRider booked rides
+            that have not ended (kind scheduled, status not in tripStatus.terminal; counted over all zones; the limit is DriverAppConfig.reservations.maxOpenPerRider
+            of the zone booked: the country standard by default, a zone may override it, range 1-50, default 3): 409 conflict,
+            reason booked_rides_limit, message ''You can have at most {n} booked rides. Cancel one to book another.'' with
+            the number (the rider app reads it; texts bookLater.texts.bookedRidesLimit). A cancelled or ended booked ride
+            frees a place. Live rides do not count and are not limited by it. Two bookings at the same moment never pass it
+            (the server locks the rider row for a scheduled booking). Checked at POST /trips only, not at POST /quotes, so
+            changing the time of a booked ride (POST /trips/{tripId}/reschedule with a new scheduled quote) is never refused
+            by it. Older apps without the reason show their general booking error.'
+          default: 3
     PickupRange:
       type: object
       description: 'One pickup-distance range (contract.json#pickupPay.ranges): the first starts at 0, each next one where

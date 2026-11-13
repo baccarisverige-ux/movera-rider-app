@@ -958,6 +958,7 @@
   "resErrTooSoon": "Boka minst {minutes} minuter före hämtning.",
   "resErrTooFar": "Du kan boka högst {days} dagar fram.",
   "resErrTripTooLong": "Den här resan är för lång för att boka i förväg. Boka den när du vill åka.",
+  "resErrBookedRidesLimit": "Du kan ha högst {count} bokade resor. Avboka en för att boka en ny.",
   "resErrChangeTooLate": "Mindre än {minutes} minuter före hämtning kan resan inte ändras. Din resa är oförändrad.",
   "resErrZoneOff": "Inte tillgängligt i det här området än",
   "bookingFreeRule": "Gratis ändring och avbokning mer än {time} före upphämtning",

@@ -377,7 +377,8 @@
     "takeBackLateMin": 5,
     "takeBackKeepIfDriveMin": 10,
     "takeBackUntilMinBeforePickup": 15,
-    "noDriverStopAfterMin": 15
+    "noDriverStopAfterMin": 15,
+    "maxOpenPerRider": 3
   },
   "cancelReasons": {
     "driverBeforeTrip": [
