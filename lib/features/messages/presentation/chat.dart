@@ -77,7 +77,6 @@ class _ChatState extends State<Chat> {
           rideId,
           transport: rideId.isEmpty ? null : AppScope.instance.tripMessages,
         );
-    _chat.markAllRead();
     _shownCount = _chat.messages.length;
     _chat.addListener(_onConversationChanged);
     _chat.onSendFailed = _onSendFailed;
@@ -85,9 +84,15 @@ class _ChatState extends State<Chat> {
     // from the trip stream's `message` events (no poll).
     unawaited(_chat.refresh());
     unawaited(_chat.loadOptions());
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _scrollToEnd(jump: true),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // The read mark notifies the trip's shared conversation at once, and
+      // its other listeners (the driver card's unread badge) rebuild. In
+      // initState that ran while the chat was building ("setState() called
+      // during build"), so it lands right after the chat's first frame.
+      if (!mounted) return;
+      _chat.markAllRead();
+      _scrollToEnd(jump: true);
+    });
   }
 
   @override
