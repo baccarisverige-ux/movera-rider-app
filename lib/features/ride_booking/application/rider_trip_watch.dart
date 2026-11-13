@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 
@@ -15,6 +16,10 @@ import 'package:movera_rider/features/ride_booking/application/ride_restore_coor
 /// * Owner Q1 "Live ride + banner": while a live ride is on screen,
 ///   [bookedDriverOnTheWay] says a booked ride's driver is heading to the
 ///   rider (the live ride stays on screen).
+/// * v0.18.83 (`bookedRideSeen.pollBackoff`, owner 2026-11-13 "32 s"):
+///   after failed reads the poll waits 16 s, then 32 s (the cap), never
+///   less than Retry-After; the first answer brings back [pollEvery]. A
+///   hint, a stream reconnect and a resume still read at once.
 class RiderTripWatch {
   RiderTripWatch({
     bool Function()? showsHome,
@@ -23,6 +28,7 @@ class RiderTripWatch {
     Future<void> Function()? refreshBooked,
     bool Function()? hasBooked,
     this.pollEvery = const Duration(seconds: 8),
+    this.maxBackoff = const Duration(seconds: 32),
   }) : _showsHome = showsHome ?? _defaultShowsHome,
        _adopt = adopt ?? _defaultAdopt,
        _bookedOnTheWay = bookedOnTheWay ?? _defaultBookedOnTheWay,
@@ -33,6 +39,18 @@ class RiderTripWatch {
 
   /// contract.json#bookedRideSeen.pollSeconds.
   final Duration pollEvery;
+
+  /// contract.json#bookedRideSeen.pollBackoff.maxSeconds (32): the longest
+  /// wait between two failed reads (unless Retry-After says longer).
+  /// `GET /rider/trips/active` is never shed, so before this every Home
+  /// held a slot in the busy pool every 8 s.
+  final Duration maxBackoff;
+
+  /// Failed reads in a row.
+  int _failures = 0;
+
+  /// Poll ticks still to skip before the next read.
+  int _skipTicks = 0;
 
   final bool Function() _showsHome;
   final Future<void> Function() _adopt;
@@ -63,7 +81,15 @@ class RiderTripWatch {
       !RideRestoreCoordinator.rideStageOnScreen();
 
   static Future<void> _defaultAdopt() async {
-    await RideRestoreCoordinator.instance.resumeIfNeeded();
+    final coordinator = RideRestoreCoordinator.instance;
+    // A resume that does not ask the server (a live ride is held here)
+    // leaves no failure of an earlier read behind.
+    coordinator.lastActiveTripReadFailure = null;
+    await coordinator.resumeIfNeeded();
+    // The lookup keeps Home as it is on a failed read (it returns null);
+    // the poll still needs to know, to back off (with its Retry-After).
+    final failure = coordinator.lastActiveTripReadFailure;
+    if (failure != null) throw failure;
   }
 
   static Future<void> _defaultRefreshBooked() =>
@@ -91,6 +117,7 @@ class RiderTripWatch {
     // A booked ride changed: Upcoming and the chrono read it again, also
     // while a ride is on screen.
     unawaited(_refreshList());
+    // A real hint is read at once, even during a backoff pause.
     unawaited(check());
   }
 
@@ -106,7 +133,16 @@ class RiderTripWatch {
   /// front also reads the booked rides again.
   void start() {
     if (_poll != null) return;
-    _poll = Timer.periodic(pollEvery, (_) => unawaited(check()));
+    // Back in front: the resume reads at once (app_lifecycle), so the
+    // next tick reads too instead of waiting out an old pause.
+    _skipTicks = 0;
+    _poll = Timer.periodic(pollEvery, (_) {
+      if (_skipTicks > 0) {
+        _skipTicks--;
+        return;
+      }
+      unawaited(check());
+    });
     unawaited(_refreshList());
   }
 
@@ -129,6 +165,23 @@ class RiderTripWatch {
 
   bool get polling => _poll != null;
 
+  /// Poll ticks to skip after the [_failures]-th failed read: the wait is
+  /// 16 s, then 32 s and stays there ([maxBackoff]), never shorter than
+  /// the server's Retry-After.
+  int _ticksToSkip(Object error) {
+    final every = pollEvery.inMilliseconds;
+    final cap = maxBackoff.inMilliseconds;
+    var wait = every << _failures.clamp(0, 16);
+    if (wait > cap) wait = cap;
+    final retryAfter = error is ApiError ? error.retryAfter : null;
+    if (retryAfter != null && retryAfter.inMilliseconds > wait) {
+      wait = retryAfter.inMilliseconds;
+    }
+    // A read every [pollEvery]: the next one comes after ceil(wait / every)
+    // ticks, so the ones before it are skipped.
+    return ((wait + every - 1) ~/ every) - 1;
+  }
+
   /// Home: read the server's active trip and open it. A ride on screen:
   /// refresh the booked-driver banner.
   Future<void> check() async {
@@ -148,7 +201,11 @@ class RiderTripWatch {
       } else {
         bookedDriverOnTheWay.value = await _bookedOnTheWay();
       }
+      _failures = 0;
+      _skipTicks = 0;
     } catch (error) {
+      _failures += 1;
+      _skipTicks = _ticksToSkip(error);
       AppLog.warning(
         'ride.trip_watch.failed',
         extra: {'error': error.runtimeType.toString()},
