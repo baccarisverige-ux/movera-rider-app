@@ -15,9 +15,12 @@ The same file is in all 5 code repos (contracts, server, admin, driver,
 rider). Plain Python 3, no dependencies, no network.
 
 Usage
-  RULE0_BODY="$body" python3 tools/rule0_check.py   (CI: body from an env var)
-  python3 tools/rule0_check.py body.md              (local: body from a file)
-  python3 tools/rule0_check.py - < body.md          (local: body from stdin)
+  RULE0_BODY="$body" python3 .github/rule0/rule0_check.py   (CI: env var)
+  python3 .github/rule0/rule0_check.py body.md              (local: a file)
+  python3 .github/rule0/rule0_check.py - < body.md          (local: stdin)
+
+It lives in .github/rule0/, not tools/: the contracts repo ships every file
+in tools/ to the apps' contract copies (scripts/checksums.sh, sync.sh).
 Exit 0 = pass, 1 = fail.
 """
 import os
@@ -129,16 +132,28 @@ def check_body(body):
     return errors
 
 
+def escape_command_text(text):
+    """Escape text for a GitHub "::error::" line (SF-1).
+
+    The PR body is untrusted: a raw CR or LF in a row name could start a new
+    workflow command line. GitHub's own escaping: % -> %25, CR -> %0D, LF -> %0A.
+    """
+    return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
 def main(argv):
     if len(argv) > 1:
-        body = sys.stdin.read() if argv[1] == "-" else open(
-            argv[1], encoding="utf-8").read()
+        if argv[1] == "-":
+            body = sys.stdin.read()
+        else:
+            with open(argv[1], encoding="utf-8") as f:
+                body = f.read()
     else:
         body = os.environ.get("RULE0_BODY", "")
     errors = check_body(body)
     if errors:
         for e in errors:
-            print("::error title=Rule 0::%s" % e)
+            print("::error title=Rule 0::%s" % escape_command_text(e))
         print("FAIL: the PR description needs a filled Rule 0 table "
               "(see .github/pull_request_template.md).")
         return 1

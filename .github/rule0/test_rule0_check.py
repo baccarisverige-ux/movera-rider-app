@@ -1,4 +1,7 @@
-"""Unit tests for tools/rule0_check.py. Run: python3 -m unittest tools/test_rule0_check.py"""
+"""Unit tests for rule0_check.py.
+
+Run: python3 -m unittest discover -s .github/rule0 -p 'test_rule0_check.py'
+"""
 import contextlib
 import io
 import os
@@ -88,10 +91,11 @@ class Rule0CheckTest(unittest.TestCase):
 
     def test_template_fails_until_filled(self):
         here = os.path.dirname(os.path.abspath(__file__))
-        path = os.path.join(here, "..", ".github", "pull_request_template.md")
+        path = os.path.join(here, "..", "pull_request_template.md")
         if not os.path.exists(path):
             self.skipTest("no template")
-        errs = rule0_check.check_body(open(path, encoding="utf-8").read())
+        with open(path, encoding="utf-8") as f:
+            errs = rule0_check.check_body(f.read())
         self.assertEqual(len(errs), 5, errs)
 
     def test_main_reads_env_and_exit_code(self):
@@ -103,6 +107,27 @@ class Rule0CheckTest(unittest.TestCase):
                 os.environ["RULE0_BODY"] = "$(touch /tmp/pwned) `id`"
                 self.assertEqual(rule0_check.main(["x"]), 1)
             self.assertIn("::error title=Rule 0::", out.getvalue())
+        finally:
+            del os.environ["RULE0_BODY"]
+
+    def test_error_lines_escape_untrusted_text(self):
+        # SF-1: a CR/LF or % in a row name must not start a new command line.
+        self.assertEqual(rule0_check.escape_command_text("a%b\rc\nd"),
+                         "a%25b%0Dc%0Ad")
+        bad = "x\r::warning::injected"
+        text = "## Rule 0\n\n| Part | Status |\n|---|---|\n| %s | this PR |\n" % bad
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(self._run_env(text), 1)
+        for line in out.getvalue().splitlines():
+            self.assertFalse(line.startswith("::warning"), line)
+        self.assertNotIn("\r", out.getvalue())
+        self.assertIn("%0D::warning::injected", out.getvalue())
+
+    def _run_env(self, text):
+        os.environ["RULE0_BODY"] = text
+        try:
+            return rule0_check.main(["x"])
         finally:
             del os.environ["RULE0_BODY"]
 

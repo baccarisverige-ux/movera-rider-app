@@ -29,12 +29,12 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
           sparse-checkout: |
-            tools/rule0_check.py
-            tools/test_rule0_check.py
+            .github/rule0/rule0_check.py
+            .github/rule0/test_rule0_check.py
           sparse-checkout-cone-mode: false
       - name: Check the Rule 0 table in the PR description
         env:
           RULE0_BODY: ${{ github.event.pull_request.body }}
         run: |
-          python3 -m unittest -q tools/test_rule0_check.py
-          python3 tools/rule0_check.py
+          python3 -m unittest discover -q -s .github/rule0 -p 'test_rule0_check.py'
+          python3 .github/rule0/rule0_check.py
