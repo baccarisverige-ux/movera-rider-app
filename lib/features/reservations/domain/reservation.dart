@@ -118,16 +118,31 @@ class ReservationDriver {
   static ReservationDriver? tryParse(dynamic raw) {
     if (raw is! Map) return null;
     final map = Map<String, dynamic>.from(raw);
-    final name = (map['firstName'] as String?)?.trim() ?? '';
+    String? text(Object? value) {
+      final clean = value is String ? value.trim() : '';
+      return clean.isEmpty ? null : clean;
+    }
+
+    final name = text(map['firstName']) ?? '';
     if (name.isEmpty) return null;
+    // G31 run 2: the server's driver summary carries the car as an object
+    // ({vehicleId, make, model, color, plate, categoryId}); older answers
+    // and the device copy carry the flat text fields.
+    final car = map['vehicle'];
+    final carMap = car is Map ? car : const <String, Object?>{};
+    final makeModel = [
+      text(carMap['make']),
+      text(carMap['model']),
+    ].whereType<String>().join(' ');
+    final rating = map['rating'];
     return ReservationDriver(
       firstName: name,
-      id: map['id'] as String?,
-      rating: (map['rating'] as num?)?.toDouble(),
-      vehicle: map['vehicle'] as String?,
-      vehicleColor: map['vehicleColor'] as String?,
-      plate: map['plate'] as String?,
-      photoAsset: map['photoAsset'] as String?,
+      id: text(map['id']),
+      rating: rating is num ? rating.toDouble() : null,
+      vehicle: car is Map ? (makeModel.isEmpty ? null : makeModel) : text(car),
+      vehicleColor: text(map['vehicleColor']) ?? text(carMap['color']),
+      plate: text(map['plate']) ?? text(carMap['plate']),
+      photoAsset: text(map['photoAsset']),
     );
   }
 }
