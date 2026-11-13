@@ -56,12 +56,20 @@ class RiderCategoryWaiting {
     required this.perMin,
     required this.noShowAfterMin,
     required this.noShowFee,
+    this.perMinShown,
   });
 
   final int freeWaitMin;
   final Money perMin;
   final int noShowAfterMin;
   final Money noShowFee;
+
+  /// v0.18.85 (`waitingPriceShown`): [perMin] with the category's app fee,
+  /// as the rider pays it (served by the server); null from an older one.
+  final Money? perMinShown;
+
+  /// The waiting price per minute the rider sees.
+  Money get perMinToShow => perMinShown ?? perMin;
 }
 
 /// Waiting at pickup and no-show (`waiting`). The top-level terms are the
@@ -72,6 +80,7 @@ class RiderWaitingRules extends RiderCategoryWaiting {
     required super.perMin,
     required super.noShowAfterMin,
     required super.noShowFee,
+    super.perMinShown,
     this.byCategory = const {},
   });
 
@@ -576,12 +585,22 @@ class RiderAppConfig {
     final perMin = money(raw['perMin']) ?? base?.perMin;
     final noShowFee = money(raw['noShowFee']) ?? base?.noShowFee;
     if (perMin == null || noShowFee == null) return null;
+    // v0.18.85: the shown price belongs to the raw one it was served with.
+    final ownPerMin = money(raw['perMin']);
+    final perMinShown = ownPerMin == null ? null : money(raw['perMinShown']);
     return RiderWaitingRules(
       freeWaitMin: freeWait,
       perMin: perMin,
       noShowAfterMin: noShowAfter,
       noShowFee: noShowFee,
-      byCategory: _byCategory(raw['byCategory'], money, perMin, noShowFee),
+      perMinShown: perMinShown,
+      byCategory: _byCategory(
+        raw['byCategory'],
+        money,
+        perMin,
+        noShowFee,
+        perMinShown,
+      ),
     );
   }
 
@@ -593,6 +612,7 @@ class RiderAppConfig {
     Money? Function(Object?) money,
     Money perMin,
     Money noShowFee,
+    Money? perMinShown,
   ) {
     if (raw is! Map) return const {};
     final out = <String, RiderCategoryWaiting>{};
@@ -603,9 +623,14 @@ class RiderAppConfig {
       final freeWait =
           _count(row['freeWaitMin'], max: 120) ??
           ZoneDefaults.freeWaitMinOf(id);
+      final ownPerMin = money(row['perMin']);
       out[id] = RiderCategoryWaiting(
         freeWaitMin: freeWait,
-        perMin: money(row['perMin']) ?? perMin,
+        perMin: ownPerMin ?? perMin,
+        // A row without its own price takes the top-level one, shown too.
+        perMinShown: ownPerMin == null
+            ? perMinShown
+            : money(row['perMinShown']),
         noShowAfterMin: _count(row['noShowAfterMin'], max: 120) ?? freeWait,
         noShowFee: money(row['noShowFee']) ?? noShowFee,
       );
