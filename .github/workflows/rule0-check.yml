@@ -1,0 +1,40 @@
+name: Rule 0 check
+
+# Owner order 2026-11-13 ("Any work must be on all repo!"): every pull request
+# description needs a filled "## Rule 0" table naming all 5 parts (Contract,
+# Server, Admin (incl. setting), Driver, Rider). Same file in all 5 code repos.
+# Rule 47: seconds, no secrets, read-only token, only the 2 check files are
+# checked out. The PR body reaches the script through an env var only (never
+# pasted into the shell), so text in the body cannot run as a command.
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, ready_for_review, synchronize]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rule0-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  rule0:
+    name: "Rule 0: all 5 parts"
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/rule0/rule0_check.py
+            .github/rule0/test_rule0_check.py
+          sparse-checkout-cone-mode: false
+      - name: Check the Rule 0 table in the PR description
+        env:
+          RULE0_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          python3 -m unittest discover -q -s .github/rule0 -p 'test_rule0_check.py'
+          python3 .github/rule0/rule0_check.py
