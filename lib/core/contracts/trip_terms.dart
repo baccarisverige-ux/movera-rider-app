@@ -18,6 +18,8 @@ class TripTerms {
     this.maxPickupMoveMeters = defaultMaxPickupMoveMeters,
     this.stopFreeWaitMin = 0,
     this.stopWaitPerMin,
+    this.waitPerMinShown,
+    this.stopWaitPerMinShown,
   });
 
   /// `pickupWaiting.pickupMove.default`.
@@ -38,6 +40,19 @@ class TripTerms {
   /// (default 0 = paid from the first minute) and the price per minute.
   final int stopFreeWaitMin;
   final Money? stopWaitPerMin;
+
+  /// v0.18.85 (`waitingPriceShown`, owner 2026-11-02 "Show price incl.
+  /// fee"): the waiting prices with the app fee, as the rider pays them.
+  /// Null from an older server (or another currency): the raw price shows.
+  final Money? waitPerMinShown;
+  final Money? stopWaitPerMinShown;
+
+  /// The waiting price per minute the rider sees: incl. the app fee.
+  Money get waitPerMinToShow => waitPerMinShown ?? waitPerMin;
+
+  /// The stop-wait price per minute the rider sees; null without one.
+  Money? get stopWaitPerMinToShow =>
+      stopWaitPerMin == null ? null : stopWaitPerMinShown ?? stopWaitPerMin;
 
   /// Parses the wire shape; null when a required field is missing or the
   /// amounts are not all in the trip's currency.
@@ -62,7 +77,14 @@ class TripTerms {
     final maxMove = raw['maxPickupMoveMeters'];
     final stopFree = raw['stopFreeWaitMin'];
     final stopPerMin = Money.fromWire(raw['stopWaitPerMin']);
+    Money? inCurrency(Object? wire) {
+      final money = Money.fromWire(wire);
+      return money != null && money.currency == currency ? money : null;
+    }
+
     return TripTerms(
+      waitPerMinShown: inCurrency(raw['waitPerMinShown']),
+      stopWaitPerMinShown: inCurrency(raw['stopWaitPerMinShown']),
       stopFreeWaitMin: stopFree is num && stopFree >= 0 ? stopFree.round() : 0,
       stopWaitPerMin: stopPerMin != null && stopPerMin.currency == currency
           ? stopPerMin
@@ -95,6 +117,8 @@ class TripTerms {
     'maxPickupMoveMeters': maxPickupMoveMeters,
     'stopFreeWaitMin': stopFreeWaitMin,
     'stopWaitPerMin': ?stopWaitPerMin?.toJson(),
+    'waitPerMinShown': ?waitPerMinShown?.toJson(),
+    'stopWaitPerMinShown': ?stopWaitPerMinShown?.toJson(),
   };
 }
 

@@ -25,7 +25,8 @@ class TripTermsLines {
       _build(
         booked: booked,
         freeWaitMin: terms.freeWaitMin,
-        perMin: terms.waitPerMin,
+        // v0.18.85 (`waitingPriceShown`): the price paid, incl. the fee.
+        perMin: terms.waitPerMinToShow,
         noShowAfterMin: terms.noShowAfterMin,
         noShowFee: terms.noShowFee,
         cancelAfterArrivedIsNoShow: terms.cancelAfterArrivedIsNoShow,
@@ -37,7 +38,7 @@ class TripTermsLines {
   /// waiting at a middle stop costs, from the trip's own terms; null from
   /// an older server.
   static String? stopWaitLine(TripTerms terms) {
-    final perMin = terms.stopWaitPerMin;
+    final perMin = terms.stopWaitPerMinToShow;
     if (perMin == null) return null;
     final l10n = L10n.current;
     return terms.stopFreeWaitMin > 0
@@ -58,7 +59,7 @@ class TripTermsLines {
         : waiting.forCategory(categoryId);
     return _build(
       freeWaitMin: terms.freeWaitMin,
-      perMin: terms.perMin,
+      perMin: terms.perMinToShow,
       noShowAfterMin: terms.noShowAfterMin,
       noShowFee: terms.noShowFee,
       cancelAfterArrivedIsNoShow: config.cancelAfterArrivedIsNoShow,

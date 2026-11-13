@@ -1,0 +1,770 @@
+{
+  "note": "v0.18.84 (S5 J7, contract.json#debtModel): reference cases for the debt model. Read by reference_check.py; server J8 and the apps use the same cases (SEK, EUR and TND 3 decimals).",
+  "payment": [
+    {
+      "id": "sek_debt_paid_in_car",
+      "balances": [
+        {
+          "amountMinor": -24000,
+          "currency": "SEK"
+        }
+      ],
+      "tripCurrency": "SEK",
+      "expect": {
+        "outstandingFee": 24000,
+        "balancesAfter": [
+          {
+            "amountMinor": 0,
+            "currency": "SEK"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tnd_debt_3_decimals",
+      "balances": [
+        {
+          "amountMinor": -8450,
+          "currency": "TND"
+        }
+      ],
+      "tripCurrency": "TND",
+      "expect": {
+        "outstandingFee": 8450,
+        "balancesAfter": [
+          {
+            "amountMinor": 0,
+            "currency": "TND"
+          }
+        ]
+      }
+    },
+    {
+      "id": "other_currency_untouched",
+      "balances": [
+        {
+          "amountMinor": -10000,
+          "currency": "SEK"
+        },
+        {
+          "amountMinor": -500,
+          "currency": "EUR"
+        }
+      ],
+      "tripCurrency": "EUR",
+      "expect": {
+        "outstandingFee": 500,
+        "balancesAfter": [
+          {
+            "amountMinor": -10000,
+            "currency": "SEK"
+          },
+          {
+            "amountMinor": 0,
+            "currency": "EUR"
+          }
+        ]
+      }
+    },
+    {
+      "id": "positive_balance_no_line",
+      "balances": [
+        {
+          "amountMinor": 5000,
+          "currency": "EUR"
+        }
+      ],
+      "tripCurrency": "EUR",
+      "expect": {
+        "outstandingFee": 0,
+        "balancesAfter": [
+          {
+            "amountMinor": 5000,
+            "currency": "EUR"
+          }
+        ]
+      }
+    },
+    {
+      "id": "second_trip_reads_zero",
+      "balances": [
+        {
+          "amountMinor": 0,
+          "currency": "SEK"
+        }
+      ],
+      "tripCurrency": "SEK",
+      "expect": {
+        "outstandingFee": 0,
+        "balancesAfter": [
+          {
+            "amountMinor": 0,
+            "currency": "SEK"
+          }
+        ]
+      }
+    }
+  ],
+  "fee": [
+    {
+      "id": "fee_makes_balance_negative",
+      "balance": {
+        "amountMinor": 0,
+        "currency": "SEK"
+      },
+      "fee": {
+        "amountMinor": 24000,
+        "currency": "SEK"
+      },
+      "expect": {
+        "amountMinor": -24000,
+        "currency": "SEK"
+      }
+    },
+    {
+      "id": "fee_lowers_positive_balance",
+      "balance": {
+        "amountMinor": 3000,
+        "currency": "EUR"
+      },
+      "fee": {
+        "amountMinor": 500,
+        "currency": "EUR"
+      },
+      "expect": {
+        "amountMinor": 2500,
+        "currency": "EUR"
+      }
+    },
+    {
+      "id": "fee_past_max_still_saved",
+      "balance": {
+        "amountMinor": -84000,
+        "currency": "TND"
+      },
+      "fee": {
+        "amountMinor": 14000,
+        "currency": "TND"
+      },
+      "expect": {
+        "amountMinor": -98000,
+        "currency": "TND"
+      }
+    }
+  ],
+  "cashBooking": [
+    {
+      "id": "below_max_cash_ok",
+      "debt": {
+        "amountMinor": 29900,
+        "currency": "SEK"
+      },
+      "max": {
+        "amountMinor": 30000,
+        "currency": "SEK"
+      },
+      "paymentMethod": "cash",
+      "expect": "ok"
+    },
+    {
+      "id": "at_max_cash_refused",
+      "debt": {
+        "amountMinor": 30000,
+        "currency": "SEK"
+      },
+      "max": {
+        "amountMinor": 30000,
+        "currency": "SEK"
+      },
+      "paymentMethod": "cash",
+      "expect": "rider_debt_above_max"
+    },
+    {
+      "id": "above_max_card_allowed",
+      "debt": {
+        "amountMinor": 5000,
+        "currency": "EUR"
+      },
+      "max": {
+        "amountMinor": 3000,
+        "currency": "EUR"
+      },
+      "paymentMethod": "card",
+      "expect": "ok"
+    },
+    {
+      "id": "above_max_wallet_allowed",
+      "debt": {
+        "amountMinor": 90000,
+        "currency": "TND"
+      },
+      "max": {
+        "amountMinor": 84000,
+        "currency": "TND"
+      },
+      "paymentMethod": "wallet",
+      "expect": "ok"
+    },
+    {
+      "id": "above_max_apple_pay_allowed",
+      "debt": {
+        "amountMinor": 90000,
+        "currency": "TND"
+      },
+      "max": {
+        "amountMinor": 84000,
+        "currency": "TND"
+      },
+      "paymentMethod": "apple_pay",
+      "expect": "ok"
+    }
+  ],
+  "walletSwitch": [
+    {
+      "id": "negative_ignores_off",
+      "balance": {
+        "amountMinor": -100,
+        "currency": "SEK"
+      },
+      "walletFirst": false,
+      "expect": true
+    },
+    {
+      "id": "zero_keeps_off",
+      "balance": {
+        "amountMinor": 0,
+        "currency": "SEK"
+      },
+      "walletFirst": false,
+      "expect": false
+    },
+    {
+      "id": "positive_keeps_choice",
+      "balance": {
+        "amountMinor": 100,
+        "currency": "EUR"
+      },
+      "walletFirst": false,
+      "expect": false
+    }
+  ],
+  "driverOwed": [
+    {
+      "id": "cash_week_owes",
+      "unpaidSum": {
+        "amountMinor": -2473,
+        "currency": "SEK"
+      },
+      "carried": {
+        "amountMinor": 0,
+        "currency": "SEK"
+      },
+      "expect": {
+        "amountMinor": 2473,
+        "currency": "SEK"
+      }
+    },
+    {
+      "id": "carried_adds",
+      "unpaidSum": {
+        "amountMinor": -50000,
+        "currency": "TND"
+      },
+      "carried": {
+        "amountMinor": -110000,
+        "currency": "TND"
+      },
+      "expect": {
+        "amountMinor": 160000,
+        "currency": "TND"
+      }
+    },
+    {
+      "id": "card_earnings_cover",
+      "unpaidSum": {
+        "amountMinor": 8500,
+        "currency": "EUR"
+      },
+      "carried": {
+        "amountMinor": -1500,
+        "currency": "EUR"
+      },
+      "expect": {
+        "amountMinor": 0,
+        "currency": "EUR"
+      }
+    }
+  ],
+  "cashOffers": [
+    {
+      "id": "tn_default_off_cash_offered",
+      "limit": {
+        "enabled": false,
+        "max": {
+          "amountMinor": 150000,
+          "currency": "TND"
+        }
+      },
+      "owed": {
+        "amountMinor": 900000,
+        "currency": "TND"
+      },
+      "paymentMethod": "cash",
+      "expect": "offered",
+      "goOnline": "ok"
+    },
+    {
+      "id": "se_default_off_no_number",
+      "limit": {
+        "enabled": false,
+        "max": null
+      },
+      "owed": {
+        "amountMinor": 500000,
+        "currency": "SEK"
+      },
+      "paymentMethod": "cash",
+      "expect": "offered",
+      "goOnline": "ok"
+    },
+    {
+      "id": "on_below_cash_offered",
+      "limit": {
+        "enabled": true,
+        "max": {
+          "amountMinor": 150000,
+          "currency": "TND"
+        }
+      },
+      "owed": {
+        "amountMinor": 149999,
+        "currency": "TND"
+      },
+      "paymentMethod": "cash",
+      "expect": "offered",
+      "goOnline": "ok"
+    },
+    {
+      "id": "on_equal_no_cash",
+      "limit": {
+        "enabled": true,
+        "max": {
+          "amountMinor": 150000,
+          "currency": "TND"
+        }
+      },
+      "owed": {
+        "amountMinor": 150000,
+        "currency": "TND"
+      },
+      "paymentMethod": "cash",
+      "expect": "no_offer",
+      "goOnline": "ok"
+    },
+    {
+      "id": "on_above_no_cash",
+      "limit": {
+        "enabled": true,
+        "max": {
+          "amountMinor": 150000,
+          "currency": "TND"
+        }
+      },
+      "owed": {
+        "amountMinor": 200000,
+        "currency": "TND"
+      },
+      "paymentMethod": "cash",
+      "expect": "no_offer",
+      "goOnline": "ok"
+    },
+    {
+      "id": "on_above_card_offered",
+      "limit": {
+        "enabled": true,
+        "max": {
+          "amountMinor": 150000,
+          "currency": "TND"
+        }
+      },
+      "owed": {
+        "amountMinor": 200000,
+        "currency": "TND"
+      },
+      "paymentMethod": "card",
+      "expect": "offered",
+      "goOnline": "ok"
+    },
+    {
+      "id": "on_above_apple_pay_offered",
+      "limit": {
+        "enabled": true,
+        "max": {
+          "amountMinor": 150000,
+          "currency": "TND"
+        }
+      },
+      "owed": {
+        "amountMinor": 200000,
+        "currency": "TND"
+      },
+      "paymentMethod": "apple_pay",
+      "expect": "offered",
+      "goOnline": "ok"
+    },
+    {
+      "id": "on_above_wallet_offered",
+      "limit": {
+        "enabled": true,
+        "max": {
+          "amountMinor": 150000,
+          "currency": "TND"
+        }
+      },
+      "owed": {
+        "amountMinor": 200000,
+        "currency": "TND"
+      },
+      "paymentMethod": "wallet",
+      "expect": "offered",
+      "goOnline": "ok"
+    }
+  ],
+  "paidMovera": [
+    {
+      "id": "pays_part",
+      "owedNow": {
+        "amountMinor": 160000,
+        "currency": "TND"
+      },
+      "expectedOwed": {
+        "amountMinor": 160000,
+        "currency": "TND"
+      },
+      "amount": {
+        "amountMinor": 100000,
+        "currency": "TND"
+      },
+      "expect": {
+        "owedAfter": {
+          "amountMinor": 60000,
+          "currency": "TND"
+        }
+      }
+    },
+    {
+      "id": "second_click_refused",
+      "owedNow": {
+        "amountMinor": 60000,
+        "currency": "TND"
+      },
+      "expectedOwed": {
+        "amountMinor": 160000,
+        "currency": "TND"
+      },
+      "amount": {
+        "amountMinor": 100000,
+        "currency": "TND"
+      },
+      "expect": {
+        "error": "owed_changed"
+      }
+    },
+    {
+      "id": "above_owed_refused",
+      "owedNow": {
+        "amountMinor": 2473,
+        "currency": "SEK"
+      },
+      "expectedOwed": {
+        "amountMinor": 2473,
+        "currency": "SEK"
+      },
+      "amount": {
+        "amountMinor": 3000,
+        "currency": "SEK"
+      },
+      "expect": {
+        "error": "paid_above_owed"
+      }
+    },
+    {
+      "id": "zero_refused",
+      "owedNow": {
+        "amountMinor": 2473,
+        "currency": "SEK"
+      },
+      "expectedOwed": {
+        "amountMinor": 2473,
+        "currency": "SEK"
+      },
+      "amount": {
+        "amountMinor": 0,
+        "currency": "SEK"
+      },
+      "expect": {
+        "error": "invalid_request"
+      }
+    }
+  ],
+  "walletApplied": [
+    {
+      "id": "negative_balance_pays_nothing",
+      "balance": {
+        "amountMinor": -24000,
+        "currency": "SEK"
+      },
+      "fare": {
+        "amountMinor": 31800,
+        "currency": "SEK"
+      },
+      "expect": {
+        "walletApplied": 0,
+        "outstandingFee": 24000,
+        "cashToCollect": 55800
+      }
+    },
+    {
+      "id": "positive_part",
+      "balance": {
+        "amountMinor": 1000,
+        "currency": "EUR"
+      },
+      "fare": {
+        "amountMinor": 2500,
+        "currency": "EUR"
+      },
+      "expect": {
+        "walletApplied": 1000,
+        "outstandingFee": 0,
+        "cashToCollect": 1500
+      }
+    },
+    {
+      "id": "tnd_covers_fare",
+      "balance": {
+        "amountMinor": 20000,
+        "currency": "TND"
+      },
+      "fare": {
+        "amountMinor": 12350,
+        "currency": "TND"
+      },
+      "expect": {
+        "walletApplied": 12350,
+        "outstandingFee": 0,
+        "cashToCollect": 0
+      }
+    }
+  ],
+  "changeover": [
+    {
+      "id": "booked_before_j8_copied_line",
+      "fareWithCopiedLine": {
+        "amountMinor": 55800,
+        "currency": "SEK"
+      },
+      "copiedLine": {
+        "amountMinor": 24000,
+        "currency": "SEK"
+      },
+      "walletBalance": {
+        "amountMinor": -24000,
+        "currency": "SEK"
+      },
+      "expect": {
+        "riderPays": 55800,
+        "debtPaid": 24000,
+        "balanceAfter": 0
+      }
+    },
+    {
+      "id": "debt_already_paid_elsewhere",
+      "fareWithCopiedLine": {
+        "amountMinor": 55800,
+        "currency": "SEK"
+      },
+      "copiedLine": {
+        "amountMinor": 24000,
+        "currency": "SEK"
+      },
+      "walletBalance": {
+        "amountMinor": 0,
+        "currency": "SEK"
+      },
+      "expect": {
+        "riderPays": 31800,
+        "debtPaid": 0,
+        "balanceAfter": 0
+      }
+    },
+    {
+      "id": "tnd_mark_paid_meanwhile",
+      "fareWithCopiedLine": {
+        "amountMinor": 20450,
+        "currency": "TND"
+      },
+      "copiedLine": {
+        "amountMinor": 8450,
+        "currency": "TND"
+      },
+      "walletBalance": {
+        "amountMinor": -2000,
+        "currency": "TND"
+      },
+      "expect": {
+        "riderPays": 14000,
+        "debtPaid": 2000,
+        "balanceAfter": 0
+      }
+    },
+    {
+      "id": "wallet_debt_bigger_than_copied_line",
+      "fareWithCopiedLine": {
+        "amountMinor": 55800,
+        "currency": "SEK"
+      },
+      "copiedLine": {
+        "amountMinor": 24000,
+        "currency": "SEK"
+      },
+      "walletBalance": {
+        "amountMinor": -30500,
+        "currency": "SEK"
+      },
+      "expect": {
+        "riderPays": 62300,
+        "debtPaid": 30500,
+        "balanceAfter": 0
+      }
+    }
+  ],
+  "floorFollowsMax": [
+    {
+      "id": "se_default",
+      "currentFloor": -90000,
+      "max": {
+        "amountMinor": 30000,
+        "currency": "SEK"
+      },
+      "largestFee": {
+        "amountMinor": 6500,
+        "currency": "SEK"
+      },
+      "balance": {
+        "amountMinor": -29900,
+        "currency": "SEK"
+      },
+      "feesOnOpenRides": 4,
+      "expect": {
+        "floor": -90000,
+        "saved": true
+      }
+    },
+    {
+      "id": "se_max_20kr_rider_19kr_noshow_65kr",
+      "currentFloor": -90000,
+      "max": {
+        "amountMinor": 2000,
+        "currency": "SEK"
+      },
+      "largestFee": {
+        "amountMinor": 6500,
+        "currency": "SEK"
+      },
+      "balance": {
+        "amountMinor": -1900,
+        "currency": "SEK"
+      },
+      "feesOnOpenRides": 1,
+      "expect": {
+        "floor": -90000,
+        "saved": true
+      }
+    },
+    {
+      "id": "se_raised_any_amount",
+      "currentFloor": -90000,
+      "max": {
+        "amountMinor": 200000,
+        "currency": "SEK"
+      },
+      "largestFee": {
+        "amountMinor": 6500,
+        "currency": "SEK"
+      },
+      "balance": {
+        "amountMinor": -199900,
+        "currency": "SEK"
+      },
+      "feesOnOpenRides": 4,
+      "expect": {
+        "floor": -600000,
+        "saved": true
+      }
+    },
+    {
+      "id": "se_fee_raised_moves_floor_down",
+      "currentFloor": -90000,
+      "max": {
+        "amountMinor": 30000,
+        "currency": "SEK"
+      },
+      "largestFee": {
+        "amountMinor": 50000,
+        "currency": "SEK"
+      },
+      "balance": {
+        "amountMinor": -29900,
+        "currency": "SEK"
+      },
+      "feesOnOpenRides": 4,
+      "expect": {
+        "floor": -230000,
+        "saved": true
+      }
+    },
+    {
+      "id": "tn_max_lowered_floor_stays",
+      "currentFloor": -252000,
+      "max": {
+        "amountMinor": 10000,
+        "currency": "TND"
+      },
+      "largestFee": {
+        "amountMinor": 20000,
+        "currency": "TND"
+      },
+      "balance": {
+        "amountMinor": -84000,
+        "currency": "TND"
+      },
+      "feesOnOpenRides": 4,
+      "expect": {
+        "floor": -252000,
+        "saved": true
+      }
+    },
+    {
+      "id": "fr_small_max_large_fee",
+      "currentFloor": -9000,
+      "max": {
+        "amountMinor": 500,
+        "currency": "EUR"
+      },
+      "largestFee": {
+        "amountMinor": 4000,
+        "currency": "EUR"
+      },
+      "balance": {
+        "amountMinor": -400,
+        "currency": "EUR"
+      },
+      "feesOnOpenRides": 4,
+      "expect": {
+        "floor": -16500,
+        "saved": true
+      }
+    }
+  ]
+}
