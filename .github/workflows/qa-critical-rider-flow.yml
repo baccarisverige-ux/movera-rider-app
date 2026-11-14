@@ -441,7 +441,7 @@ jobs:
               });
               await button.first().click();
             }
-            const amountLabel = value => new RegExp(`^(kr\\s?${value}|${value}\\s?kr)$`);
+            const amountLabel = value => new RegExp(`^(kr\\s?${value}(,00)?|${value}(,00)?\\s?kr)$`);
             async function openAddFunds(tag) {
               await tapButton('Menu', 'Home');
               await page.waitForTimeout(700);
@@ -459,7 +459,7 @@ jobs:
 
             // Phase 76: picking an amount only selects it; the simulated
             // payment runs on 'Simulate top-up'.
-            // Amounts use formatMoney for the wallet currency ('200 kr').
+            // Amounts use formatMoney for the wallet currency ('200,00 kr' since PF #615; the decimals are optional here).
             await tapButton(amountLabel(200), 'amount');
             await page.waitForTimeout(400);
             const selected = balanceFromStorage(await walletStorage(page));
