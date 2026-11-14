@@ -157,6 +157,49 @@ def seats(cat, inp, amt, cid):
     The rider never sends a number; babySeats / childSeats above 0 on another category are refused."""
     if cid != 'child_seat' and any(inp.get(k, 0) for k in ('babySeats', 'childSeats')): raise ValueError('seat_not_offered')
     return amt(cat['childSeatFee']) if cid == 'child_seat' and 'childSeatFee' in cat else Fr(0)
+def steps_problem(steps):
+    """v0.18.86 (J5b, owner 2026-11-13 ~20:48 UTC, contract.json#commissionSteps.validation): None when the admin's steps are valid,
+    else (step index or None, problem) — the first problem in step order (400 invalid_request, reason commission_steps_invalid)."""
+    V = c['commissionSteps']['validation']
+    if steps is None: return None   # null = no steps
+    if not isinstance(steps, list): return (None, 'not_a_list')
+    if len(steps) > V['maxSteps']: return (None, 'too_many_steps')
+    prev = None
+    for k, st in enumerate(steps):
+        if not isinstance(st, dict) or ('pct' in st) == ('amountMinor' in st): return (k, 'pct_or_amount')
+        if 'upToMinor' not in st: return (k, 'up_to_missing')
+        last, up = k == len(steps) - 1, st['upToMinor']
+        if 'pct' in st and (isinstance(st['pct'], bool) or not isinstance(st['pct'], (int, float)) or not V['pctMin'] <= st['pct'] <= V['pctMax']): return (k, 'pct_out_of_range')
+        if 'amountMinor' in st and (isinstance(st['amountMinor'], bool) or not isinstance(st['amountMinor'], int) or st['amountMinor'] < 0): return (k, 'amount_out_of_range')
+        if up is None and not last: return (k, 'above_not_last')
+        if up is not None and last: return (k, 'last_not_above')
+        if up is not None and (isinstance(up, bool) or not isinstance(up, int) or up <= 0): return (k, 'up_to_out_of_range')
+        if up is not None and prev is not None and up <= prev: return (k, 'up_to_not_increasing')
+        prev = up
+    return None
+def pick_step(base, steps):
+    """v0.18.86: the first step whose upToMinor is null ("above") or >= the exact commission base ("up to" includes X); None = no steps."""
+    return next((k for k, st in enumerate(steps or []) if st['upToMinor'] is None or base <= st['upToMinor']), None)
+def driver_ride_part(base, cat):
+    """v0.18.86: the driver's part of the commission base, half-up to a minor unit, never below 0. No steps = commissionPct (unchanged);
+    a % step = base x (1 - pct/100); a fixed step = base - min(amountMinor, base) (a fixed commission is never bigger than the base)."""
+    steps = cat.get('commissionSteps') or []
+    k = pick_step(base, steps)
+    if k is None: return max(0, _hu(base * (1 - Fr(str(cat['commissionPct'])) / 100)))
+    st = steps[k]
+    if 'pct' in st: return max(0, _hu(base * (1 - Fr(str(st['pct'])) / 100)))
+    return max(0, _hu(base - min(Fr(st['amountMinor']), base)))
+def steps_warnings(steps):
+    """v0.18.86 (owner 2026-11-13 ~21:40 UTC "Yes, warn", contract.json#commissionSteps.warn; ADVISORY, the server never refuses):
+    for each limit L with a next step, warn when the driver's ride part at base L (step i) > at base L + 1 minor unit (step i+1)."""
+    out = []
+    for k, st in enumerate((steps or [])[:-1]):
+        L = st['upToMinor']
+        a = driver_ride_part(Fr(L), {'commissionPct': 0, 'commissionSteps': [{**st, 'upToMinor': None}]})
+        j = driver_ride_part(Fr(L + 1), {'commissionPct': 0, 'commissionSteps': [{**steps[k + 1], 'upToMinor': None}]})
+        if pick_step(Fr(L), steps) != k or pick_step(Fr(L + 1), steps) != k + 1: raise ValueError('warn: steps not in order')
+        if a > j: out.append({'step': k, 'upToMinor': L, 'atLimit': int(a), 'justAbove': int(j)})
+    return out
 def price(doc, inp):
     """Every line exact until rounded half-up to a minor unit; the total rounded once to priceStep; outstanding_fee after that
     (v0.18.84: only in the price of the trip being PAID, the debt read from the wallet then — never on a quote, debtModel.readAtPayment)."""
@@ -198,7 +241,7 @@ def price(doc, inp):
     total = _hu((before + before * pct + fee) / step) * step
     out = [{'code': k, 'amount': int(_hu(v))} for k, v in lines]
     if total != sum(l['amount'] for l in out): out.append({'code': 'rounding', 'amount': int(total - sum(l['amount'] for l in out))})
-    driver = int(min(total, _hu((before - waiting) * (1 - Fr(str(cat['commissionPct'])) / 100)) + wait_lines))
+    driver = int(max(0, min(total, driver_ride_part(before - waiting, cat) + wait_lines)))   # v0.18.86: the step picked by the commission base
     owed = inp.get('outstandingFee')
     if owed: out.append({'code': 'outstanding_fee', 'amount': owed['amountMinor']}); total += owed['amountMinor']
     return int(total), out, driver
@@ -222,6 +265,8 @@ for cid, row in se['categories'].items():
            'stopWaitPerMin': x['stopWaitPerMin'], 'childSeatFee': x.get('childSeatFee'), 'waitPerMin': x['waiting']['perMin'], 'noShowFee': x['waiting']['noShowFee']}
     got = {k: (v['amountMinor'] if v else None) for k, v in got.items() if v is not None or k != 'childSeatFee'}
     got.update(appFeePct=x['appFeePct'], commissionPct=x['commissionPct'], freeWaitMin=x['waiting']['freeWaitMin'])
+    row = dict(row); _cs = row.pop('commissionSteps', None)   # v0.18.86: defaults carry [] (no steps); the fixture document has no field = the same
+    if _cs != [] or x.get('commissionSteps', []) != []: bad += 1; print('PRICING DEFAULTS commissionSteps', cid, _cs)
     if got != dict(row) or x['waiting']['noShowAfterMin'] != x['waiting']['freeWaitMin']: bad += 1; print('PRICING DEFAULTS', cid, got, row)
 if (pdoc['priceStep']['amountMinor'], pdoc['surge']['maxMultiplier'], pdoc['surge']['smart']['enabled']) != \
         (se['priceStep'], se['surgeMaxMultiplier'], se['smartSurge']): bad += 1; print('PRICING DEFAULTS zone')
@@ -833,4 +878,17 @@ if any(v['enabled'] for v in c['configDefaults']['driverOwesLimit'].values()): b
 if c['configDefaults']['driverOwesLimit']['TN']['max'] != {'amountMinor': 150000, 'currency': 'TND'}: bad += 1; print('DRIVER OWES LIMIT TN 150 DT (owner 2026-11-13 14:22)')
 if c['driverOnboarding']['reminders']['texts']['owes_movera_over_limit'] != _dm['texts']['owesMoveraLine']: bad += 1; print('DRIVER OWES home line text')
 
+# ---- v0.18.86 J5b commission steps (contract.json#commissionSteps): validation and the step picked by the commission base
+_csf = json.load(open('fixtures/commission_steps.json'))
+for _x in _csf['validate']:
+    _p = steps_problem(_x['steps']); _r = 'ok' if _p is None else {'step': _p[0], 'problem': _p[1]}
+    if _r != _x['expect'] or (_p and _p[1] not in c['commissionSteps']['validation']['problems']): bad += 1; print('COMMISSION STEPS VALIDATE', _x['id'], _r)
+for _x in _csf['pick']:
+    _cat = {'commissionPct': _x['commissionPct'], 'commissionSteps': _x['steps']}
+    _b = Fr(_x['commissionBase'].get('exact', _x['commissionBase']['amountMinor'])); _d = driver_ride_part(_b, _cat)
+    _r = {'step': pick_step(_b, _x['steps']), 'driverRidePart': _d, 'commission': _b - _d if 'exact' not in _x['commissionBase'] else str(float(_b - _d))}
+    if _r != _x['expect'] or steps_problem(_x['steps']) is not None or _x['commissionBase']['currency'] not in c['currencies']: bad += 1; print('COMMISSION STEPS PICK', _x['id'], _r)
+for _x in _csf['warn']:
+    _r = steps_warnings(_x['steps'])
+    if _r != _x['expect'] or steps_problem(_x['steps']) is not None: bad += 1; print('COMMISSION STEPS WARN', _x['id'], _r)
 print('OK' if not bad else f'{bad} mismatches'); sys.exit(1 if bad else 0)

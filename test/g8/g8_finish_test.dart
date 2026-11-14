@@ -79,6 +79,11 @@ void main() {
     final fr = TipRules.forCountry('FR', 'EUR');
     expect(fr.customMax?.amountMinor, 2000);
     expect(fr.customMax?.currency, 'EUR');
+    // TN-1 (contract v0.18.82, owner Q-S5-6 "Yes, 30 DT"): 30.000 DT,
+    // three decimals (30000 millimes), never 2.000 DT.
+    final tn = TipRules.forCountry('TN', 'TND');
+    expect(tn.customMax?.amountMinor, 30000);
+    expect(tn.customMax?.currency, 'TND');
   });
 
   test(

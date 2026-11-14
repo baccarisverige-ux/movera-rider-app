@@ -1,6 +1,6 @@
 {
   "version": "0.7.1",
-  "note": "Fares (CONTRACT.md §3.5, contract.json#pricing). Each case prices input against fixtures/config/pricing_document.json (Z001, the admin Stockholm prices) with overrides deep-merged into it (objects merge, anything else replaces). Every line is its exact amount rounded half-up to a whole minor unit; total is the exact sum rounded once to priceStep, a rounding line makes the lines add up; outstanding_fee is added after that. driverEarnings = min(total before outstanding_fee, half_up((ride part + extras - waiting - stop waiting) x (1 - commissionPct/100)) + waiting + stop_waiting); moveraShare = total - driverEarnings. input: km, minutes = the priced route; waitingChargedSeconds = Waiting.chargedSeconds; stopWaitSeconds = seconds from the driver's \"arrived at stop\" to \"leaving stop\" at each extra stop (one entry per stop; v0.7.1: no free minutes); pickupInAirportZone / dropoffInAirportZone = the server found the point inside a zone of kind airport (v0.7.1: the rider no longer sends airport flags); a child_seat trip always includes one seat: childSeatFee once in the extras line (v0.7.1); babySeats / childSeats above 0 on another category are the error seat_not_offered; kind scheduled adds the reservation fee and uses the reservation pickup fee; endEarly = the rider ended the trip early (kmDriven, minutesOnBoard, bookedFare). v0.6.0: babySeats / childSeats (only on a category with seat fees, i.e. child_seat), airportPickup / airportDropoff and fixedRouteId are what the rider sent on QuoteRequest;",
+  "note": "Fares (CONTRACT.md §3.5, contract.json#pricing). Each case prices input against fixtures/config/pricing_document.json (Z001, the admin Stockholm prices) with overrides deep-merged into it (objects merge, anything else replaces). Every line is its exact amount rounded half-up to a whole minor unit; total is the exact sum rounded once to priceStep, a rounding line makes the lines add up; outstanding_fee is added after that. driverEarnings = min(total before outstanding_fee, half_up((ride part + extras - waiting - stop waiting) x (1 - commissionPct/100)) + waiting + stop_waiting); moveraShare = total - driverEarnings. input: km, minutes = the priced route; waitingChargedSeconds = Waiting.chargedSeconds; stopWaitSeconds = seconds from the driver's \"arrived at stop\" to \"leaving stop\" at each extra stop (one entry per stop; v0.7.1: no free minutes); pickupInAirportZone / dropoffInAirportZone = the server found the point inside a zone of kind airport (v0.7.1: the rider no longer sends airport flags); a child_seat trip always includes one seat: childSeatFee once in the extras line (v0.7.1); babySeats / childSeats above 0 on another category are the error seat_not_offered; kind scheduled adds the reservation fee and uses the reservation pickup fee; endEarly = the rider ended the trip early (kmDriven, minutesOnBoard, bookedFare). v0.6.0: babySeats / childSeats (only on a category with seat fees, i.e. child_seat), airportPickup / airportDropoff and fixedRouteId are what the rider sent on QuoteRequest; v0.18.86 (J5b): with CategoryPricing.commissionSteps the driver's ride part comes from the step picked by the commission base (contract.json#commissionSteps; more cases in fixtures/commission_steps.json); driverEarnings is never below 0.",
   "document": "fixtures/config/pricing_document.json",
   "cases": [
     {
@@ -1585,6 +1585,329 @@
         },
         "moveraShare": {
           "amountMinor": 4140,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "commission_steps_pct_step",
+      "note": "v0.18.86 (J5b): economy_plain with three steps; the 197 kr commission base is up to 300 kr → 18 %: driver 197 × 0.82 = 161,54 kr. The rider's price is unchanged.",
+      "overrides": {
+        "categories": {
+          "economy": {
+            "commissionSteps": [
+              {
+                "upToMinor": 10000,
+                "amountMinor": 1500
+              },
+              {
+                "upToMinor": 30000,
+                "pct": 18
+              },
+              {
+                "upToMinor": null,
+                "pct": 20
+              }
+            ]
+          }
+        }
+      },
+      "input": {
+        "categoryId": "economy",
+        "km": 8,
+        "minutes": 18,
+        "kind": "live"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 21700,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 9600,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 7200,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 1970,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": 30,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 16154,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 5546,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "commission_steps_fixed_step_waiting",
+      "note": "v0.18.86: a minimum trip (49 kr base) is up to 100 kr → 15 kr fixed; the 2 minutes of waiting stay the driver's (no commission on waiting).",
+      "overrides": {
+        "categories": {
+          "economy": {
+            "commissionSteps": [
+              {
+                "upToMinor": 10000,
+                "amountMinor": 1500
+              },
+              {
+                "upToMinor": 30000,
+                "pct": 18
+              },
+              {
+                "upToMinor": null,
+                "pct": 20
+              }
+            ]
+          }
+        }
+      },
+      "input": {
+        "categoryId": "economy",
+        "km": 1,
+        "minutes": 2,
+        "kind": "live",
+        "waitingChargedSeconds": 120
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 8100,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 1200,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 800,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "waiting",
+            "amount": {
+              "amountMinor": 2452,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 735,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": 13,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 5852,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 2248,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "commission_steps_fixed_capped_by_base",
+      "note": "v0.18.86: a fixed 60 kr step on a 49 kr base is capped at the base: the driver's ride part is 0 (never below), he keeps the waiting.",
+      "overrides": {
+        "categories": {
+          "economy": {
+            "commissionSteps": [
+              {
+                "upToMinor": 10000,
+                "amountMinor": 6000
+              },
+              {
+                "upToMinor": null,
+                "pct": 20
+              }
+            ]
+          }
+        }
+      },
+      "input": {
+        "categoryId": "economy",
+        "km": 1,
+        "minutes": 2,
+        "kind": "live",
+        "waitingChargedSeconds": 120
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 8100,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 1200,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 800,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "waiting",
+            "amount": {
+              "amountMinor": 2452,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 735,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": 13,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 2452,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 5648,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "commission_steps_empty_is_pct",
+      "note": "v0.18.86: commissionSteps [] = no steps: commissionPct 20 % exactly as economy_plain.",
+      "overrides": {
+        "categories": {
+          "economy": {
+            "commissionSteps": []
+          }
+        }
+      },
+      "input": {
+        "categoryId": "economy",
+        "km": 8,
+        "minutes": 18,
+        "kind": "live"
+      },
+      "expect": {
+        "total": {
+          "amountMinor": 21700,
+          "currency": "SEK"
+        },
+        "fareLines": [
+          {
+            "code": "base",
+            "amount": {
+              "amountMinor": 2900,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "distance",
+            "amount": {
+              "amountMinor": 9600,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "time",
+            "amount": {
+              "amountMinor": 7200,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "app_fee",
+            "amount": {
+              "amountMinor": 1970,
+              "currency": "SEK"
+            }
+          },
+          {
+            "code": "rounding",
+            "amount": {
+              "amountMinor": 30,
+              "currency": "SEK"
+            }
+          }
+        ],
+        "driverEarnings": {
+          "amountMinor": 15760,
+          "currency": "SEK"
+        },
+        "moveraShare": {
+          "amountMinor": 5940,
           "currency": "SEK"
         }
       }

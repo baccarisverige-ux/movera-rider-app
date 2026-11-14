@@ -733,9 +733,31 @@ class TipRules {
   final bool customAmount;
   final Money? customMax;
 
-  /// The contract defaults: SE 200 kr, FR 20 €.
-  static TipRules forCountry(String country, String currency) =>
-      TipRules(customMax: Money(currency == 'SEK' ? 20000 : 2000, currency));
+  /// `contract.json#configDefaults.tipRules.customMax` (v0.18.82, TN-1,
+  /// owner Q-S5-6 "Yes, 30 DT"): SE 200 kr, FR 20 €, TN 30.000 DT.
+  static const defaultCustomMax = <String, Money>{
+    'SE': Money(20000, 'SEK'),
+    'FR': Money(2000, 'EUR'),
+    'TN': Money(30000, 'TND'),
+  };
+
+  /// The contract default of [country] in [currency]: the country's own
+  /// default when its currency is [currency], else the default of the
+  /// country of [currency] (before TN-1 every non-SEK currency got 2000
+  /// minor units, so Tunisia got 2.000 DT). Another currency: no typed
+  /// amount (the presets only).
+  static TipRules forCountry(String country, String currency) {
+    final own = defaultCustomMax[country];
+    final max = own != null && own.currency == currency
+        ? own
+        : defaultCustomMax[ZoneDefaults.countryOf(currency)];
+    return TipRules(customMax: max?.currency == currency ? max : null);
+  }
+
+  static bool _currencyFits(Money max, String country) {
+    final own = defaultCustomMax[country];
+    return own == null || own.currency == max.currency;
+  }
 
   static TipRules? read(
     Object? raw,
@@ -751,7 +773,12 @@ class TipRules {
           ? minutes
           : 5,
       customAmount: raw['customAmount'] == true,
-      customMax: max != null && max.amountMinor > 0 ? max : null,
+      // The contract: a document without customMax (or with a wrong
+      // currency) uses the country default.
+      customMax:
+          max != null && max.amountMinor > 0 && _currencyFits(max, country)
+          ? max
+          : defaultCustomMax[country],
     );
   }
 }
