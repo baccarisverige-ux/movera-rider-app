@@ -368,6 +368,9 @@ extension _WaitingStages on _WaitingForDriverState {
         terms.cancelAfterArrivedIsNoShow &&
         terms.noShowFee.isPositive &&
         freeUntil != null &&
+        // v0.18.93 (contract.json#autoArrive.riderCancel): the clock stands
+        // still at waiting.away.since while the driver is away.
+        !(_tracking.waitingAwaySince ?? now).isBefore(freeUntil) &&
         !now.isBefore(freeUntil)) {
       fee = terms.noShowFee;
     }

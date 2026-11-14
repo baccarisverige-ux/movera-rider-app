@@ -639,5 +639,7 @@
   "checkingYourAreaFailed": "Movera could not check your area. Check your connection and try again.",
   "@checkingYourAreaFailed": {"description": "L-a R1/R3: the server zones or config did not arrive."},
   "checkingYourAreaRetry": "Try again",
-  "@checkingYourAreaRetry": {"description": "L-a R1/R3: button that asks the server again."}
+  "@checkingYourAreaRetry": {"description": "L-a R1/R3: button that asks the server again."},
+  "waitingPausedDriverAway": "Waiting time paused: your driver is away from the pickup.",
+  "@waitingPausedDriverAway": {"description": "Contract v0.18.93 (contract.json#autoArrive.texts.riderPaused, job C9): line under the waiting clock while the server stopped it (waiting.away: the driver is away from the pickup)."}
 }

@@ -1225,6 +1225,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'checkingYourArea': l.checkingYourArea,
   'checkingYourAreaFailed': l.checkingYourAreaFailed,
   'checkingYourAreaRetry': l.checkingYourAreaRetry,
+  'waitingPausedDriverAway': l.waitingPausedDriverAway,
   'rcYes': l.rcYes,
   'rcNo': l.rcNo,
   'rcNotSure': l.rcNotSure,
@@ -4415,6 +4416,8 @@ class _Exhaustive implements AppLocalizations {
   String get checkingYourAreaFailed => '';
   @override
   String get checkingYourAreaRetry => '';
+  @override
+  String get waitingPausedDriverAway => '';
   @override
   String get rcYes => '';
   @override

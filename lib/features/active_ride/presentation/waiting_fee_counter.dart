@@ -90,6 +90,7 @@ class WaitingFeeCounter extends StatefulWidget {
     required this.perMin,
     this.freeUntil,
     this.waitFrom,
+    this.pausedSince,
     this.clock,
   });
 
@@ -128,6 +129,11 @@ class WaitingFeeCounter extends StatefulWidget {
     return since;
   }
 
+  /// v0.18.93 (`contract.json#autoArrive`, `waiting.away.since`): the
+  /// server stopped the waiting clock here while the driver is away from
+  /// the pickup; the clock stands still and says so (texts.riderPaused).
+  final DateTime? pausedSince;
+
   /// Test seam for "now".
   final DateTime Function()? clock;
 
@@ -158,7 +164,10 @@ class _WaitingFeeCounterState extends State<WaitingFeeCounter> {
 
   @override
   Widget build(BuildContext context) {
-    final now = _now();
+    final pausedSince = widget.pausedSince;
+    final wallNow = _now();
+    final paused = pausedSince != null && pausedSince.isBefore(wallNow);
+    final now = paused ? pausedSince : wallNow;
     final since = WaitingFeeCounter.clockStart(
       since: widget.since,
       freeWaitMin: widget.freeWaitMin,
@@ -191,7 +200,9 @@ class _WaitingFeeCounterState extends State<WaitingFeeCounter> {
             '$freeMin',
           )
         : context.l10n.freeWaitingLeft(formatWaitClock(state.freeLeft));
-    final detail = beforePickup
+    final detail = paused
+        ? context.l10n.waitingPausedDriverAway
+        : beforePickup
         ? context.l10n.waitingBeforePickup
         : context.l10n.waitingChargedAfterFree;
     return Semantics(
