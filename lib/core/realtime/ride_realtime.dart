@@ -39,6 +39,11 @@ const String waitingFreeUntilKey = 'waitingFreeUntil';
 const String chainKey = 'chain';
 const String waitingNoShowAtKey = 'waitingNoShowAt';
 
+/// v0.18.93 (`contract.json#autoArrive`, job C9): the projection's
+/// `waiting.away.since` — the server stopped the waiting clock there while
+/// the driver is away from the pickup.
+const String waitingAwaySinceKey = 'waitingAwaySince';
+
 /// v0.18.51 §73: `TripProjection.waiting.waitFrom`, and a booked ride's
 /// `scheduledAt` (the fallback when the server does not send waitFrom).
 const String waitingWaitFromKey = 'waitingWaitFrom';
@@ -182,6 +187,10 @@ class RideRealtimeEvent {
   /// From when the driver may report the rider as a no-show (Q41).
   DateTime? get waitingNoShowAt =>
       WireTime.tryParse(payload[waitingNoShowAtKey]);
+
+  /// v0.18.93: the waiting clock stands still from here (driver away).
+  DateTime? get waitingAwaySince =>
+      WireTime.tryParse(payload[waitingAwaySinceKey]);
 
   /// v0.18.51 §73: when the waiting clock runs from (a booked ride: the
   /// later of the driver's Arrived and the pickup time).

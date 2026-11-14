@@ -250,5 +250,6 @@
   "g7RouteExpired": "Le chauffeur n’a pas répondu à temps. La course continue vers la première destination.",
   "checkingYourArea": "Vérification de votre zone…",
   "checkingYourAreaFailed": "Movera n’a pas pu vérifier votre zone. Vérifiez votre connexion et réessayez.",
-  "checkingYourAreaRetry": "Réessayer"
+  "checkingYourAreaRetry": "Réessayer",
+  "waitingPausedDriverAway": "Temps d’attente en pause : votre chauffeur n’est plus au point de prise en charge."
 }

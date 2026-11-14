@@ -256,6 +256,15 @@ extension _WaitingStages on _WaitingForDriverState {
         _tracking.status != RideStatus.driverWaiting) {
       return L10n.current.noFeeToCancel;
     }
+    // v0.18.93 round 2 (contract.json#autoArrive.riderCancel, supervisor
+    // M3; owner decisions/driver-g15.md:64 "if driver drive away from
+    // pickup … if rider cancel he got no cancellation fee"): while the
+    // server's waiting clock stands still the cancel is free, live or
+    // booked.
+    if (_tracking.status == RideStatus.driverWaiting &&
+        _tracking.waitingAwaySince != null) {
+      return L10n.current.noFeeToCancel;
+    }
     final ownNote = widget.cancelFeeNote;
     if (ownNote != null) {
       try {

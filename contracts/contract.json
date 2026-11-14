@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.92",
+  "version": "0.18.93",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -4045,12 +4045,13 @@
     "note": "v0.18.27 (fix plan Job 1 'Fast dispatch', Rules plan/FIX-PLAN-ORDER-2026-11-04b.md ledger L1, L9, L10, L17, L29, L30, L31, R26; stress test 2026-11-04 H1-H3, M1, M4, M5, L1, L2). Server behaviour; apps: no change needed (they already retry 503 and read the newest offer).",
     "timers": "Several timer loops per instance (TIMER_LANES, default 4), each FOR UPDATE SKIP LOCKED: one only for dispatch rounds and withdrawals, one only for trip GPS work (trip_eta, ride_check_scan, near_dropoff), the others for any other timer. v0.18.68 (server B1.7): a housekeeping lane (HOUSEKEEPING_LANES, default 1) runs only clean-up jobs (the 12 housekeeping kinds, the hourly sweep (v0.18.82: the payout pass moved to the payout timer, payouts.note), the nightly summary); general lanes never take them, so trip and safety timers never wait behind a clean-up. A timer whose rows are busy keeps its due time (it is not pushed behind later ones) and is tried again after 250 ms, 500 ms, 1 s, then every 2 s. Timer transactions never wait more than 2 s for a row lock. Road routing (OSRM) for the ETA tick and the ride check runs before the timer's transaction, never while a row is locked. v0.18.83: a late per-trip timer or dispatch round raises the /healthz/jobs alarm (fastDispatch.lateAlarm).",
     "lateAlarm": {
-      "note": "v0.18.83 (G34 fix plan S3; owner 2026-11-13 12:18 UTC \"60 s / 30 s (Rec.)\"; proof sup1 P3: main answered 200 in 7 samples while a trip timer was 60-155 s late). Additive; server only; no migration.",
+      "note": "v0.18.83 (G34 fix plan S3; owner 2026-11-13 12:18 UTC \"60 s / 30 s (Rec.)\"; proof sup1 P3: main answered 200 in 7 samples while a trip timer was 60-155 s late). Additive; server only; no migration. v0.18.93: tripTimers.kinds gains pickup_geofence (the automatic arrival / waiting clock job of contract.json#autoArrive, on the trip lane).",
       "tripTimers": {
         "kinds": [
           "trip_eta",
           "ride_check_scan",
-          "near_dropoff"
+          "near_dropoff",
+          "pickup_geofence"
         ],
         "lateSeconds": 60
       },
@@ -4137,7 +4138,7 @@
       "unavailable",
       "internal"
     ],
-    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit). v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.44 reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress). v0.18.49 reason: sign_out_on_trip (409 conflict, contract.json#auth.signOutOnTrip). v0.18.56 reasons: message_too_long, unknown_quick_reply, translate_target_not_allowed (400 invalid_request), translation_off (403 forbidden), coming_soon (503 unavailable) (contract.json#chat, §78). v0.18.64 reason: auto_translate_off (403 forbidden, contract.json#chat.autoTranslate, §85). v0.18.76 reasons: email_needs_code (400 invalid_request), email_not_verified (409 invalid_transition) (contract.json#emailVerified). v0.18.82 reason: fare_is_driver_pay (400 invalid_request, admin adjust / complete sent the old fare field; contract.json#moneyBase.adminFare). v0.18.84 reasons (contract.json#debtModel): rider_debt_above_max (409 conflict, POST /trips pay in car), driver_owes_movera (409 conflict, admin assign of a cash trip to a driver at or over the owes-limit), owed_changed (409 conflict, paid-movera), paid_above_owed and owes_limit_needs_amount (400 invalid_request). v0.18.86 reason: commission_steps_invalid (400 invalid_request, PUT /admin/config/pricing and its publish; details [\"step:<index>\", \"problem:<code>\"], contract.json#commissionSteps.validation)."
+    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit). v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.44 reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress). v0.18.49 reason: sign_out_on_trip (409 conflict, contract.json#auth.signOutOnTrip). v0.18.56 reasons: message_too_long, unknown_quick_reply, translate_target_not_allowed (400 invalid_request), translation_off (403 forbidden), coming_soon (503 unavailable) (contract.json#chat, §78). v0.18.64 reason: auto_translate_off (403 forbidden, contract.json#chat.autoTranslate, §85). v0.18.76 reasons: email_needs_code (400 invalid_request), email_not_verified (409 invalid_transition) (contract.json#emailVerified). v0.18.82 reason: fare_is_driver_pay (400 invalid_request, admin adjust / complete sent the old fare field; contract.json#moneyBase.adminFare). v0.18.84 reasons (contract.json#debtModel): rider_debt_above_max (409 conflict, POST /trips pay in car), driver_owes_movera (409 conflict, admin assign of a cash trip to a driver at or over the owes-limit), owed_changed (409 conflict, paid-movera), paid_above_owed and owes_limit_needs_amount (400 invalid_request). v0.18.86 reason: commission_steps_invalid (400 invalid_request, PUT /admin/config/pricing and its publish; details [\"step:<index>\", \"problem:<code>\"], contract.json#commissionSteps.validation). v0.18.93 reasons: driver_away_from_pickup (409, the driver's no-show while the waiting clock is stopped), invalid_auto_arrive_distance (400, contract.json#autoArrive.settings.validation)."
   },
   "headers": {
     "Idempotency-Key": "required on every mutation, 16–128 chars",
@@ -4151,7 +4152,7 @@
     "earlyEnd": "v0.18.10 (owner G8 Q2, 2026-11-01): DriverAppConfig.cancelFees.earlyEnd { repriceOverKm (default 2, 0–50), repriceOverMin (default 8, 0–120) }, Admin › Cancellation, per zone (or the country standard). See finish.earlyEnd.driver. v0.18.33 (fix job 5, owner fix-plan Q1): repriceOverMin default 10 and the rule is BOTH (more than repriceOverKm km AND more than repriceOverMin minutes shorter), contract.json#afterTestRules.earlyEnd."
   },
   "bookingSnapshot": {
-    "note": "v0.8.0 (owner 2026-10-27): a booked trip keeps ALL its rules from booking time (POST /trips). The server keeps on the trip: the pricing document (version and scope) it was quoted with, the category's cancel fee rule (live or reservation by Trip.kind, from RiderAppConfig.cancelFees, else the built-in default), DriverAppConfig.cancelFees.driverSharePct, the category's waiting terms (free wait, per minute, no-show after, no-show fee), DriverAppConfig.waiting.driverSharePct (no-show share) and driverShareWaitPct. A later publish never changes a booked trip; fixtures/settings_flow.json#snapshot. v0.18.7: the trip also keeps the zone's waiting.cancelAfterArrivedIsNoShow and booking.maxPickupMoveMeters of booking time (TripProjection.terms shows them). v0.18.8: also the zone's waiting.farPickup / rideTypes (waitingRules), waiting.stopFreeWaitMin and pickupPin.required (Trip.pinRequired) of booking time (contract.json#arrivedWaiting). v0.18.85: also the category's appFeePct of booking time (waitingPriceShown).",
+    "note": "v0.8.0 (owner 2026-10-27): a booked trip keeps ALL its rules from booking time (POST /trips). The server keeps on the trip: the pricing document (version and scope) it was quoted with, the category's cancel fee rule (live or reservation by Trip.kind, from RiderAppConfig.cancelFees, else the built-in default), DriverAppConfig.cancelFees.driverSharePct, the category's waiting terms (free wait, per minute, no-show after, no-show fee), DriverAppConfig.waiting.driverSharePct (no-show share) and driverShareWaitPct. A later publish never changes a booked trip; fixtures/settings_flow.json#snapshot. v0.18.7: the trip also keeps the zone's waiting.cancelAfterArrivedIsNoShow and booking.maxPickupMoveMeters of booking time (TripProjection.terms shows them). v0.18.8: also the zone's waiting.farPickup / rideTypes (waitingRules), waiting.stopFreeWaitMin and pickupPin.required (Trip.pinRequired) of booking time (contract.json#arrivedWaiting). v0.18.85: also the category's appFeePct of booking time (waitingPriceShown). v0.18.93: also the zone's waiting.autoArriveMeters and waiting.leaveMeters of booking time (contract.json#autoArrive).",
     "fields": [
       "pricing",
       "cancelRule",
@@ -4165,7 +4166,9 @@
       "stopFreeWaitMin",
       "pinRequired",
       "earlyEnd",
-      "appFeePct"
+      "appFeePct",
+      "autoArriveMeters",
+      "leaveMeters"
     ]
   },
   "autoOffline": {
@@ -9697,5 +9700,88 @@
       },
       "replaced": "Replaced the same day (kept, Rule 21) by owner 2026-11-14 \"It's very simple ! U show how much driver get and how much movera get thats all no details\": two lines, no details."
     }
+  },
+  "autoArrive": {
+    "note": "v0.18.93 (job C9; owner 2026-11-02, Rules decisions/driver-g7.md:83-84, review Q3 \"Both: auto + button\" after \"Uber detect automatic and if driver drive away before pickup so time waiting stop counting ! Bolt have arrived botton but if driver drive away before pickup timing stops\"; Rule 0; X-Api-Version stays 0.5; additive; no migration): (1) the SERVER marks the driver arrived at the pickup by itself when his position is within the arrive distance; the Arrived button stays. (2) While the driver is farther than the leave distance from the pickup before the rider is on board, the waiting time stops counting (no free minutes used up, no paid waiting, no no-show) and goes on only after a new arrival (back within the arrive distance, or his tap). Pickup only in this version: middle stops keep their taps (contract.json#stopWaits) until a later version.",
+    "settings": {
+      "arriveMeters": {
+        "configPath": "DriverAppConfig.waiting.autoArriveMeters",
+        "default": 100,
+        "range": [
+          30,
+          300
+        ],
+        "where": "Admin › Dispatch › Pickup waiting, per zone or the country standard: \"Auto arrived within (m)\"."
+      },
+      "leaveMeters": {
+        "configPath": "DriverAppConfig.waiting.leaveMeters",
+        "default": 200,
+        "range": [
+          100,
+          2000
+        ],
+        "where": "Admin › Dispatch › Pickup waiting, per zone or the country standard: \"Waiting stops when the driver is more than (m) away\"."
+      },
+      "validation": "Whole numbers inside their range, and leaveMeters greater than autoArriveMeters (else the driver could be arrived and away at once). Otherwise PUT / publish of the driver document is 400 invalid_request, reason invalid_auto_arrive_distance. A stored document with a bad value or a bad pair is read with the defaults (100 / 200).",
+      "kept": "Kept on the trip at booking (contract.json#bookingSnapshot fields autoArriveMeters, leaveMeters) and shown in TripProjection.terms.autoArriveMeters / terms.leaveMeters. A trip booked before v0.18.93 uses the zone's live values."
+    },
+    "position": "v0.18.93 round 2 (supervisor must-fixes M1–M3, Rules audits/impact/c9-auto-arrive-supervisor.md; Rule 21: the first wording is kept as *Before0_18_93r1): Only fixes the server stored for this trip (POST /driver/location, trip_locations) with accuracy at most maxAccuracyMeters count. The newest of them must be the server's latest stored fix of the driver (the newest fix of a batch, never an older one that came late) and measured at most DriverAppConfig.waiting.positionMaxAgeSeconds ago (arrivedWaiting.positionMaxAge). Distance = straight line to TripProjection.pickup (after a pickup move, the new pickup). ONE fix never decides: see confirm.",
+    "positionBefore0_18_93r1": "Only the server's latest stored fix of the driver (POST /driver/location; the newest fix of a batch, never an older one that came late) with accuracy at most maxAccuracyMeters and measured at most DriverAppConfig.waiting.positionMaxAgeSeconds ago (arrivedWaiting.positionMaxAge) moves the arrival or the waiting clock. Distance = straight line to TripProjection.pickup (after a pickup move, the new pickup).",
+    "confirm": {
+      "fixes": 2,
+      "minGapSeconds": 5,
+      "maxArriveSpeedKmh": 15,
+      "rule": "Technical default (Rule 16; not an admin setting): an arrival (auto), a stop (away) or a new arrival (back) needs the latest counting fix AND an earlier counting fix of the same trip measured at least minGapSeconds before it, with every counting fix from that earlier one to the latest on the same side (within autoArriveMeters for auto / back, farther than leaveMeters for away). The earlier fix is the newest counting fix at least minGapSeconds older than the latest, inside positionMaxAgeSeconds of it. For auto and back the car must also be slow: every one of those fixes that carries speedMps at most maxArriveSpeedKmh, and the straight-line speed between the earlier fix and the latest at most maxArriveSpeedKmh. So a single jumped fix, a car driving past the pickup and GPS jitter at a border never change the state; the job runs again on every new fix, so the second fix confirms.",
+      "moment": "away.since = the earlier fix's measuredAt (the first fix of the confirming pair, never before arrivedAt nor after now); back resumeAt = the earlier fix's measuredAt (never before away.since nor after now). The automatic arrival is at the job's time (arrivedAt = now), as the tap."
+    },
+    "maxAccuracyMeters": 50,
+    "auto": "v0.18.93 round 2 (supervisor must-fixes M1–M3, Rules audits/impact/c9-auto-arrive-supervisor.md; Rule 21: the first wording is kept as *Before0_18_93r1): Trip status driver_to_pickup (not accepted, not a booked ride held for later) and the latest counting fix within autoArriveMeters of the pickup, confirmed (confirm: 2 counting fixes in a row at least 5 s apart, both within, and slow, at most 15 km/h): the server runs the same step as POST /trips/{tripId}/arrive, as the driver (actor driver, command arrive, version + 1, trip_projection, the rider's driver_arrived push, the automatic \"I've arrived\" chat message once per trip, chat.autoArrived), with waiting.arrivedBy auto. It runs as a job (timer kind pickup_geofence, the trip lane, watched by fastDispatch.lateAlarm.tripTimers) right after the position is stored (never inside POST /driver/location's answer), once per new fix.",
+    "autoBefore0_18_93r1": "Trip status driver_to_pickup (not accepted, not a booked ride held for later) and a counting fix within autoArriveMeters of the pickup: the server runs the same step as POST /trips/{tripId}/arrive, as the driver (actor driver, command arrive, version + 1, trip_projection, the rider's driver_arrived push, the automatic \"I've arrived\" chat message once per trip, chat.autoArrived), with waiting.arrivedBy auto. It runs as a job (timer kind pickup_geofence, the trip lane, watched by fastDispatch.lateAlarm.tripTimers) right after the position is stored (never inside POST /driver/location's answer), once per new fix.",
+    "button": "v0.18.93 round 2 (supervisor must-fixes M1–M3, Rules audits/impact/c9-auto-arrive-supervisor.md; Rule 21: the first wording is kept as *Before0_18_93r1): Unchanged first tap: the driver can tap Arrived (POST /trips/{tripId}/arrive) as before (server check: within 300 m, positionMaxAge; the app shows the button within 100 m); waiting.arrivedBy tap. A tap after the server already marked him arrived answers 409 version_mismatch with the projection (status arrived): the app takes it as done. A first tap that arrives farther than leaveMeters starts the wait already paused. While waiting.away is set the driver app shows the button texts.driverBack (\"I'm back at the pickup\") under texts.driverPaused; that tap is the back tap (see back).",
+    "buttonBefore0_18_93r1": "Unchanged: the driver can tap Arrived (POST /trips/{tripId}/arrive) as before (server check: within 300 m, positionMaxAge; the app shows the button within 100 m); waiting.arrivedBy tap. A tap after the server already marked him arrived answers 409 version_mismatch with the projection (status arrived): the app takes it as done. A tap that arrives farther than leaveMeters starts the wait already paused.",
+    "away": "v0.18.93 round 2 (supervisor must-fixes M1–M3, Rules audits/impact/c9-auto-arrive-supervisor.md; Rule 21: the first wording is kept as *Before0_18_93r1): Status arrived and the latest counting fix farther than leaveMeters from the pickup, confirmed (confirm: 2 counting fixes in a row at least 5 s apart, both farther): the waiting clock stops. waiting.away = { since } (since = the first fix of the confirming pair's measuredAt, never before arrivedAt nor after now). No version change; a trip_projection event goes out (like the island alerts).",
+    "awayBefore0_18_93r1": "Status arrived and a counting fix farther than leaveMeters from the pickup: the waiting clock stops. waiting.away = { since } (since = the fix's measuredAt, never before arrivedAt nor after now). No version change; a trip_projection event goes out (like the island alerts).",
+    "back": "v0.18.93 round 2 (supervisor must-fixes M1–M3, Rules audits/impact/c9-auto-arrive-supervisor.md; Rule 21: the first wording is kept as *Before0_18_93r1): While waiting.away is set, a confirmed counting fix within autoArriveMeters of the pickup (confirm: 2 in a row at least 5 s apart, both within, slow), or the driver's tap (POST /trips/{tripId}/arrive, texts.driverBack; the position sent with it or the server's latest, fresh as the first tap, and within the trip's leaveMeters of the pickup — not the first tap's 300 m — else 409 invalid_transition, reason not_at_pickup; then version + 1), is the new arrival: the clock goes on. stopped = resumeAt − max(away.since, waitFrom), at least 0 (resumeAt = the first fix of the confirming pair's measuredAt, never before since nor after now; a tap: now). waiting.freeUntil and waiting.noShowAt move later by stopped seconds, waiting.pausedSeconds grows by stopped, waiting.pauseCount by 1, waiting.away goes. The island alerts (arrivedWaiting.alerts) follow the moved moments. GPS between leaveMeters and autoArriveMeters changes nothing (no flip-flop).",
+    "backBefore0_18_93r1": "While waiting.away is set, a counting fix within autoArriveMeters of the pickup, or the driver's tap on Arrived (POST /trips/{tripId}/arrive, same checks as the first tap; then version + 1), is the new arrival: the clock goes on. stopped = resumeAt − max(away.since, waitFrom), at least 0 (resumeAt = the fix's measuredAt, never before since nor after now; a tap: now). waiting.freeUntil and waiting.noShowAt move later by stopped seconds, waiting.pausedSeconds grows by stopped, waiting.pauseCount by 1, waiting.away goes. The island alerts (arrivedWaiting.alerts) follow the moved moments. GPS between leaveMeters and autoArriveMeters changes nothing (no flip-flop).",
+    "money": "clockAt(t) = waiting.away.since while away, else t. Paid waiting at board = max(0, floor((clockAt(board) − freeUntil) / 1 s)) seconds (Waiting.chargedSeconds), priced as before (§3.5: waiting line = chargedSeconds / 60 × perMin, half-up to a minor unit; 100 % the driver's). Waiting.chargedSecondsNow / chargedSoFar at read time use clockAt(now): frozen while away. Away time never costs the rider. Examples: fixtures/auto_arrive.json (SEK 12,26 kr/min, TND 0.250 DT/min).",
+    "noShow": "While waiting.away is set the driver's no-show is 409 invalid_transition, reason driver_away_from_pickup (texts.noShowAway); after the clock goes on, the moved noShowAt applies (no_show_too_early before it). An admin no-show is unchanged.",
+    "riderCancel": "v0.18.93 round 2 (supervisor must-fixes M1–M3, Rules audits/impact/c9-auto-arrive-supervisor.md; Rule 21: the first wording is kept as *Before0_18_93r1): Owner, verbatim (Rules decisions/driver-g15.md:64): \"if driver drive away from pickup … if rider cancel he got no cancellation fee\". While waiting.away is set (status arrived, the driver is away from the pickup) a rider cancel is FREE: no cancel fee and no no-show fee (cancellation.fee null), live and booked rides, whatever the free minutes. After the clock goes on: a rider cancel after arrival counts as a no-show (pickupWaiting.cancelAfterArrived) only when now ≥ the moved freeUntil; otherwise the normal cancel fee rules apply. The rider's cancel note says texts.noFee while away.",
+    "riderCancelBefore0_18_93r1": "A rider cancel after arrival counts as a no-show (pickupWaiting.cancelAfterArrived) only when clockAt(now) ≥ freeUntil: the free wait had ended before the driver drove away. Otherwise the normal cancel fee rules apply, as before arrival.",
+    "projection": {
+      "Waiting.arrivedBy": "\"auto\" | \"tap\" (absent on a trip that arrived before v0.18.93).",
+      "Waiting.away": "{ since: Timestamp } while the waiting clock is stopped; absent otherwise.",
+      "Waiting.pausedSeconds": "integer ≥ 0: seconds freeUntil / noShowAt were moved by finished stops (0 or absent: none).",
+      "Waiting.pauseCount": "integer ≥ 0: finished stops.",
+      "TripTerms.autoArriveMeters": "integer: the trip's arrive distance.",
+      "TripTerms.leaveMeters": "integer: the trip's leave distance."
+    },
+    "apps": {
+      "driver": "Shows the server's arrived state: a trip_projection with status arrived moves the trip screen to waiting without a tap (the Arrived button stays for slow GPS). While waiting.away is set: the waiting clock stands still and the wait bar shows texts.driverPaused with terms.leaveMeters / terms.autoArriveMeters; the no-show button waits. The clock = (min(now, away.since) − arrivedAt) − pausedSeconds; the free / no-show moments = freeUntil / noShowAt − pausedSeconds (all server stamps, no distance worked out on the phone). The phone keeps sending positions while waiting.",
+      "rider": "The waiting clock on the driver-arrived sheet stands still while waiting.away is set (free time left / paid time do not move) and the sheet shows texts.riderPaused; it goes on from the server's moved freeUntil. Prices stay in the Terms (group 6 decision 4).",
+      "admin": "Setting: Admin › Dispatch › Pickup waiting, per zone or the country standard (autoArriveMeters, leaveMeters). Trip waiting box: \"Arrived: automatic / tapped\", \"Waiting stopped: driver away since hh:mm\" while away, \"Stopped in all: n min (k times)\"."
+    },
+    "texts": {
+      "driverPaused": {
+        "sv": "Väntetiden är pausad: du är mer än {leave} m från upphämtningen. Kör tillbaka inom {arrive} m för att fortsätta.",
+        "fr": "Attente en pause : vous êtes à plus de {leave} m du point de prise en charge. Revenez à moins de {arrive} m pour continuer.",
+        "en": "Waiting paused: you are more than {leave} m from the pickup. Drive back within {arrive} m to continue."
+      },
+      "riderPaused": {
+        "sv": "Väntetiden är pausad: din förare är inte vid upphämtningen.",
+        "fr": "Temps d’attente en pause : votre chauffeur n’est plus au point de prise en charge.",
+        "en": "Waiting time paused: your driver is away from the pickup."
+      },
+      "noShowAway": {
+        "sv": "Kör tillbaka till upphämtningen innan du markerar att resenären inte kom.",
+        "fr": "Revenez au point de prise en charge avant de signaler l’absence du passager.",
+        "en": "Drive back to the pickup before marking a no-show."
+      },
+      "driverBack": {
+        "sv": "Jag är tillbaka vid upphämtningen",
+        "fr": "Je suis de retour au point de prise en charge",
+        "en": "I'm back at the pickup"
+      }
+    },
+    "notInThisVersion": "Middle stops (decisions/driver-g7.md:84 says \"At the pickup AND at stops\"): stop arrival stays the driver's tap (stopWaits) in v0.18.93; auto stop arrival and the stop wait stopping when he drives away are a later version."
   }
 }

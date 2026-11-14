@@ -753,6 +753,9 @@ class ApiRideRealtime implements RideRealtime {
             waitingFreeUntilKey: at,
           if (_waiting(ride, 'noShowAt') case final String at)
             waitingNoShowAtKey: at,
+          // v0.18.93 (contract.json#autoArrive): the stopped clock.
+          if (ride['waiting'] case {'away': {'since': final String at}})
+            waitingAwaySinceKey: at,
           // v0.18.51 §73: a booked ride's waiting runs from waitFrom (the
           // later of Arrived and the pickup time); the booked pickup time
           // is its fallback from an older server.

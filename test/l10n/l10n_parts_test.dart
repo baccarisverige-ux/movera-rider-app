@@ -79,18 +79,19 @@ void main() {
     // sha256 of each ARB's keys and values (key order ignored), taken from
     // the single-file ARBs before the split (base/split-rider-big-3). A later
     // PR that changes a text updates these to the values the failure prints.
+    // v0.18.93 (job C9): + waitingPausedDriverAway (autoArrive.texts.riderPaused).
     const before = {
       'en': (
-        'a83c901359f71bf39927752bcbcad5eb5ffbbc6058585380b7e434db0c4ddb0c',
-        2114,
+        'f65fd5999541d87cfcdf73d8c0617196bf2402827d8aef8027c19915c507dd28',
+        2116,
       ),
       'fr': (
-        'ae4485101d626a4c7ed9314bc3a44f33b1fa8488556ea215e5ba63ac8f5867e4',
-        1710,
+        '8c41af6e1ccb21df2dd51934622120412dde8de5631cfda09960f3944c4c640e',
+        1711,
       ),
       'sv': (
-        '61e64880b64d5570ebda1437b1176aad1a51e791825a1b33ac6ce6032f142468',
-        1710,
+        '59c3040218a6d6dd940dab88a23a5568cfe90e006956c9f1cf6db9cff66a5c04',
+        1711,
       ),
     };
     for (final lang in _langs) {

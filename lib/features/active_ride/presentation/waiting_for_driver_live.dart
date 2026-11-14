@@ -26,6 +26,8 @@ extension _WaitingLive on _WaitingForDriverState {
       freeUntil: _tracking.waitingFreeUntil,
       // v0.18.51 §73: a booked ride's clock runs from waitFrom.
       waitFrom: _tracking.waitingWaitFrom,
+      // v0.18.93 (contract.json#autoArrive): stands still while away.
+      pausedSince: _tracking.waitingAwaySince,
     );
   }
 

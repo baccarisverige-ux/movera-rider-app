@@ -69,6 +69,10 @@ class DriverTrackingController {
   /// rider-r4-13: the projection's `waiting.freeUntil` and
   /// `waiting.noShowAt`, on the device clock; null when the server has not
   /// said (the zone's free-wait minutes from [waitingSince] apply then).
+  /// v0.18.93 (`contract.json#autoArrive`, job C9): the server stopped the
+  /// waiting clock here while the driver is away from the pickup; null
+  /// while it runs.
+  DateTime? waitingAwaySince;
   DateTime? waitingFreeUntil;
 
   /// Fix job 5 (v0.18.33, owner Q3 + Q5): the trip still waits behind the
@@ -386,6 +390,8 @@ class DriverTrackingController {
     chainFreeCancelAt = _onDevice(event.chainFreeCancelAt);
     waitingFreeUntil = _onDevice(event.waitingFreeUntil);
     waitingNoShowAt = _onDevice(event.waitingNoShowAt);
+    // v0.18.93 (contract.json#autoArrive): null again when the clock goes on.
+    waitingAwaySince = _onDevice(event.waitingAwaySince);
     waitingWaitFrom = waitFromOf(
       waitFrom: _onDevice(event.waitingWaitFrom),
       arrivedAt: _onDevice(event.waitingArrivedAt),
@@ -411,6 +417,7 @@ class DriverTrackingController {
 
   void _clearWaitingDeadlines() {
     waitingFreeUntil = null;
+    waitingAwaySince = null;
     waitingNoShowAt = null;
     waitingWaitFrom = null;
     // A new arrival (another driver) may send its alerts again.

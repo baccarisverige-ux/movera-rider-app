@@ -250,5 +250,6 @@
   "g7RouteExpired": "Föraren svarade inte i tid. Resan fortsätter till den första destinationen.",
   "checkingYourArea": "Kontrollerar ditt område…",
   "checkingYourAreaFailed": "Movera kunde inte kontrollera ditt område. Kontrollera anslutningen och försök igen.",
-  "checkingYourAreaRetry": "Försök igen"
+  "checkingYourAreaRetry": "Försök igen",
+  "waitingPausedDriverAway": "Väntetiden är pausad: din förare är inte vid upphämtningen."
 }
