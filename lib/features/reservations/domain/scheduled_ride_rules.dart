@@ -107,6 +107,23 @@ class ScheduledRideRules {
                 value: 0,
               ));
     final window = Duration(minutes: rule.freeMin);
+    // v0.18.92 (BQ-M22, contract priceDisplay.cancelPreview): the server's
+    // preview of this booked ride wins — its fee now, and from freeUntil on
+    // feeAfterFree (a clock compare); the rule below is for an older server.
+    final preview = ride.cancelPreview;
+    if (preview != null) {
+      final current = preview.at(now);
+      final until = preview.freeUntil;
+      return ReservationCancelTerms(
+        at: now,
+        // No step ahead: the free cancel has ended (or it stays free).
+        freeUntil: until ?? now,
+        window: window,
+        lateFee: preview.feeAfterFree ?? preview.feeNow,
+        fee: current.fee.isPositive ? current.fee : null,
+        timeZone: ride.timeZone,
+      );
+    }
     final freeUntil = ride.scheduledPickupAt.subtract(window);
     final missedByMovera =
         ride.driver == null && !now.isBefore(ride.scheduledPickupAt);

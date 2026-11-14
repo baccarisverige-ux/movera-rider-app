@@ -264,6 +264,21 @@ extension _WaitingStages on _WaitingForDriverState {
         return null;
       }
     }
+    // v0.18.92 (BQ-M22, contract priceDisplay.cancelPreview): the server's
+    // preview — feeNow, and from freeUntil on feeAfterFree with its kind;
+    // a clock compare, never the app's own fee maths.
+    final preview = _tracking.cancelPreview;
+    if (preview != null && preview.feeNow.currency == widget.currency) {
+      final note = cancelPreviewNote(
+        preview,
+        WaitingForDriver.cancelFeeClock(),
+      );
+      if (note.charged) _cancelFeeChargedNow = true;
+      return note.text;
+    }
+    // An older server (no preview): today's note from the server's own kept
+    // rules — the trip's terms (booking snapshot), else the zone's
+    // published fee table — never a built-in or another currency's fee.
     // v0.18.7: the trip's own terms (booking snapshot) first: the cancel
     // rule, and after the driver arrived the no-show fee when the zone's
     // switch is on (always free inside the free minutes after accept).

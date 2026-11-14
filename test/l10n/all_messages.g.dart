@@ -204,6 +204,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'cancelledByMovera': l.cancelledByMovera,
   'cancelFailedStillOn': l.cancelFailedStillOn,
   'cancelCostsNow': l.cancelCostsNow('<amount>'),
+  'cancelNoShowCostsNow': l.cancelNoShowCostsNow('<amount>'),
   'cancelFreeUnderMinute': l.cancelFreeUnderMinute,
   'cancelFreeMinutes': l.cancelFreeMinutes('<minutes>'),
   'cancelFailedTryAgain': l.cancelFailedTryAgain,
@@ -1757,6 +1758,7 @@ const messagePlaceholders = <String, List<String>>{
   'appVersionOnly': ['version'],
   'accountPausedUntil': ['date'],
   'cancelCostsNow': ['amount'],
+  'cancelNoShowCostsNow': ['amount'],
   'cancelFreeMinutes': ['minutes'],
   'freeWaitingLeft': ['time'],
   'cancelFee': ['amount'],
@@ -2370,6 +2372,8 @@ class _Exhaustive implements AppLocalizations {
   String get cancelFailedStillOn => '';
   @override
   String cancelCostsNow(String amount) => '';
+  @override
+  String cancelNoShowCostsNow(String amount) => '';
   @override
   String get cancelFreeUnderMinute => '';
   @override
