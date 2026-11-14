@@ -61,38 +61,21 @@ class WalletSplit {
   /// The wallet pays the whole fare.
   bool get paidByWallet => usesWallet && remainderMinor <= 0;
 
-  int get totalKr => roundMinorToKr(totalMinor);
-
-  int get walletKr => roundMinorToKr(walletMinor);
-
-  /// What the chosen method pays, as shown: total shown minus wallet shown.
-  int get remainderKr => totalKr - walletKr;
-
-  bool get _kronor => currency == Money.defaultCurrency;
-
-  /// The parts as shown. Kronor are whole (the remainder is the total
-  /// shown less the wallet shown, so the parts add up); euros and dinars
-  /// are exact to the minor unit, so they add up as they are.
-  String get totalLabel =>
-      _kronor ? formatKr(totalKr) : formatMoney(Money(totalMinor, currency));
-  String get walletLabel =>
-      _kronor ? formatKr(walletKr) : formatMoney(Money(walletMinor, currency));
-  String get remainderLabel => _kronor
-      ? formatKr(remainderKr)
-      : formatMoney(Money(remainderMinor, currency));
+  /// The parts as shown, exact to the minor unit in every currency (price
+  /// format, owner 2026-11-14: kronor are no longer rounded to whole
+  /// kronor), so they add up as they are.
+  String get totalLabel => formatMoney(Money(totalMinor, currency));
+  String get walletLabel => formatMoney(Money(walletMinor, currency));
+  String get remainderLabel => formatMoney(Money(remainderMinor, currency));
 }
-
-/// The one rounding rule for showing öre as whole kronor.
-int roundMinorToKr(int minor) =>
-    (minor / Money.minorPerMajor(Money.defaultCurrency)).round();
 
 /// Kronor (a stored balance) to öre.
 int krToMinor(double kr) => Money.fromLegacyMajor(kr).amountMinor;
 
 /// The payment line on the Finding and Waiting cards, showing the same
-/// split the rider saw before booking: "Visa •••• 4242 · 259 kr", or with
-/// the wallet "Visa •••• 4242 209 kr · Wallet 50 kr". [priceKr] is in whole
-/// units of [currency]; the wallet part is in the same currency (Q8).
+/// split the rider saw before booking: "Visa •••• 4242 · 259,50 kr", or with
+/// the wallet "Visa •••• 4242 209,50 kr · Wallet 50,00 kr". [priceKr] is in
+/// major units of [currency]; the wallet part is in the same currency (Q8).
 String bookedPaymentLine({
   required String paymentMethod,
   required double priceKr,
@@ -107,7 +90,7 @@ String bookedPaymentLine({
     currency: currency,
   );
   if (!split.usesWallet) {
-    return '$paymentMethod$separator${formatMoney(fare, whole: true)}';
+    return '$paymentMethod$separator${formatMoney(fare)}';
   }
   if (split.paidByWallet) {
     return '${L10n.current.paidByWallet}$separator${split.totalLabel}';

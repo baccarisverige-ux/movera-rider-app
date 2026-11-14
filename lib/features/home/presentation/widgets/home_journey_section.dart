@@ -116,12 +116,12 @@ class MonthRideStats {
     return byRank != 0 ? byRank : a.currency.compareTo(b.currency);
   }
 
-  /// "3 rides · 820 kr · 24,00 €": the ride count, then each currency's
+  /// "3 rides · 820,00 kr · 24,00 €": the ride count, then each currency's
   /// total in the app's one money format.
   String get pillText {
     return [
       L10n.current.homeRideCount(rides),
-      for (final total in spent) formatMoney(total, whole: true),
+      for (final total in spent) formatMoney(total),
     ].join(' · ');
   }
 }

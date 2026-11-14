@@ -270,7 +270,7 @@ void main() {
       await tester.ensureVisible(tip);
       await tester.tap(tip);
       await tester.pump();
-      expect(find.text('20 kr selected.'), findsOneWidget);
+      expect(find.text('20,00 kr selected.'), findsOneWidget);
 
       final done = find.byKey(const ValueKey<String>('ride-completed-done'));
       await tester.ensureVisible(done);
@@ -360,7 +360,7 @@ void main() {
     await tester.ensureVisible(tip);
     await tester.tap(tip);
     await tester.pump();
-    expect(find.text('20 kr selected.'), findsOneWidget);
+    expect(find.text('20,00 kr selected.'), findsOneWidget);
     expect(backend.rides['journey-book-1']!['feedback'], isNull);
 
     final done = find.byKey(const ValueKey<String>('ride-completed-done'));

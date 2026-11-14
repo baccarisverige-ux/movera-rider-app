@@ -82,7 +82,7 @@ void main() {
 
     await tester.tap(find.text('5 €'));
     await tester.pump();
-    expect(find.text('5 € selected.'), findsOneWidget);
+    expect(find.text('5,00 € selected.'), findsOneWidget);
     expect(tip, 500);
   });
 

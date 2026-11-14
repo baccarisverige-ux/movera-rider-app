@@ -80,7 +80,7 @@ void main() {
     final record = (await OnDemandRideHistoryStore.read()).single;
     expect(record.cancellationFee, const Money(3500));
     expect(record.endedEarly, isFalse);
-    expect(ReservationFormat.historyStatus(record), 'Cancelled · fee 35 kr');
+    expect(ReservationFormat.historyStatus(record), 'Cancelled · fee 35,00 kr');
   });
 
   test('a free cancel records no fee', () async {
@@ -125,7 +125,7 @@ void main() {
     expect(rides.single.cancellationFee, const Money(3500));
     expect(
       ReservationFormat.historyStatus(rides.single),
-      'Cancelled · fee 35 kr',
+      'Cancelled · fee 35,00 kr',
     );
   });
 }

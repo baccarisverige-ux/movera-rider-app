@@ -254,7 +254,7 @@ void main() {
         'FR-PC': {'promoCap': wireMoney(500, 'EUR')},
       });
       await openSheet(tester, 'EUR');
-      expect(find.text('Max 5 € off per ride'), findsOneWidget);
+      expect(find.text('Max 5,00 € off per ride'), findsOneWidget);
     });
 
     testWidgets('no cap in the config: no cap line', (tester) async {

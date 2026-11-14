@@ -119,9 +119,7 @@ class TripReceiptRepository {
     return TripReceipt(
       pickup: ride.pickupAddress,
       destination: ride.destinationAddress,
-      total: charged != null
-          ? formatMoney(charged)
-          : formatMoney(ride.fare, whole: true),
+      total: charged != null ? formatMoney(charged) : formatMoney(ride.fare),
       method: ride.paymentMethod,
       // The local completion snapshot only knows the booked/quoted amount,
       // unless the server already said what the rider pays (end-early).

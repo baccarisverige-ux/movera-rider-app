@@ -1,52 +1,48 @@
 import 'package:movera_rider/core/contracts/money.dart';
 
-/// Öre (minor units) as whole kronor: "102 kr". Same format as
-/// [formatMoney], so one ride never reads "kr 659" on one screen and
-/// "659 kr" on the next (R-UI UI-10).
-String formatSek(int minor) => formatMoney(Money(minor), whole: true);
+/// Öre (minor units) as kronor to the öre: "102,00 kr", "102,50 kr". Same
+/// format as [formatMoney], so one ride never reads "kr 659" on one screen
+/// and "659 kr" on the next (R-UI UI-10).
+String formatSek(int minor) => formatMoney(Money(minor));
 
-/// A whole-kronor amount (not minor units/öre) as "X kr", rounded to the
-/// krona. Use [formatSek] instead when the value is in minor units.
-String formatKr(num amount) =>
-    formatMoney(Money.fromLegacyMajor(amount), whole: true);
+/// A kronor amount (major units, not öre) as "X kr", exact to the öre
+/// ("100,40 kr"). Use [formatSek] instead when the value is in minor units.
+String formatKr(num amount) => formatMoney(Money.fromLegacyMajor(amount));
 
 /// The app's one money format, per currency (Q7: the pickup's zone decides
 /// the currency):
 ///
-/// * SEK: "35 kr", "35,50 kr"; with [whole] rounded to the krona, "36 kr"
-///   (the Swedish fare look, unchanged).
-/// * EUR: "7,41 €", always with cents.
-/// * TND: "7.410 DT", "1 250.000 DT": a dot, always the three millime
-///   digits, a space between thousands (contract v0.18.59 §81).
+/// * SEK: "35,50 kr", "35,00 kr", "1 250,00 kr": always the öre, with a
+///   comma, a space between thousands.
+/// * EUR: "7,41 €", "35,00 €", "1 250,00 €": always with cents.
+/// * TND: "7.410 DT", "5.000 DT", "1 250.000 DT": a dot, always the three
+///   millime digits, a space between thousands (contract v0.18.59 §81).
 /// * Any other code: "12.50 XYZ".
 ///
-/// [whole] only rounds SEK: euro and dinar fares are shown to the minor unit.
+/// Price format (owner 2026-11-14: "make sure rider and driver app show
+/// correct prices every where", "Check all apps"): every amount uses its
+/// currency's decimals, whole amounts keep them, and nothing is rounded to
+/// whole kronor any more. [whole] no longer rounds: it is kept, and
+/// ignored, only so callers in files other open jobs are changing (J10)
+/// still build; drop it from them once those jobs merge.
 String formatMoney(Money money, {bool whole = false}) {
   switch (money.currency) {
     case 'SEK':
-      if (whole) {
-        final unit = Money.minorPerMajor('SEK');
-        final kronor = (money.amountMinor / unit).round();
-        return '$kronor kr';
-      }
-      final major = money.majorString;
-      final isWhole = money.amountMinor % Money.minorPerMajor('SEK') == 0;
       // rider-r4-16: öre with a comma, like euros and dinars ("35,50 kr").
-      final shown = isWhole
-          ? major.split('.').first
-          : major.replaceFirst('.', ',');
-      return '$shown kr';
+      return '${_grouped(money.majorString).replaceFirst('.', ',')} kr';
     case 'EUR':
-      return '${money.majorString.replaceFirst('.', ',')} €';
+      return '${_grouped(money.majorString).replaceFirst('.', ',')} €';
     case 'TND':
-      return '${_dinarText(money.majorString)} DT';
+      return '${_grouped(money.majorString)} DT';
     default:
       return '${money.majorString} ${money.currency}';
   }
 }
 
-/// "1250.000" → "1 250.000" (contract v0.18.59 §81: dot, space thousands).
-String _dinarText(String major) {
+/// "1250.000" → "1 250.000": a space between thousands (contract v0.18.59
+/// §81 for the dinar; kronor and euros the same, as the admin and the
+/// server write them: "1 250,00 kr").
+String _grouped(String major) {
   final negative = major.startsWith('-');
   final parts = (negative ? major.substring(1) : major).split('.');
   final grouped = parts.first.replaceAllMapped(
@@ -57,9 +53,11 @@ String _dinarText(String major) {
   return '${negative ? '-' : ''}$grouped$frac';
 }
 
-/// [money] the short way for amounts a rider picks from a row (tips,
-/// raise steps, a promo cap): a whole amount drops its zeros ("5 €",
-/// "2 DT", "20 kr"); any other amount is [formatMoney] ("2,50 €").
+/// [money] the short way for a chip the rider picks from a row (the tip
+/// chips, the raise steps): a whole amount drops its zeros ("5 €", "2 DT",
+/// "20 kr"); any other amount is [formatMoney], exact ("2,50 €"), so a
+/// server amount is never rounded. Every other money text (a limit, a
+/// chosen tip, a fee) is [formatMoney].
 String formatMoneyShort(Money money) {
   if (money.amountMinor % Money.minorPerMajor(money.currency) != 0) {
     return formatMoney(money);
@@ -76,6 +74,7 @@ String currencySymbol(String currency) => switch (currency) {
   _ => currency,
 };
 
-/// A whole-unit amount in [currency] ("+50 kr", "+5,00 €").
-String formatMajor(num major, String currency, {bool whole = true}) =>
-    formatMoney(Money.fromLegacyMajor(major, currency), whole: whole);
+/// A major-unit amount in [currency], exact ("50,00 kr", "5,00 €",
+/// "12.350 DT"; price format, owner 2026-11-14).
+String formatMajor(num major, String currency) =>
+    formatMoney(Money.fromLegacyMajor(major, currency));

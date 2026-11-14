@@ -114,10 +114,10 @@ void main() {
     expect(find.text('On map'), findsOneWidget);
     expect(find.text('Bags?'), findsOneWidget);
     expect(find.text('Ride price'), findsOneWidget);
-    expect(find.text('339 kr'), findsOneWidget);
+    expect(find.text('339,00 kr'), findsOneWidget);
     expect(find.text('Promotion 30%'), findsOneWidget);
-    expect(find.text('-102 kr'), findsOneWidget);
-    expect(find.text('237 kr'), findsOneWidget);
+    expect(find.text('-102,00 kr'), findsOneWidget);
+    expect(find.text('237,00 kr'), findsOneWidget);
     expect(find.text('Pay in car'), findsOneWidget);
     expect(find.text('Confirm and search'), findsOneWidget);
     expect(find.byKey(const ValueKey('set-pickup-pin')), findsOneWidget);
@@ -127,7 +127,7 @@ void main() {
     await openPage(tester)();
     expect(find.text('Ride price'), findsNothing);
     expect(find.text('Total'), findsOneWidget);
-    expect(find.text('237 kr'), findsOneWidget);
+    expect(find.text('237,00 kr'), findsOneWidget);
   });
 
   testWidgets('confirm returns the pickup and the chosen bags', (tester) async {

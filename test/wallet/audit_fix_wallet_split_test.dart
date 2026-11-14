@@ -38,8 +38,10 @@ void main() {
       final split = c.walletSplitFor(15000);
       expect(split.walletMinor, 10050);
       expect(split.remainderMinor, 4950);
-      expect(split.walletKr + split.remainderKr, split.totalKr);
-      expect(split.totalKr, 150);
+      // Price format (owner 2026-11-14): the parts are shown to the öre.
+      expect(split.walletLabel, '100,50 kr');
+      expect(split.remainderLabel, '49,50 kr');
+      expect(split.totalLabel, '150,00 kr');
     });
 
     test('öre-precision fares and balances never drift', () {
@@ -50,11 +52,6 @@ void main() {
         (25949, 12551),
       ]) {
         final split = WalletSplit.of(totalMinor: total, balanceMinor: balance);
-        expect(
-          split.walletKr + split.remainderKr,
-          roundMinorToKr(total),
-          reason: '$total / $balance',
-        );
         expect(split.walletMinor + split.remainderMinor, total);
       }
     });
@@ -160,7 +157,10 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Visa •••• 4242 209 kr · Wallet 50 kr'), findsOneWidget);
+      expect(
+        find.text('Visa •••• 4242 209,00 kr · Wallet 50,00 kr'),
+        findsOneWidget,
+      );
     });
   });
 

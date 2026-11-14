@@ -41,7 +41,7 @@ void main() {
 
     final wallet = find.bySemanticsLabel(RegExp(r'^Wallet'));
     expect(wallet, findsWidgets);
-    expect(find.bySemanticsLabel('Wallet, 0 kr'), findsOneWidget);
+    expect(find.bySemanticsLabel('Wallet, 0,00 kr'), findsOneWidget);
     await tester.tap(wallet.first);
     await tester.pumpAndSettle();
     expect(find.byType(WalletAndPaymentsScreen), findsOneWidget);

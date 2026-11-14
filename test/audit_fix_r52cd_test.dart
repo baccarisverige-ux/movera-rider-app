@@ -484,7 +484,7 @@ void main() {
     final priority = selection.rideByIdOrNull('priority')!;
     expect(priority.price, isNot(100));
     expect(
-      find.descendant(of: list, matching: find.text('100 kr')),
+      find.descendant(of: list, matching: find.text('100,00 kr')),
       findsWidgets,
     );
   });

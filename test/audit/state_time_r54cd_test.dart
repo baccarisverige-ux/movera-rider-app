@@ -449,7 +449,7 @@ void main() {
     await tester.pump();
     reads[0].complete(const []);
     await tester.pump();
-    expect(find.text('1 ride · 200 kr'), findsOneWidget);
+    expect(find.text('1 ride · 200,00 kr'), findsOneWidget);
   });
 
   test('rider-50: a push from the evening before a spring-forward morning '

@@ -31,7 +31,7 @@ void main() {
     await tester.tap(find.text('20 kr'));
     await tester.pump();
 
-    expect(find.text('20 kr selected.'), findsOneWidget);
+    expect(find.text('20,00 kr selected.'), findsOneWidget);
 
     await tester.tap(find.text('20 kr'));
     await tester.pump();

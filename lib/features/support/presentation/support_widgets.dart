@@ -219,12 +219,8 @@ class _RideRow extends StatelessWidget {
                   ? ride.priceLabel
                   : ride.failed
                   ? context.l10n.supportFailed
-                  // rider-r5-48: an ended-early charge to the öre.
-                  : formatMajor(
-                      ride.price,
-                      ride.currency,
-                      whole: !ride.endedEarly,
-                    ),
+                  // rider-r5-48 + price format (owner 2026-11-14): to the öre.
+                  : formatMajor(ride.price, ride.currency),
               style: SupportHome.text(14, weight: FontWeight.w600),
             ),
           ],

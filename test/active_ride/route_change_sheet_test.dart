@@ -67,7 +67,7 @@ void main() {
           find.byKey(const ValueKey('route-change-price')),
           findsOneWidget,
         );
-        expect(find.text('369 kr'), findsOneWidget);
+        expect(find.text('369,00 kr'), findsOneWidget);
         expect(find.textContaining('in the car'), findsOneWidget);
         expect(find.text('Confirm change'), findsOneWidget);
         await tester.tap(find.byKey(const ValueKey('route-change-confirm')));
@@ -90,8 +90,8 @@ void main() {
           find.byKey(const ValueKey('route-change-payment')),
           findsOneWidget,
         );
-        expect(find.text('+110 kr'), findsOneWidget);
-        expect(find.text('Confirm and pay 110 kr'), findsOneWidget);
+        expect(find.text('+110,00 kr'), findsOneWidget);
+        expect(find.text('Confirm and pay 110,00 kr'), findsOneWidget);
         // A charge never asks where the money goes.
         expect(find.byKey(const ValueKey('refund-to-wallet')), findsNothing);
         await tester.tap(find.byKey(const ValueKey('route-change-pay')));
@@ -113,7 +113,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.text('Choose your refund'), findsOneWidget);
           expect(find.text('Refund amount'), findsOneWidget);
-          expect(find.text('129 kr'), findsOneWidget);
+          expect(find.text('129,00 kr'), findsOneWidget);
           expect(
             find.byKey(const ValueKey('refund-to-wallet')),
             findsOneWidget,

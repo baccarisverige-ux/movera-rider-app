@@ -127,7 +127,7 @@ void main() {
     );
     map.onCameraIdle!();
     await settle();
-    expect(find.text('301 kr'), findsWidgets);
+    expect(find.text('301,00 kr'), findsWidgets);
 
     // The rider changes their mind and goes back.
     await tester.tap(find.byTooltip('Back'));
@@ -140,8 +140,8 @@ void main() {
     await tester.tap(find.text('Schedule Movera'));
     await settle(30);
     expect(find.byType(SetPickupPage), findsOneWidget);
-    expect(find.text('301 kr'), findsNothing);
-    expect(find.text('259 kr'), findsWidgets);
+    expect(find.text('301,00 kr'), findsNothing);
+    expect(find.text('259,00 kr'), findsWidgets);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 10));
@@ -213,8 +213,8 @@ void main() {
     await tester.tap(find.byKey(const Key('schedule-continue')));
     await settleFor(tester, 30);
     expect(find.byType(SetPickupPage), findsOneWidget);
-    expect(find.text('259 kr'), findsNothing);
-    expect(find.text('245 kr'), findsWidgets);
+    expect(find.text('259,00 kr'), findsNothing);
+    expect(find.text('245,00 kr'), findsWidgets);
     await unmount(tester);
   });
 

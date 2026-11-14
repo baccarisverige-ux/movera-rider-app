@@ -38,9 +38,9 @@ extension _SelectRideSheetControl on _SelectRideState {
     return shortenPlace(cleaned);
   }
 
-  /// [value] whole units of this pickup's currency, as the fare is shown.
-  String _kr(double value) =>
-      formatMoney(_selection.moneyOf(value), whole: true);
+  /// [value] in this pickup's currency, exact (price format, owner
+  /// 2026-11-14: the same number as the receipt).
+  String _kr(double value) => formatMoney(_selection.moneyOf(value));
 
   /// UI-10: a price never takes more than 30% of the screen width; at large
   /// text it shrinks to fit instead of pushing the ride row off screen.

@@ -128,10 +128,10 @@ void main() {
       ).copyWith(endedEarly: true, chargedFare: Money.fromLegacyMajor(80)),
     );
     expect(ride.cancelled, isFalse);
-    expect(ride.priceLabel, '80 kr · Ended early');
+    expect(ride.priceLabel, '80,00 kr · Ended early');
     await _pump(tester, SelectSupportRide(loadRides: () async => [ride]));
-    expect(find.text('80 kr'), findsOneWidget);
-    expect(find.text('249 kr'), findsNothing);
+    expect(find.text('80,00 kr'), findsOneWidget);
+    expect(find.text('249,00 kr'), findsNothing);
   });
 
   // rider-r4-38: a completed ride whose payment failed read as a paid fare.

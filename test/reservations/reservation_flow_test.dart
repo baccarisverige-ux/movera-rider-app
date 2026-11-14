@@ -378,7 +378,7 @@ void main() {
     expect(find.text('Review your changes'), findsOneWidget);
     expect(find.text('Confirm changes'), findsOneWidget);
     expect(find.text('Keep current reservation'), findsOneWidget);
-    expect(find.textContaining('40 kr more'), findsOneWidget);
+    expect(find.textContaining('40,00 kr more'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('No additional change charge'),
       300,

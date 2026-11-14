@@ -172,7 +172,7 @@ void main() {
     expect(await controller.confirmPriceIncrease(20), isTrue);
 
     expect(controller.currentPrice, 269);
-    expect(controller.offerConfirmation, 'Updated offer: 269 kr');
+    expect(controller.offerConfirmation, 'Updated offer: 269,00 kr');
     expect((await RideSnapshotStore.read())?.price, 269);
     controller.dispose();
     rt.dispose();

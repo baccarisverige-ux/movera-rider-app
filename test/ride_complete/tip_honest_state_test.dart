@@ -57,7 +57,14 @@ void main() {
 
     await tester.tap(find.text(_sekTips.first));
     await tester.pumpAndSettle();
-    expect(find.text('${_sekTips.first} selected.'), findsOneWidget);
+    // Price format (owner 2026-11-14): the chip stays short, the line under
+    // it states the amount with its öre.
+    expect(
+      find.text(
+        '${formatMoney(ZoneDefaults.tipsIn('SEK').first.amount)} selected.',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('an empty catalog still shows the honest state', (tester) async {

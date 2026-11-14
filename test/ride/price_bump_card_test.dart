@@ -52,8 +52,8 @@ void main() {
     await pumpCard(tester, confirmed: confirmed);
     await tester.tap(find.text('+100 kr'));
     await tester.pump();
-    expect(find.text('Confirm 359 kr'), findsOneWidget);
-    await tester.tap(find.text('Confirm 359 kr'));
+    expect(find.text('Confirm 359,00 kr'), findsOneWidget);
+    await tester.tap(find.text('Confirm 359,00 kr'));
     await tester.pump();
     expect(confirmed, [100]);
   });
@@ -63,8 +63,8 @@ void main() {
     await pumpCard(tester, confirmed: confirmed);
     await tester.enterText(find.byType(TextField), '340');
     await tester.pump();
-    expect(find.text('Confirm 340 kr'), findsOneWidget);
-    await tester.tap(find.text('Confirm 340 kr'));
+    expect(find.text('Confirm 340,00 kr'), findsOneWidget);
+    await tester.tap(find.text('Confirm 340,00 kr'));
     await tester.pump();
     expect(confirmed, [81]);
   });

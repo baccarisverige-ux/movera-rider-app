@@ -59,7 +59,7 @@ void main() {
       ReservationFormat.historyStatus(
         ride('c', ReservationStatus.cancelled, fee: const Money(5000)),
       ),
-      'Cancelled · fee 50 kr',
+      'Cancelled · fee 50,00 kr',
     );
     expect(
       ReservationFormat.historyStatus(ride('d', ReservationStatus.scheduled)),
@@ -116,7 +116,7 @@ void main() {
     expect(find.text('Driver pending'), findsNothing);
     expect(find.text('Driver assigned'), findsNothing);
     expect(find.byKey(const ValueKey('history-status-chip')), findsOneWidget);
-    expect(find.text('659 kr'), findsOneWidget);
+    expect(find.text('659,00 kr'), findsOneWidget);
 
     await tester.tap(find.textContaining('Arlanda Airport').first);
     await tester.pumpAndSettle();
