@@ -205,6 +205,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'cancelFailedStillOn': l.cancelFailedStillOn,
   'cancelCostsNow': l.cancelCostsNow('<amount>'),
   'cancelNoShowCostsNow': l.cancelNoShowCostsNow('<amount>'),
+  'cancelFeeNotShown': l.cancelFeeNotShown,
   'cancelFreeUnderMinute': l.cancelFreeUnderMinute,
   'cancelFreeMinutes': l.cancelFreeMinutes('<minutes>'),
   'cancelFailedTryAgain': l.cancelFailedTryAgain,
@@ -2374,6 +2375,8 @@ class _Exhaustive implements AppLocalizations {
   String cancelCostsNow(String amount) => '';
   @override
   String cancelNoShowCostsNow(String amount) => '';
+  @override
+  String get cancelFeeNotShown => '';
   @override
   String get cancelFreeUnderMinute => '';
   @override

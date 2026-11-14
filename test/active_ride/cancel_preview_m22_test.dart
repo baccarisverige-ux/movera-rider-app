@@ -138,7 +138,7 @@ void main() {
       );
       final later = cancelPreviewNote(p, DateTime.utc(2026, 11, 14, 12, 3));
       expect(later.charged, isTrue);
-      expect(later.text, 'Cancelling now costs 50,00 kr.');
+      expect(later.text, 'Cancelling now costs 50,00\u00A0kr.');
     });
 
     test('no-show label from kindAfterFree (EUR), TND keeps 3 decimals', () {
@@ -160,7 +160,7 @@ void main() {
         })!,
         at,
       );
-      expect(tnd.text, contains('2.500 DT'));
+      expect(tnd.text, contains('2.500\u00A0DT'));
     });
 
     test('free with no step: no fee', () {
@@ -181,7 +181,7 @@ void main() {
       })!;
       L10n.use('sv');
       final sv = cancelPreviewNote(p, DateTime.utc(2026, 11, 14, 12, 6)).text;
-      expect(sv, contains('40,00 kr'));
+      expect(sv, contains('40,00\u00A0kr'));
       L10n.use('fr');
       final fr = cancelPreviewNote(p, DateTime.utc(2026, 11, 14, 12, 6)).text;
       expect(fr, contains('40,00'));
@@ -310,7 +310,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text(note.text), findsOneWidget);
-      expect(note.text, contains('40,00 kr'));
+      expect(note.text, contains('40,00\u00A0kr'));
       if (shot != null) {
         final render =
             boundary.currentContext!.findRenderObject()!

@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/config/live_data_only.dart';
 import 'package:movera_rider/core/contracts/cancel_fee.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -109,18 +110,35 @@ class ScheduledRideRules {
     final window = Duration(minutes: rule.freeMin);
     // v0.18.92 (BQ-M22, contract priceDisplay.cancelPreview): the server's
     // preview of this booked ride wins — its fee now, and from freeUntil on
-    // feeAfterFree (a clock compare); the rule below is for an older server.
+    // feeAfterFree (a clock compare); the rule below is for demo builds.
     final preview = ride.cancelPreview;
     if (preview != null) {
       final current = preview.at(now);
       final until = preview.freeUntil;
       return ReservationCancelTerms(
         at: now,
-        // No step ahead: the free cancel has ended (or it stays free).
+        // No step ahead (supervisor S6): the free cancel has ended (or it
+        // stays free); no moment is named as its end.
         freeUntil: until ?? now,
-        window: window,
+        freeEndKnown: until != null,
+        // How long before pickup the server's free cancel ends (a time,
+        // not money).
+        window: until == null
+            ? Duration.zero
+            : ride.scheduledPickupAt.difference(until),
         lateFee: preview.feeAfterFree ?? preview.feeNow,
         fee: current.fee.isPositive ? current.fee : null,
+        timeZone: ride.timeZone,
+      );
+    }
+    // Supervisor MF1 (contract priceDisplay.cancelPreview.apps: "Absent →
+    // no amount on the sheet, never a worked-out fee"; owner: the apps never
+    // work money out): a real build without the server's preview shows no
+    // amount and no free line. The calculator below is for demo builds.
+    if (LiveDataOnly.on) {
+      return ReservationCancelTerms.unknown(
+        at: now,
+        currency: fare.currency,
         timeZone: ride.timeZone,
       );
     }
@@ -188,7 +206,22 @@ class ReservationCancelTerms {
     required this.lateFee,
     this.fee,
     this.timeZone,
+    this.freeEndKnown = true,
+    this.known = true,
   });
+
+  /// BQ-M22 supervisor MF1: a real build without the server's
+  /// `cancelPreview`: no amount and no free line (never a phone-worked fee).
+  ReservationCancelTerms.unknown({
+    required this.at,
+    required String currency,
+    this.timeZone,
+  }) : freeUntil = at,
+       window = Duration.zero,
+       lateFee = Money(0, currency),
+       fee = null,
+       freeEndKnown = false,
+       known = false;
 
   /// When these terms were worked out.
   final DateTime at;
@@ -209,10 +242,22 @@ class ReservationCancelTerms {
   /// shown in. Null: the device's.
   final String? timeZone;
 
+  /// Whether [freeUntil] is a real free-cancel end (false: the server sent
+  /// no step, supervisor S6; [freeUntil] is then [at] and never shown).
+  final bool freeEndKnown;
+
+  /// Whether the cancel cost is known (false: [ReservationCancelTerms.unknown]).
+  final bool known;
+
   bool get isFree => fee == null;
 
   /// Free now because the free window is still open (and a fee follows it).
-  bool get freeForNow => isFree && lateFee.isPositive && at.isBefore(freeUntil);
+  bool get freeForNow =>
+      known &&
+      freeEndKnown &&
+      isFree &&
+      lateFee.isPositive &&
+      at.isBefore(freeUntil);
 }
 
 /// Where the current rules come from. The app reads them over the API;

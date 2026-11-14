@@ -125,7 +125,7 @@ void main() {
       expect(late.fee, const Money(5000));
       expect(
         ReservationFormat.cancelTermsTitle(late),
-        'Cancellation fee: 50,00 kr',
+        'Cancellation fee: 50,00\u00A0kr',
       );
       expect(ReservationFormat.cancelTermsBody(late), contains('07:00'));
     });

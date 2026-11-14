@@ -199,6 +199,7 @@
   "cancelFailedStillOn": "Kunde inte avboka. Din resa gäller fortfarande.",
   "cancelCostsNow": "Att avboka nu kostar {amount}.",
   "cancelNoShowCostsNow": "Att avboka nu räknas som uteblivet: {amount}.",
+  "cancelFeeNotShown": "Avbokningsavgiften kan inte visas just nu.",
   "cancelFreeUnderMinute": "Avbokning är gratis i mindre än en minut till.",
   "cancelFreeMinutes": "Avbokning är gratis i {minutes} minuter till.",
   "cancelFailedTryAgain": "Kunde inte avboka. Din resa gäller fortfarande – försök igen.",

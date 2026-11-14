@@ -289,40 +289,64 @@ abstract final class ReservationFormat {
     now: zoneWallTime(terms.at, terms.timeZone),
   );
 
+  /// A cancel amount on the cancel sheet and in "Things to know": whole
+  /// amounts keep their decimals ("45,00 kr", "5.000 DT"; owner money rule,
+  /// Rules decisions/session-2026-11-06.md:1275; BQ-M22 supervisor MF2).
+  static String _fee(Money amount) => formatMoneyFull(amount);
+
   /// Cancel sheet headline for [terms].
   static String cancelTermsTitle(ReservationCancelTerms terms) {
+    // Supervisor MF1: no server preview on a real build → no amount.
+    if (!terms.known) return L10n.current.cancelFeeNotShown;
     final fee = terms.fee;
-    if (fee != null) return L10n.current.cancelFee(money(fee));
+    if (fee != null) return L10n.current.cancelFee(_fee(fee));
     if (terms.freeForNow) {
       return L10n.current.freeToCancelUntil(_freeUntil(terms));
     }
     return L10n.current.freeCancellation;
   }
 
-  /// Cancel sheet detail for [terms].
-  static String cancelTermsBody(ReservationCancelTerms terms) {
-    final until = _freeUntil(terms);
-    final before = window(terms.window);
+  /// Cancel sheet detail for [terms]; null when there is none to show.
+  static String? cancelTermsBody(ReservationCancelTerms terms) {
+    if (!terms.known) return null;
     final fee = terms.fee;
     if (fee != null) {
-      return L10n.current.freeEndedPayNow(until, before, money(fee));
+      // Supervisor S6: no step from the server → no free-cancel end named.
+      if (!terms.freeEndKnown) return L10n.current.cancelCostsNow(_fee(fee));
+      return L10n.current.freeEndedPayNow(
+        _freeUntil(terms),
+        window(terms.window),
+        _fee(fee),
+      );
     }
     if (terms.freeForNow) {
-      return L10n.current.freeThatIsBefore(before, money(terms.lateFee));
+      return L10n.current.freeThatIsBefore(
+        window(terms.window),
+        _fee(terms.lateFee),
+      );
     }
     return L10n.current.noFeeToCancel;
   }
 
   /// "Things to know" cancellation line.
   static String cancellationSummary(ReservationCancelTerms terms) {
-    if (!terms.lateFee.isPositive) return L10n.current.freeAnyTime;
-    final before = window(terms.window);
-    final until = _freeUntil(terms);
-    if (terms.fee != null) {
-      return L10n.current.freeEndedCostsNow(until, before, money(terms.fee!));
+    if (!terms.known) return L10n.current.cancelFeeNotShown;
+    final fee = terms.fee;
+    if (fee != null) {
+      if (!terms.freeEndKnown) return L10n.current.cancelCostsNow(_fee(fee));
+      return L10n.current.freeEndedCostsNow(
+        _freeUntil(terms),
+        window(terms.window),
+        _fee(fee),
+      );
     }
+    if (!terms.lateFee.isPositive) return L10n.current.freeAnyTime;
     if (terms.freeForNow) {
-      return L10n.current.freeUntilThen(until, before, money(terms.lateFee));
+      return L10n.current.freeUntilThen(
+        _freeUntil(terms),
+        window(terms.window),
+        _fee(terms.lateFee),
+      );
     }
     return L10n.current.noFeeToCancel;
   }
@@ -362,6 +386,7 @@ abstract final class ReservationFormat {
   /// The cancel rule [terms] apply (rider-u169): the ride's own window
   /// and late fee, which may be its ride type's rule.
   static String cancelRuleOf(ReservationCancelTerms terms) {
+    if (!terms.known) return L10n.current.cancelFeeNotShown;
     if (!terms.lateFee.isPositive) {
       return L10n.current.scheduledCancelFree;
     }
