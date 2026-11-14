@@ -26,7 +26,7 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.text('+2 €'));
+    await tester.tap(find.text('+2,00 €'));
     await tester.pump();
 
     final field = tester.widget<TextField>(find.byType(TextField));

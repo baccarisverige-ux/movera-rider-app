@@ -53,18 +53,12 @@ String _grouped(String major) {
   return '${negative ? '-' : ''}$grouped$frac';
 }
 
-/// [money] the short way for a chip the rider picks from a row (the tip
-/// chips, the raise steps): a whole amount drops its zeros ("5 €", "2 DT",
-/// "20 kr"); any other amount is [formatMoney], exact ("2,50 €"), so a
-/// server amount is never rounded. Every other money text (a limit, a
-/// chosen tip, a fee) is [formatMoney].
-String formatMoneyShort(Money money) {
-  if (money.amountMinor % Money.minorPerMajor(money.currency) != 0) {
-    return formatMoney(money);
-  }
-  final whole = money.amountMinor ~/ Money.minorPerMajor(money.currency);
-  return '$whole ${currencySymbol(money.currency)}';
-}
+/// [money] on a chip the rider picks from a row (the tip chips, the raise
+/// steps) and on the unpaid-fee line: exactly [formatMoney], decimals kept
+/// ("20,00 kr", "5,00 €", "2.000 DT"). Contract v0.18.89
+/// `moneyDisplay.wholeAmounts`: no short form on any screen, list or card
+/// (owner 2026-11-14; supervisor M2, Rules audits/impact/pd2-pf-supervisor.md).
+String formatMoneyShort(Money money) => formatMoney(money);
 
 /// The symbol of [currency]: "kr", "€", "DT", else the code itself.
 String currencySymbol(String currency) => switch (currency) {

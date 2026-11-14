@@ -266,7 +266,7 @@ void main() {
       await tester.tap(star);
       await tester.pump();
 
-      final tip = find.text('20 kr').first;
+      final tip = find.text('20,00 kr').first;
       await tester.ensureVisible(tip);
       await tester.tap(tip);
       await tester.pump();
@@ -356,7 +356,7 @@ void main() {
     await tester.tap(star);
     await tester.pump();
 
-    final tip = find.text('20 kr').first;
+    final tip = find.text('20,00 kr').first;
     await tester.ensureVisible(tip);
     await tester.tap(tip);
     await tester.pump();
@@ -446,7 +446,7 @@ void main() {
       await tester.tap(firstStar);
       await tester.pump();
 
-      final firstTip = find.text('20 kr').first;
+      final firstTip = find.text('20,00 kr').first;
       await tester.ensureVisible(firstTip);
       await tester.tap(firstTip);
       await tester.pump();
@@ -471,7 +471,7 @@ void main() {
       await tester.tap(changedStar);
       await tester.pump();
 
-      final changedTip = find.text('30 kr').first;
+      final changedTip = find.text('30,00 kr').first;
       await tester.ensureVisible(changedTip);
       await tester.tap(changedTip);
       await tester.pump();

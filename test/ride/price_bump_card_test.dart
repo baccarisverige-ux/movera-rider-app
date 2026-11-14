@@ -50,7 +50,7 @@ void main() {
   ) async {
     final confirmed = <int>[];
     await pumpCard(tester, confirmed: confirmed);
-    await tester.tap(find.text('+100 kr'));
+    await tester.tap(find.text('+100,00 kr'));
     await tester.pump();
     expect(find.text('Confirm 359,00 kr'), findsOneWidget);
     await tester.tap(find.text('Confirm 359,00 kr'));
@@ -105,9 +105,9 @@ void main() {
         tester.widget<Text>(find.text(chip)).style?.color == Colors.white;
     await tester.enterText(find.byType(TextField), '27'); // +2,40 €
     await tester.pump();
-    expect(lit('+2 €'), isFalse);
-    await tester.tap(find.text('+2 €'));
+    expect(lit('+2,00 €'), isFalse);
+    await tester.tap(find.text('+2,00 €'));
     await tester.pump();
-    expect(lit('+2 €'), isTrue);
+    expect(lit('+2,00 €'), isTrue);
   });
 }

@@ -605,8 +605,8 @@ void main() {
         ),
       );
       expect(find.text('Current 259,00 kr'), findsOneWidget);
-      expect(find.text('+50 kr'), findsOneWidget);
-      await tester.tap(find.text('+100 kr'));
+      expect(find.text('+50,00 kr'), findsOneWidget);
+      await tester.tap(find.text('+100,00 kr'));
       await tester.pump();
       expect(find.text('Confirm 359,00 kr'), findsOneWidget);
     });

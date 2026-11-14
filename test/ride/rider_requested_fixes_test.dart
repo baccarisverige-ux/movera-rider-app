@@ -18,9 +18,9 @@ void main() {
       ),
     );
 
-    expect(find.text('10 kr'), findsOneWidget);
-    expect(find.text('20 kr'), findsOneWidget);
-    expect(find.text('30 kr'), findsOneWidget);
+    expect(find.text('10,00 kr'), findsOneWidget);
+    expect(find.text('20,00 kr'), findsOneWidget);
+    expect(find.text('30,00 kr'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('custom-tip-field')),
       findsNothing,
@@ -28,12 +28,12 @@ void main() {
     expect(find.text('Custom amount'), findsNothing);
     expect(find.text('Enter amount'), findsNothing);
 
-    await tester.tap(find.text('20 kr'));
+    await tester.tap(find.text('20,00 kr'));
     await tester.pump();
 
     expect(find.text('20,00 kr selected.'), findsOneWidget);
 
-    await tester.tap(find.text('20 kr'));
+    await tester.tap(find.text('20,00 kr'));
     await tester.pump();
 
     expect(find.text('Tip is optional.'), findsOneWidget);

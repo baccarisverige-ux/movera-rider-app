@@ -194,14 +194,14 @@ void main() {
     quotes.busy = false;
     final firstRound = quotes.calls;
     expect(firstRound, greaterThan(0));
-    expect(find.text('412 kr'), findsNothing);
+    expect(find.text('412,00 kr'), findsNothing);
 
     // The server said "Retry-After 2"; the app waits that (and at most a
     // short backoff) and asks again without any tap.
     await tester.pump(const Duration(seconds: 4));
     await frames(tester, const Duration(milliseconds: 500));
     expect(quotes.calls, greaterThan(firstRound), reason: 'asked again');
-    expect(find.text('412 kr'), findsWidgets);
+    expect(find.text('412,00 kr'), findsWidgets);
     expect(retryButton, findsNothing);
     await close(tester);
   });
@@ -304,11 +304,11 @@ void main() {
     );
     await open(tester, ApiQuoteRepository(api: api));
     await frames(tester, const Duration(seconds: 7));
-    expect(find.text('129 kr'), findsNothing);
+    expect(find.text('129,00 kr'), findsNothing);
     // The first categories are cut at 8 s; the answer lands at 9 s; the
     // retry (2 s ± 20 % after the round) reads it from the same request.
     await frames(tester, const Duration(seconds: 8));
-    expect(find.text('129 kr'), findsWidgets);
+    expect(find.text('129,00 kr'), findsWidgets);
     expect(posts, 1, reason: 'one request, its late answer reused');
     expect(retryButton, findsNothing);
     await close(tester);
@@ -334,7 +334,7 @@ void main() {
     // retry round is due about 2 s after the first one.
     final quotes = _BusyQuotes(priced: 'economy');
     await open(tester, quotes);
-    expect(find.text('412 kr'), findsWidgets);
+    expect(find.text('412,00 kr'), findsWidgets);
     // Book at once: Set pickup opens; the retry falls due under it.
     await tester.tap(find.byKey(const ValueKey('select-ride-book')));
     await frames(tester, const Duration(seconds: 6));

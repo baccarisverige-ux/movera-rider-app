@@ -182,10 +182,10 @@ void main() {
         ),
       ),
     );
-    expect(find.text('+200 kr'), findsNothing);
+    expect(find.text('+200,00 kr'), findsNothing);
     expect(find.byKey(const ValueKey('price-bump-max')), findsNothing);
 
-    await tester.tap(find.text('+100 kr'));
+    await tester.tap(find.text('+100,00 kr'));
     await tester.pump();
     expect(find.text('Confirm 247,00 kr'), findsOneWidget);
 
