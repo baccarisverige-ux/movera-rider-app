@@ -60,25 +60,44 @@ class RideSelectionController {
 
   final RideSelectionRepository _store;
 
-  /// Owner 2026-11-07 (item 12): an unpaid fee from an earlier trip rides on
-  /// the next price (server quotes add it from the first quote,
-  /// `fareLines.outstanding_fee`). Until a category's quote is in, its list
-  /// price shows with the debt in this currency too, so the price does not
-  /// jump when the quote lands (259 → 408 kr).
+  /// What the rider owes in a currency as the server last said it
+  /// (`Rider.outstandingByCurrency`, J8: derived from the wallet).
+  ///
+  /// J10 (contract v0.18.84 `debtModel.readAtPayment`, owner Q-M2 "read at
+  /// payment"): the debt is never in a price, so it is no longer added to
+  /// the list price (the 2026-11-07 item 12 "no jump" rule is gone with
+  /// it: the quote does not carry the debt any more).
   final Money? Function(String currency) _owedIn;
 
   static Money? _riderOwes(String currency) =>
       RiderOutstanding.current.value.inCurrency(currency);
 
-  /// The unpaid earlier fee [id]'s shown price carries: the quote's
-  /// `outstanding_fee` line once it is in, else what the rider owes in this
-  /// currency. Null when none.
+  /// An unpaid earlier fee inside [id]'s quoted price: only a quote from a
+  /// server before J8 carries the `outstanding_fee` line. Null when none.
   Money? unpaidFeeFor(String id) {
     final quote = authoritativeQuotes[id];
-    if (quote != null) {
-      return quote.outstandingFeeMinor > 0
-          ? Money(quote.outstandingFeeMinor, quote.currency)
-          : null;
+    if (quote == null || quote.outstandingFeeMinor <= 0) return null;
+    return Money(quote.outstandingFeeMinor, quote.currency);
+  }
+
+  /// J10 (v0.18.84 `debtModel.quoteInfo`, owner Q-S5-5): what the rider
+  /// owes from earlier trips, from [id]'s quote (`Quote.walletDebt`). Shown
+  /// under the price as information only: it is not in the price and is
+  /// paid once, at payment. Null when the quote has none.
+  Money? quoteDebtFor(String id) => authoritativeQuotes[id]?.walletDebt;
+
+  /// J10 (v0.18.84 `debtModel.walletSwitch`, owner Q-M1 "when wallet is
+  /// negative so can't switch it off"): the rider owes in this trip's
+  /// currency (a negative wallet balance, or the server's owed amount), so
+  /// "Use wallet balance first" is on and locked.
+  bool get walletFirstLocked => walletOwed != null;
+
+  /// What the rider owes in this trip's currency, as the server said it:
+  /// the negative wallet balance shown as an amount owed, else
+  /// `Rider.outstandingByCurrency`. Null when nothing is owed.
+  Money? get walletOwed {
+    if (walletMatchesTrip && walletBalance < 0) {
+      return Money.fromLegacyMajor(-walletBalance, walletCurrency);
     }
     return _owedIn(currency);
   }
@@ -297,7 +316,15 @@ class RideSelectionController {
   /// "Use wallet balance first": the balance is taken off the fare before
   /// the chosen method pays the rest. Owner Q6 (fix job 5, v0.18.33): a
   /// switch per ride that starts ON every time; sent as `walletFirst`.
-  bool useWalletFirst = true;
+  /// J10: always on while the rider owes ([walletFirstLocked]); a switch
+  /// off then is not kept.
+  bool get useWalletFirst => _useWalletFirst || walletFirstLocked;
+  set useWalletFirst(bool value) {
+    if (walletFirstLocked) return;
+    _useWalletFirst = value;
+  }
+
+  bool _useWalletFirst = true;
 
   /// The part of [priceKr] the wallet covers for the current payment
   /// choice, or 0. Paying the whole ride from the wallet is its own method
@@ -768,10 +795,7 @@ class RideSelectionController {
 
   double priceFor(String id, double catalog, {DateTime? now}) {
     _discardExpiredQuote(id, now: now);
-    final price = offeredPrices[id] ?? catalog;
-    if (authoritativeQuotes.containsKey(id)) return price;
-    final owed = _owedIn(currency);
-    return owed == null ? price : price + owed.major;
+    return offeredPrices[id] ?? catalog;
   }
 
   double? authoritativePriceFor(String id, {DateTime? now}) {

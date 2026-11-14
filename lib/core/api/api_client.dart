@@ -13,10 +13,18 @@ import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/core/auth/signed_out_notice.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/core/contracts/server_clock.dart';
+import 'package:movera_rider/core/contracts/trip_transitions.dart';
 
 class ApiClient {
   /// `X-Api-Version` on every request: `contract.json#headers` (v0.5).
   static const apiVersion = '0.5';
+
+  /// J10: `X-Contract-Version` on every request, the contract copy's
+  /// version, as the driver app sends it (contract v0.18.8
+  /// `arrivedWaiting.pin.compat`: "send the header X-Contract-Version
+  /// (e.g. 0.18.8)"). New fields go only to apps at or above the version
+  /// that added them (v0.18.84 `debtModel.oldApps`: `Quote.walletDebt`).
+  static const contractVersion = TripStateMachine.contractVersion;
 
   ApiClient({
     http.Client? client,
@@ -166,6 +174,7 @@ class ApiClient {
         'Accept': 'text/event-stream',
         'X-Request-Id': requestId,
         'X-Api-Version': apiVersion,
+        'X-Contract-Version': contractVersion,
         if (access != null) 'Authorization': 'Bearer $access',
         if (lastEventId != null) 'Last-Event-ID': lastEventId,
       });
@@ -237,6 +246,7 @@ class ApiClient {
     Map<String, String> headers(String? token) => {
       'X-Request-Id': requestId,
       'X-Api-Version': apiVersion,
+      'X-Contract-Version': contractVersion,
       if (token != null) 'Authorization': 'Bearer $token',
     };
     var response = await _getWithRetry(uri, headers(access));
@@ -280,6 +290,7 @@ class ApiClient {
         'Content-Type': 'application/json',
         'X-Request-Id': requestId,
         'X-Api-Version': apiVersion,
+        'X-Contract-Version': contractVersion,
         if (access != null) 'Authorization': 'Bearer $access',
         // contract.json#headers: an Idempotency-Key on every mutation. A
         // caller that names none (a quote, a sign-out) gets one of its own

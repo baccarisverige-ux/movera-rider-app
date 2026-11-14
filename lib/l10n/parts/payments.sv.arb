@@ -123,5 +123,10 @@
   "refundNotWaiting": "Den här återbetalningen väntar inte längre.",
   "refundChoiceUnavailable": "Det valet finns inte för den här återbetalningen. Välj ett annat.",
   "refundDetailsInvalid": "Kontrollera kontouppgifterna och försök igen.",
-  "refundSendFailed": "Kunde inte skicka ditt val. Försök igen."
+  "refundSendFailed": "Kunde inte skicka ditt val. Försök igen.",
+  "quoteDebtLine": "+ {amount} obetalt från en tidigare resa, läggs till när du betalar",
+  "riderDebtAboveMax": "Du är skyldig {amount} från tidigare resor. Resor som betalas i bilen är pausade tills det är betalt. Kontakta supporten för att betala.",
+  "walletFee": "Obetald avgift",
+  "walletDebtPaid": "Obetald avgift betald",
+  "walletYouOwe": "Du är skyldig {amount}"
 }

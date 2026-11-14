@@ -245,6 +245,8 @@ class ApiQuoteRepository implements QuoteRepository {
           // Live 5+5 run 2: without it Choose ride saw 0 and showed no
           // « +35 kr obetald avgift » line under a price that held it.
           outstandingFeeMinor: found.outstandingFeeMinor,
+          // J10 (v0.18.84): the debt line under the price, never in it.
+          walletDebt: found.walletDebt,
           serverHeld: true,
         );
       }
@@ -350,6 +352,13 @@ class ApiQuoteRepository implements QuoteRepository {
       // A discount line is negative on the wire; the app keeps it positive.
       discountMinor: -line(const {'discount'}),
       outstandingFeeMinor: line(const {'outstanding_fee'}),
+      walletDebt: switch (Money.fromWire(map['walletDebt'])) {
+        // J10 (v0.18.84 `debtModel.quoteInfo`): in the quote's currency
+        // and above 0, as the server sends it; anything else shows none.
+        final debt? when debt.currency == total.currency && debt.isPositive =>
+          debt,
+        _ => null,
+      },
       serverHeld: true,
       pickupAt: WireTime.tryParse(map['pickupAt']),
       samePointWarning: samePointWarning,

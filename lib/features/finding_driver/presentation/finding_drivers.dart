@@ -60,6 +60,8 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
+import 'package:movera_rider/features/profile/domain/rider_outstanding.dart';
+import 'package:movera_rider/features/wallet/domain/rider_debt.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/widgets/approximate_route_badge.dart';
 
@@ -483,14 +485,20 @@ class _FindingDriversState extends State<FindingDrivers> {
         paymentMethodLabel: widget.paymentMethod,
         notes: widget.notes,
         stops: ended.stops,
-        useWalletFirst: widget.walletAmountMinor > 0,
+        // J10 (v0.18.84 debtModel.walletSwitch): on while the rider owes.
+        useWalletFirst:
+            widget.walletAmountMinor > 0 ||
+            RiderOutstanding.current.value.inCurrency(quote.currency) != null,
         walletAmountMinor: widget.walletAmountMinor,
       );
     } catch (error) {
       // RC-09: a timeout or dropped connection may still have booked it.
       if (BookingController.mayHaveBooked(error)) return _Rebook.uncertain;
       _rebookQuote = null;
-      _showCancelNotice(L10n.current.rebookFailed);
+      // J10 (v0.18.84): 409 rider_debt_above_max says what is owed.
+      _showCancelNotice(
+        RiderDebtRefusal.messageOf(error) ?? L10n.current.rebookFailed,
+      );
       return _Rebook.failed;
     } finally {
       if (mounted) setState(() => _rebooking = false);

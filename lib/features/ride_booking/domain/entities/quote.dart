@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/server_clock.dart';
 
 /// Server-owned fare quote. The app displays it; it does not invent prices.
@@ -15,6 +16,7 @@ class RideQuote {
     this.surgeMinor = 0,
     this.discountMinor = 0,
     this.outstandingFeeMinor = 0,
+    this.walletDebt,
     this.signedPayload,
     this.serverHeld = false,
     this.pickupAt,
@@ -37,6 +39,13 @@ class RideQuote {
   /// the server adds to this price (`fareLines.outstanding_fee`), shown as
   /// its own line so it is never hidden in the total.
   final int outstandingFeeMinor;
+
+  /// J10 (contract v0.18.84 `Quote.walletDebt`, `debtModel.quoteInfo`,
+  /// owner Q-S5-5): what the rider owes from earlier trips in the quote's
+  /// currency, as the server sent it. Information only: it is NOT in
+  /// [totalMinor] and not a fare line; it is added once, when the trip is
+  /// paid. Null when the server sent none (a balance ≥ 0).
+  final Money? walletDebt;
   final String? signedPayload;
 
   /// A contract `Quote` (openapi v0.5): the server stores it and binds the

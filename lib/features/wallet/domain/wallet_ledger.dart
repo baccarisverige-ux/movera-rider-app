@@ -1,4 +1,28 @@
-enum WalletEntryKind { credit, ride, refund, voucher }
+enum WalletEntryKind {
+  credit,
+  ride,
+  refund,
+  voucher,
+
+  /// J10 (contract v0.18.84 `WalletEntry.kind` fee): an unpaid cancel or
+  /// no-show fee; negative, it can take the balance below 0.
+  fee,
+
+  /// J10 (v0.18.84 `WalletEntry.kind` debt_paid): the debt paid with a
+  /// trip; positive, it brings the balance back to 0.
+  debtPaid;
+
+  /// The contract `WalletEntry.kind` (topup, charge, refund, fee,
+  /// debt_paid), or null for a kind this app has no row for.
+  static WalletEntryKind? fromWire(Object? kind) => switch (kind) {
+    'topup' => credit,
+    'charge' => ride,
+    'refund' => refund,
+    'fee' => fee,
+    'debt_paid' => debtPaid,
+    _ => null,
+  };
+}
 
 class WalletEntry {
   const WalletEntry({
