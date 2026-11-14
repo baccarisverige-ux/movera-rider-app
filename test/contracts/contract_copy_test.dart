@@ -36,9 +36,9 @@ void main() {
     expect(onDisk, listed, reason: 'files added or removed without a re-sync');
   });
 
-  test('the copy is contract v0.18.92', () {
+  test('the copy is contract v0.18.93', () {
     expect(contract['contract'], 'movera');
-    expect(contract['version'], '0.18.92');
+    expect(contract['version'], '0.18.93');
     expect(TripStateMachine.contractVersion, contract['version']);
   });
 

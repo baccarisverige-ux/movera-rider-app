@@ -1,11 +1,11 @@
-# Movera API v0.18.92 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.93 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.92
+  version: 0.18.93
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.92 in this folder; this file must agree with them.
+    v0.18.93 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.92
+  version: 0.18.93
   source: contract.json
 paths:
   /auth/otp/request:
@@ -19468,6 +19468,56 @@ components:
             read; for a trip that arrived before v0.18.51 it is the clock that trip is charged by (freeUntil − freeWaitMin,
             else arrivedAt). Apps reading an older server without it: arrivedAt for a live ride, the later of arrivedAt and
             scheduledAt for a booked ride.'
+        arrivedBy:
+          type: string
+          enum:
+          - auto
+          - tap
+          description: 'v0.18.93: "auto" | "tap" (absent on a trip that arrived before v0.18.93). v0.18.93 round 2 (supervisor
+            must-fixes M1–M3, Rules audits/impact/c9-auto-arrive-supervisor.md; Rule 21: the first wording is kept as *Before0_18_93r1):
+            Trip status driver_to_pickup (not accepted, not a booked ride held for later) and the latest counting fix within
+            autoArriveMeters of the pickup, confirmed (confirm: 2 counting fixes in a row at least 5 s apart, both within,
+            and slow, at most 15 km/h): the server runs the same step as POST /trips/{tripId}/arrive, as the driver (actor
+            driver, command arrive, version + 1, trip_projection, the rider''s driver_arrived push, the automatic "I''ve arrived"
+            chat message once per trip, chat.autoArrived), with waiting.arrivedBy auto. It runs as a job (timer kind pickup_geofence,
+            the trip lane, watched by fastDispatch.lateAlarm.tripTimers) right after the position is stored (never inside
+            POST /driver/location''s answer), once per new fix.'
+        away:
+          type: object
+          description: 'v0.18.93: { since: Timestamp } while the waiting clock is stopped; absent otherwise. v0.18.93 round
+            2 (supervisor must-fixes M1–M3, Rules audits/impact/c9-auto-arrive-supervisor.md; Rule 21: the first wording is
+            kept as *Before0_18_93r1): Status arrived and the latest counting fix farther than leaveMeters from the pickup,
+            confirmed (confirm: 2 counting fixes in a row at least 5 s apart, both farther): the waiting clock stops. waiting.away
+            = { since } (since = the first fix of the confirming pair''s measuredAt, never before arrivedAt nor after now).
+            No version change; a trip_projection event goes out (like the island alerts). v0.18.93 round 2 (supervisor must-fixes
+            M1–M3, Rules audits/impact/c9-auto-arrive-supervisor.md; Rule 21: the first wording is kept as *Before0_18_93r1):
+            While waiting.away is set, a confirmed counting fix within autoArriveMeters of the pickup (confirm: 2 in a row
+            at least 5 s apart, both within, slow), or the driver''s tap (POST /trips/{tripId}/arrive, texts.driverBack; the
+            position sent with it or the server''s latest, fresh as the first tap, and within the trip''s leaveMeters of the
+            pickup — not the first tap''s 300 m — else 409 invalid_transition, reason not_at_pickup; then version + 1), is
+            the new arrival: the clock goes on. stopped = resumeAt − max(away.since, waitFrom), at least 0 (resumeAt = the
+            first fix of the confirming pair''s measuredAt, never before since nor after now; a tap: now). waiting.freeUntil
+            and waiting.noShowAt move later by stopped seconds, waiting.pausedSeconds grows by stopped, waiting.pauseCount
+            by 1, waiting.away goes. The island alerts (arrivedWaiting.alerts) follow the moved moments. GPS between leaveMeters
+            and autoArriveMeters changes nothing (no flip-flop). clockAt(t) = waiting.away.since while away, else t. Paid
+            waiting at board = max(0, floor((clockAt(board) − freeUntil) / 1 s)) seconds (Waiting.chargedSeconds), priced
+            as before (§3.5: waiting line = chargedSeconds / 60 × perMin, half-up to a minor unit; 100 % the driver''s). Waiting.chargedSecondsNow
+            / chargedSoFar at read time use clockAt(now): frozen while away. Away time never costs the rider. Examples: fixtures/auto_arrive.json
+            (SEK 12,26 kr/min, TND 0.250 DT/min).'
+          required:
+          - since
+          properties:
+            since:
+              $ref: '#/components/schemas/Timestamp'
+          additionalProperties: false
+        pausedSeconds:
+          type: integer
+          minimum: 0
+          description: 'v0.18.93: integer ≥ 0: seconds freeUntil / noShowAt were moved by finished stops (0 or absent: none).'
+        pauseCount:
+          type: integer
+          minimum: 0
+          description: 'v0.18.93: integer ≥ 0: finished stops.'
     Cancellation:
       type: object
       required:
@@ -23946,6 +23996,24 @@ components:
             description: 'v0.18.8: Free wait at each stop (owner re-check 2026-11-01): DriverAppConfig.waiting.stopFreeWaitMin
               (default 0 = no free minutes, as v0.7.1). stop_waiting charges, per stop, only the seconds after the first stopFreeWaitMin
               minutes of that stop (Σ max(0, (leftAt − arrivedAt) − stopFreeWaitMin × 60) / 60 × stopWaitPerMin).'
+          autoArriveMeters:
+            type: integer
+            minimum: 30
+            maximum: 300
+            description: 'v0.18.93: Admin › Dispatch › Pickup waiting, per zone or the country standard: "Auto arrived within
+              (m)". Default 100. Whole numbers inside their range, and leaveMeters greater than autoArriveMeters (else the
+              driver could be arrived and away at once). Otherwise PUT / publish of the driver document is 400 invalid_request,
+              reason invalid_auto_arrive_distance. A stored document with a bad value or a bad pair is read with the defaults
+              (100 / 200).'
+          leaveMeters:
+            type: integer
+            minimum: 100
+            maximum: 2000
+            description: 'v0.18.93: Admin › Dispatch › Pickup waiting, per zone or the country standard: "Waiting stops when
+              the driver is more than (m) away". Default 200. Whole numbers inside their range, and leaveMeters greater than
+              autoArriveMeters (else the driver could be arrived and away at once). Otherwise PUT / publish of the driver
+              document is 400 invalid_request, reason invalid_auto_arrive_distance. A stored document with a bad value or
+              a bad pair is read with the defaults (100 / 200).'
     AmountOption:
       type: object
       description: One admin-editable amount (tip or raise-offer step) in the zone's currency.
@@ -27867,7 +27935,9 @@ components:
             v0.18.84 reasons (contract.json#debtModel): rider_debt_above_max (409 conflict, POST /trips pay in car), driver_owes_movera
             (409 conflict, admin assign of a cash trip to a driver at or over the owes-limit), owed_changed (409 conflict,
             paid-movera), paid_above_owed and owes_limit_needs_amount (400 invalid_request). v0.18.86 reason: commission_steps_invalid
-            (400 invalid_request, PUT /admin/config/pricing and its publish; details ["step:<index>", "problem:<code>"], contract.json#commissionSteps.validation).'
+            (400 invalid_request, PUT /admin/config/pricing and its publish; details ["step:<index>", "problem:<code>"], contract.json#commissionSteps.validation).
+            v0.18.93 reasons: driver_away_from_pickup (409, the driver''s no-show while the waiting clock is stopped), invalid_auto_arrive_distance
+            (400, contract.json#autoArrive.settings.validation).'
         details:
           type: array
           items:
@@ -33019,6 +33089,14 @@ components:
             (§3.5 step 7''s line rounding), in the trip''s / zone''s currency, with the category''s appFeePct (premium 12
             %, every other category 10 % by default). Examples: 12,26 kr + 10 % = 13,49 kr; 16,90 kr + 12 % = 18,93 kr; 5
             kr + 10 % = 5,50 kr; 0,50 € + 10 % = 0,55 €; 0.250 DT + 10 % = 0.275 DT.'
+        autoArriveMeters:
+          type: integer
+          description: 'v0.18.93: integer: the trip''s arrive distance. Kept on the trip at booking (contract.json#bookingSnapshot
+            fields autoArriveMeters, leaveMeters) and shown in TripProjection.terms.autoArriveMeters / terms.leaveMeters.
+            A trip booked before v0.18.93 uses the zone''s live values.'
+        leaveMeters:
+          type: integer
+          description: 'v0.18.93: integer: the trip''s leave distance.'
     TripEta:
       type: object
       description: 'v0.18.7 (Q4): Status item 2 + Q4 (one road-route ETA for both apps): the server computes the ETA every

@@ -896,4 +896,37 @@ for _x in _csf['pick']:
 for _x in _csf['warn']:
     _r = steps_warnings(_x['steps'])
     if _r != _x['expect'] or steps_problem(_x['steps']) is not None: bad += 1; print('COMMISSION STEPS WARN', _x['id'], _r)
+# v0.18.93 (contract.json#autoArrive, job C9): the waiting clock stops while the driver is away, goes on at a new arrival.
+_aa = c['autoArrive']; _aaf = json.load(open('fixtures/auto_arrive.json'))
+def auto_clock(x):
+    wf = x['waitFromSeconds']; free = wf + x['freeWaitMin'] * 60; no_show = wf + x['noShowAfterMin'] * 60
+    away, paused, count, out = None, 0, 0, {}
+    def back(at):
+        nonlocal free, no_show, paused, count, away
+        stopped = max(0, at - max(away, wf)); free += stopped; no_show += stopped; paused += stopped; count += 1; away = None
+    for e in x['events']:
+        if e['kind'] == 'fix':
+            if away is None and e['meters'] > x['leaveMeters']: away = e['at']
+            elif away is not None and e['meters'] <= x['arriveMeters']: back(e['at'])
+        elif e['kind'] == 'tap' and away is not None: back(e['at'])
+        elif e['kind'] == 'board':
+            charged = max(0, (away if away is not None else e['at']) - free)
+            out.update(chargedSeconds=charged, waitingLine={'amountMinor': _hu(Fr(charged, 60) * x['perMin']['amountMinor']), 'currency': x['currency']})
+        elif e['kind'] == 'no_show':
+            out['noShow'] = 'driver_away_from_pickup' if away is not None else 'no_show_too_early' if e['at'] < no_show else 'ok'
+    return dict(freeUntil=free, noShowAt=no_show, pausedSeconds=paused, pauseCount=count, awayAtEnd=away is not None, **out)
+for _x in _aaf['clock']:
+    if auto_clock(_x) != _x['expect'] or _x['currency'] not in c['currencies'] or _x['perMin']['currency'] != _x['currency']: bad += 1; print('AUTO ARRIVE CLOCK', _x['id'], auto_clock(_x))
+def auto_settings(a, l):
+    st = _aa['settings']; ra, rl = st['arriveMeters']['range'], st['leaveMeters']['range']
+    ok = all(isinstance(v, int) and not isinstance(v, bool) for v in (a, l)) and ra[0] <= a <= ra[1] and rl[0] <= l <= rl[1] and l > a
+    return 'ok' if ok else 'invalid_auto_arrive_distance'
+for _x in _aaf['settings']:
+    if auto_settings(_x['autoArriveMeters'], _x['leaveMeters']) != _x['expect']: bad += 1; print('AUTO ARRIVE SETTINGS', _x)
+_st = _aa['settings']
+if auto_settings(_st['arriveMeters']['default'], _st['leaveMeters']['default']) != 'ok' or _aa['maxAccuracyMeters'] != 50: bad += 1; print('AUTO ARRIVE defaults')
+if not {'autoArriveMeters', 'leaveMeters'} <= set(c['bookingSnapshot']['fields']): bad += 1; print('SNAPSHOT fields v0.18.93')
+for _k, _t in _aa['texts'].items():
+    if set(_t) != {'sv', 'fr', 'en'} or any(not _t[l].strip() for l in _t): bad += 1; print('AUTO ARRIVE TEXT', _k)
+    if _k == 'driverPaused' and any('{leave}' not in _t[l] or '{arrive}' not in _t[l] for l in _t): bad += 1; print('AUTO ARRIVE placeholders')
 print('OK' if not bad else f'{bad} mismatches'); sys.exit(1 if bad else 0)

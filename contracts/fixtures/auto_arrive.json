@@ -1,0 +1,361 @@
+{
+  "note": "v0.18.93 (contract.json#autoArrive): the waiting clock with the driver driving away and back. Times are seconds after Arrived (arrivedAt = 0); waitFromSeconds is when the free wait starts (a booked ride reached early: its pickup time). events: a counting fix at `meters` from the pickup, the driver's tap on Arrived, board (Start), or the driver's no-show. expect: freeUntil / noShowAt (seconds, after the moves), pausedSeconds, pauseCount, awayAtEnd, chargedSeconds at board and the waiting line (chargedSeconds / 60 × perMin, half-up), or the no-show answer of the last no_show event.",
+  "clock": [
+    {
+      "id": "se_away_in_free_wait",
+      "currency": "SEK",
+      "perMin": {
+        "amountMinor": 1226,
+        "currency": "SEK"
+      },
+      "freeWaitMin": 5,
+      "noShowAfterMin": 5,
+      "waitFromSeconds": 0,
+      "arriveMeters": 100,
+      "leaveMeters": 200,
+      "events": [
+        {
+          "at": 120,
+          "kind": "fix",
+          "meters": 400
+        },
+        {
+          "at": 420,
+          "kind": "fix",
+          "meters": 50
+        },
+        {
+          "at": 900,
+          "kind": "board"
+        }
+      ],
+      "expect": {
+        "freeUntil": 600,
+        "noShowAt": 600,
+        "pausedSeconds": 300,
+        "pauseCount": 1,
+        "awayAtEnd": false,
+        "chargedSeconds": 300,
+        "waitingLine": {
+          "amountMinor": 6130,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se_away_in_paid_wait",
+      "currency": "SEK",
+      "perMin": {
+        "amountMinor": 1226,
+        "currency": "SEK"
+      },
+      "freeWaitMin": 5,
+      "noShowAfterMin": 5,
+      "waitFromSeconds": 0,
+      "arriveMeters": 100,
+      "leaveMeters": 200,
+      "events": [
+        {
+          "at": 480,
+          "kind": "fix",
+          "meters": 350
+        },
+        {
+          "at": 780,
+          "kind": "fix",
+          "meters": 90
+        },
+        {
+          "at": 960,
+          "kind": "board"
+        }
+      ],
+      "expect": {
+        "freeUntil": 600,
+        "noShowAt": 600,
+        "pausedSeconds": 300,
+        "pauseCount": 1,
+        "awayAtEnd": false,
+        "chargedSeconds": 360,
+        "waitingLine": {
+          "amountMinor": 7356,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se_board_while_away",
+      "currency": "SEK",
+      "perMin": {
+        "amountMinor": 1226,
+        "currency": "SEK"
+      },
+      "freeWaitMin": 5,
+      "noShowAfterMin": 5,
+      "waitFromSeconds": 0,
+      "arriveMeters": 100,
+      "leaveMeters": 200,
+      "events": [
+        {
+          "at": 400,
+          "kind": "fix",
+          "meters": 500
+        },
+        {
+          "at": 700,
+          "kind": "board"
+        }
+      ],
+      "expect": {
+        "freeUntil": 300,
+        "noShowAt": 300,
+        "pausedSeconds": 0,
+        "pauseCount": 0,
+        "awayAtEnd": true,
+        "chargedSeconds": 100,
+        "waitingLine": {
+          "amountMinor": 2043,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se_between_distances_no_flip_flop_then_tap",
+      "currency": "SEK",
+      "perMin": {
+        "amountMinor": 1226,
+        "currency": "SEK"
+      },
+      "freeWaitMin": 5,
+      "noShowAfterMin": 5,
+      "waitFromSeconds": 0,
+      "arriveMeters": 100,
+      "leaveMeters": 200,
+      "events": [
+        {
+          "at": 100,
+          "kind": "fix",
+          "meters": 150
+        },
+        {
+          "at": 200,
+          "kind": "fix",
+          "meters": 250
+        },
+        {
+          "at": 260,
+          "kind": "fix",
+          "meters": 150
+        },
+        {
+          "at": 320,
+          "kind": "tap"
+        },
+        {
+          "at": 800,
+          "kind": "board"
+        }
+      ],
+      "expect": {
+        "freeUntil": 420,
+        "noShowAt": 420,
+        "pausedSeconds": 120,
+        "pauseCount": 1,
+        "awayAtEnd": false,
+        "chargedSeconds": 380,
+        "waitingLine": {
+          "amountMinor": 7765,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se_no_show_refused_while_away",
+      "currency": "SEK",
+      "perMin": {
+        "amountMinor": 1226,
+        "currency": "SEK"
+      },
+      "freeWaitMin": 5,
+      "noShowAfterMin": 5,
+      "waitFromSeconds": 0,
+      "arriveMeters": 100,
+      "leaveMeters": 200,
+      "events": [
+        {
+          "at": 200,
+          "kind": "fix",
+          "meters": 300
+        },
+        {
+          "at": 900,
+          "kind": "no_show"
+        }
+      ],
+      "expect": {
+        "freeUntil": 300,
+        "noShowAt": 300,
+        "pausedSeconds": 0,
+        "pauseCount": 0,
+        "awayAtEnd": true,
+        "noShow": "driver_away_from_pickup"
+      }
+    },
+    {
+      "id": "se_no_show_after_moved_time",
+      "currency": "SEK",
+      "perMin": {
+        "amountMinor": 1226,
+        "currency": "SEK"
+      },
+      "freeWaitMin": 5,
+      "noShowAfterMin": 5,
+      "waitFromSeconds": 0,
+      "arriveMeters": 100,
+      "leaveMeters": 200,
+      "note": "550 s: no_show_too_early (moved noShowAt 600); 600 s: ok.",
+      "events": [
+        {
+          "at": 200,
+          "kind": "fix",
+          "meters": 300
+        },
+        {
+          "at": 500,
+          "kind": "fix",
+          "meters": 60
+        },
+        {
+          "at": 550,
+          "kind": "no_show"
+        },
+        {
+          "at": 600,
+          "kind": "no_show"
+        }
+      ],
+      "expect": {
+        "freeUntil": 600,
+        "noShowAt": 600,
+        "pausedSeconds": 300,
+        "pauseCount": 1,
+        "awayAtEnd": false,
+        "noShow": "ok"
+      }
+    },
+    {
+      "id": "tn_away_in_free_wait",
+      "currency": "TND",
+      "perMin": {
+        "amountMinor": 250,
+        "currency": "TND"
+      },
+      "freeWaitMin": 3,
+      "noShowAfterMin": 3,
+      "waitFromSeconds": 0,
+      "arriveMeters": 100,
+      "leaveMeters": 200,
+      "events": [
+        {
+          "at": 60,
+          "kind": "fix",
+          "meters": 900
+        },
+        {
+          "at": 360,
+          "kind": "fix",
+          "meters": 30
+        },
+        {
+          "at": 1000,
+          "kind": "board"
+        }
+      ],
+      "expect": {
+        "freeUntil": 480,
+        "noShowAt": 480,
+        "pausedSeconds": 300,
+        "pauseCount": 1,
+        "awayAtEnd": false,
+        "chargedSeconds": 520,
+        "waitingLine": {
+          "amountMinor": 2167,
+          "currency": "TND"
+        }
+      }
+    },
+    {
+      "id": "tn_booked_early_away_across_pickup_time",
+      "currency": "TND",
+      "perMin": {
+        "amountMinor": 250,
+        "currency": "TND"
+      },
+      "freeWaitMin": 5,
+      "noShowAfterMin": 5,
+      "waitFromSeconds": 600,
+      "arriveMeters": 100,
+      "leaveMeters": 200,
+      "events": [
+        {
+          "at": 100,
+          "kind": "fix",
+          "meters": 400
+        },
+        {
+          "at": 700,
+          "kind": "fix",
+          "meters": 20
+        },
+        {
+          "at": 1300,
+          "kind": "board"
+        }
+      ],
+      "expect": {
+        "freeUntil": 1000,
+        "noShowAt": 1000,
+        "pausedSeconds": 100,
+        "pauseCount": 1,
+        "awayAtEnd": false,
+        "chargedSeconds": 300,
+        "waitingLine": {
+          "amountMinor": 1250,
+          "currency": "TND"
+        }
+      }
+    }
+  ],
+  "settings": [
+    {
+      "autoArriveMeters": 100,
+      "leaveMeters": 200,
+      "expect": "ok"
+    },
+    {
+      "autoArriveMeters": 200,
+      "leaveMeters": 200,
+      "expect": "invalid_auto_arrive_distance"
+    },
+    {
+      "autoArriveMeters": 20,
+      "leaveMeters": 200,
+      "expect": "invalid_auto_arrive_distance"
+    },
+    {
+      "autoArriveMeters": 100,
+      "leaveMeters": 2500,
+      "expect": "invalid_auto_arrive_distance"
+    },
+    {
+      "autoArriveMeters": 300,
+      "leaveMeters": 2000,
+      "expect": "ok"
+    },
+    {
+      "autoArriveMeters": 99.5,
+      "leaveMeters": 200,
+      "expect": "invalid_auto_arrive_distance"
+    }
+  ]
+}
