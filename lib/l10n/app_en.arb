@@ -2909,6 +2909,8 @@
   "@checkingYourAreaRetry": {"description": "L-a R1/R3: button that asks the server again."},
   "waitingPausedDriverAway": "Waiting time paused: your driver is away from the pickup.",
   "@waitingPausedDriverAway": {"description": "Contract v0.18.93 (contract.json#autoArrive.texts.riderPaused, job C9): line under the waiting clock while the server stopped it (waiting.away: the driver is away from the pickup)."},
+  "stopWaitingPausedDriverAway": "Waiting time paused: your driver is away from the stop.",
+  "@stopWaitingPausedDriverAway": {"description": "Contract v0.18.108 (contract.json#autoArrive.stops.texts.riderStopPaused, job C9b): line in the in-trip panel while the server stopped the wait at the open middle stop (stops[i].away: the driver is away from the stop)."},
   "rcYes": "Yes",
   "rcNo": "No",
   "rcNotSure": "Not sure",

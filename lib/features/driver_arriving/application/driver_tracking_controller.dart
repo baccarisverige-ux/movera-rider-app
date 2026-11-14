@@ -73,6 +73,11 @@ class DriverTrackingController {
   /// waiting clock here while the driver is away from the pickup; null
   /// while it runs.
   DateTime? waitingAwaySince;
+
+  /// v0.18.98 (`contract.json#autoArrive.stops`, job C9b): the server
+  /// stopped the wait at the open middle stop (the driver is away from
+  /// it); false when back. Time only, never an amount.
+  bool stopAway = false;
   DateTime? waitingFreeUntil;
 
   /// Fix job 5 (v0.18.33, owner Q3 + Q5): the trip still waits behind the
@@ -312,6 +317,9 @@ class DriverTrackingController {
     // A whole projection says whether a preview applies.
     if (event.payload[wholeProjectionKey] == true) {
       cancelPreview = event.cancelPreview?.onDevice(ServerClock.toDevice);
+      // v0.18.98 (job C9b): a whole projection says whether the open stop
+      // is away; only on board.
+      stopAway = event.stopAway && _onBoard.contains(event.status);
     }
     rideCheck = event.rideCheck ?? rideCheck;
     routeChange = event.routeChange ?? routeChange;

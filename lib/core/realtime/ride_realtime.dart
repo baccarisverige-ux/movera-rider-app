@@ -44,6 +44,11 @@ const String waitingNoShowAtKey = 'waitingNoShowAt';
 /// the driver is away from the pickup.
 const String waitingAwaySinceKey = 'waitingAwaySince';
 
+/// v0.18.98 (`contract.json#autoArrive.stops`, job C9b): true while the
+/// open middle stop (arrivedAt, no leftAt) carries `stops[i].away` — the
+/// server stopped the stop wait while the driver is away from the stop.
+const String stopAwayKey = 'stopAway';
+
 /// v0.18.51 §73: `TripProjection.waiting.waitFrom`, and a booked ride's
 /// `scheduledAt` (the fallback when the server does not send waitFrom).
 const String waitingWaitFromKey = 'waitingWaitFrom';
@@ -191,6 +196,10 @@ class RideRealtimeEvent {
   /// v0.18.93: the waiting clock stands still from here (driver away).
   DateTime? get waitingAwaySince =>
       WireTime.tryParse(payload[waitingAwaySinceKey]);
+
+  /// v0.18.98 (job C9b): the stop wait stands still (driver away from the
+  /// open stop).
+  bool get stopAway => payload[stopAwayKey] == true;
 
   /// v0.18.51 §73: when the waiting clock runs from (a booked ride: the
   /// later of the driver's Arrived and the pickup time).

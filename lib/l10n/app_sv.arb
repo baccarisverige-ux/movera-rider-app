@@ -1241,6 +1241,7 @@
   "checkingYourAreaFailed": "Movera kunde inte kontrollera ditt område. Kontrollera anslutningen och försök igen.",
   "checkingYourAreaRetry": "Försök igen",
   "waitingPausedDriverAway": "Väntetiden är pausad: din förare är inte vid upphämtningen.",
+  "stopWaitingPausedDriverAway": "Väntetiden är pausad: din förare är inte vid stoppet.",
   "rcYes": "Ja",
   "rcNo": "Nej",
   "rcNotSure": "Osäker",

@@ -28,6 +28,7 @@ class RiderInTripPanel extends StatelessWidget {
     this.onMore,
     required this.onCancel,
     this.stopNote,
+    this.stopPaused = false,
   });
 
   final String destinationAddress;
@@ -57,6 +58,12 @@ class RiderInTripPanel extends StatelessWidget {
   /// v0.18.9 (G7 decision 4): the price of waiting at a stop, when the trip
   /// has stops ("Waiting at a stop: 4,50 kr/min").
   final String? stopNote;
+
+  /// v0.18.98 (`contract.json#autoArrive.stops`, job C9b; owner
+  /// decisions/driver-g7.md:84 "At the pickup AND at stops"): the server
+  /// stopped the wait at the open stop (`stops[i].away`, the driver is away
+  /// from it). Says so (texts.riderStopPaused); no amounts.
+  final bool stopPaused;
 
   @override
   Widget build(BuildContext context) {
@@ -135,6 +142,18 @@ class RiderInTripPanel extends StatelessWidget {
                         note,
                         key: const ValueKey('in-trip-stop-price'),
                         style: waitingText(13, color: MoveraTokens.muted),
+                      ),
+                    ],
+                    if (stopPaused) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        context.l10n.stopWaitingPausedDriverAway,
+                        key: const ValueKey('in-trip-stop-paused'),
+                        style: waitingText(
+                          13,
+                          weight: FontWeight.w600,
+                          color: MoveraTokens.ink,
+                        ),
                       ),
                     ],
                   ],
