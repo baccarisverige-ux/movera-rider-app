@@ -78,7 +78,7 @@ void main() {
     final lines = TripTermsLines.fromTerms(terms).lines;
     expect(lines, [
       'Fri väntetid 5 min, därefter 12,26 kr per minut',
-      'Om du inte kommer inom 5 min efter att föraren anlänt tas en avgift på 65 kr ut',
+      'Om du inte kommer inom 5 min efter att föraren anlänt tas en avgift på 65,00 kr ut',
       'Du kan flytta upphämtningen högst 350 m efter bokningen',
     ]);
   });

@@ -63,7 +63,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField), '180');
     await tester.pump();
-    await tester.tap(find.text('Confirm 180 kr'));
+    await tester.tap(find.text('Confirm 180,00 kr'));
     expect(confirmed, 80);
   });
 

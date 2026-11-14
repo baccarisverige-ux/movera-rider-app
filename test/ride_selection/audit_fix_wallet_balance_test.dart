@@ -82,7 +82,7 @@ void main() {
     }
     expect(find.byType(PayWithPage), findsOneWidget);
     expect(find.text('Balance too low for this ride'), findsOneWidget);
-    await tester.tap(find.text('Balance: 50 kr'));
+    await tester.tap(find.text('Balance: 50,00 kr'));
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }

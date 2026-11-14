@@ -125,7 +125,7 @@ class PromotionDetailsSheet extends StatelessWidget {
   }
 
   String _kr(double major) =>
-      formatMoney(Money.fromLegacyMajor(major, currency), whole: true);
+      formatMoney(Money.fromLegacyMajor(major, currency));
 
   TextStyle _t(double size, {FontWeight w = FontWeight.w500, Color c = _ink}) =>
       GoogleFonts.poppins(fontSize: size, fontWeight: w, color: c);
@@ -228,7 +228,7 @@ class PromotionDetailsSheet extends StatelessWidget {
               const SizedBox(height: 6),
               _meta(
                 Icons.sell_outlined,
-                L10n.current.maxOffPerRide(formatMoneyShort(max)),
+                L10n.current.maxOffPerRide(formatMoney(max)),
               ),
             ],
             const SizedBox(height: 18),

@@ -53,7 +53,7 @@ void main() {
     expect(driver?.vehicle, 'Black Volvo EX40');
     expect(receipt?.pickup, 'Pickup Street 1');
     expect(receipt?.destination, 'Destination Street 9');
-    expect(receipt?.total, '399 kr');
+    expect(receipt?.total, '399,00 kr');
     expect(receipt?.method, 'Apple Pay');
     expect(receipt?.isFinal, isFalse);
   });

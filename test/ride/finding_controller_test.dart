@@ -271,7 +271,7 @@ void main() {
     expect(ok, isTrue);
     expect(controller.currentPrice, 279);
     expect(controller.showPriceBump, isFalse);
-    expect(controller.offerConfirmation, 'Updated offer: 279 kr');
+    expect(controller.offerConfirmation, 'Updated offer: 279,00 kr');
     expect(mockFareKr(httpClient.rides['r1']), 279);
     expect(ride.rideId, 'r1');
     controller.dismissPriceBump();

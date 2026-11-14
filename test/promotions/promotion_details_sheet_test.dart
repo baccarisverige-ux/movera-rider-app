@@ -71,16 +71,16 @@ void main() {
     expect(find.text('30% off · 4 of 5 rides left'), findsOneWidget);
     expect(find.text('4 left'), findsOneWidget);
     expect(find.text('Valid until 30 Nov 2026 · 48 days left'), findsOneWidget);
-    expect(find.text('Max 50 kr off per ride'), findsOneWidget);
+    expect(find.text('Max 50,00 kr off per ride'), findsOneWidget);
     expect(find.text('Your prices with this promotion'), findsOneWidget);
     // Comfort: struck-through original, bold discounted price.
-    final struck = tester.widget<Text>(find.text('339 kr'));
+    final struck = tester.widget<Text>(find.text('339,00 kr'));
     expect(struck.style?.decoration, TextDecoration.lineThrough);
     // Comfort's discounted price comes before Priority's original 289 kr.
-    final bold = tester.widget<Text>(find.text('289 kr').first);
+    final bold = tester.widget<Text>(find.text('289,00 kr').first);
     expect(bold.style?.fontWeight, FontWeight.w700);
     // Movera is not in the promotion: full price, "Not included".
-    expect(find.text('259 kr'), findsOneWidget);
+    expect(find.text('259,00 kr'), findsOneWidget);
     expect(find.text('Not included'), findsOneWidget);
     expect(find.text('Included'), findsNothing);
     expect(
@@ -142,7 +142,7 @@ void main() {
       currency: 'EUR',
       cap: const Money(500, 'EUR'),
     );
-    expect(find.text('Max 5 € off per ride'), findsOneWidget);
+    expect(find.text('Max 5,00 € off per ride'), findsOneWidget);
 
     await pump(
       tester,
@@ -150,7 +150,7 @@ void main() {
       currency: 'TND',
       cap: const Money(15000, 'TND'),
     );
-    expect(find.text('Max 15 DT off per ride'), findsOneWidget);
+    expect(find.text('Max 15.000 DT off per ride'), findsOneWidget);
   });
 
   testWidgets(

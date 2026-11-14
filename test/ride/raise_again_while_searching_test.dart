@@ -182,16 +182,16 @@ void main() {
         ),
       ),
     );
-    expect(find.text('+200 kr'), findsNothing);
+    expect(find.text('+200,00 kr'), findsNothing);
     expect(find.byKey(const ValueKey('price-bump-max')), findsNothing);
 
-    await tester.tap(find.text('+100 kr'));
+    await tester.tap(find.text('+100,00 kr'));
     await tester.pump();
-    expect(find.text('Confirm 247 kr'), findsOneWidget);
+    expect(find.text('Confirm 247,00 kr'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), '300');
     await tester.pump();
-    expect(find.text('Your offer can be at most 265 kr.'), findsOneWidget);
+    expect(find.text('Your offer can be at most 265,00 kr.'), findsOneWidget);
     expect(find.text('Set new price'), findsOneWidget);
   });
 }

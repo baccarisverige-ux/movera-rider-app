@@ -266,8 +266,8 @@ void main() {
     final line = tester.widget<Text>(
       find.byKey(const ValueKey<String>('trip-summary-line')),
     );
-    expect(line.data, contains('101 kr'));
-    expect(line.data, isNot(contains('86 kr')));
+    expect(line.data, contains('101,00 kr'));
+    expect(line.data, isNot(contains('86,00 kr')));
   });
 
   testWidgets('a pickup_moved event moves the pickup and says so', (

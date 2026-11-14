@@ -44,7 +44,7 @@ void main() {
     expect(receipt, isNotNull);
     expect(receipt!.pickup, 'Sveavägen 1');
     expect(receipt.destination, 'Hornsgatan 2');
-    expect(receipt.total, '259 kr');
+    expect(receipt.total, '259,00 kr');
     expect(receipt.total, isNot(contains(r'$')));
     expect(receipt.method, 'Apple Pay');
     expect(receipt.isFinal, isFalse);
@@ -83,7 +83,7 @@ void main() {
         savedAt: DateTime(2026, 9, 18, 7, 5),
       ),
     );
-    expect(const TripReceiptRepository().last()?.total, '120 kr');
+    expect(const TripReceiptRepository().last()?.total, '120,00 kr');
     expect(const DriverRepository().current(), isNull);
   });
 

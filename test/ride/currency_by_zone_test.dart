@@ -216,15 +216,17 @@ void main() {
   }
 
   group('one money format per currency', () {
-    test('Swedish prices read exactly as before', () {
-      expect(formatSek(10200), '102 kr');
-      expect(formatSek(10250), '103 kr');
-      expect(formatKr(522.0), '522 kr');
-      expect(formatKr(100.4), '100 kr');
-      expect(formatKr(-25), '-25 kr');
-      expect(formatMoney(const Money(3500)), '35 kr');
+    // Price format (owner 2026-11-14: "make sure rider and driver app show
+    // correct prices every where"): kronor to the öre, whole amounts too.
+    test('Swedish prices read to the öre', () {
+      expect(formatSek(10200), '102,00 kr');
+      expect(formatSek(10250), '102,50 kr');
+      expect(formatKr(522.0), '522,00 kr');
+      expect(formatKr(100.4), '100,40 kr');
+      expect(formatKr(-25), '-25,00 kr');
+      expect(formatMoney(const Money(3500)), '35,00 kr');
       expect(formatMoney(const Money(3550)), '35,50 kr'); // rider-r4-16
-      expect(formatMoney(const Money(7410), whole: true), '74 kr');
+      expect(formatMoney(const Money(7410), whole: true), '74,10 kr');
     });
 
     test('euros and dinars in their own format, to the minor unit', () {
@@ -544,7 +546,7 @@ void main() {
         expect(tester.widget<Text>(hero).data, shown);
         expect(find.textContaining(' kr'), findsNothing);
         // Tip amounts are kronor: none are offered on this trip.
-        expect(find.text('10 kr'), findsNothing);
+        expect(find.text('10,00 kr'), findsNothing);
 
         final record = OnDemandRideHistoryStore.recordFor(
           completed,
@@ -602,11 +604,11 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Current 259 kr'), findsOneWidget);
-      expect(find.text('+50 kr'), findsOneWidget);
-      await tester.tap(find.text('+100 kr'));
+      expect(find.text('Current 259,00 kr'), findsOneWidget);
+      expect(find.text('+50,00 kr'), findsOneWidget);
+      await tester.tap(find.text('+100,00 kr'));
       await tester.pump();
-      expect(find.text('Confirm 359 kr'), findsOneWidget);
+      expect(find.text('Confirm 359,00 kr'), findsOneWidget);
     });
   });
 

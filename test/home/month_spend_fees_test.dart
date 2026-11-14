@@ -35,6 +35,6 @@ void main() {
       ).copyWith(cancellationFee: const Money(3500)),
       ride('d', ReservationStatus.cancelled),
     ], DateTime(2026, 10, 14, 12));
-    expect(stats.pillText, '1 ride · 414 kr');
+    expect(stats.pillText, '1 ride · 414,00 kr');
   });
 }

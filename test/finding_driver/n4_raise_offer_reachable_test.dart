@@ -116,7 +116,7 @@ void main() {
       'screen when it appears', (tester) async {
     await openFinding(tester);
     expect(find.text('Want to improve your chances?'), findsOneWidget);
-    for (final label in ['+50 kr', 'Set new price', 'Keep waiting']) {
+    for (final label in ['+50,00 kr', 'Set new price', 'Keep waiting']) {
       final rect = tester.getRect(find.text(label));
       expect(
         rect.bottom,
@@ -126,7 +126,7 @@ void main() {
     }
 
     // A step, then the confirm button, both tappable where they are.
-    await tester.tap(find.text('+50 kr'));
+    await tester.tap(find.text('+50,00 kr'));
     await tester.pump(const Duration(milliseconds: 300));
     final confirm = find.textContaining('Confirm');
     expect(confirm, findsOneWidget);

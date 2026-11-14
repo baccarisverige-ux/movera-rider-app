@@ -187,7 +187,7 @@ void main() {
       expect(find.text('12,00 €'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('wallet-currency-SEK')));
       await tester.pumpAndSettle();
-      expect(find.text('50 kr'), findsOneWidget);
+      expect(find.text('50,00 kr'), findsOneWidget);
     });
   });
 }

@@ -216,7 +216,7 @@ void main() {
     await tester.tap(find.text('Select Comfort'));
     await settle(tester, 30);
     expect(find.byType(SetPickupPage), findsOneWidget);
-    expect(find.text('339 kr'), findsNothing);
+    expect(find.text('339,00 kr'), findsNothing);
     await confirm(tester);
 
     expect(booking.bookings, hasLength(1));
@@ -239,7 +239,7 @@ void main() {
     await movePin(tester);
     await settle(tester);
     // Set pickup keeps the old fare when its re-quote fails.
-    expect(find.text('259 kr'), findsWidgets);
+    expect(find.text('259,00 kr'), findsWidgets);
     await confirm(tester);
 
     expect(booking.bookings, isEmpty);

@@ -125,14 +125,14 @@ void main() {
       expect(controller.endedEarly?.rideId, rideId);
       expect(controller.endedEarly?.charged, const Money(24500));
       expect(LastCompletedRide.charged, const Money(24500));
-      expect(AppScope.instance.rideComplete.receipt()?.total, '245 kr');
+      expect(AppScope.instance.rideComplete.receipt()?.total, '245,00 kr');
 
       final history = await OnDemandRideHistoryStore.read();
       final record = history.single;
       expect(record.endedEarly, isTrue);
       expect(record.chargedFare, const Money(24500));
       expect(ReservationFormat.historyStatus(record), 'Ended early');
-      expect(ReservationFormat.price(record), '245 kr');
+      expect(ReservationFormat.price(record), '245,00 kr');
       expect(
         ReservationFormat.reasonLabel(record.cancellationReason!),
         'Plans changed',
@@ -184,10 +184,10 @@ void main() {
     await tester.pump();
 
     expect(find.text('Trip ended early'), findsOneWidget);
-    expect(find.text('You pay 245 kr'), findsOneWidget);
+    expect(find.text('You pay 245,00 kr'), findsOneWidget);
     expect(find.textContaining('distance driven'), findsWidgets);
     expect(find.text('Total payment'), findsOneWidget);
-    expect(find.text('245 kr'), findsOneWidget);
+    expect(find.text('245,00 kr'), findsOneWidget);
     // R-O6 (owner decision): the normal trip-end screen, rating included.
     expect(find.byKey(const ValueKey('completion-feedback')), findsOneWidget);
     expect(find.text('Ended early'), findsOneWidget);
@@ -215,7 +215,7 @@ void main() {
       ),
     );
     expect(find.text('Ended early'), findsOneWidget);
-    expect(find.text('245 kr'), findsOneWidget);
+    expect(find.text('245,00 kr'), findsOneWidget);
     expect(find.text('Driver pending'), findsNothing);
     expect(find.text('Driver assigned'), findsNothing);
   });

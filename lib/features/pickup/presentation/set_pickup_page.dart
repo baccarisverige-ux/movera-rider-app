@@ -139,9 +139,9 @@ class SetPickupFare {
     currency: currency,
   );
 
-  /// [major] whole units of [currency], as the fare is shown.
+  /// [major] in [currency], exact, as the fare is shown.
   String format(double major) =>
-      formatMoney(Money.fromLegacyMajor(major, currency), whole: true);
+      formatMoney(Money.fromLegacyMajor(major, currency));
 }
 
 /// The payment line at the bottom of the sheet.

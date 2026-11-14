@@ -74,15 +74,15 @@ void main() {
       onTip: (minor) => tip = minor,
     );
 
-    for (final label in ['1 €', '2 €', '5 €']) {
+    for (final label in ['1,00 €', '2,00 €', '5,00 €']) {
       expect(find.text(label), findsOneWidget);
     }
     expect(find.textContaining('kr'), findsNothing);
     expect(configs.asked, contains('FR-PC'));
 
-    await tester.tap(find.text('5 €'));
+    await tester.tap(find.text('5,00 €'));
     await tester.pump();
-    expect(find.text('5 € selected.'), findsOneWidget);
+    expect(find.text('5,00 € selected.'), findsOneWidget);
     expect(tip, 500);
   });
 
@@ -95,10 +95,10 @@ void main() {
       onTip: (minor) => tip = minor,
     );
 
-    for (final label in ['1 DT', '2 DT', '3 DT']) {
+    for (final label in ['1.000 DT', '2.000 DT', '3.000 DT']) {
       expect(find.text(label), findsOneWidget);
     }
-    await tester.tap(find.text('2 DT'));
+    await tester.tap(find.text('2.000 DT'));
     await tester.pump();
     expect(tip, 2000, reason: 'dinars have three decimals');
   });
@@ -118,10 +118,10 @@ void main() {
     });
     await pumpTips(tester, RideCompleteController(config: configs));
 
-    expect(find.text('10 kr'), findsNothing);
-    expect(find.text('20 kr'), findsOneWidget);
-    expect(find.text('50 kr'), findsOneWidget);
-    expect(find.text('30 kr'), findsNothing);
+    expect(find.text('10,00 kr'), findsNothing);
+    expect(find.text('20,00 kr'), findsOneWidget);
+    expect(find.text('50,00 kr'), findsOneWidget);
+    expect(find.text('30,00 kr'), findsNothing);
   });
 
   test(

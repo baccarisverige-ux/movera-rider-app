@@ -92,7 +92,7 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
               suffixText: currencySymbol(max.currency),
-              helperText: context.l10n.tipMax(formatMoneyShort(max)),
+              helperText: context.l10n.tipMax(formatMoney(max)),
               errorText: error,
             ),
           ),
@@ -212,7 +212,7 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
           TextWidget(
             text: _selected == null
                 ? context.l10n.tipOptional
-                : context.l10n.tipSelected(formatMoneyShort(_selected!)),
+                : context.l10n.tipSelected(formatMoney(_selected!)),
             color: AppColor.subtitle,
             fontSize: 12,
             fontWeight: fwMedium,

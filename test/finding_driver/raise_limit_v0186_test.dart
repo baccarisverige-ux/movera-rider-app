@@ -270,15 +270,20 @@ void main() {
       tester,
     ) async {
       await pump(tester, max: 240);
-      expect(find.text('+10 kr'), findsOneWidget);
-      expect(find.text('+20 kr'), findsOneWidget);
-      expect(find.text('+50 kr'), findsNothing);
-      expect(find.text('+100 kr'), findsNothing);
+      expect(find.text('+10,00 kr'), findsOneWidget);
+      expect(find.text('+20,00 kr'), findsOneWidget);
+      expect(find.text('+50,00 kr'), findsNothing);
+      expect(find.text('+100,00 kr'), findsNothing);
     });
 
     testWidgets('at 2 × all steps of a 200 kr fare fit', (tester) async {
       await pump(tester, max: 400);
-      for (final step in ['+10 kr', '+20 kr', '+50 kr', '+100 kr']) {
+      for (final step in [
+        '+10,00 kr',
+        '+20,00 kr',
+        '+50,00 kr',
+        '+100,00 kr',
+      ]) {
         expect(find.text(step), findsOneWidget, reason: step);
       }
     });

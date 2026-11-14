@@ -276,14 +276,14 @@ void main() {
 
   group('G33 completion line', () {
     testWidgets(
-      "G33: a completed cash trip shows 'Pay the driver 123 kr in the car'",
+      "G33: a completed cash trip shows 'Pay the driver 123,00 kr in the car'",
       (tester) async {
         LastCompletedRide.remember(
           _ride(price: 123),
           cashToCollect: const Money(12300, 'SEK'),
         );
         await _pump(tester);
-        expect(_lineText(tester), 'Pay the driver 123 kr in the car');
+        expect(_lineText(tester), 'Pay the driver 123,00 kr in the car');
       },
     );
 
@@ -297,7 +297,7 @@ void main() {
         cashToCollect: const Money(16700, 'SEK'),
       );
       await _pump(tester);
-      expect(_lineText(tester), 'Pay the driver 167 kr in the car');
+      expect(_lineText(tester), 'Pay the driver 167,00 kr in the car');
     });
 
     testWidgets('G33: no line when cashToCollect is 0 (the wallet paid all)', (
@@ -348,7 +348,7 @@ void main() {
         ),
       );
       expect(find.byKey(_line), findsNothing);
-      expect(find.text('You pay 90 kr'), findsOneWidget);
+      expect(find.text('You pay 90,00 kr'), findsOneWidget);
     });
 
     testWidgets('G33: another ride\'s amount is never shown', (tester) async {
@@ -361,18 +361,18 @@ void main() {
     });
 
     testWidgets("G33: fr 'Payez 123 kr au chauffeur', sv 'Betala föraren "
-        "123 kr i bilen'", (tester) async {
+        "123,00 kr i bilen'", (tester) async {
       LastCompletedRide.remember(
         _ride(price: 123),
         cashToCollect: const Money(12300, 'SEK'),
       );
       L10n.use('fr');
       await _pump(tester);
-      expect(_lineText(tester), 'Payez 123 kr au chauffeur');
+      expect(_lineText(tester), 'Payez 123,00 kr au chauffeur');
       L10n.use('sv');
       await tester.pumpWidget(const SizedBox());
       await _pump(tester);
-      expect(_lineText(tester), 'Betala föraren 123 kr i bilen');
+      expect(_lineText(tester), 'Betala föraren 123,00 kr i bilen');
     });
 
     testWidgets("G33: TND is '12.350 DT' (moneyDisplay §81)", (tester) async {
@@ -401,7 +401,7 @@ void main() {
             'endedEarly': false,
           }),
         );
-        expect(_lineText(tester), 'Pay the driver 167 kr in the car');
+        expect(_lineText(tester), 'Pay the driver 167,00 kr in the car');
       },
     );
 

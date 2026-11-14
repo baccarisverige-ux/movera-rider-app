@@ -199,27 +199,36 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
                 ),
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    _kr(quote.newPriceKr),
-                    style: GoogleFonts.poppins(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: _ink,
-                    ),
-                  ),
-                  if (quote.changesPrice)
-                    Text(
-                      _kr(quote.oldPriceKr),
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        color: _muted,
-                        decoration: TextDecoration.lineThrough,
+              // Price format (owner 2026-11-14): the price now carries its
+              // öre ("420,00 kr"); on a narrow phone at large text it
+              // shrinks to fit instead of squeezing the note off the sheet.
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        _kr(quote.newPriceKr),
+                        style: GoogleFonts.poppins(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: _ink,
+                        ),
                       ),
-                    ),
-                ],
+                      if (quote.changesPrice)
+                        Text(
+                          _kr(quote.oldPriceKr),
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: _muted,
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),

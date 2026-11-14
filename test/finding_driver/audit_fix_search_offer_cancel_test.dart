@@ -121,7 +121,7 @@ void main() {
     backend.holdRaise!.complete();
     expect(await raising, isTrue);
     expect(controller.currentPrice, 279);
-    expect(controller.offerConfirmation, 'Updated offer: 279 kr');
+    expect(controller.offerConfirmation, 'Updated offer: 279,00 kr');
     expect((await RideSnapshotStore.read())?.price, 279);
   });
 

@@ -582,11 +582,11 @@ void main() {
   test('price change copy stays in the pricing layer', () {
     expect(
       const ReservationPriceChange(previous: 289, next: 329).summary,
-      'Your updated ride costs 40 kr more.',
+      'Your updated ride costs 40,00 kr more.',
     );
     expect(
       const ReservationPriceChange(previous: 329, next: 289).summary,
-      'Your updated ride costs 40 kr less.',
+      'Your updated ride costs 40,00 kr less.',
     );
     expect(
       const ReservationPriceChange(previous: 259, next: 259).summary,

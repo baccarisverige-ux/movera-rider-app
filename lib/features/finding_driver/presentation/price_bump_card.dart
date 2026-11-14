@@ -102,13 +102,10 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
 
   int get _unitMinor => Money.minorPerMajor(widget.currency);
 
-  bool get _kronor => widget.currency == Money.defaultCurrency;
-
-  /// [major] in minor units. A kronor fare counts from the whole krona
-  /// shown, as before; euros and dinars to the minor unit.
-  int _minorOf(double major) => _kronor
-      ? major.round() * _unitMinor
-      : Money.fromLegacyMajor(major, widget.currency).amountMinor;
+  /// [major] in minor units, exact in every currency: the fare is shown to
+  /// the öre now (price format, owner 2026-11-14), so it counts from there.
+  int _minorOf(double major) =>
+      Money.fromLegacyMajor(major, widget.currency).amountMinor;
 
   int get _currentMinor => _minorOf(widget.currentPrice);
 
@@ -134,7 +131,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
     return total != null && total * _unitMinor > _maxMinor;
   }
 
-  /// [amount] whole units of the trip's currency, as the fare is shown.
+  /// [amount] in the trip's currency, exact, as the fare is shown.
   String _money(num amount) => formatMajor(amount, widget.currency);
 
   /// The symbol after the typed price: "kr", "€", "DT".
@@ -350,7 +347,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
           const SizedBox(height: 6),
           Text(
             context.l10n.bumpMaxPrice(
-              formatMoney(Money(_maxMinor, widget.currency), whole: true),
+              formatMoney(Money(_maxMinor, widget.currency)),
             ),
             key: const ValueKey('price-bump-max'),
             style: GoogleFonts.poppins(
@@ -390,7 +387,6 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
                                 _currentMinor + _increase!,
                                 widget.currency,
                               ),
-                              whole: true,
                             ),
                           )
                         : context.l10n.bumpSetNewPrice,

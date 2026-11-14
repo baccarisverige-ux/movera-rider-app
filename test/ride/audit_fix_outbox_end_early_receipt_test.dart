@@ -140,7 +140,7 @@ void main() {
     final record = (await OnDemandRideHistoryStore.read()).single;
     expect(record.endedEarly, isTrue);
     expect(record.chargedFare, const Money(8000));
-    expect(ReservationFormat.price(record), '80 kr');
+    expect(ReservationFormat.price(record), '80,00 kr');
     expect(record.cancellationReason, 'plans_changed');
     expect(
       ReservationFormat.reasonLabel(record.cancellationReason!),
@@ -195,7 +195,7 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(RideCompleted), findsOneWidget);
     expect(find.text('Trip ended early'), findsOneWidget);
-    expect(find.text('You pay 80 kr'), findsOneWidget);
-    expect(find.text('80 kr'), findsOneWidget);
+    expect(find.text('You pay 80,00 kr'), findsOneWidget);
+    expect(find.text('80,00 kr'), findsOneWidget);
   });
 }

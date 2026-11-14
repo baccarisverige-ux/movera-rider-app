@@ -129,7 +129,7 @@ extension _FindingDriverRaise on FindingDriverController {
       }
       _priceUpdated = true;
       offerConfirmation = L10n.current.offerUpdatedTo(
-        formatMoney(Money.fromLegacyMajor(serverPrice, currency), whole: true),
+        formatMoney(Money.fromLegacyMajor(serverPrice, currency)),
       );
       editFeedback = offerConfirmation;
       _snapshot = snapshot.copyWith(

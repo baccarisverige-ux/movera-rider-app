@@ -150,7 +150,7 @@ void main() {
       await _pump(tester, const RiderMenuPage());
       await tester.pump(const Duration(milliseconds: 200));
       expect(
-        find.bySemanticsLabel(RegExp(r'^Wallet, \d+ kr$')),
+        find.bySemanticsLabel(RegExp(r'^Wallet, \d+,\d{2} kr$')),
         findsOneWidget,
       );
     });

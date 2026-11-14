@@ -172,7 +172,7 @@ void main() {
     expect(await controller.confirmPriceIncrease(20), isTrue);
 
     expect(controller.currentPrice, 269);
-    expect(controller.offerConfirmation, 'Updated offer: 269 kr');
+    expect(controller.offerConfirmation, 'Updated offer: 269,00 kr');
     expect((await RideSnapshotStore.read())?.price, 269);
     controller.dispose();
     rt.dispose();
@@ -249,7 +249,7 @@ void main() {
       find.byKey(const ValueKey('price-bump-server-confirms')),
       findsNothing,
     );
-    await tester.tap(find.text('+20 kr'));
+    await tester.tap(find.text('+20,00 kr'));
     await tester.pump();
     expect(
       find.byKey(const ValueKey('price-bump-server-confirms')),

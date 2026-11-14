@@ -39,7 +39,7 @@ void main() {
 
   test('tip amounts are SEK and carry no demo values', () {
     final amounts = _sekTips;
-    expect(amounts, ['10 kr', '20 kr', '30 kr']);
+    expect(amounts, ['10,00 kr', '20,00 kr', '30,00 kr']);
     for (final amount in amounts) {
       expect(amount, contains('kr'));
       expect(amount, isNot(contains(r'$')));
@@ -57,7 +57,14 @@ void main() {
 
     await tester.tap(find.text(_sekTips.first));
     await tester.pumpAndSettle();
-    expect(find.text('${_sekTips.first} selected.'), findsOneWidget);
+    // Price format (owner 2026-11-14): the chip stays short, the line under
+    // it states the amount with its öre.
+    expect(
+      find.text(
+        '${formatMoney(ZoneDefaults.tipsIn('SEK').first.amount)} selected.',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('an empty catalog still shows the honest state', (tester) async {
@@ -126,15 +133,23 @@ void _layout() {
     );
     await tester.pumpAndSettle();
 
-    // Three short SEK amounts fit across 390px easily. Stretched chips each
-    // take a row of their own, which is exactly what this catches.
+    // Stretched chips each take a row of their own, which is exactly what
+    // this catches. Whole amounts keep their decimals ("10,00 kr", contract
+    // v0.18.89 wholeAmounts), so with the wide test font the row may wrap
+    // once; no chip may stretch, and the three never take three rows.
     final tops = _sekTips
         .map((amount) => tester.getTopLeft(find.text(amount).first).dy)
         .toSet();
     expect(
       tops.length,
-      1,
+      lessThan(3),
       reason: 'chips landed on ${tops.length} rows: $tops',
     );
+    for (final amount in _sekTips) {
+      final chip = find
+          .ancestor(of: find.text(amount).first, matching: find.byType(InkWell))
+          .first;
+      expect(tester.getSize(chip).width, lessThan(390 / 2), reason: amount);
+    }
   });
 }

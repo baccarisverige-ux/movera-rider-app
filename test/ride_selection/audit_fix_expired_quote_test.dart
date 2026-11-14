@@ -142,8 +142,8 @@ void main() {
       for (var i = 0; i < 5; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
-      expect(find.text('412 kr'), findsWidgets);
-      expect(find.text('259 kr'), findsNothing);
+      expect(find.text('412,00 kr'), findsWidgets);
+      expect(find.text('259,00 kr'), findsNothing);
       final firstRound = quotes.calls;
 
       // The quotes run out while the rider looks at the list: the server
@@ -158,8 +158,8 @@ void main() {
       expect(quotes.calls, firstRound, reason: 'nothing re-priced yet');
       await tester.tap(find.text('Comfort').first);
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('259 kr'), findsNothing);
-      expect(find.text('339 kr'), findsNothing);
+      expect(find.text('259,00 kr'), findsNothing);
+      expect(find.text('339,00 kr'), findsNothing);
 
       // Priced again at expiry (the expiry timer), without a tap on Book.
       await tester.pump(const Duration(minutes: 10));
@@ -167,8 +167,8 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(quotes.calls, greaterThan(firstRound));
-      expect(find.text('412 kr'), findsWidgets);
-      expect(find.text('259 kr'), findsNothing);
+      expect(find.text('412,00 kr'), findsWidgets);
+      expect(find.text('259,00 kr'), findsNothing);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 10));

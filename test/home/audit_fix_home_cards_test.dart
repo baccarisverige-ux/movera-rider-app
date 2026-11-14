@@ -73,7 +73,7 @@ void main() {
       _ride('b', 'economy', price: 500),
       _ride('c', 'economy', price: 320),
     ], _now);
-    expect(stats.pillText, '3 rides · 820 kr · 24,00 €');
+    expect(stats.pillText, '3 rides · 820,00 kr · 24,00 €');
   });
 
   test('a trip whose payment failed is a ride but not money spent', () {
@@ -82,7 +82,7 @@ void main() {
       _ride('b', 'economy', price: 320).copyWith(paymentFailed: true),
     ], _now);
     expect(stats.rides, 2);
-    expect(stats.pillText, '2 rides · 500 kr');
+    expect(stats.pillText, '2 rides · 500,00 kr');
   });
 
   testWidgets('FLOW-13: the month card refreshes when a ride is archived and '
@@ -106,7 +106,7 @@ void main() {
     rides.add(_ride('a', 'electric'));
     changes.add(null);
     await tester.pumpAndSettle();
-    expect(find.text('1 ride · 200 kr'), findsOneWidget);
+    expect(find.text('1 ride · 200,00 kr'), findsOneWidget);
     expect(find.text('0.4 kg'), findsOneWidget);
   });
 
@@ -222,7 +222,7 @@ void main() {
     tester,
   ) async {
     await pumpMenu(tester);
-    expect(find.textContaining('50 kr'), findsNothing);
+    expect(find.textContaining('50,00 kr'), findsNothing);
     expect(find.text('Coming soon: invite friends to Movera.'), findsOneWidget);
   });
 

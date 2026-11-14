@@ -104,7 +104,7 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle(const Duration(milliseconds: 400));
 
-    expect(find.text('Cancellation fee: 50 kr'), findsOneWidget);
+    expect(find.text('Cancellation fee: 50,00 kr'), findsOneWidget);
     expect(find.textContaining('free for'), findsNothing);
 
     // Confirming records the fee the rider saw, as the Upcoming screen does.
