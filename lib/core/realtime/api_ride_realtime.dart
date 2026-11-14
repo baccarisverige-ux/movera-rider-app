@@ -9,6 +9,7 @@ import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/realtime/realtime_gate.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/realtime/sse_event_parser.dart';
+import 'package:movera_rider/core/realtime/stream_connected_rule.dart';
 import 'package:movera_rider/core/contracts/matched_driver.dart';
 import 'package:movera_rider/core/contracts/ride_status.dart';
 import 'package:movera_rider/core/contracts/trip_projection_wire.dart';
@@ -240,7 +241,7 @@ class ApiRideRealtime implements RideRealtime {
             poll.streamFailures = 0;
             _onStreamEvent(poll, event);
           } else if (poll.streamFailures > 0 &&
-              _clock().difference(openedAt) >= const Duration(seconds: 30)) {
+              _clock().difference(openedAt) >= streamConnectedAfter) {
             poll.streamFailures = 0;
           }
         },
@@ -321,6 +322,10 @@ class ApiRideRealtime implements RideRealtime {
       final factor = 1 << (poll.streamFailures.clamp(1, 6) - 1);
       var wait = streamRetryWait * factor;
       if (wait > const Duration(minutes: 1)) wait = const Duration(minutes: 1);
+      // R3 (`realtime.connectedRule`): a 429 / 503 Retry-After is
+      // honoured, never sooner (at most 60 s).
+      final asked = streamRetryAfter(error);
+      if (asked != null && asked > wait) wait = asked;
       poll.streamRetry = Timer(wait, () {
         poll.streamRetry = null;
         unawaited(_openStream(poll));
