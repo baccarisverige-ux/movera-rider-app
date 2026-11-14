@@ -13,6 +13,7 @@ import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/realtime/stream_connected_rule.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
 
 /// The last good RiderAppConfig per zone, kept on the device as the raw
@@ -87,13 +88,32 @@ class ApiRiderConfigRepository extends ChangeNotifier
 
   /// Owner 2026-11-10: a refused stream waits [retryAfter] (5 s), then
   /// doubles each failure (10, 20, 40) up to [retryMax] (60 s), with a
-  /// small random jitter (±10 %); a successful connect starts again at 5 s.
+  /// small random jitter (±10 %); a connected stream starts again at 5 s.
+  /// R3 (owner 2026-11-13 "Yes, update rule", contract v0.18.83
+  /// `realtime.connectedRule`): connected means the stream delivered an
+  /// event or stayed up [streamConnectedAfter] (30 s); a 200 alone is not
+  /// connected, so a stream the busy server ends right after it opened
+  /// keeps backing off.
   final Duration retryMax;
   final math.Random _random;
   int _failures = 0;
 
-  /// The wait before the next reconnect (counts one more failure).
+  /// Resets the backoff once the open stream stayed up 30 s.
+  Timer? _connectedTimer;
+
+  /// The Retry-After of the last refused stream (429 / 503, at most 60 s).
+  Duration? _refusedFor;
+
+  /// The wait before the next reconnect (counts one more failure); never
+  /// sooner than a Retry-After the server sent.
   Duration nextRetryWait() {
+    final floor = _refusedFor;
+    _refusedFor = null;
+    final wait = _backoffWait();
+    return floor != null && floor > wait ? floor : wait;
+  }
+
+  Duration _backoffWait() {
     final doubled = retryAfter * math.pow(2, math.min(_failures, 16)).toInt();
     _failures++;
     final capped = doubled > retryMax ? retryMax : doubled;
@@ -284,7 +304,9 @@ class ApiRiderConfigRepository extends ChangeNotifier
         lastEventId: _documents[zoneId]?.version.toString(),
       );
       _renewTried = false;
-      _failures = 0;
+      // R3: the 200 alone is not connected; an event or 30 s up is.
+      _connectedTimer?.cancel();
+      _connectedTimer = Timer(streamConnectedAfter, () => _failures = 0);
       if (_connectedOnce) {
         for (final tap in List.of(reconnectTaps)) {
           tap();
@@ -296,6 +318,8 @@ class ApiRiderConfigRepository extends ChangeNotifier
         (line) {
           final data = events.add(line);
           if (data == null) return;
+          // A real event: the stream is connected (R3).
+          _failures = 0;
           for (final tap in List.of(eventTaps)) {
             tap(data);
           }
@@ -322,6 +346,7 @@ class ApiRiderConfigRepository extends ChangeNotifier
         'rider_config.stream_failed',
         extra: {'error': error.toString()},
       );
+      _refusedFor = streamRetryAfter(error);
       _reconnect(zoneId);
     }
   }
@@ -371,6 +396,8 @@ class ApiRiderConfigRepository extends ChangeNotifier
 
   void _reconnect(String zoneId) {
     _stream = null;
+    _connectedTimer?.cancel();
+    _connectedTimer = null;
     if (_disposed || _watching != zoneId) return;
     _retry?.cancel();
     _retry = Timer(nextRetryWait(), () {
@@ -383,6 +410,8 @@ class ApiRiderConfigRepository extends ChangeNotifier
   Future<void> _stopStream() async {
     _retry?.cancel();
     _retry = null;
+    _connectedTimer?.cancel();
+    _connectedTimer = null;
     final stream = _stream;
     _stream = null;
     await stream?.cancel();

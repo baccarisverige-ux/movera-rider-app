@@ -172,11 +172,19 @@ class ApiClient {
     final response = await _client.send(request).timeout(_timeout);
     if (response.statusCode >= 400) {
       await response.stream.drain<void>();
+      // R3 (`realtime.connectedRule`): a refused stream keeps the server's
+      // Retry-After, so the caller waits at least that long.
+      final retrySeconds = int.tryParse(
+        response.headers['retry-after']?.trim() ?? '',
+      );
       throw ApiError(
         code: 'HTTP_${response.statusCode}',
         message: 'The event stream was refused.',
         requestId: requestId,
         statusCode: response.statusCode,
+        retryAfter: retrySeconds == null
+            ? null
+            : Duration(seconds: retrySeconds),
       );
     }
     return response.stream

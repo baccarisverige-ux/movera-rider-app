@@ -15,6 +15,11 @@ import 'package:movera_rider/features/ride_booking/application/rider_trip_watch.
 /// reconnects; `rider_trip_changed` hints in the gap are lost. The rider
 /// reads the booked rides and the active trip again after every reconnect
 /// (not on the first connect, which `start()` already covers).
+///
+/// R3 (owner 2026-11-13 12:23 UTC "Yes, update rule (Rec.)", contract
+/// v0.18.83 `realtime.connectedRule`): a stream closed at once is not
+/// connected, so the reconnects back off 5 → 10 s here (they were 5 s
+/// apart before R3); every reconnect still re-reads.
 void main() {
   test('every stream reconnect re-reads booked rides and the active trip', () {
     fakeAsync((async) {
@@ -56,7 +61,10 @@ void main() {
       expect(opens, 2);
       expect(log.where((e) => e == 'refresh'), hasLength(1));
       expect(log.where((e) => e == 'adopt'), hasLength(1));
-      async.elapse(const Duration(seconds: 6));
+      // R3: the second wait is 10 s (± 10 %), not 5 s.
+      async.elapse(const Duration(seconds: 7));
+      expect(opens, 2, reason: 'a stream closed at once backs off');
+      async.elapse(const Duration(seconds: 5));
       expect(opens, 3);
       expect(log.where((e) => e == 'refresh'), hasLength(2));
       expect(log.where((e) => e == 'adopt'), hasLength(2));
