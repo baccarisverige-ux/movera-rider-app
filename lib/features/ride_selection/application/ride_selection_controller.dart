@@ -21,6 +21,7 @@ import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
+import 'package:movera_rider/features/ride_selection/application/quote_retry.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
@@ -192,6 +193,12 @@ class RideSelectionController {
   final Set<String> _expiredQuoteIds = <String>{};
   int _quoteGeneration = 0;
   final Set<void Function()> _cancelQuoteTimeouts = <void Function()>{};
+
+  /// fastDispatch.clients: when Select ride asks for the prices again
+  /// after a busy round (503 / 429 / timeout), and whether it gave up.
+  final QuoteRetry busyRetry = QuoteRetry();
+  bool _busyRound = false;
+  Duration? _busyRetryAfter;
   bool _disposed = false;
   bool usedFallback = false;
   String selectedRideId = CategoryIds.economy;
@@ -547,6 +554,8 @@ class RideSelectionController {
       _quotePickups.remove(id);
     }
     final width = parallelism.clamp(1, catalog.length).toInt();
+    _busyRound = false;
+    _busyRetryAfter = null;
 
     for (var start = 0; start < catalog.length; start += width) {
       if (generation != _quoteGeneration) return;
@@ -568,6 +577,8 @@ class RideSelectionController {
         ),
       );
     }
+    if (generation != _quoteGeneration) return;
+    busyRetry.record(busy: _busyRound, retryAfter: _busyRetryAfter);
   }
 
   Future<void> _loadQuote({
@@ -602,6 +613,14 @@ class RideSelectionController {
       if (error is QuoteCategoryNotOffered) notOfferedIds.add(rideId);
       if (isNotServedError(error)) notServed = true;
       if (isDropoffTooCloseError(error)) dropoffTooClose = true;
+      if (isRetryableQuoteFailure(error)) {
+        _busyRound = true;
+        final wait = error is ApiError ? error.retryAfter : null;
+        final kept = _busyRetryAfter;
+        if (wait != null && (kept == null || wait > kept)) {
+          _busyRetryAfter = wait;
+        }
+      }
       offeredPrices.remove(rideId);
       quoteIds.remove(rideId);
       quoteExpiresAt.remove(rideId);
