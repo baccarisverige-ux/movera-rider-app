@@ -1040,6 +1040,14 @@ class _SelectRideState extends State<SelectRide>
       unawaited(_loadQuotes());
       return;
     }
+    // fastDispatch.clients (R1): a busy retry that fell due while the
+    // booking held the screen runs now.
+    if (_busyRequote == null &&
+        _selection.busyRetry.nextWait != null &&
+        _appInForeground) {
+      unawaited(_loadQuotes());
+      return;
+    }
     if (_expiryRequote == null) _scheduleExpiryRequote(requoteSpent: true);
   }
 

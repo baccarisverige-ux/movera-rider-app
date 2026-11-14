@@ -11,7 +11,9 @@ import 'package:movera_rider/core/api/api_error.dart';
 ///
 /// Select ride asks for its prices again after a round in which a category
 /// got a retryable answer (503 / 429 / 5xx, a timeout, no connection): after
-/// [first], doubling up to [cap], never sooner than the server's Retry-After,
+/// [first], doubling up to [cap], never sooner than the server's Retry-After
+/// (itself taken as at most [cap], so a bad "Retry-After: 3600" cannot hold
+/// the prices for an hour),
 /// with a little jitter so riders do not come back all at once. After
 /// [maxTries] retries in a row it stops ([gaveUp]) and the screen offers
 /// "Try again".
@@ -56,7 +58,10 @@ class QuoteRetry {
     if (step > cap) step = cap;
     // ±20 % so a crowd of riders spreads out.
     final jittered = step * (0.8 + 0.4 * _random.nextDouble());
-    final floor = retryAfter ?? Duration.zero;
+    // Owner: "doubling up to 30 s". A Retry-After longer than [cap] (a
+    // proxy's or a wrong value) waits [cap].
+    var floor = retryAfter ?? Duration.zero;
+    if (floor > cap) floor = cap;
     _next = jittered < floor ? floor : jittered;
   }
 

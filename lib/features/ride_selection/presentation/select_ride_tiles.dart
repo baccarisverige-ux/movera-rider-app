@@ -67,26 +67,16 @@ extension _SelectRideTiles on _SelectRideState {
                   height: _SelectRideState._titleHeight,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 16, 6),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              context.l10n.chooseYourRide,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: _text(
-                                20,
-                                weight: FontWeight.w700,
-                                letterSpacing: -0.4,
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (_selection.busyRetry.gaveUp) _busyRetryButton(),
-                      ],
-                    ),
+                    // The title as before; once the busy retries ran
+                    // out, "Try again" beside it (R1).
+                    child: _selection.busyRetry.gaveUp
+                        ? Row(
+                            children: [
+                              Expanded(child: _titleText()),
+                              _busyRetryButton(),
+                            ],
+                          )
+                        : _titleText(),
                   ),
                 ),
               const Divider(
@@ -258,7 +248,17 @@ extension _SelectRideTiles on _SelectRideState {
     );
   }
 
-  /// "30 % promotion applied ⓘ" in teal; tap for the details.
+  /// "Choose your ride", left-aligned on one line.
+  Widget _titleText() => Align(
+    alignment: Alignment.centerLeft,
+    child: Text(
+      context.l10n.chooseYourRide,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: _text(20, weight: FontWeight.w700, letterSpacing: -0.4),
+    ),
+  );
+
   /// fastDispatch.clients (R1, owner 2026-11-13): the automatic retries of
   /// a busy server ran out; the rider asks again. Beside the title, or at
   /// the end of the promotion line when one replaces the title, so it is
@@ -272,6 +272,7 @@ extension _SelectRideTiles on _SelectRideState {
     ),
   );
 
+  /// "30 % promotion applied ⓘ" in teal; tap for the details.
   Widget _promotionLine(RiderPromotion promotion) {
     final line = Semantics(
       button: true,

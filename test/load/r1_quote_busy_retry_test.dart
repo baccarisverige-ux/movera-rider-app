@@ -36,11 +36,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Retry-After 2` (server src/http/shed.ts:72-75), then every ride costs
 /// 412 kr.
 class _BusyQuotes implements QuoteRepository {
-  _BusyQuotes();
+  _BusyQuotes({this.retryAfter = const Duration(seconds: 2), this.priced});
 
   /// While true every quote is refused busy.
   bool busy = true;
   int calls = 0;
+
+  /// The server's Retry-After on each busy answer.
+  final Duration retryAfter;
+
+  /// A category that is always priced (the others follow [busy]).
+  final String? priced;
+
+  /// Calls per category.
+  final Map<String, int> callsFor = {};
 
   @override
   Future<RideQuote> quote({
@@ -54,13 +63,14 @@ class _BusyQuotes implements QuoteRepository {
     List<RouteStop> stops = const <RouteStop>[],
   }) async {
     calls++;
-    if (busy) {
-      throw const ApiError(
+    callsFor[rideType] = (callsFor[rideType] ?? 0) + 1;
+    if (busy && rideType != priced) {
+      throw ApiError(
         code: 'unavailable',
         reason: 'server_busy',
         message: 'The server is busy. Try again in a moment.',
         statusCode: 503,
-        retryAfter: Duration(seconds: 2),
+        retryAfter: retryAfter,
       );
     }
     return RideQuote(
@@ -216,16 +226,17 @@ void main() {
     final gaps = [
       for (var i = 1; i < bursts.length; i++) bursts[i] - bursts[i - 1],
     ];
-    // Never sooner than Retry-After (2 s, less the -20 % jitter; one early
-    // reload of the list when the catalog read fails is allowed), at most
-    // 5 retries + that reload, and nothing in the last half minute: it
-    // gave up.
+    // bursts[0] is this loop's start, not a round: the first round ran
+    // while the screen opened (~0.5 s before), so the first gap is short
+    // by that much. Between retries: never sooner than Retry-After (2 s).
     expect(
-      gaps.where((g) => g < 1600).length,
-      lessThanOrEqualTo(1),
+      gaps.skip(1).where((g) => g < 2000),
+      isEmpty,
       reason: 'bursts at $bursts ms',
     );
-    expect(bursts.length - 1, inInclusiveRange(3, 6), reason: '$bursts');
+    // Owner: at most 5 tries. Exactly 5 automatic retry rounds, then
+    // nothing in the last half minute: it gave up.
+    expect(bursts.length - 1, 5, reason: 'bursts at $bursts ms');
     expect(bursts.last, lessThan(70000), reason: '$bursts');
     final stopped = quotes.calls;
     await tester.pump(const Duration(minutes: 2));
@@ -300,6 +311,45 @@ void main() {
     expect(find.text('129 kr'), findsWidgets);
     expect(posts, 1, reason: 'one request, its late answer reused');
     expect(retryButton, findsNothing);
+    await close(tester);
+  });
+
+  testWidgets('a "Retry-After: 3600" does not hold the prices for an hour: '
+      'the wait is capped at 30 s, the 5 retries run, then "Try again"', (
+    tester,
+  ) async {
+    final quotes = _BusyQuotes(retryAfter: const Duration(seconds: 3600));
+    await open(tester, quotes);
+    final first = quotes.calls;
+    // 5 retries at most 30 s apart: all done within 160 s.
+    await frames(tester, const Duration(seconds: 160));
+    expect(quotes.calls, greaterThan(first), reason: 'asked again');
+    expect(retryButton, findsOneWidget);
+    await close(tester);
+  });
+
+  testWidgets('a retry that fell due during a booking runs when the booking '
+      'lock is released', (tester) async {
+    // Movera (economy) is priced, the other rides are refused busy, so a
+    // retry round is due about 2 s after the first one.
+    final quotes = _BusyQuotes(priced: 'economy');
+    await open(tester, quotes);
+    expect(find.text('412 kr'), findsWidgets);
+    // Book at once: Set pickup opens; the retry falls due under it.
+    await tester.tap(find.byKey(const ValueKey('select-ride-book')));
+    await frames(tester, const Duration(seconds: 6));
+    tester.takeException();
+    final busyCalls = quotes.callsFor['comfort'] ?? 0;
+    // Back from Set pickup without booking: the lock is released.
+    final nav = tester.state<NavigatorState>(find.byType(Navigator).first);
+    nav.pop();
+    await frames(tester, const Duration(seconds: 1));
+    tester.takeException();
+    expect(
+      quotes.callsFor['comfort'] ?? 0,
+      greaterThan(busyCalls),
+      reason: 'the missed retry runs on release',
+    );
     await close(tester);
   });
 }
