@@ -198,6 +198,8 @@
   "cancelledByMovera": "Annulée par Movera",
   "cancelFailedStillOn": "Annulation impossible. Votre course est maintenue.",
   "cancelCostsNow": "Annuler maintenant coûte {amount}.",
+  "cancelNoShowCostsNow": "Annuler maintenant compte comme une absence : {amount}.",
+  "cancelFeeNotShown": "Les frais d’annulation ne peuvent pas être affichés pour le moment.",
   "cancelFreeUnderMinute": "L’annulation reste gratuite pendant moins d’une minute.",
   "cancelFreeMinutes": "L’annulation reste gratuite pendant encore {minutes} minutes.",
   "cancelFailedTryAgain": "Annulation impossible. Votre course est maintenue, réessayez.",

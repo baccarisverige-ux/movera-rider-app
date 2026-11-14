@@ -411,6 +411,19 @@
       }
     }
   },
+  "cancelNoShowCostsNow": "Cancelling now counts as a no-show: {amount}.",
+  "@cancelNoShowCostsNow": {
+    "description": "BQ-M22 cancel sheet: the server cancelPreview fee is the no-show fee (contract v0.18.92 priceDisplay.cancelPreview kindAfterFree no_show).",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelFeeNotShown": "The cancellation fee can't be shown right now.",
+  "@cancelFeeNotShown": {
+    "description": "BQ-M22 round 2 (supervisor MF1): the server sent no cancelPreview on a real build, so the cancel sheet shows no amount and no free line (contract v0.18.92 priceDisplay.cancelPreview.apps: absent → no amount)."
+  },
   "cancelFreeUnderMinute": "Cancelling is free for less than a minute more.",
   "cancelFreeMinutes": "Cancelling is free for {minutes} more minutes.",
   "@cancelFreeMinutes": {

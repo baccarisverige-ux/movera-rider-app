@@ -4,6 +4,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/trip_eta.dart';
 import 'package:movera_rider/core/contracts/trip_terms.dart';
+import 'package:movera_rider/core/contracts/cancel_preview.dart';
 import 'package:movera_rider/core/contracts/on_trip.dart';
 import 'package:movera_rider/core/maps/geo_distance.dart';
 import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
@@ -113,6 +114,11 @@ class DriverTrackingController {
   /// waiting, no-show, cancel and the pickup move limit, in the trip's
   /// currency. Null until a projection carried them.
   TripTerms? terms;
+
+  /// v0.18.92 (BQ-M22): the server's `cancelPreview` from the newest
+  /// projection (its freeUntil on the device clock). A projection without
+  /// one clears it (searching, ended, no rule); null from an older server.
+  CancelPreview? cancelPreview;
 
   /// v0.18.9 (G7 decision 1): the server's ride check of this trip.
   TripRideCheck? rideCheck;
@@ -299,6 +305,10 @@ class DriverTrackingController {
   /// terms, the waiting cost, the cancellation and the pickup.
   void _takeServerFacts(RideRealtimeEvent event) {
     terms = event.terms ?? terms;
+    // A whole projection says whether a preview applies.
+    if (event.payload[wholeProjectionKey] == true) {
+      cancelPreview = event.cancelPreview?.onDevice(ServerClock.toDevice);
+    }
     rideCheck = event.rideCheck ?? rideCheck;
     routeChange = event.routeChange ?? routeChange;
     headingFreeCancel = event.headingFreeCancel ?? headingFreeCancel;

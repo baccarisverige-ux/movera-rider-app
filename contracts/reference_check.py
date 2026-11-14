@@ -694,11 +694,16 @@ def reverse(case):
 for case in _awf['reverseNoShow']:
     if reverse(case) != case['expect']: bad += 1; print('REVERSE NO-SHOW', case['id'], reverse(case))
 def terms_money(m, lang):
-    v = m['amountMinor']; whole = v % 100 == 0
-    num = str(v // 100) if whole else f"{v // 100}.{v % 100:02d}"
-    if lang != 'en': num = num.replace('.', ',')
-    if m['currency'] == 'SEK': return f"{num} kr"
-    return f"{num} €" if lang != 'en' else f"€{num}"
+    # v0.18.90 (P89 supervisor N4): contract.json#moneyDisplay — the format follows the currency, never the language
+    # (lang unused), and whole amounts keep their decimals (v0.18.89 wholeAmounts). Thousands as in moneyDisplay.formats.
+    f = c['moneyDisplay']['formats'][m['currency']]; v = m['amountMinor']; d = f['decimals']
+    whole, part = divmod(abs(v), 10 ** d)
+    sep = f.get('thousandsSeparator', '')
+    head = f"{whole:,}".replace(',', sep) if sep else str(whole)
+    return ('-' if v < 0 else '') + f['pattern'].replace('{amount}', f"{head}{f['decimalSign']}{part:0{d}d}")
+for _cur, _ex in list(c['moneyDisplay']['examplesWhole'].items()) + [(k, v['examples']) for k, v in c['moneyDisplay']['formats'].items()]:
+    for _minor, _text in _ex.items():
+        if terms_money({'amountMinor': int(_minor), 'currency': _cur}, 'en') != _text: bad += 1; print('MONEY DISPLAY example', _cur, _minor, _text)
 for case in _awf['termsMoney']:
     if terms_money(case['amount'], case['lang']) != case['text']: bad += 1; print('TERMS MONEY', case)
 for _cty in ('SE', 'FR'):

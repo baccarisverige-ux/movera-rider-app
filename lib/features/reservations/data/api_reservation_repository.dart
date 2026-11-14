@@ -1,8 +1,10 @@
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/core/contracts/cancel_preview.dart';
 import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/repository_authority.dart';
+import 'package:movera_rider/core/contracts/server_clock.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
 import 'package:movera_rider/features/reservations/data/reservation_policy_catalog.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -414,6 +416,10 @@ class ApiReservationRepository
           : null,
       cancellationFee: cancelFee,
       timeZone: draft?.timeZone,
+      // v0.18.92 (BQ-M22): the server's cancel preview of the booked ride.
+      cancelPreview: CancelPreview.fromWire(
+        trip['cancelPreview'],
+      )?.onDevice(ServerClock.toDevice),
     );
   }
 }

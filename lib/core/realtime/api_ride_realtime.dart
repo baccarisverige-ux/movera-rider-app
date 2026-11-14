@@ -764,6 +764,11 @@ class ApiRideRealtime implements RideRealtime {
           // far, the cancel fee and kind, and the pickup (a move).
           if (eta is Map) etaKey: Map<String, Object?>.from(eta),
           if (ride['terms'] is Map) termsKey: ride['terms'],
+          // v0.18.92 (BQ-M22): the server's cancel preview; a whole
+          // projection says so, so a missing preview clears the old one.
+          wholeProjectionKey: true,
+          if (ride['cancelPreview'] is Map)
+            cancelPreviewKey: ride['cancelPreview'],
           if (ride['chain'] is Map) chainKey: ride['chain'],
           if (_waitingField(ride, 'chargedSoFar') case final Map charged)
             waitingChargedSoFarKey: charged,

@@ -39,6 +39,15 @@ String formatMoney(Money money, {bool whole = false}) {
   }
 }
 
+/// [formatMoney] for amounts the server works out (BQ-M22 cancel sheet):
+/// the decimals of a whole amount are kept ("40,00 kr", "5.000 DT",
+/// "8,00 €") and thousands are grouped ("1 000,00 kr"), as [formatMoney]
+/// does since the price format job (PF #615); every space is a non-breaking
+/// one, so an amount never breaks over two lines ("40,00 / kr.",
+/// supervisor S5).
+String formatMoneyFull(Money money) =>
+    formatMoney(money).replaceAll(' ', '\u00A0');
+
 /// "1250.000" → "1 250.000": a space between thousands (contract v0.18.59
 /// §81 for the dinar; kronor and euros the same, as the admin and the
 /// server write them: "1 250,00 kr").

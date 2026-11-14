@@ -1,5 +1,6 @@
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/config/zone_clock.dart';
+import 'package:movera_rider/core/contracts/cancel_preview.dart';
 import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
@@ -319,7 +320,13 @@ class Reservation {
     this.paymentFailed = false,
     this.timeZone,
     this.stops = const <ReservationPlace>[],
+    this.cancelPreview,
   });
+
+  /// v0.18.92 (BQ-M22): the server's `cancelPreview` of this booked ride
+  /// (what a cancel costs now and from `freeUntil` on); null from an older
+  /// server or a ride kept on the device.
+  final CancelPreview? cancelPreview;
 
   final String reservationId;
   final DateTime createdAt;
@@ -478,6 +485,12 @@ class Reservation {
       paymentFailed: paymentFailed ?? this.paymentFailed,
       timeZone: timeZone ?? this.timeZone,
       stops: stops ?? this.stops,
+      // BQ-M22: the server's preview holds for this pickup time, price and
+      // state only; a copy that changes one of them waits for the next read.
+      cancelPreview:
+          scheduledPickupAt == null && price == null && status == null
+          ? cancelPreview
+          : null,
     );
   }
 

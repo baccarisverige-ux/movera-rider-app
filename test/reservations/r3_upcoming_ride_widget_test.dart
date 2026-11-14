@@ -206,7 +206,7 @@ void main() {
       expect(
         find.text(
           'Free until Fri, 16 Oct, 07:00 (1 h before pickup). '
-          'After that, cancelling costs 50,00 kr.',
+          'After that, cancelling costs 50,00\u00A0kr.',
         ),
         findsOneWidget,
       );
@@ -238,11 +238,11 @@ void main() {
 
       await openCancelSheet(tester);
       expect(find.byKey(const Key('reservation-cancel-fee')), findsOneWidget);
-      expect(find.text('Cancellation fee: 50,00 kr'), findsOneWidget);
+      expect(find.text('Cancellation fee: 50,00\u00A0kr'), findsOneWidget);
       expect(
         find.text(
           'Free cancellation ended at 07:00, 1 h before pickup. '
-          'You pay 50,00 kr if you cancel now.',
+          'You pay 50,00\u00A0kr if you cancel now.',
         ),
         findsOneWidget,
       );
@@ -277,11 +277,11 @@ void main() {
       await pumpPage(tester, c);
 
       await openCancelSheet(tester);
-      expect(find.text('Cancellation fee: 75,00 kr'), findsOneWidget);
+      expect(find.text('Cancellation fee: 75,00\u00A0kr'), findsOneWidget);
       expect(
         find.text(
           'Free cancellation ended at 06:00, 2 h before pickup. '
-          'You pay 75,00 kr if you cancel now.',
+          'You pay 75,00\u00A0kr if you cancel now.',
         ),
         findsOneWidget,
       );

@@ -5,6 +5,7 @@ import 'package:movera_rider/core/contracts/wire_time.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/trip_eta.dart';
 import 'package:movera_rider/core/contracts/trip_terms.dart';
+import 'package:movera_rider/core/contracts/cancel_preview.dart';
 import 'package:movera_rider/core/contracts/on_trip.dart';
 import 'package:movera_rider/core/realtime/realtime_gate.dart';
 
@@ -49,6 +50,14 @@ const String bookedPickupAtKey = 'bookedPickupAt';
 /// projection's `pickup` (a `pickup_moved` event).
 const String etaKey = 'eta';
 const String termsKey = 'terms';
+
+/// v0.18.92 (BQ-M22): `TripProjection.cancelPreview`, what a cancel costs
+/// now and from `freeUntil` on (the server's numbers).
+const String cancelPreviewKey = 'cancelPreview';
+
+/// Set on an event built from a whole `TripProjection` (not a location
+/// tick): its missing fields mean "none now".
+const String wholeProjectionKey = 'wholeProjection';
 const String waitingChargedSoFarKey = 'waitingChargedSoFar';
 const String waitingChargedSecondsNowKey = 'waitingChargedSecondsNow';
 const String cancellationKey = 'cancellation';
@@ -187,6 +196,11 @@ class RideRealtimeEvent {
 
   /// v0.18.7: the rules this trip is charged by, when the projection says.
   TripTerms? get terms => TripTerms.fromWire(payload[termsKey]);
+
+  /// v0.18.92 (BQ-M22): the server's cancel preview; null when the
+  /// projection has none (searching, ended, no rule, an older server).
+  CancelPreview? get cancelPreview =>
+      CancelPreview.fromWire(payload[cancelPreviewKey]);
 
   /// v0.18.9: the server's "Is everything OK?" for this trip, if any.
   TripRideCheck? get rideCheck => TripRideCheck.fromWire(payload[rideCheckKey]);

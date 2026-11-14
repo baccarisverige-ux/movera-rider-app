@@ -1419,7 +1419,8 @@
         "amountMinor": 6500,
         "currency": "SEK"
       },
-      "text": "65 kr"
+      "text": "65,00 kr",
+      "textBefore0_18_89": "65 kr"
     },
     {
       "lang": "fr",
@@ -1435,7 +1436,8 @@
         "amountMinor": 810,
         "currency": "EUR"
       },
-      "text": "€8.10"
+      "text": "8,10 €",
+      "textBefore0_18_89": "€8.10"
     },
     {
       "lang": "fr",
@@ -1443,7 +1445,8 @@
         "amountMinor": 800,
         "currency": "EUR"
       },
-      "text": "8 €"
+      "text": "8,00 €",
+      "textBefore0_18_89": "8 €"
     },
     {
       "lang": "en",
@@ -1451,7 +1454,17 @@
         "amountMinor": 1226,
         "currency": "SEK"
       },
-      "text": "12.26 kr"
+      "text": "12,26 kr",
+      "textBefore0_18_89": "12.26 kr"
+    },
+    {
+      "lang": "fr",
+      "amount": {
+        "amountMinor": 5000,
+        "currency": "TND"
+      },
+      "text": "5.000 DT"
     }
-  ]
+  ],
+  "termsMoneyNote": "v0.18.90 (P89 supervisor N4): texts follow moneyDisplay (v0.18.89: the format follows the currency, not the language; whole amounts keep their decimals); the old v0.18.8 texts are kept as textBefore0_18_89 (Rule 21)."
 }

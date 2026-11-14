@@ -264,6 +264,34 @@ extension _WaitingStages on _WaitingForDriverState {
         return null;
       }
     }
+    // v0.18.92 (BQ-M22, contract priceDisplay.cancelPreview): the server's
+    // preview — feeNow, and from freeUntil on feeAfterFree with its kind;
+    // a clock compare, never the app's own fee maths.
+    final preview = _tracking.cancelPreview;
+    if (preview != null && preview.feeNow.currency == widget.currency) {
+      final note = cancelPreviewNote(
+        preview,
+        WaitingForDriver.cancelFeeClock(),
+      );
+      if (note.charged) _cancelFeeChargedNow = true;
+      return note.text;
+    }
+    // Supervisor MF1 (contract priceDisplay.cancelPreview.apps: "Absent → no
+    // amount on the sheet, never a worked-out fee"; owner: the apps never
+    // work money out): a real build without the server's preview (or with
+    // one in another currency) shows no amount and no made-up free line.
+    // Only the server's own chain fact (a queued or late chained trip
+    // cancels free, chain.freeCancelAt) is still said.
+    if (LiveDataOnly.on) {
+      if (!_tracking.booked &&
+          _tracking.chainCancelFree(WaitingForDriver.cancelFeeClock())) {
+        return L10n.current.cancelFreeChained;
+      }
+      return L10n.current.cancelFeeNotShown;
+    }
+    // Demo builds only (no server): the note from the kept rules — the
+    // trip's terms (booking snapshot), else the zone's published fee table
+    // — never a built-in or another currency's fee.
     // v0.18.7: the trip's own terms (booking snapshot) first: the cancel
     // rule, and after the driver arrived the no-show fee when the zone's
     // switch is on (always free inside the free minutes after accept).

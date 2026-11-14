@@ -124,8 +124,17 @@ class ReservationCancelTermsNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final free = terms.isFree;
+    // Supervisor MF1: no server preview → a plain line, no free look.
+    final unknown = !terms.known;
+    final body = ReservationFormat.cancelTermsBody(terms);
     return Container(
-      key: Key(free ? 'reservation-cancel-free' : 'reservation-cancel-fee'),
+      key: Key(
+        unknown
+            ? 'reservation-cancel-unknown'
+            : free
+            ? 'reservation-cancel-free'
+            : 'reservation-cancel-fee',
+      ),
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
@@ -138,9 +147,17 @@ class ReservationCancelTermsNote extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 1),
             child: Icon(
-              free ? Icons.event_available_rounded : Icons.receipt_long_rounded,
+              unknown
+                  ? Icons.info_outline_rounded
+                  : free
+                  ? Icons.event_available_rounded
+                  : Icons.receipt_long_rounded,
               size: 20,
-              color: free ? kReservationAccent : _feeInk,
+              color: unknown
+                  ? kReservationMuted
+                  : free
+                  ? kReservationAccent
+                  : _feeInk,
             ),
           ),
           const SizedBox(width: 10),
@@ -156,15 +173,17 @@ class ReservationCancelTermsNote extends StatelessWidget {
                     color: free ? kReservationInk : _feeInk,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  ReservationFormat.cancelTermsBody(terms),
-                  style: reservationText(
-                    13,
-                    color: kReservationMuted,
-                    height: 1.4,
+                if (body != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    body,
+                    style: reservationText(
+                      13,
+                      color: kReservationMuted,
+                      height: 1.4,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
