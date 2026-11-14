@@ -90,6 +90,7 @@ class RideRestoreCoordinator {
   /// this device has, and returns null on any failure: restore then behaves
   /// as before.
   Future<RideSnapshot?> adoptServerActiveTrip({String? expectedRideId}) async {
+    lastActiveTripReadFailure = null;
     try {
       // Owner 2026-11-07 (S5): only a live ride stored here wins. A leftover
       // receipt or a non-ride snapshot of another trip kept the booked trip
@@ -137,10 +138,16 @@ class RideRestoreCoordinator {
       );
       return await _reader() ?? trip;
     } catch (error) {
+      lastActiveTripReadFailure = error;
       AppLog.warning('restore.active_trip_failed', extra: {'error': '$error'});
       return null;
     }
   }
+
+  /// R4 (contract v0.18.83 `bookedRideSeen.pollBackoff`): why the last
+  /// [adoptServerActiveTrip] failed (busy, time-out, no network), or null
+  /// when it was answered. Home's poll (RiderTripWatch) backs off on it.
+  Object? lastActiveTripReadFailure;
 
   /// Before the server's trip [tripId] takes the snapshot slot: a finished
   /// ride of another trip left here (its receipt / rating) is kept in History

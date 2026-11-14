@@ -1,11 +1,11 @@
-# Movera API v0.18.86 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.87 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.86
+  version: 0.18.87
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.86 in this folder; this file must agree with them.
+    v0.18.87 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.86
+  version: 0.18.87
   source: contract.json
 paths:
   /auth/otp/request:
@@ -19678,10 +19678,23 @@ components:
           description: 'v0.18.82: B2.4 (S07 M5): ONE commission for every paid trip end (completed, ended early by the rider,
             ended by the driver with the rider on board, admin complete): commission = fare − debtCollected − driverEarnings
             − pickupPay − driverBonus (finish.debt.rule). The trip (TripProjection.commission, KPI commission), the trip''s
-            earnings entry and every driver and admin screen use this same number; the apps show the server''s number and
-            never work it out themselves. Movera''s later changes to the driver''s pay (driver-pay, an admin fare, a refund
-            taken from the driver) are not in commission: they are in driverAdjustments and lower moneySplit.movera. Earnings
-            entries written before v0.18.82 keep their stored value (history, never rewritten).'
+            earnings entry and every report and KPI use this same number; the apps show the server''s number and never work
+            it out themselves. Movera''s later changes to the driver''s pay (driver-pay, an admin fare, a refund taken from
+            the driver) are not in commission: they are in driverAdjustments and lower moneySplit.movera. Earnings entries
+            written before v0.18.82 keep their stored value (history, never rewritten). v0.18.87 (BQ-M19, owner 107 ''Yes,
+            count + fix old days (Rec.)'' + the approved B2.4 plan, which names the lost-driver bonus; owner 2026-11-13 ''Movera
+            commission is how much movera keep''): an admin bonus on a completed trip (POST /admin/trips/{tripId}/driver-bonus
+            after the paid end) is a later change to the driver''s pay like driver-pay: the trip''s commission and its earnings
+            entry keep the value set at the paid end (the driverBonus in the formula is the bonus at the paid end) and are
+            never rewritten by it; the bonus is its own earnings entry kind bonus, it is in TripProjection.driverBonus and
+            in the driverTotal bonus line (the driver''s money), and it lowers moneySplit.movera and the KPI moveraEarnings
+            (moneyBase.bonusOutsideCommission). So commission = what Movera kept at the trip''s end, and moneySplit.movera
+            / moveraEarnings = what Movera keeps after every later change, each change taken off once. v0.18.87 screen rule
+            (owner 2026-11-13 23:42 UTC (Rules decisions/session-2026-11-06.md:1263, s06): ''Movera commission is how much
+            movera keep''): every app row labelled ''Movera commission'' shows what Movera keeps NOW on that trip (moneySplit.movera
+            on the admin view, TripProjection.moveraKeepsNow on the driver view; later pay changes and bonuses included),
+            never this stored commission when they differ; the stored commission stays what Movera kept at the paid end and
+            is never rewritten (moneyBase.commissionRow).'
         driverBonus:
           allOf:
           - $ref: '#/components/schemas/Money'
@@ -19923,6 +19936,18 @@ components:
           allOf:
           - $ref: '#/components/schemas/Id'
           description: 'v0.18.33, driver and admin views: a live trip queued behind this driver''s current trip (contract.json#afterTestRules.bookedNext.accept).'
+        moveraKeepsNow:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.87: TripProjection.moveraKeepsNow: Money, driver and admin views, sent on a paid trip (completed,
+            ended early by the rider, ended by the driver on board, admin complete); additive; older apps ignore it. What
+            Movera keeps now = moneySplit.movera = riderPaid − driverTotal − debtCollected (contract.json#finish.debt.moneySplit).
+            With no later change and no refund it equals commission. The driver view has no moneySplit (admin view only).
+            The server sends TripProjection.moveraKeepsNow (driver and admin views, = moneySplit.movera, on paid trips). The
+            driver''s ''Movera commission'' rows (finished screen, waybill, trip details) show it; when it is absent (an older
+            server, or a trip not paid yet) the finished-screen and history rows are not shown (never TripProjection.commission
+            as a fallback, never worked out on the phone); on a paid trip the waybill row is hidden too when it is absent;
+            only before the paid end does the waybill show TripProjection.commission (nothing changed yet).'
     DriverSilentAlert:
       type: object
       description: 'v0.7.0: documents the server''s alert of 2026-10-26: no position for 30 min with the rider on board; the
@@ -22976,7 +23001,12 @@ components:
             keeps: commission (trips.commission, already net of pickup pay and driver bonuses: commission = fare - debtCollected
             - driverEarnings - pickupPay - driverBonus) + Movera''s share of fees - refunds of the day''s trips. Can be negative.
             v0.18.13 (audit 2026-11-02 H2): pickup pay and bonuses are no longer taken off a second time, and refunds are
-            taken off (server migration 0047 rewrites the stored days).'
+            taken off (server migration 0047 rewrites the stored days). v0.18.87 (BQ-M19, owner 107 ''Yes, count + fix old
+            days (Rec.)'' + the approved B2.4 plan, which names the lost-driver bonus; owner 2026-11-13 ''Movera commission
+            is how much movera keep''): Movera''s pay changes also include the lost-driver payment (payLostDriver: the driverBonus
+            of an admin cancel or reassign) and an admin driver bonus added after the trip''s paid end, as well as the adjustment
+            entries; each is taken off once. A bonus that was on the trip at its paid end is inside commission and is not
+            taken off again (moneyBase.bonusOutsideCommission).'
     KpiReport:
       type: object
       description: 'v0.9.0: GET /admin/kpis.'
