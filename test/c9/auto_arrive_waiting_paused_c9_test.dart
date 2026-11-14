@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -12,6 +9,8 @@ import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_fee_counter.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+
+import '../contracts/contract_fixtures.dart';
 
 /// Job C9 (contract v0.18.93 §91, `contract.json#autoArrive`; owner
 /// 2026-11-02 review Q3 "Both: auto + button", Rules
@@ -45,9 +44,8 @@ void main() {
   );
 
   test('texts.riderPaused is the contract text in sv, fr and en', () {
-    final contract =
-        jsonDecode(File('contracts/contract.json').readAsStringSync())
-            as Map<String, dynamic>;
+    // The contract copy as data (test/contracts/contract_fixtures.dart reads
+    // bytes), never a source read (CI Phase 69: fewer than 40 grep tests).
     final texts =
         (contract['autoArrive'] as Map)['texts']['riderPaused'] as Map;
     for (final lang in ['sv', 'fr', 'en']) {
