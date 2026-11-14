@@ -1,6 +1,6 @@
 {
   "menu": "Meny",
-  "menuAppVersion": "Movera Rider v{version}",
+  "menuAppVersion": "Movera Rider {version}",
   "menuHiName": "Hej {name}",
   "menuWalletWithAmount": "Plånbok, {amount}",
   "menuWallet": "Plånbok",

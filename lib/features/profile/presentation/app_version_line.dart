@@ -26,6 +26,14 @@ class AppVersionLine extends StatelessWidget {
         : words.appVersionLine(parts.version, build);
   }
 
+  /// BQ-V46: "1.0.0 (583)", "1.0.0" or "dev": the same build version
+  /// without the word, for the side menu's "Movera Rider …" line.
+  static String short(String raw) {
+    final parts = CrashReport.splitVersion(raw);
+    final build = parts.build;
+    return build == null ? parts.version : '${parts.version} ($build)';
+  }
+
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: 18, bottom: 4),

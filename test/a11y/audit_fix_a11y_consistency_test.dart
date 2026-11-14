@@ -121,7 +121,7 @@ void main() {
       await _pump(tester, const RiderMenuPage());
       await tester.pump(const Duration(milliseconds: 200));
       final version = tester.widget<Text>(
-        find.textContaining('Movera Rider v'),
+        find.byKey(const ValueKey<String>('menu-app-version')),
       );
       expect(contrastRatio(version.style!.color!, _white), greaterThan(4.5));
     });

@@ -1,6 +1,6 @@
 {
   "menu": "Menu",
-  "menuAppVersion": "Movera Rider v{version}",
+  "menuAppVersion": "Movera Rider {version}",
   "@menuAppVersion": {
     "placeholders": {
       "version": {

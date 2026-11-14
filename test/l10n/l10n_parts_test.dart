@@ -80,17 +80,18 @@ void main() {
     // the single-file ARBs before the split (base/split-rider-big-3). A later
     // PR that changes a text updates these to the values the failure prints.
     // v0.18.93 (job C9): + waitingPausedDriverAway (autoArrive.texts.riderPaused).
+    // BQ-V46 (G7): menuAppVersion drops the "v" ("Movera Rider 1.4.0 (583)").
     const before = {
       'en': (
-        'f65fd5999541d87cfcdf73d8c0617196bf2402827d8aef8027c19915c507dd28',
+        'e5aa06bc691101112fa86fda5e65b6700976ce7c05e955b956d32c397905db59',
         2116,
       ),
       'fr': (
-        '8c41af6e1ccb21df2dd51934622120412dde8de5631cfda09960f3944c4c640e',
+        '09d9706fd14bbc58b9e2b09d603b54b974a2e53f022e7f914bcc41eefbfdc6d1',
         1711,
       ),
       'sv': (
-        '59c3040218a6d6dd940dab88a23a5568cfe90e006956c9f1cf6db9cff66a5c04',
+        'a57130bf175babe759729bb482a86ccfedb42a3e01f66d119fdafb57dc160544',
         1711,
       ),
     };
