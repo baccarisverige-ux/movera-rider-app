@@ -36,9 +36,26 @@ void main() {
     expect(onDisk, listed, reason: 'files added or removed without a re-sync');
   });
 
-  test('the copy is contract v0.18.87', () {
+  test('the copy is contract v0.18.92', () {
     expect(contract['contract'], 'movera');
-    expect(contract['version'], '0.18.87');
+    expect(contract['version'], '0.18.92');
     expect(TripStateMachine.contractVersion, contract['version']);
+  });
+
+  // v0.18.89 / v0.18.92 (BQ-M22): the cancel sheet reads the server's
+  // TripProjection.cancelPreview; the copy carries the field and its rule.
+  test('v0.18.92: priceDisplay.cancelPreview is in the copy', () {
+    final openapi = File('contracts/openapi.yaml').readAsStringSync();
+    for (final field in [
+      'cancelPreview',
+      'feeNow',
+      'freeUntil',
+      'feeAfterFree',
+    ]) {
+      expect(openapi, contains(field), reason: field);
+    }
+    final price = contract['priceDisplay'] as Map<String, dynamic>;
+    final preview = price['cancelPreview'] as Map<String, dynamic>;
+    expect(preview['apps'], isA<String>());
   });
 }

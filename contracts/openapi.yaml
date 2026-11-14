@@ -1,11 +1,11 @@
-# Movera API v0.18.87 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.92 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.87
+  version: 0.18.92
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.87 in this folder; this file must agree with them.
+    v0.18.92 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.87
+  version: 0.18.92
   source: contract.json
 paths:
   /auth/otp/request:
@@ -19941,13 +19941,46 @@ components:
           - $ref: '#/components/schemas/Money'
           description: 'v0.18.87: TripProjection.moveraKeepsNow: Money, driver and admin views, sent on a paid trip (completed,
             ended early by the rider, ended by the driver on board, admin complete); additive; older apps ignore it. What
-            Movera keeps now = moneySplit.movera = riderPaid − driverTotal − debtCollected (contract.json#finish.debt.moneySplit).
-            With no later change and no refund it equals commission. The driver view has no moneySplit (admin view only).
-            The server sends TripProjection.moveraKeepsNow (driver and admin views, = moneySplit.movera, on paid trips). The
-            driver''s ''Movera commission'' rows (finished screen, waybill, trip details) show it; when it is absent (an older
-            server, or a trip not paid yet) the finished-screen and history rows are not shown (never TripProjection.commission
-            as a fallback, never worked out on the phone); on a paid trip the waybill row is hidden too when it is absent;
-            only before the paid end does the waybill show TripProjection.commission (nothing changed yet).'
+            Movera keeps now = moneySplit.movera = riderPaid − driverTotal − debtCollected − lostDriverPaid (contract.json#finish.debt.moneySplit;
+            v0.18.90 BQ-M21, owner 2026-11-13 23:42 UTC ''Movera commission is how much movera keep'' (Rules decisions/session-2026-11-06.md:1263):
+            on a reassigned trip the lost driver''s payment is Movera''s money too, so it is taken off — moneyBase.lostDriverPaid).
+            With no later change, no refund and no lost-driver payment it equals commission. The driver view has no moneySplit
+            (admin view only). The server sends TripProjection.moveraKeepsNow (driver and admin views, on paid trips; admin
+            view = moneySplit.movera; v0.18.90 driver view = what Movera keeps from HIS trip = riderPaid − driverTotal − debtCollected:
+            another driver''s money — the lost-driver payment — is never sent to him, so on a reassigned trip it is moneySplit.movera
+            + lostDriverPaid; moneyBase.lostDriverPaid.driverView). The driver''s ''Movera commission'' rows (finished screen,
+            waybill, trip details) show it; when it is absent (an older server, or a trip not paid yet) the finished-screen
+            and history rows are not shown (never TripProjection.commission as a fallback, never worked out on the phone);
+            on a paid trip the waybill row is hidden too when it is absent; only before the paid end does the waybill show
+            TripProjection.commission (nothing changed yet). v0.18.92: TripProjection.moveraKeepsNow on the ADMIN view is
+            sent on every trip with a commission — paid (moneySplit.movera), ended with no paid ride (Movera''s fee share,
+            0 when free, − lostDriverPaid) and still under way (commission − lostDriverPaid) — so the admin ''Movera commission''
+            row is always this one number (commissionRow.admin). The driver view keeps it only on a paid end (unchanged: absent
+            → the driver''s rows are hidden), and the driver''s stream never gets the admin number.'
+        cashToCollect:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.89: TripProjection.cashToCollect (driver and admin views; rider view unchanged) is sent on every
+            pay-in-car trip from accept, not only when the wallet paid part (before v0.18.89): fare − walletApplied. The collect
+            screen shows CompletePreview.cashDue, else finish.cashToCollect, else this; none of them → "—", never fare − wallet
+            worked out on the phone.'
+        cancelPreview:
+          allOf:
+          - $ref: '#/components/schemas/CancelPreview'
+          description: 'v0.18.89: rider and admin views (contract.json#priceDisplay.cancelPreview).'
+        lostDriverPaid:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.92: v0.18.92 (GM 2026-11-14; owner rule s06:1263 ''Movera commission is how much movera keep''):
+            TripProjection.lostDriverPaid: Money, ADMIN view only, sent when above 0 on every trip, paid or not (a reassigned
+            trip still running, an admin cancel or a reassign that ended in no driver) = the same sum as `rule` (every driverBonus
+            of POST /admin/trips/{tripId}/reassign and /cancel paid to a driver who lost the trip). On a paid end it equals
+            moneySplit.lostDriverPaid. Never on the driver or rider view nor on their realtime streams (the stored event is
+            the admin projection: the server takes it out for both). Additive; older admins ignore it. v0.18.92: moneySplit
+            (''Who gets what'') is sent only on a paid trip end (completed, the rider''s early end, the driver''s end on board,
+            admin complete — the same paid end as the KPI money, moneyBase.kpiMoney); an unpaid or cancelled trip has no moneySplit
+            (the rider paid nothing, so there is no riderPaid to split). Its lost-driver payment is TripProjection.lostDriverPaid,
+            and its admin ''Movera commission'' row is the admin view''s moveraKeepsNow (commissionRow.admin (2) / (3)).'
     DriverSilentAlert:
       type: object
       description: 'v0.7.0: documents the server''s alert of 2026-10-26: no position for 30 min with the rider on board; the
@@ -20017,7 +20050,11 @@ components:
           - $ref: '#/components/schemas/Money'
           description: Driver net, driverBonus included.
         pickupPay:
-          $ref: '#/components/schemas/Money'
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.89: No Offer.pickupPay = no pickup pay for this offer (0). The driver app never works pickup
+            pay out for a real offer and never parses amounts from labels (fixtures/pickup_pay.json stays for demo offers
+            and tests only). Offer.pickupPay is inside driverTotal and is not shown on its own (display total, §3.2).'
         fareBoost:
           $ref: '#/components/schemas/Money'
         driverBonus:
@@ -20087,6 +20124,25 @@ components:
             driver sees it: Booked rides, Home popup, Exclusive offer, Radar (Home and the Live list) and the accepted trip.
             Offer.reservation is true for every offer of a kind scheduled trip (with Offer.scheduledAt); TripProjection.kind
             scheduled for the trip.'
+        driverTotal:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.89: Offer.driverTotal: Money, driver view, on every offer (Radar, Exclusive, assigned, next
+            trip, booked-ride / reservation offers): what the driver gets for this offer = driverEarnings + pickupPay (driverBonus
+            is already inside driverEarnings), in the offer''s currency. It is the number the finished trip''s finish.driverTotal
+            shows when nothing changes on the way (no waiting, stop waiting, route change, tip, later pay change). The offer
+            card (Home radar, Exclusive sheet, accept sheet, Live list, Scheduled rides, Booked rides, reservation request,
+            next trip) shows ONLY this number (owner 2026-11-12 ~16:05 UTC, Rules decisions/session-2026-11-06.md:1164: "on
+            the offer when come he see only how much he get"). Absent only from a server before v0.18.89: the app shows driverEarnings
+            and adds nothing.'
+        cashToCollect:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.89: Offer.cashToCollect: Money, driver view, on every offer: paymentMethod cash (pay in car)
+            = what the rider pays in the car as booked = the rider''s fare (Offer.fare without driverBonus) − the wallet part
+            reserved at booking (walletApplied); any other payment method = 0. Not shown on the offer card (the offer shows
+            only driverTotal); the app keeps it for the accepted trip. The amount actually collected is always CompletePreview.cashDue
+            / TripProjection.finish.cashToCollect (an old rider debt is read at payment, Q-M2, so it can be higher).'
     Quote:
       type: object
       required:
@@ -22808,8 +22864,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PayoutLine'
-          description: 'v0.9.0, admin only (GET /admin/payouts): the lines behind the amount. The driver app shows only the
-            total.'
+          description: 'v0.9.0, admin only (GET /admin/payouts): the lines behind the amount. v0.18.89 (owner 2026-11-14 "no
+            details"): the payout card in the driver app and the admin shows only the 2 lines of Payout.summary (Driver gets
+            / Movera gets), not these lines.'
         paidBy:
           allOf:
           - $ref: '#/components/schemas/Id'
@@ -22817,6 +22874,10 @@ components:
         note:
           type: string
           maxLength: 1000
+        summary:
+          allOf:
+          - $ref: '#/components/schemas/PayoutSummary'
+          description: 'v0.18.89: driver and admin views: the 2 lines Driver gets / Movera gets (contract.json#priceDisplay.payoutSummary).'
       description: 'v0.18.13: v0.18.13 (audit M1): one payout is in ONE currency: the unpaid entries of a driver''s period
         are paid per currency (a driver with kr and € entries gets two payouts); amounts of different currencies are never
         added.'
@@ -25638,9 +25699,12 @@ components:
             card''s "% commission" field (commissionPct). Per zone and per car type (PricingDocument.categories[categoryId].commissionSteps;
             the country standard''s Commission panel alike), NEVER a global setting and never a separate page. The card shows
             the % field (used when there are no steps), the step rows, "Add step", and the warn texts of that card''s steps.
-            Warning (admin only): ADVISORY ONLY: the admin editor shows the warning (texts.warnDrop) in that car-type card,
-            next to the step, and STILL ALLOWS SAVING. The server does NOT refuse it: no 400, no reason code, no problem code;
-            PUT and publish save the steps exactly as with no warning. The driver and rider apps show nothing.'
+            v0.18.88 (owner 2026-11-14 "Yes add app fee in same card"): each car-type card also has an editable "App fee %"
+            next to its "% commission": the SAME value as Pricing › Limits › App fee (PricingDocument.categories[categoryId].appFeePct,
+            0–50 %), so both places always show one number; no new field, no server change. Warning (admin only): ADVISORY
+            ONLY: the admin editor shows the warning (texts.warnDrop) in that car-type card, next to the step, and STILL ALLOWS
+            SAVING. The server does NOT refuse it: no 400, no reason code, no problem code; PUT and publish save the steps
+            exactly as with no warning. The driver and rider apps show nothing.'
     PricingFees:
       type: object
       required:
@@ -33311,6 +33375,13 @@ components:
           allOf:
           - $ref: '#/components/schemas/Money'
           description: 'Driver and admin views only: new − current earnings.'
+        driverTotal:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.89: TripRouteChange.driverTotal: Money, driver and admin views, on every change that has driverEarnings:
+            what the driver gets for the whole trip with the new route = its driverEarnings + pickupPay + driverBonus (pending:
+            if he accepts; accepted: what he gets now). The driver''s route-change card and trip details show this number;
+            the app never adds earningsDifference to a total of its own. Absent → the card shows earningsDifference only.'
     DriverBonusOfKind:
       type: object
       description: The admin's money and Priority badge for one kind of offer.
@@ -33796,13 +33867,28 @@ components:
         ratingAllowed:
           type: boolean
           description: The viewer may still rate (its rating status is pending).
+        owedToMovera:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.89: TripFinish.owedToMovera: Money, driver and admin views, on every ended trip with a fare:
+            the trip''s balance between the driver and Movera = the cash the driver holds for the trip − finish.driverTotal.
+            v0.18.90 (text fix, P89 supervisor must-fix 1, Rules audits/impact/server-p89-fields-supervisor.md): cash the
+            driver holds = on a cash trip the cash he recorded (cash_collected; when none is recorded yet, fare − walletApplied),
+            else 0, plus a cash tip (TripTip.driverShare is ''counted as cash the driver already holds''); owedToMovera =
+            cash held − finish.driverTotal (finish.cashToCollect is what is left to collect, not what he holds). Above 0:
+            he owes Movera that much ("You owe Movera"); below 0: Movera owes him the amount without its sign ("Movera owes
+            you"); 0: "Settled". It follows driverTotal (later pay changes and bonuses included). Trip details, ride history,
+            the cash balance sheet and "Other earnings" show this number; the driver app no longer works it out (core/earnings/cash_balance.dart)
+            for server trips. Sums over many trips come from the server (EarningsPeriod, Payout.summary), not a phone sum.'
     MoneySplit:
       type: object
       description: 'v0.18.10: admin view only. Admin view only: TripProjection.moneySplit { riderPaid, driverTotal, movera,
-        debtCollected, tip?, refunded } — ''Who gets what''. riderPaid = fare + tip − refunded; driverTotal is the driver''s
-        one number (incl. tip, Movera''s pay changes and refunds taken from him); movera = riderPaid − driverTotal − debtCollected,
-        so driverTotal + movera + debtCollected = riderPaid always (a refund Movera pays and a pay change lower Movera''s
-        part; the tip is never Movera''s).'
+        debtCollected, tip?, refunded, lostDriverPaid? } — ''Who gets what''. riderPaid = fare + tip − refunded; driverTotal
+        is the driver''s one number (incl. tip, Movera''s pay changes and refunds taken from him); lostDriverPaid (v0.18.90,
+        moneyBase.lostDriverPaid) = what Movera paid on this trip to the driver(s) who lost it (sent when above 0); movera
+        = riderPaid − driverTotal − debtCollected − lostDriverPaid, so driverTotal + movera + debtCollected + lostDriverPaid
+        = riderPaid always (a refund Movera pays, a pay change and a lost-driver payment lower Movera''s part; the tip is
+        never Movera''s).'
       required:
       - riderPaid
       - driverTotal
@@ -33822,6 +33908,18 @@ components:
           $ref: '#/components/schemas/Money'
         refunded:
           $ref: '#/components/schemas/Money'
+        lostDriverPaid:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.90: lostDriverPaid = the sum of the trip''s lost-driver payments: each optional driverBonus
+            of POST /admin/trips/{tripId}/reassign and /cancel (a bonus entry for the driver who lost the trip), however many
+            times the trip was reassigned; 0 when none. It never holds the current driver''s bonus (in driverTotal) nor a
+            bonus after the paid end. TripProjection.moneySplit.lostDriverPaid (admin view only, sent when above 0); moneySplit.movera
+            = riderPaid − driverTotal − debtCollected − lostDriverPaid. Not taken off twice: the KPI moveraEarnings already
+            takes each lost-driver bonus entry off once (bonusOutsideCommission) and never reads moneySplit; moneySplit is
+            the per-trip display only. A future period sum built from moveraKeepsNow / moneySplit.movera (priceDisplay.payoutSummary.moveraGets)
+            must take each lost-driver payment off once: from the admin moneySplit.movera, never again from the lost driver''s
+            own entries.'
     ReceiptRefund:
       type: object
       required:
@@ -36294,3 +36392,81 @@ components:
         not:
           required:
           - pct
+    CancelPreview:
+      type: object
+      description: 'v0.18.89: TripProjection.cancelPreview { feeNow: Money, kind: cancel | no_show, freeUntil?: Timestamp,
+        feeAfterFree?: Money, kindAfterFree?: cancel | no_show }, rider and admin views (never the driver view). Sent while
+        the rider can cancel a trip a driver has (accepted, driver_to_pickup, arrived) and on a booked ride (scheduled) before
+        its pickup; not while searching (no fee) and not on an ended trip. feeNow = the fee POST /trips/{tripId}/cancel would
+        charge if sent at the projection''s time: riderCancelFee() with the trip''s terms.cancelRule (live: minutes since
+        accept; booked: minutes before pickup; chain.freeCancelAt and a queued trip stay free), or, after arrival with cancelAfterArrivedIsNoShow
+        on and the free minutes passed, the no-show fee (kind no_show); 0 while free. freeUntil = when the free cancel ends
+        (absent once it has ended, or when cancelling stays free); feeAfterFree = the fee charged from freeUntil on (absent
+        with freeUntil). kindAfterFree = what feeAfterFree is (cancel or no_show), sent with feeAfterFree: on an arrived trip
+        with cancelAfterArrivedIsNoShow on, kind is cancel before freeUntil and kindAfterFree is no_show (the fee becomes
+        the no-show fee at freeUntil). From freeUntil on the rider sheet shows feeAfterFree with the kindAfterFree label (a
+        clock compare, no maths). Absent with feeAfterFree (an older server) → the sheet keeps the kind label. Rider app:
+        the cancel sheet shows feeNow, and from freeUntil on feeAfterFree (a clock compare, no maths); it reads the trip again
+        on every trip_projection event. It stops using its own calculator (core/contracts/cancel_fee.dart, CancelFeeCalculator)
+        for real trips; fixtures/cancel_fees.json stays for tests. Absent (no rule, an older server) → no amount on the sheet,
+        never a worked-out fee. The cancel answer (cancellation.fee) is final. Admin: the trip page may show it ("Cancel now
+        costs …"). Driver: not affected (his share stays cancellation.driverShare).'
+      required:
+      - feeNow
+      - kind
+      properties:
+        feeNow:
+          $ref: '#/components/schemas/Money'
+        kind:
+          type: string
+          enum:
+          - cancel
+          - no_show
+        freeUntil:
+          $ref: '#/components/schemas/Timestamp'
+        feeAfterFree:
+          $ref: '#/components/schemas/Money'
+        kindAfterFree:
+          type: string
+          enum:
+          - cancel
+          - no_show
+      additionalProperties: false
+    PayoutSummary:
+      type: object
+      description: 'v0.18.89: owner 2026-11-14 "It''s very simple ! U show how much driver get and how much movera get thats
+        all no details" (replaces the 3-line reading of Q-M8, Rules decisions/session-2026-11-06.md:1107, for the payout card).
+        Movera gets = commission + app fee, as one amount, no % (owner 2026-11-14 ~05:17 UTC, Rules decisions/session-2026-11-06.md:1278:
+        "write only how much in amour driver get and how much movera get in amount dont write any fucking pourcentage" — "Movera
+        gets = commission + app fee as one amount"). Payout.summary { driverGets: Money, moveraGets: Money }, same currency
+        as Payout.amount; driver (GET /driver/payouts) and admin (GET /admin/payouts, the payout page, the payout run card)
+        views. v0.18.92 (supervisor MF1 / MF2 / G2 on server BQ-M22; GM 2026-11-14): ''the payout''s period'' means the payout''s
+        OWN entries — the earnings entries the payout pays (each entry is in one payout only: a manual and a weekly payout
+        over the same days never count an entry twice; a late or carried entry counts in the payout that pays it; a paid payout''s
+        numbers never move to another payout). driverGets = the sum of the payout''s entries (trip, tip, pickup pay, bonus,
+        pay change, cancel / no-show share, a lost-driver payment), each once — all his earnings in it, all trips (pay in
+        car and in app alike; = Payout.amount + the cash he collected); a tip, bonus or pay change is its own entry, counted
+        once and never added again. moveraGets = Movera''s commission PLUS the app fee, as ONE amount (owner 2026-11-14 ~05:17
+        UTC, Rules decisions/session-2026-11-06.md:1278: "write only how much in amour driver get and how much movera get
+        in amount dont write any fucking pourcentage" — "Movera gets = commission + app fee as one amount"): for each trip
+        whose trip entry is in the payout, what Movera keeps now on it as the VIEWER sees it (TripProjection.moveraKeepsNow
+        of that view; moneyBase.commissionRow) — fare − debtCollected − driverEarnings − pickupPay − driverBonus after later
+        pay changes, the app fee inside the fare (example 20 DT ride, 20 % commission, 10 % app fee: rider 22.000 DT, driver
+        16.000 DT, Movera gets 6.000 DT = 4.000 commission + 2.000 app fee) — plus Movera''s share of each cancel / no-show
+        fee of a cancel / no-show share in the payout. The two views may differ: the admin''s moveraGets takes the lost-driver
+        payments off (moneySplit.movera; and, on a trip with no paid end, the lost driver''s bonus entry once, in the payout
+        that pays it — moneyBase.lostDriverPaid.kpi), the driver''s never shows another driver''s money (moneyBase.lostDriverPaid.driverView:
+        what Movera keeps from HIS trips). The app fee is never added a second time and never shown as its own line or as
+        a %. The server works both out; the apps never do (no adding of lines, no subtracting). Exactly two lines on every
+        payout card, in the driver app and in the admin: "Driver gets 1 000,00 kr" / "Movera gets 150,00 kr" — amounts only,
+        never a % (no commission % or app fee %). No other detail line on the card (no Payout.lines, no cash collected, no
+        owed, no paid-out, no app-fee line). Absent (an older server) → the card shows Payout.amount only.'
+      required:
+      - driverGets
+      - moveraGets
+      properties:
+        driverGets:
+          $ref: '#/components/schemas/Money'
+        moveraGets:
+          $ref: '#/components/schemas/Money'
+      additionalProperties: false
