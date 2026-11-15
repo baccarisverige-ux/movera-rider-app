@@ -180,17 +180,23 @@ public class MainActivityTest {
    * but never delivered), the pickup stayed the fallback point and Confirm
    * stayed disabled (D-002), so BOOK never posted /trips. This sets the
    * phone up the way a rider's phone with location on is; the app is not
-   * changed. {@link #watchLocationDialog} answers the dialog if it still shows.
-   * The settings values below are device switches, not personal data; logged
-   * so a run shows which path was taken.
+   * changed.
+   *
+   * <p>Runs 43739902949 and 43741708751 (oriole API 33, Play services
+   * 26.42): these settings read back as set, but Play services still showed
+   * the dialog, and its "Turn on" changed no secure/global setting (Play
+   * services keeps that consent in its own storage). So the dialog cannot be
+   * prevented from the shell; {@link #watchLocationDialog} answers it (the
+   * path both runs took, about 1-3 s after it opened). The settings values
+   * are device switches, not personal data; logged so a run shows the path.
    */
   private static void prepareDeviceLocation(Instrumentation instrumentation) {
     String[] commands = {
       "cmd location set-location-enabled true",
       // 3 = LOCATION_MODE_HIGH_ACCURACY (GPS + network).
       "settings put secure location_mode 3",
-      // Google location accuracy ("NLP consent" read by Play services'
-      // LocationSettings); both tables, as GMS versions differ.
+      // Google location accuracy on older Play services (newer ones keep it
+      // in their own storage; see above): both tables, harmless when unread.
       "settings put secure network_location_opt_in 1",
       "settings put global network_location_opt_in 1",
       "settings put global assisted_gps_enabled 1",
