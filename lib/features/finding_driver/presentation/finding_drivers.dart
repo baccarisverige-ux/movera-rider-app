@@ -55,6 +55,7 @@ import 'package:movera_rider/features/ride_selection/presentation/select_ride_ge
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/parkable_map.dart';
 import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
+import 'package:movera_rider/shared/widgets/ride_stage_map.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
@@ -160,6 +161,10 @@ class _FindingDriversState extends State<FindingDrivers> {
   /// G25: the map's controller, so a map kept while parked (native) is
   /// attached again when this screen is back on top.
   GoogleMapController? _mapController;
+
+  /// G25 step B: this screen's place in the one trip map (handed to
+  /// Waiting at "driver found", taken back after a driver drop).
+  final RideStageSeat _mapSeat = RideStageSeat();
   bool _leaving = false;
 
   /// rider-u106: "Try again" is creating the new booking. The screen must
@@ -368,6 +373,9 @@ class _FindingDriversState extends State<FindingDrivers> {
     _overlayOn = false;
     _nearbyPaintKey = 0;
     setWebOverlayOpen(false);
+    // G25 step B: the trip map comes back from Waiting in this frame; its
+    // owner is attached again once it is shown (_onKeptMapResumed).
+    _takeTripMapBack();
     setState(() => _mapParked = false);
     // A new dispatch round: its own "still looking" mark.
     _startMatching(
@@ -540,6 +548,16 @@ class _FindingDriversState extends State<FindingDrivers> {
     if (_mapReady) unawaited(_refreshRoadRoute());
   }
 
+  /// G25 step B: take the trip map back from Waiting. A map that is gone
+  /// (Waiting built a new one) is replaced by a new one here, whose
+  /// onMapCreated attaches it.
+  void _takeTripMapBack() {
+    if (!_mapSeat.handedOn) return;
+    final back = _mapSeat.reclaim();
+    _mapController = back;
+    _mapReady = back != null;
+  }
+
   /// G25: the map kept under a covering screen is this screen's again.
   void _onKeptMapResumed() {
     final controller = _mapController;
@@ -558,9 +576,14 @@ class _FindingDriversState extends State<FindingDrivers> {
     _match.dispose();
     setWebOverlayOpen(false);
     AppScope.instance.maps.detach(owner: MapOwners.finding);
+    // G25 step B: on a phone this map becomes Waiting's in Waiting's first
+    // frame (no new map at "driver found"), so the push follows at once.
+    final handedOn = _mapSeat.handOn();
     if (mounted) setState(() => _mapParked = true);
-    await WidgetsBinding.instance.endOfFrame;
-    if (!mounted) return;
+    if (!handedOn) {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+    }
 
     final researchDriver = await Navigator.push<bool>(
       context,
@@ -789,6 +812,7 @@ class _FindingDriversState extends State<FindingDrivers> {
     _sheetController.removeListener(_syncSheetOverlay);
     _sheetController.dispose();
     _driverMatched.dispose();
+    _mapSeat.dispose();
     // Widget teardown is not a rider business action. Navigation, hot
     // reload, restoration, or parent replacement may dispose this surface
     // while the ride is still active; cancellation must happen only through
@@ -910,36 +934,48 @@ class _FindingDriversState extends State<FindingDrivers> {
                   parked: _mapParked,
                   placeholder: const ColoredBox(color: Color(0xFFF6F5F1)),
                   onResumed: _onKeptMapResumed,
-                  child: CustomGoogleMap(
-                    key: const ValueKey('finding-map'),
-                    // Owner, live test 2026-10-26 (N6): the booking and trip maps stay
-                    // flat; the route is read from above, never along a tilted horizon.
-                    tiltWithZoom: false,
-                    initialPosition: CameraPosition(
-                      target: _pickupPosition,
-                      zoom: 14.0,
-                    ),
-                    markers: _markers,
-                    polylines: _polylines,
-                    myLocationEnabled: false,
-                    myLocationButtonEnabled: false,
-                    zoomControlsEnabled: false,
-                    mapToolbarEnabled: false,
-                    compassEnabled: false,
-                    buildingsEnabled: false,
-                    indoorViewEnabled: false,
-                    tiltGesturesEnabled: false,
-                    rotateGesturesEnabled: false,
-                    mapType: MapType.normal,
-                    onMapCreated: (controller) {
+                  // G25 step B: the one trip map (Waiting takes it over).
+                  child: RideStageMapSlot(
+                    seat: _mapSeat,
+                    placeholder: const ColoredBox(color: Color(0xFFF6F5F1)),
+                    onAdopted: (controller) {
                       _mapReady = true;
                       _mapController = controller;
-                      AppScope.instance.maps.attach(
-                        controller,
-                        owner: MapOwners.finding,
-                      );
-                      unawaited(_refreshRoadRoute());
+                      if (_mapParked) return;
+                      _onKeptMapResumed();
                     },
+                    builder: (context, sharedKey) => CustomGoogleMap(
+                      key: sharedKey ?? const ValueKey('finding-map'),
+                      // Owner, live test 2026-10-26 (N6): the booking and trip maps stay
+                      // flat; the route is read from above, never along a tilted horizon.
+                      tiltWithZoom: false,
+                      initialPosition: CameraPosition(
+                        target: _pickupPosition,
+                        zoom: 14.0,
+                      ),
+                      markers: _markers,
+                      polylines: _polylines,
+                      myLocationEnabled: false,
+                      myLocationButtonEnabled: false,
+                      zoomControlsEnabled: false,
+                      mapToolbarEnabled: false,
+                      compassEnabled: false,
+                      buildingsEnabled: false,
+                      indoorViewEnabled: false,
+                      tiltGesturesEnabled: false,
+                      rotateGesturesEnabled: false,
+                      mapType: MapType.normal,
+                      onMapCreated: (controller) {
+                        _mapReady = true;
+                        _mapController = controller;
+                        _mapSeat.noteCreated(controller);
+                        AppScope.instance.maps.attach(
+                          controller,
+                          owner: MapOwners.finding,
+                        );
+                        unawaited(_refreshRoadRoute());
+                      },
+                    ),
                   ),
                 ),
               ),
