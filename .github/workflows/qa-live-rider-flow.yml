@@ -427,6 +427,15 @@ jobs:
           await laterPage.screenshot({path:'qa-book-later-time.png',fullPage:true});
           await tapNamed(laterPage,'Done','Book later: time picker');await laterPage.waitForTimeout(800);
           await tapNamed(laterPage,'Continue','Book later: date and time');
+          // rider-u227: a Continue that lands after the shown slot went stale
+          // (the page opened at 14:30:5x, Continue at 14:31:00) moves the time
+          // to the next slot, says so and stays; the rider taps Continue
+          // again (main run 43719084054). Anything else still fails below.
+          const slotMoved=await Promise.race([
+            laterPage.waitForFunction(()=>window.moveraMapOwner==='select_ride',null,{timeout:20000}).then(()=>false,()=>false),
+            laterPage.getByText('Pickup time updated to the next available slot.',{exact:true}).first().waitFor({state:'visible',timeout:20000}).then(()=>true,()=>false),
+          ]);
+          if(slotMoved){console.log('NOTE: Book later slot moved on Continue (rider-u227); tapping Continue again');await tapNamed(laterPage,'Continue','Book later: date and time (moved slot)');}
           await waitOwner(laterPage,'select_ride','Book later: categories',20000);await laterPage.waitForTimeout(1000);
           await laterPage.screenshot({path:'qa-book-later-after-picker.png',fullPage:true});
           await tapNamed(laterPage,'Schedule Movera','Book later: Schedule');
