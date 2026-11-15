@@ -186,6 +186,21 @@ jobs:
               waitUntil: 'networkidle',
               timeout: 120000,
             });
+            // BQ-O14: wait for the Flutter surface itself instead of a fixed
+            // 3.5 s (WebKit 390x844 drew it later than that once, run
+            // 43522443977, and the one-shot check below said "missing").
+            const surface = await page
+              .waitForFunction(
+                () =>
+                  !!document.querySelector('flutter-view') ||
+                  !!document.querySelector('flt-glass-pane'),
+                null,
+                { timeout: 60000, polling: 250 },
+              )
+              .then(() => true, () => false);
+            if (!surface) {
+              throw new Error(family + ' ' + width + 'x' + height + ': Flutter surface missing after 60 s');
+            }
             await page.waitForTimeout(3500);
 
             try {
