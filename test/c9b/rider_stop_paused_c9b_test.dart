@@ -112,7 +112,8 @@ void main() {
     // The contract copy as data (test/contracts/contract_fixtures.dart reads
     // bytes), never a source read (CI Phase 69: fewer than 40 grep tests).
     final texts =
-        ((contract['autoArrive'] as Map)['stops'] as Map)['texts']['riderStopPaused']
+        ((contract['autoArrive'] as Map)['stops']
+                as Map)['texts']['riderStopPaused']
             as Map;
     for (final lang in ['sv', 'fr', 'en']) {
       expect(texts[lang], _riderStopPaused[lang], reason: 'copy $lang');
