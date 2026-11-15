@@ -62,6 +62,8 @@ const _allowed = <String, Set<String>>{
     'Movera Pet',
     'Apple Pay',
     'Google Pay',
+    // BQ-V39: the Swedish payment brand (refund choice, Sweden only).
+    'Swish',
     'Apple',
     'Google',
     'Visa',

@@ -6,6 +6,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/app/deferred_screens.dart';
+import 'package:movera_rider/core/notifications/push_payload.dart';
 import 'package:movera_rider/features/notifications/application/notification_navigation.dart';
 import 'package:movera_rider/features/notifications/application/notifications_controller.dart';
 import 'package:movera_rider/features/notifications/domain/notifications.dart';
@@ -23,10 +24,15 @@ class NotificationScreen extends StatelessWidget {
     this.controller,
     this.openRide,
     this.openHistory,
+    this.openRefund,
   });
 
   final NotificationsController? controller;
   final NotificationRideOpener? openRide;
+
+  /// BQ-V39: opens a trip's waiting refund (kind refund); the app's
+  /// [openRefundFromNotification] without.
+  final NotificationRideOpener? openRefund;
 
   /// Where a tap on an ended ride goes (FLOW-18); defaults to Ride History.
   final void Function(BuildContext context)? openHistory;
@@ -103,6 +109,22 @@ class NotificationScreen extends StatelessWidget {
                             notificationController.markRead(
                               notification.messageId,
                             );
+                            // BQ-V39 (Q-M4): a refund notice opens the
+                            // choice of where its waiting refund goes.
+                            if (notification.kind == PushPayload.refundKind) {
+                              final trip =
+                                  notification.rideId ??
+                                  PushPayload(
+                                    type: PushPayload.refundKind,
+                                    deepLink: notification.deepLink,
+                                  ).routedRefundTripId;
+                              if (trip != null &&
+                                  await (openRefund ??
+                                      openRefundFromNotification)(trip)) {
+                                return;
+                              }
+                              if (!context.mounted) return;
+                            }
                             final rideId = notificationRideTarget(
                               rideId: notification.rideId,
                               deepLink: notification.deepLink,

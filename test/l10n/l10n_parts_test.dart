@@ -82,18 +82,19 @@ void main() {
     // v0.18.93 (job C9): + waitingPausedDriverAway (autoArrive.texts.riderPaused).
     // BQ-V46 (G7): menuAppVersion drops the "v" ("Movera Rider 1.4.0 (583)").
     // BQ-V41 (wallet history): + 14 texts in the wallet_history area.
+    // BQ-V39: + 21 refund choice texts (payments area, contract debtModel.refunds).
     const before = {
       'en': (
-        'adb3da39855d471ebf7c11cf3ded9804f4e215dbb17f18032ff6bea611c83838',
-        2144,
+        'f4478f21e95603230d8ea0afd1e823b52d3ceeef066a28f59ac2723e64a5398e',
+        2186,
       ),
       'fr': (
-        '7fa5f1ea5af394a6800a8ab1b2376f9edaf6448bc30c0fb4bca6d961bd3ad080',
-        1725,
+        '8679282ffbda2a330037317dc70218eb08b67aac9f7be0450ef6005459e62352',
+        1746,
       ),
       'sv': (
-        '2fbd5bb9b4d3f3e2baf0856c9af3dec3b736623b3ef2cd3cde6b438b6e4bdf46',
-        1725,
+        'd39448814b8a3713b2e38603c5ae8b7bf1e3d57339e85b3a4262c2c89ef9d873',
+        1746,
       ),
     };
     for (final lang in _langs) {
