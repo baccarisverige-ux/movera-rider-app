@@ -37,7 +37,8 @@ import 'package:movera_rider/features/driver_arriving/application/driver_photo.d
 /// Removed (per user):
 /// - `movera_profile_v1` (name, photo, settings), `movera_rider_name_pending`
 ///   (a new rider's name step not done yet), `movera_rider_fingerprint`
-///   (who was signed in, see [enterSessionAs]),
+///   (who was signed in, see [enterSessionAs]; removed LAST, and only when
+///   every other step succeeded, see [run]),
 ///   `movera_rider_session_started_at` (since when, rider-r5-44).
 /// - `movera_home_address`, `movera_work_address`, `movera_saved_places`,
 ///   `movera_recent_addresses`, `movera_previous_pickups_v1`.
@@ -101,43 +102,76 @@ abstract final class UserDataWipe {
   /// Removes every per-user store and resets the in-memory state. Tokens
   /// are not touched here: sign-out clears them, and a new rider signing in
   /// has just saved theirs.
-  static Future<void> run() async {
+  ///
+  /// Returns true when every step succeeded. [riderFingerprintKey] (whose
+  /// data this is) is removed last and only then: a wipe that stops
+  /// part-way (a key that cannot be removed, the app killed) keeps the
+  /// previous rider recorded, so a different rider's sign-in runs the whole
+  /// wipe again ([enterSessionAs]) instead of opening next to what is left.
+  /// Never throws: a failed step does not stop the others.
+  static Future<bool> run() async {
     // rider-u68: a flush the sign-out budget gave up on keeps running; it
     // must not write this rider's cancels back after the wipe.
     FindingDriverController.abandonPendingCancelFlush();
-    resetInMemory();
-    await RideSnapshotStore.clear();
-    clearSearchLive();
-    await LocationRepository.clearLastGoodFix();
-    await const SecureRidePinStore().clear();
-    await _deleteSafetyRecordings();
-    try {
-      final prefs = await PreferencesStore.load();
-      for (final key in prefs.getKeys().toList()) {
-        if (key.startsWith('movera_') && !deviceKeys.contains(key)) {
-          await prefs.remove(key);
-        }
-      }
-    } catch (error, stackTrace) {
-      AppLog.error('auth.wipe_failed', error: error, stackTrace: stackTrace);
-    }
+    var complete = await _step('memory', resetInMemory);
+    complete &= await _step('active_ride', RideSnapshotStore.clear);
+    complete &= await _step('search_live', clearSearchLive);
+    complete &= await _step('last_fix', LocationRepository.clearLastGoodFix);
+    complete &= await _step('ride_pin', const SecureRidePinStore().clear);
+    // rider-u69 / rider-u71: the audio files themselves, not just their
+    // index in `movera_safety_cache_v1`.
+    complete &= await _step('recordings', deleteAllSafetyRecordings);
+    complete &= await _step('prefs', _removeRiderKeys);
+    if (complete) complete = await _step('owner', _forgetRider);
     // Nothing is left to belong to anyone: anything that re-read storage
     // while the keys were going reads an empty store now.
-    resetInMemory();
+    complete &= await _step('memory', resetInMemory);
+    return complete;
   }
 
-  /// rider-u69 / rider-u71: the audio files themselves, not just their
-  /// index in `movera_safety_cache_v1`.
-  static Future<void> _deleteSafetyRecordings() async {
+  /// One wipe step: false when it threw or answered false.
+  static Future<bool> _step(
+    String name,
+    FutureOr<Object?> Function() body,
+  ) async {
     try {
-      await deleteAllSafetyRecordings();
-    } catch (error) {
-      AppLog.warning(
-        'auth.wipe.recordings_failed',
-        extra: {'error': error.toString()},
+      if (await body() != false) return true;
+      AppLog.error('auth.wipe_failed', extra: {'step': name});
+    } catch (error, stackTrace) {
+      AppLog.error(
+        'auth.wipe_failed',
+        error: error,
+        stackTrace: stackTrace,
+        extra: {'step': name},
       );
     }
+    return false;
   }
+
+  static bool _riderKey(String key) =>
+      key.startsWith('movera_') &&
+      !deviceKeys.contains(key) &&
+      key != riderFingerprintKey;
+
+  /// Every per-user key except [riderFingerprintKey]. A key that cannot be
+  /// removed does not stop the others; the store is then read again, so a
+  /// key any step left behind counts too.
+  static Future<bool> _removeRiderKeys() async {
+    final prefs = await PreferencesStore.load();
+    var removed = true;
+    for (final key in prefs.getKeys().where(_riderKey).toList()) {
+      removed &= await _step('prefs', () => prefs.remove(key));
+    }
+    await prefs.reload();
+    final left = prefs.getKeys().where(
+      (key) => _riderKey(key) || key == LocationRepository.lastGoodFixKey,
+    );
+    return removed && left.isEmpty;
+  }
+
+  /// The end of a complete wipe: nobody owns the local data any more.
+  static Future<bool> _forgetRider() async =>
+      (await PreferencesStore.load()).remove(riderFingerprintKey);
 
   static void resetInMemory() {
     final scope = AppScope.instance;
@@ -195,6 +229,10 @@ abstract final class UserDataWipe {
   /// different rider was signed in before (the session expired rather than
   /// being signed out), their data is wiped first so nothing carries over.
   /// Returns true when it wiped.
+  ///
+  /// Throws [UserDataWipeIncomplete] when that wipe did not finish: the
+  /// previous rider stays recorded and [riderId] is not, so the caller ends
+  /// the new session and the next sign-in wipes again.
   static Future<bool> enterSessionAs(String riderId) async {
     final fingerprint = _fingerprint(riderId);
     final prefs = await PreferencesStore.load();
@@ -202,7 +240,7 @@ abstract final class UserDataWipe {
     final wipe = previous != null && previous != fingerprint;
     if (wipe) {
       AppLog.info('auth.wipe.rider_changed');
-      await run();
+      if (!await run()) throw const UserDataWipeIncomplete();
     }
     await prefs.setString(riderFingerprintKey, fingerprint);
     if (previous != fingerprint) {
@@ -256,4 +294,13 @@ abstract final class UserDataWipe {
     }
     return hash.toRadixString(16).padLeft(16, '0');
   }
+}
+
+/// The wipe of the previous rider's data stopped part-way, so the rider
+/// signing in now is not let in next to it ([UserDataWipe.enterSessionAs]).
+class UserDataWipeIncomplete implements Exception {
+  const UserDataWipeIncomplete();
+
+  @override
+  String toString() => 'UserDataWipeIncomplete';
 }

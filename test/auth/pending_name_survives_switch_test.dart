@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -18,6 +19,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('the name step is still owed after a rider switch', () async {
+    // The wipe deletes the ride PIN too; a wipe that cannot finish refuses
+    // the sign-in (Rules audits/impact/rider-wipe-partway.md).
+    FlutterSecureStorage.setMockInitialValues(<String, String>{});
     SharedPreferences.setMockInitialValues({
       UserDataWipe.riderFingerprintKey: 'previous-rider',
     });

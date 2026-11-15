@@ -72,6 +72,11 @@ class AuthController {
 
   /// A different rider than the one whose session expired on this device:
   /// wipe the previous rider's data before the app opens (FLOW-1).
+  ///
+  /// When that wipe does not finish, the sign-in fails: the new session is
+  /// ended and [UserDataWipeIncomplete] is thrown, so the rider is never
+  /// signed in next to the previous rider's data. The next sign-in wipes
+  /// again.
   Future<void> _enterSession({String? phone, String? provider}) async {
     SignedOutNotice.clear();
     try {
@@ -81,6 +86,17 @@ class AuthController {
         provider: provider,
       );
       if (riderId != null) await UserDataWipe.enterSessionAs(riderId);
+    } on UserDataWipeIncomplete {
+      try {
+        await _auth.signOut();
+      } catch (error) {
+        // The tokens are cleared either way (AuthRepository.signOut).
+        AppLog.warning(
+          'auth.enter_session_refused',
+          extra: {'error': error.runtimeType.toString()},
+        );
+      }
+      rethrow;
     } catch (error, stackTrace) {
       AppLog.error(
         'auth.enter_session_failed',

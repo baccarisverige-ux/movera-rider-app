@@ -23,6 +23,11 @@ class PreferencesStore {
   int? getInt(String key) => _prefs.getInt(key);
   Future<void> setBool(String key, bool value) => _prefs.setBool(key, value);
   bool? getBool(String key) => _prefs.getBool(key);
-  Future<void> remove(String key) => _prefs.remove(key);
+
+  /// False when the platform did not remove [key].
+  Future<bool> remove(String key) => _prefs.remove(key);
+
+  /// Reads the platform's store again (what is really saved).
+  Future<void> reload() => _prefs.reload();
   Set<String> getKeys() => _prefs.getKeys();
 }
