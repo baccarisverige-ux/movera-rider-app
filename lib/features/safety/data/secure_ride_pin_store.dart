@@ -83,7 +83,10 @@ class SecureRidePinStore {
   }
 
   /// Removes the PIN (end of a rider's session).
-  /// False when the saved PIN could not be deleted.
+  /// False when a PIN is still saved: the delete failed, the PIN can still
+  /// be read, and one more delete failed too. A storage that cannot be read
+  /// either holds nothing anyone can see, so it counts as removed (a phone
+  /// whose secure storage never answers must not lock every next rider out).
   Future<bool> clear() async {
     _webMemory.remove(_key);
     if (!_nativeSecure) return true;
@@ -92,6 +95,12 @@ class SecureRidePinStore {
       fake.remove(_key);
       return true;
     }
+    if (await _delete()) return true;
+    if (await read() == null) return true;
+    return _delete();
+  }
+
+  Future<bool> _delete() async {
     try {
       await const FlutterSecureStorage(
         aOptions: AndroidOptions(encryptedSharedPreferences: true),

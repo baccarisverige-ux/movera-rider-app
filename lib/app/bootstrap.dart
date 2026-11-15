@@ -25,6 +25,7 @@ import 'package:movera_rider/core/observability/restart_watch.dart';
 import 'package:movera_rider/core/web/web_ride_pagehide.dart';
 import 'package:movera_rider/core/web/web_splash.dart';
 import 'package:movera_rider/features/auth/application/fresh_install_reset.dart';
+import 'package:movera_rider/features/auth/application/user_data_wipe.dart';
 import 'package:movera_rider/features/notifications/application/notification_navigation.dart';
 import 'package:movera_rider/features/notifications/application/push_coordinator.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
@@ -181,6 +182,13 @@ Future<void> bootstrap() async {
       () => FreshInstallReset.run(tokens: AppScope.instance.tokens),
     );
   }
+  // Before anything reads the rider's stores: a stored session of another
+  // rider than the one whose data is here (an app killed while the previous
+  // rider's data was being wiped) wipes again, or is signed out.
+  await bootStep(
+    'stored_session_owner',
+    () => UserDataWipe.guardStoredSession(AppScope.instance.tokens),
+  );
   if (AppEnv.current.flavor == AppFlavor.demo) {
     await bootStep('wallet.seed_demo', WalletStore.seedDemoBalance);
   }

@@ -44,10 +44,18 @@ class AuthController {
     // rider-r5-31: the new rider's name marker (rider-u74) was written by
     // the verify call; a wipe of the previous rider's data must keep it.
     final pendingName = await PendingRiderName.read();
-    await _enterSession(phone: challenge.phone);
-    if (pendingName != null) await PendingRiderName.mark(pendingName);
+    final owed = await _enterSession(
+      phone: challenge.phone,
+      pendingName: pendingName,
+    );
+    if (owed != null) await PendingRiderName.mark(owed);
     unawaited(_registerPushBestEffort());
-    return result;
+    // The server says isNewRider once only: a new rider whose first
+    // sign-in was refused (the wipe did not finish) still gets the name
+    // step now.
+    return owed != null && !result.isNewRider
+        ? const OtpVerifyResult(isNewRider: true)
+        : result;
   }
 
   /// Apple or Google: the provider's identity token first, then `POST
@@ -64,7 +72,8 @@ class AuthController {
       name: token.name,
     );
     if (result is ProviderSignedIn) {
-      await _enterSession(provider: provider);
+      final owed = await _enterSession(provider: provider);
+      if (owed != null) await PendingRiderName.mark(owed);
       unawaited(_registerPushBestEffort());
     }
     return result;
@@ -74,10 +83,19 @@ class AuthController {
   /// wipe the previous rider's data before the app opens (FLOW-1).
   ///
   /// When that wipe does not finish, the sign-in fails: the new session is
-  /// ended and [UserDataWipeIncomplete] is thrown, so the rider is never
-  /// signed in next to the previous rider's data. The next sign-in wipes
-  /// again.
-  Future<void> _enterSession({String? phone, String? provider}) async {
+  /// ended (the tokens leave this device first, then the server is told)
+  /// and [UserDataWipeIncomplete] is thrown, so the rider is never signed
+  /// in next to the previous rider's data. The next sign-in wipes again.
+  ///
+  /// [pendingName]: the name step this rider owes (a new rider), else null.
+  /// Returns the name step to mark once the session is entered: that one,
+  /// or the one owed since a refused first sign-in ([UserDataWipe
+  /// .noteNameOwed]); null when no name is owed.
+  Future<String?> _enterSession({
+    String? phone,
+    String? provider,
+    String? pendingName,
+  }) async {
     SignedOutNotice.clear();
     try {
       final riderId = UserDataWipe.riderIdFor(
@@ -85,12 +103,18 @@ class AuthController {
         phone: phone,
         provider: provider,
       );
-      if (riderId != null) await UserDataWipe.enterSessionAs(riderId);
+      if (riderId == null) return pendingName;
+      // Before the wipe: it removes the name marker, and a refusal or a
+      // kill in it must not lose the name step.
+      if (pendingName != null) await UserDataWipe.noteNameOwed(riderId);
+      await UserDataWipe.enterSessionAs(riderId);
+      final owed = await UserDataWipe.takeNameOwed(riderId);
+      return pendingName ?? (owed ? '' : null);
     } on UserDataWipeIncomplete {
       try {
-        await _auth.signOut();
+        await _auth.endRefusedSession();
       } catch (error) {
-        // The tokens are cleared either way (AuthRepository.signOut).
+        // The tokens are gone either way (cleared before the server call).
         AppLog.warning(
           'auth.enter_session_refused',
           extra: {'error': error.runtimeType.toString()},
@@ -103,6 +127,7 @@ class AuthController {
         error: error,
         stackTrace: stackTrace,
       );
+      return pendingName;
     }
   }
 

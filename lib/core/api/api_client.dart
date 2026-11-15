@@ -192,12 +192,22 @@ class ApiClient {
         .transform(const LineSplitter());
   }
 
+  /// [accessToken]: sends the call as that session instead of the stored
+  /// one (a session this device has already forgotten, see
+  /// `AuthRepository.endRefusedSession`). Its 401 is not refreshed.
   Future<Map<String, dynamic>> post(
     String path, {
     Map<String, dynamic>? body,
     String? idempotencyKey,
+    String? accessToken,
   }) {
-    return _send('POST', path, body: body, idempotencyKey: idempotencyKey);
+    return _send(
+      'POST',
+      path,
+      body: body,
+      idempotencyKey: idempotencyKey,
+      accessToken: accessToken,
+    );
   }
 
   Future<Map<String, dynamic>> patch(
@@ -259,6 +269,7 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? body,
     String? idempotencyKey,
+    String? accessToken,
   }) async {
     if (_preview.active && method != 'GET') {
       PreviewMode.blocked.value++;
@@ -272,7 +283,7 @@ class ApiClient {
     final requestId = newRequestId();
     final uri = Uri.parse('${_env.apiBaseUrl}${_preview.withDraft(path)}');
     try {
-      final access = await _tokens?.readAccess();
+      final access = accessToken ?? await _tokens?.readAccess();
       final held = _withoutSession(path, access, requestId);
       if (held != null) throw held;
       final headers = <String, String>{
@@ -299,6 +310,7 @@ class ApiClient {
         timeout: _slowStartPaths.contains(path) ? signInTimeout : null,
       );
       if (response.statusCode == 401 &&
+          accessToken == null &&
           access?.isNotEmpty == true &&
           !_signInPaths.contains(path)) {
         // An OTP rejection is not an expired session. Only requests that

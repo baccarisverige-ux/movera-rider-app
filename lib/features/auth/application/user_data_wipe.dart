@@ -3,11 +3,13 @@ import 'dart:convert';
 
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
+import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/core/web/web_search_interrupted.dart';
 import 'package:movera_rider/features/auth/application/fresh_install_reset.dart';
+import 'package:movera_rider/features/auth/application/pending_rider_name.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
 import 'package:movera_rider/features/messages/data/messages_repository.dart';
@@ -39,6 +41,8 @@ import 'package:movera_rider/features/driver_arriving/application/driver_photo.d
 ///   (a new rider's name step not done yet), `movera_rider_fingerprint`
 ///   (who was signed in, see [enterSessionAs]; removed LAST, and only when
 ///   every other step succeeded, see [run]),
+///   `movera_name_owed_v1` is NOT removed here ([nameOwedKey]: the next
+///   rider's own, taken at their first accepted sign-in),
 ///   `movera_rider_session_started_at` (since when, rider-r5-44).
 /// - `movera_home_address`, `movera_work_address`, `movera_saved_places`,
 ///   `movera_recent_addresses`, `movera_previous_pickups_v1`.
@@ -151,7 +155,8 @@ abstract final class UserDataWipe {
   static bool _riderKey(String key) =>
       key.startsWith('movera_') &&
       !deviceKeys.contains(key) &&
-      key != riderFingerprintKey;
+      key != riderFingerprintKey &&
+      key != nameOwedKey;
 
   /// Every per-user key except [riderFingerprintKey]. A key that cannot be
   /// removed does not stop the others; the store is then read again, so a
@@ -252,6 +257,86 @@ abstract final class UserDataWipe {
       );
     }
     return wipe;
+  }
+
+  /// At app start: the stored session must be the recorded rider's. A new
+  /// rider's tokens are saved before the previous rider's data is wiped, so
+  /// an app killed in that wipe (or whose refusal could not remove the
+  /// tokens) starts again with the new rider's session next to what is
+  /// left. When the session names another rider than the one recorded, the
+  /// wipe runs again; when it cannot finish, the session is cleared and the
+  /// rider signs in again (which wipes again).
+  ///
+  /// Nothing happens without a session, without a `sub` in its token (who
+  /// it is cannot be told), or when nobody is recorded. Never throws.
+  static Future<void> guardStoredSession(TokenStore tokens) async {
+    try {
+      final riderId = riderIdFor(accessToken: await tokens.readAccess());
+      if (riderId == null) return;
+      final previous = (await PreferencesStore.load()).getString(
+        riderFingerprintKey,
+      );
+      if (previous == null || previous == _fingerprint(riderId)) return;
+      AppLog.info('auth.wipe.stored_session_other_rider');
+      try {
+        await enterSessionAs(riderId);
+      } on UserDataWipeIncomplete {
+        await tokens.clear();
+        return;
+      }
+      if (await takeNameOwed(riderId)) await PendingRiderName.mark(null);
+    } catch (error, stackTrace) {
+      AppLog.error(
+        'auth.stored_session_guard_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  /// A new rider (the server said `isNewRider`, once only) whose name step
+  /// is still owed while the previous rider's data is being wiped: the
+  /// rider's fingerprint, nothing else. Not a per-user key of the previous
+  /// rider, so the wipe keeps it; [takeNameOwed] removes it.
+  static const nameOwedKey = 'movera_name_owed_v1';
+
+  /// Before the wipe: [riderId] still owes a name. Best effort.
+  static Future<void> noteNameOwed(String riderId) async {
+    try {
+      await (await PreferencesStore.load()).setString(
+        nameOwedKey,
+        _fingerprint(riderId),
+      );
+    } catch (_) {
+      // Without storage the name step shows this time only.
+    }
+  }
+
+  /// True (once) when [riderId] is the rider noted by [noteNameOwed].
+  static Future<bool> takeNameOwed(String riderId) async {
+    try {
+      final prefs = await PreferencesStore.load();
+      if (prefs.getString(nameOwedKey) != _fingerprint(riderId)) return false;
+      await prefs.remove(nameOwedKey);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// The signed-in rider gave their name: a note of theirs that outlived
+  /// its sign-in (storage failed in between) must not ask again later.
+  /// Another rider's note stays.
+  static Future<void> nameGiven() async {
+    try {
+      final prefs = await PreferencesStore.load();
+      final owed = prefs.getString(nameOwedKey);
+      if (owed != null && owed == prefs.getString(riderFingerprintKey)) {
+        await prefs.remove(nameOwedKey);
+      }
+    } catch (_) {
+      // Nothing more to do.
+    }
   }
 
   /// When the signed-in rider first signed in on this device (a `movera_`
