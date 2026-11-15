@@ -13,22 +13,29 @@ typedef NotificationsPushOpener = void Function();
 /// Returns false when nothing could be opened (the list opens instead).
 typedef SupportPushOpener = Future<bool> Function(String ticketId);
 
+/// BQ-V39: opens the waiting refund of a trip (kind refund). Returns false
+/// when no refund of that trip waits (the list opens instead).
+typedef RefundPushOpener = Future<bool> Function(String tripId);
+
 class PushCoordinator {
   PushCoordinator({
     required PushService push,
     required RidePushOpener openRide,
     required NotificationsPushOpener openNotifications,
     SupportPushOpener? openSupport,
+    RefundPushOpener? openRefund,
     NotificationsController? notifications,
   }) : _push = push,
        _openRide = openRide,
        _openSupport = openSupport,
+       _openRefund = openRefund,
        _openNotifications = openNotifications,
        _notifications = notifications ?? NotificationsController();
 
   final PushService _push;
   final RidePushOpener _openRide;
   final SupportPushOpener? _openSupport;
+  final RefundPushOpener? _openRefund;
   final NotificationsPushOpener _openNotifications;
   final NotificationsController _notifications;
 
@@ -119,6 +126,24 @@ class PushCoordinator {
           error: error,
           stackTrace: stack,
           extra: {'ticketId': ticketId},
+        );
+      }
+    }
+
+    final refundTrip = payload.routedRefundTripId;
+    final openRefund = _openRefund;
+    if (payload.destination == PushDestination.refund &&
+        refundTrip != null &&
+        openRefund != null) {
+      try {
+        final handled = await openRefund(refundTrip);
+        if (handled) return;
+      } catch (error, stack) {
+        AppLog.error(
+          'push.refund_open_failed',
+          error: error,
+          stackTrace: stack,
+          extra: {'tripId': refundTrip},
         );
       }
     }

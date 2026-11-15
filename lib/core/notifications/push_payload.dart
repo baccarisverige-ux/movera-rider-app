@@ -1,4 +1,4 @@
-enum PushDestination { ride, support, notifications }
+enum PushDestination { ride, support, refund, notifications }
 
 class PushPayload {
   const PushPayload({
@@ -161,9 +161,31 @@ class PushPayload {
     return _clean(uri.pathSegments.single);
   }
 
+  /// BQ-V39 (contract deepFix1.notifications: "A refund sends the rider a
+  /// notice kind refund (bell + push)"; server deepLink
+  /// movera://trips/{tripId}/receipt, data { tripId, amount }): the trip
+  /// whose refund waits for the rider's choice (Q-M4). The tap opens that
+  /// refund's choice; with nothing waiting, the Notifications list.
+  static const String refundKind = 'refund';
+
+  String? get routedRefundTripId {
+    if (type != refundKind) return null;
+    final link = _clean(deepLink);
+    if (link == null) return null;
+    final uri = Uri.tryParse(link);
+    if (uri == null ||
+        !_rideLinkSchemes.contains(uri.scheme) ||
+        !_rideLinkHosts.contains(uri.host) ||
+        uri.pathSegments.isEmpty) {
+      return null;
+    }
+    return _clean(uri.pathSegments.first);
+  }
+
   PushDestination get destination {
     if (routedRideId != null) return PushDestination.ride;
     if (routedTicketId != null) return PushDestination.support;
+    if (routedRefundTripId != null) return PushDestination.refund;
     return PushDestination.notifications;
   }
 

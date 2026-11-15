@@ -261,6 +261,7 @@ Future<void> bootstrap() async {
         push: AppScope.instance.push,
         openRide: openRideFromNotification,
         openSupport: openSupportTicketFromNotification,
+        openRefund: openRefundFromNotification,
         openNotifications: _openNotificationsFromPush,
       );
       startPushAfterFirstFrame(

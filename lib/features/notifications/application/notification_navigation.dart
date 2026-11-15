@@ -11,6 +11,8 @@ import 'package:movera_rider/features/ride_booking/application/ride_restore_coor
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/support/application/support_ticket_repository.dart';
 import 'package:movera_rider/features/support/presentation/support_tickets.dart';
+import 'package:movera_rider/features/wallet/application/rider_refunds_repository.dart';
+import 'package:movera_rider/features/wallet/presentation/refund_choice_page.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -80,6 +82,29 @@ Future<bool> openSupportTicketFromNotification(String ticketId) async {
   return pushPageOnce(
     () => SupportTicketThread(ticketId: id, repository: repository),
     AppRoutes.supportTicket,
+  );
+}
+
+/// BQ-V39 (Q-M4): a refund notice (kind refund) opens the choice of where
+/// the trip's waiting refund goes, read from GET /rider/refunds. Returns
+/// false when no refund of [tripId] waits (already chosen, or the refunds
+/// API is not served on this build), so the caller falls back.
+Future<bool> openRefundFromNotification(
+  String tripId, {
+  RiderRefundsRepository? repository,
+}) async {
+  final id = tripId.trim();
+  if (id.isEmpty) return false;
+  await RideRestoreCoordinator.instance.firstRootResolved;
+  // Handled on purpose: nothing opens over Sign in.
+  if (await navigationBlockedBySignIn()) return true;
+  final repo = repository ?? RiderRefundsRepository();
+  if (!repo.available) return false;
+  final waiting = await repo.waiting(tripId: id);
+  if (waiting.isEmpty) return false;
+  return pushPageOnce(
+    () => RefundChoicePage(refund: waiting.first, repository: repo),
+    AppRoutes.refundChoice,
   );
 }
 

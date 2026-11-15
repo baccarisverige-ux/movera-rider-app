@@ -853,6 +853,27 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'receiptHeading': l.receiptHeading,
   'receiptDebtIncludedNote': l.receiptDebtIncludedNote,
   'walletUsedFirst': l.walletUsedFirst,
+  'refundWaitingTitle': l.refundWaitingTitle,
+  'refundWaitingBody': l.refundWaitingBody('<amount>'),
+  'refundChoiceTitle': l.refundChoiceTitle,
+  'refundChoiceSwishDetail': l.refundChoiceSwishDetail,
+  'refundChoiceBank': l.refundChoiceBank,
+  'refundChoiceBankDetail': l.refundChoiceBankDetail,
+  'refundSwishPhone': l.refundSwishPhone,
+  'refundClearingNumber': l.refundClearingNumber,
+  'refundAccountNumber': l.refundAccountNumber,
+  'refundIban': l.refundIban,
+  'refundBic': l.refundBic,
+  'refundHolderName': l.refundHolderName,
+  'refundChoiceSend': l.refundChoiceSend,
+  'refundFieldInvalid': l.refundFieldInvalid,
+  'refundSentToWallet': l.refundSentToWallet('<amount>'),
+  'refundPayoutPending': l.refundPayoutPending('<amount>'),
+  'refundAlreadyChosen': l.refundAlreadyChosen,
+  'refundNotWaiting': l.refundNotWaiting,
+  'refundChoiceUnavailable': l.refundChoiceUnavailable,
+  'refundDetailsInvalid': l.refundDetailsInvalid,
+  'refundSendFailed': l.refundSendFailed,
   'scheduleForLater': l.scheduleForLater,
   'later': l.later,
   'scheduleARide': l.scheduleARide,
@@ -1864,6 +1885,9 @@ const messagePlaceholders = <String, List<String>>{
   'tipMax': ['amount'],
   'priceIncludesUnpaidFee': ['amount'],
   'priceUnpaidFeeShort': ['amount'],
+  'refundWaitingBody': ['amount'],
+  'refundSentToWallet': ['amount'],
+  'refundPayoutPending': ['amount'],
   'bookForPrice': ['price'],
   'resCancelledFee': ['amount'],
   'resReservedFor': ['date', 'time'],
@@ -3686,6 +3710,48 @@ class _Exhaustive implements AppLocalizations {
   String get receiptDebtIncludedNote => '';
   @override
   String get walletUsedFirst => '';
+  @override
+  String get refundWaitingTitle => '';
+  @override
+  String refundWaitingBody(String amount) => '';
+  @override
+  String get refundChoiceTitle => '';
+  @override
+  String get refundChoiceSwishDetail => '';
+  @override
+  String get refundChoiceBank => '';
+  @override
+  String get refundChoiceBankDetail => '';
+  @override
+  String get refundSwishPhone => '';
+  @override
+  String get refundClearingNumber => '';
+  @override
+  String get refundAccountNumber => '';
+  @override
+  String get refundIban => '';
+  @override
+  String get refundBic => '';
+  @override
+  String get refundHolderName => '';
+  @override
+  String get refundChoiceSend => '';
+  @override
+  String get refundFieldInvalid => '';
+  @override
+  String refundSentToWallet(String amount) => '';
+  @override
+  String refundPayoutPending(String amount) => '';
+  @override
+  String get refundAlreadyChosen => '';
+  @override
+  String get refundNotWaiting => '';
+  @override
+  String get refundChoiceUnavailable => '';
+  @override
+  String get refundDetailsInvalid => '';
+  @override
+  String get refundSendFailed => '';
   @override
   String get scheduleForLater => '';
   @override

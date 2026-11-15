@@ -16,6 +16,9 @@ abstract final class AppRoutes {
   static const safety = '/safety';
   static const supportTicket = '/support/ticket';
 
+  /// BQ-V39: where a waiting refund goes (Q-M4).
+  static const refundChoice = '/wallet/refund-choice';
+
   /// Home is a destination contract, not a stack-position assumption.
   /// Prefer the stable route name and keep the root fallback for legacy/restored
   /// stacks whose first route predates Batch 4 naming.

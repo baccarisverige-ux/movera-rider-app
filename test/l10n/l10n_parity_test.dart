@@ -36,6 +36,8 @@ void main() {
       'chatSupportSender',
       // v0.18.66 §87: "Version 1.0.0 (583)" is the same word in French.
       'appVersionLine', 'appVersionOnly',
+      // BQ-V39: "IBAN" is the same word in French.
+      'refundIban',
     },
     'sv': {
       // v0.18.15 (owner QO-2): the brand line "<first name> · Movera Support".
@@ -52,6 +54,8 @@ void main() {
       'chatSupportSender',
       // v0.18.66 §87: "Version 1.0.0 (583)" is the same word in Swedish.
       'appVersionLine', 'appVersionOnly',
+      // BQ-V39: "IBAN" is the same word in Swedish.
+      'refundIban',
     },
   };
 

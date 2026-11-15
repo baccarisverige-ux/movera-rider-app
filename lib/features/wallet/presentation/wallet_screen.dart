@@ -7,9 +7,14 @@ class WalletScreen extends StatefulWidget {
     this.refreshToken = 0,
     this.flags = FeatureFlags.current,
     this.wallet,
+    this.refunds,
   });
 
   final bool embedded;
+
+  /// BQ-V39: the rider's refunds (a waiting one shows a card on top); the
+  /// app's without.
+  final RiderRefundsRepository? refunds;
 
   /// The wallet to read and save payment settings with; the app's without.
   final WalletController? wallet;
@@ -307,6 +312,13 @@ class _WalletScreenState extends State<WalletScreen> {
                       ),
                     ),
                     const SizedBox(height: 22),
+                    // BQ-V39 (Q-M4): a refund that waits for the rider's
+                    // choice of where it goes.
+                    RefundsWaitingCard(
+                      repository: widget.refunds,
+                      refreshToken: widget.refreshToken,
+                      onChanged: _reloadBalance,
+                    ),
                     // FLOW-11: hidden until Business does something.
                     if (widget.flags.businessProfile) ...[
                       _profileSelector(),
