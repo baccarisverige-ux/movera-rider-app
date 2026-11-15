@@ -84,6 +84,7 @@ import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/parkable_map.dart';
 import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
+import 'package:movera_rider/shared/widgets/ride_stage_map.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
