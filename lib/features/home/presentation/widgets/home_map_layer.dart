@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
+import 'package:movera_rider/features/home/application/saved_place_pins.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/parkable_map.dart';
 
@@ -27,9 +28,14 @@ class HomeMapLayer extends StatefulWidget {
     required this.onMapCreated,
     this.onMapResumed,
     this.birthCamera,
+    this.savedPins,
   });
 
   final HomeLocationController location;
+
+  /// BQ-V11: the rider's saved places as pins, drawn with the live
+  /// location's markers.
+  final SavedPlacePins? savedPins;
   final ValueNotifier<bool> parked;
   final EdgeInsets padding;
   final CameraPosition initialPosition;
@@ -64,6 +70,7 @@ class HomeMapLayer extends StatefulWidget {
 class HomeMapLayerState extends State<HomeMapLayer> {
   Widget? _cached;
   Set<Marker>? _markers;
+  Set<Marker>? _pinMarkers;
   Set<Circle>? _circles;
   Set<Polygon>? _polygons;
   EdgeInsets? _padding;
@@ -92,6 +99,7 @@ class HomeMapLayerState extends State<HomeMapLayer> {
     super.initState();
     widget.location.addListener(_onChange);
     widget.parked.addListener(_onParkedChange);
+    widget.savedPins?.addListener(_onChange);
   }
 
   bool get _hasLiveMap => _cached != null && _parked == false;
@@ -123,6 +131,10 @@ class HomeMapLayerState extends State<HomeMapLayer> {
     if (oldWidget.location != widget.location) {
       oldWidget.location.removeListener(_onChange);
       widget.location.addListener(_onChange);
+    }
+    if (oldWidget.savedPins != widget.savedPins) {
+      oldWidget.savedPins?.removeListener(_onChange);
+      widget.savedPins?.addListener(_onChange);
     }
     if (oldWidget.parked != widget.parked) {
       oldWidget.parked.removeListener(_onParkedChange);
@@ -211,6 +223,7 @@ class HomeMapLayerState extends State<HomeMapLayer> {
     _redrawTimer?.cancel();
     widget.location.removeListener(_onChange);
     widget.parked.removeListener(_onParkedChange);
+    widget.savedPins?.removeListener(_onChange);
     super.dispose();
   }
 
@@ -239,6 +252,7 @@ class HomeMapLayerState extends State<HomeMapLayer> {
     if (_cached != null &&
         _parked == false &&
         identical(_markers, widget.location.markers) &&
+        identical(_pinMarkers, widget.savedPins?.markers) &&
         identical(_circles, widget.location.locationCircles) &&
         identical(_polygons, widget.location.locationDirection) &&
         _padding == widget.padding) {
@@ -252,13 +266,18 @@ class HomeMapLayerState extends State<HomeMapLayer> {
     }
     _parked = false;
     _markers = widget.location.markers;
+    _pinMarkers = widget.savedPins?.markers;
+    final pins = _pinMarkers;
+    final markers = pins == null || pins.isEmpty
+        ? widget.location.markers
+        : <Marker>{...widget.location.markers, ...pins};
     _circles = widget.location.locationCircles;
     _polygons = widget.location.locationDirection;
     _padding = widget.padding;
     _cached = CustomGoogleMap(
       key: const ValueKey('home-map'),
       initialPosition: _bornWith,
-      markers: widget.location.markers,
+      markers: markers,
       circles: widget.location.locationCircles,
       polygons: widget.location.locationDirection,
       padding: widget.padding,

@@ -34,6 +34,7 @@ import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/features/home/application/home_places_controller.dart';
+import 'package:movera_rider/features/home/application/saved_place_pins.dart';
 import 'package:movera_rider/features/home/application/home_sheet_controller.dart';
 import 'package:movera_rider/features/home/presentation/home_map_style.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_map_layer.dart';
@@ -110,6 +111,23 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     motion: AppScope.instance.motion,
   );
   late final HomePlacesController _places = HomePlacesController();
+
+  /// BQ-V11: the saved places as pins on the map (SPEC rider-saved-pins).
+  late final SavedPlacePins _savedPins = SavedPlacePins(
+    geocoding: AppScope.instance.geocoding,
+    pixelRatio:
+        WidgetsBinding
+            .instance
+            .platformDispatcher
+            .implicitView
+            ?.devicePixelRatio ??
+        markerPixelRatio,
+    reduceMotion: () => WidgetsBinding
+        .instance
+        .platformDispatcher
+        .accessibilityFeatures
+        .disableAnimations,
+  )..onTap = _openSavedPin;
 
   /// Live test 2026-10-30 (contract v0.18.4 `driverHome.ridersOnline`): a
   /// rider on Home is counted online in his zone by the server.
@@ -272,6 +290,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     _savedPlacesSubscription = _places.changes.listen((_) async {
       await _places.load();
       if (mounted) setState(() {});
+      _showSavedPins();
     });
     _restoreAddressData();
     _startHeadingTracking();
@@ -430,6 +449,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     _routeFlowResumeTimer?.cancel();
     _detectRetryTimer?.cancel();
     _savedPlacesSubscription?.cancel();
+    _savedPins.dispose();
     _presence.dispose();
     _sheetCtl.dispose();
     _locationCtl.dispose();
@@ -446,6 +466,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     unawaited(_centerCameraOnQuickFix());
     await _places.load();
     if (mounted) setState(() {});
+    _showSavedPins();
     await _detectCurrentAddress();
   }
 
@@ -869,6 +890,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                 : HomeMapLayer(
                                     key: const ValueKey('home-map-layer'),
                                     location: _locationCtl,
+                                    savedPins: _savedPins,
                                     parked: _mapParked,
                                     padding: EdgeInsets.only(
                                       bottom: _sheetMinPixels,

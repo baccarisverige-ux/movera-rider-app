@@ -72,6 +72,58 @@ extension _HomeMapControls on _HomeState {
     _locationCtl.clearOverlays();
   }
 
+  /// BQ-V11 (owner 2026-10-31, SPEC rider-saved-pins): Home, Work and every
+  /// other saved place as a pin, from the same list the saved-places row
+  /// shows. No saved place, no pin.
+  void _showSavedPins() {
+    if (!mounted) return;
+    final home = _placeOrNull(_homeAddress);
+    final work = _placeOrNull(_workAddress);
+    unawaited(
+      _savedPins.show([
+        if (home != null)
+          SavedPlacePinEntry(
+            key: 'home',
+            kind: 'home',
+            title: context.l10n.placeHome,
+            address: home,
+            target: 'home',
+          ),
+        if (work != null)
+          SavedPlacePinEntry(
+            key: 'work',
+            kind: 'office',
+            title: context.l10n.placeWork,
+            address: work,
+            target: 'work',
+          ),
+        for (final (i, place) in _savedPlaces.indexed)
+          if (_placeOrNull(place.address) case final address?)
+            SavedPlacePinEntry(
+              key: place.id ?? 'custom_$i',
+              kind: place.type,
+              title: savedPlaceTitle(place.title, place.type),
+              address: address,
+              target: 'custom',
+              customType: place.type,
+            ),
+      ]),
+    );
+  }
+
+  /// SPEC 8: a tap on a pin is a tap on that saved place: the car
+  /// categories open with it as the destination, pickup where the rider is.
+  void _openSavedPin(SavedPlacePinEntry entry) {
+    if (!mounted) return;
+    unawaited(
+      _useSavedPlaceAsDestination(
+        entry.address,
+        target: entry.target,
+        customType: entry.customType,
+      ),
+    );
+  }
+
   /// Room the promotion ticket takes at the low and middle snaps.
   double get _promotionExtra =>
       _promotion == null ? 0 : PromotionTicket.height + ResSize.h * 10;

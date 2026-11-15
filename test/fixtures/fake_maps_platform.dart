@@ -45,6 +45,9 @@ class FakeMapsPlatform extends GoogleMapsFlutterPlatform {
     lastConfiguration = mapConfiguration;
     // A view is created once, however often its widget rebuilds.
     if (createsView && _created.add(creationId)) {
+      for (final marker in mapObjects.markers) {
+        markers[marker.markerId] = marker;
+      }
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => onPlatformViewCreated(creationId),
       );
@@ -61,11 +64,29 @@ class FakeMapsPlatform extends GoogleMapsFlutterPlatform {
     required int mapId,
   }) async {}
 
+  /// The markers the map shows now, by id (the view's first markers plus
+  /// every update since; fixture only).
+  final Map<MarkerId, Marker> markers = <MarkerId, Marker>{};
+
+  /// How many marker updates reached the map.
+  int markerUpdateCount = 0;
+
   @override
   Future<void> updateMarkers(
     MarkerUpdates markerUpdates, {
     required int mapId,
-  }) async {}
+  }) async {
+    markerUpdateCount++;
+    for (final id in markerUpdates.markerIdsToRemove) {
+      markers.remove(id);
+    }
+    for (final marker in [
+      ...markerUpdates.markersToAdd,
+      ...markerUpdates.markersToChange,
+    ]) {
+      markers[marker.markerId] = marker;
+    }
+  }
 
   @override
   Future<void> updatePolygons(
