@@ -85,18 +85,19 @@ void main() {
     // BQ-V39: + 21 refund choice texts (payments area, contract debtModel.refunds).
     // v0.18.108 (job C9b): + stopWaitingPausedDriverAway
     // (autoArrive.stops.texts.riderStopPaused).
+    // BQ-V16: + historyPlannedRoute (past ride on the server's planned route).
     const before = {
       'en': (
-        '9388edffaca82c710157466436a1299fce8ca53b0a3adab300d4569820dc3274',
-        2188,
+        '8be2333a13a9abf0f529332990a44fe0388b18f936c9b04e31ec9d6a46120a8e',
+        2189,
       ),
       'fr': (
-        'eb94d904dafbfa70cf133bdbd8abb2b4300a5ae835c327ea144726df4ef55d94',
-        1747,
+        '8aa9486b467210aa55f21f1c8f0a0eaa2a97eef1da3da1acbe9d2da27b5926e4',
+        1748,
       ),
       'sv': (
-        'd28d655e45327f8a0aebed38f0ab3f962744ed87941dc9a568844b5818bc8eb8',
-        1747,
+        'a475e13b1fa23a294520a97888f99425c4394f82b09956f4b4f899e022199a40',
+        1748,
       ),
     };
     for (final lang in _langs) {

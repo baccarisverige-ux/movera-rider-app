@@ -1,4 +1,5 @@
 import 'package:movera_rider/features/ride_complete/application/server_receipt.dart';
+import 'package:movera_rider/features/history/presentation/past_ride_route_map.dart';
 import 'package:movera_rider/features/history/presentation/ride_history_result.dart';
 import 'package:movera_rider/features/ride_complete/presentation/server_receipt_lines.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/features/safety/presentation/ride_check_trip_entry.dart';
 import 'package:movera_rider/features/history/application/on_demand_history_controller.dart';
+import 'package:movera_rider/features/history/application/trip_path.dart';
 import 'package:movera_rider/features/history/domain/ride_history_repository.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
@@ -32,6 +34,7 @@ class RideHistory extends StatefulWidget {
     this.onDemandReader,
     this.onDemandPageReader,
     this.receiptLoader,
+    this.pathLoader,
   });
 
   /// Pop result asking the opener to start a booking (D-026). The side menu
@@ -47,6 +50,10 @@ class RideHistory extends StatefulWidget {
 
   /// `GET /trips/{tripId}/receipt` (tests give their own).
   final Future<ServerReceipt?> Function(String rideId)? receiptLoader;
+
+  /// BQ-V16: `GET /trips/{tripId}/path` for the past ride's map (tests
+  /// give their own).
+  final Future<TripPath?> Function(String tripId)? pathLoader;
 
   @override
   State<RideHistory> createState() => _RideHistoryState();
@@ -635,10 +642,13 @@ class _RideHistoryState extends State<RideHistory> {
               style: _text(21, weight: FontWeight.w700),
             ),
             const SizedBox(height: 14),
-            ReservationRoutePreview(
-              pickup: ride.pickup.label,
-              destination: ride.destination.label,
+            // BQ-V16: the route the car drove (GET /trips/{id}/path).
+            PastRideRouteMap(
+              tripId: ride.reservationId.substring('ondemand-'.length),
+              pickup: ride.pickup,
+              destination: ride.destination,
               height: 132,
+              loader: widget.pathLoader,
             ),
             const SizedBox(height: 14),
             Text(

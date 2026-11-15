@@ -251,6 +251,7 @@
   "historyCharged": "{category} · Debiterat {amount}",
   "historyBooked": "{category} · Bokat pris {amount}",
   "historyEndedEarly": "Du avslutade resan före destinationen och betalade för sträckan som körts.",
+  "historyPlannedRoute": "Planerad rutt",
   "getHelpWithRide": "Få hjälp med resan",
   "enterPhone": "Ange ditt telefonnummer",
   "textFourDigitCode": "Vi skickar en fyrsiffrig kod via sms.",

@@ -492,6 +492,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'historyCharged': l.historyCharged('<category>', '<amount>'),
   'historyBooked': l.historyBooked('<category>', '<amount>'),
   'historyEndedEarly': l.historyEndedEarly,
+  'historyPlannedRoute': l.historyPlannedRoute,
   'getHelpWithRide': l.getHelpWithRide,
   'enterPhone': l.enterPhone,
   'textFourDigitCode': l.textFourDigitCode,
@@ -2989,6 +2990,8 @@ class _Exhaustive implements AppLocalizations {
   String historyBooked(String category, String amount) => '';
   @override
   String get historyEndedEarly => '';
+  @override
+  String get historyPlannedRoute => '';
   @override
   String get getHelpWithRide => '';
   @override

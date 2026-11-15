@@ -1174,6 +1174,7 @@
     }
   },
   "historyEndedEarly": "You ended this trip before the destination and paid for the distance driven.",
+  "historyPlannedRoute": "Planned route",
   "getHelpWithRide": "Get help with this ride",
   "enterPhone": "Enter your phone number",
   "textFourDigitCode": "We'll text you a 4-digit code.",
