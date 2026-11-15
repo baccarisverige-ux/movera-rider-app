@@ -1,4 +1,5 @@
 import 'package:movera_rider/features/ride_complete/application/server_receipt.dart';
+import 'package:movera_rider/features/calls/presentation/call_window_gate.dart';
 import 'package:movera_rider/features/history/presentation/past_ride_route_map.dart';
 import 'package:movera_rider/features/history/presentation/ride_history_result.dart';
 import 'package:movera_rider/features/ride_complete/presentation/server_receipt_lines.dart';
@@ -650,6 +651,11 @@ class _RideHistoryState extends State<RideHistory> {
               height: 132,
               loader: widget.pathLoader,
             ),
+            // v0.18.113 BQ-S13: Call driver until the server's callOpenUntil.
+            if (ride.status.isCompleted && !ride.endedEarly)
+              CallDriverAfterTrip(
+                rideId: ride.reservationId.substring('ondemand-'.length),
+              ),
             const SizedBox(height: 14),
             Text(
               ride.chargedFare != null
