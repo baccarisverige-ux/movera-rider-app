@@ -1,5 +1,6 @@
 {
   "note": "v0.18.93 (contract.json#autoArrive): the waiting clock with the driver driving away and back. Times are seconds after Arrived (arrivedAt = 0); waitFromSeconds is when the free wait starts (a booked ride reached early: its pickup time). events: a counting fix at `meters` from the pickup, the driver's tap on Arrived, board (Start), or the driver's no-show. expect: freeUntil / noShowAt (seconds, after the moves), pausedSeconds, pauseCount, awayAtEnd, chargedSeconds at board and the waiting line (chargedSeconds / 60 × perMin, half-up), or the no-show answer of the last no_show event.",
+  "stopsNote": "v0.18.108 (contract.json#autoArrive.stops, job C9b): the wait at ONE middle stop. Times are seconds after the stop arrival (arrivedAt = 0). events: a counting fix at `meters` from the stop (one event stands for a confirmed pair), the driver's back tap at `meters`, leave, or complete. expect: pausedSeconds, pauseCount, awayAtEnd, waitedSeconds = (min(end, away.since) − arrivedAt) − pausedSeconds, chargedSeconds = max(0, waited − stopFreeWaitMin × 60), the answers of the taps (ok, not_at_stop, stop_already_arrived), and the stop line (chargedSeconds / 60 × stopWaitPerMin, half-up). firstTap (v0.18.108 round 2, S1 / S2): the first stop tap's position check, positionMaxAgeSeconds 60, 300 m; sent = the location sent with the tap, stored = the server's latest stored fix (meters to the stop, age in seconds); new apps (X-Contract-Version ≥ 0.18.108): a fresh sent location, else the fresh stored fix, else position_stale (one existed) or not_at_stop (none); older apps / no header: the stored fix at any age within 300 m, none stored = ok. nextStopAuto (round 2, M1): the 2 fixes of the confirming pair, meters to the next stop and to an open earlier stop; auto only when both are within arriveMeters (100) of the next stop and, while the open stop is not away, both farther than arriveMeters from it (slow / gap parts of the confirm are in autoArrive.confirm and not replayed here).",
   "clock": [
     {
       "id": "se_away_in_free_wait",
@@ -356,6 +357,561 @@
       "autoArriveMeters": 99.5,
       "leaveMeters": 200,
       "expect": "invalid_auto_arrive_distance"
+    }
+  ],
+  "stops": [
+    {
+      "id": "se_stop_one_pause_free0",
+      "currency": "SEK",
+      "stopWaitPerMin": {
+        "amountMinor": 500,
+        "currency": "SEK"
+      },
+      "stopFreeWaitMin": 0,
+      "arriveMeters": 100,
+      "leaveMeters": 200,
+      "events": [
+        {
+          "at": 120,
+          "kind": "fix",
+          "meters": 300
+        },
+        {
+          "at": 420,
+          "kind": "fix",
+          "meters": 50
+        },
+        {
+          "at": 900,
+          "kind": "leave"
+        }
+      ],
+      "expect": {
+        "pausedSeconds": 300,
+        "pauseCount": 1,
+        "awayAtEnd": false,
+        "waitedSeconds": 600,
+        "chargedSeconds": 600,
+        "taps": [],
+        "stopLine": {
+          "amountMinor": 5000,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se_stop_one_pause_free2",
+      "currency": "SEK",
+      "stopWaitPerMin": {
+        "amountMinor": 500,
+        "currency": "SEK"
+      },
+      "stopFreeWaitMin": 2,
+      "arriveMeters": 100,
+      "leaveMeters": 200,
+      "events": [
+        {
+          "at": 120,
+          "kind": "fix",
+          "meters": 300
+        },
+        {
+          "at": 420,
+          "kind": "fix",
+          "meters": 50
+        },
+        {
+          "at": 900,
+          "kind": "leave"
+        }
+      ],
+      "expect": {
+        "pausedSeconds": 300,
+        "pauseCount": 1,
+        "awayAtEnd": false,
+        "waitedSeconds": 600,
+        "chargedSeconds": 480,
+        "taps": [],
+        "stopLine": {
+          "amountMinor": 4000,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se_stop_leave_while_away",
+      "currency": "SEK",
+      "stopWaitPerMin": {
+        "amountMinor": 500,
+        "currency": "SEK"
+      },
+      "stopFreeWaitMin": 0,
+      "arriveMeters": 100,
+      "leaveMeters": 200,
+      "events": [
+        {
+          "at": 200,
+          "kind": "fix",
+          "meters": 400
+        },
+        {
+          "at": 800,
+          "kind": "leave"
+        }
+      ],
+      "expect": {
+        "pausedSeconds": 0,
+        "pauseCount": 0,
+        "awayAtEnd": true,
+        "waitedSeconds": 200,
+        "chargedSeconds": 200,
+        "taps": [],
+        "stopLine": {
+          "amountMinor": 1667,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se_stop_back_tap_too_far_then_within_leave",
+      "currency": "SEK",
+      "stopWaitPerMin": {
+        "amountMinor": 500,
+        "currency": "SEK"
+      },
+      "stopFreeWaitMin": 0,
+      "arriveMeters": 100,
+      "leaveMeters": 200,
+      "events": [
+        {
+          "at": 100,
+          "kind": "fix",
+          "meters": 500
+        },
+        {
+          "at": 300,
+          "kind": "tap",
+          "meters": 250
+        },
+        {
+          "at": 400,
+          "kind": "tap",
+          "meters": 150
+        },
+        {
+          "at": 700,
+          "kind": "complete"
+        }
+      ],
+      "expect": {
+        "pausedSeconds": 300,
+        "pauseCount": 1,
+        "awayAtEnd": false,
+        "waitedSeconds": 400,
+        "chargedSeconds": 400,
+        "taps": [
+          "not_at_stop",
+          "ok"
+        ],
+        "stopLine": {
+          "amountMinor": 3333,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "se_stop_between_distances_no_flip_flop",
+      "currency": "SEK",
+      "stopWaitPerMin": {
+        "amountMinor": 500,
+        "currency": "SEK"
+      },
+      "stopFreeWaitMin": 0,
+      "arriveMeters": 100,
+      "leaveMeters": 200,
+      "events": [
+        {
+          "at": 60,
+          "kind": "fix",
+          "meters": 150
+        },
+        {
+          "at": 120,
+          "kind": "fix",
+          "meters": 190
+        },
+        {
+          "at": 130,
+          "kind": "tap",
+          "meters": 50
+        },
+        {
+          "at": 600,
+          "kind": "leave"
+        }
+      ],
+      "expect": {
+        "pausedSeconds": 0,
+        "pauseCount": 0,
+        "awayAtEnd": false,
+        "waitedSeconds": 600,
+        "chargedSeconds": 600,
+        "taps": [
+          "stop_already_arrived"
+        ],
+        "stopLine": {
+          "amountMinor": 5000,
+          "currency": "SEK"
+        }
+      }
+    },
+    {
+      "id": "tn_stop_one_pause_free2_half_up",
+      "currency": "TND",
+      "stopWaitPerMin": {
+        "amountMinor": 250,
+        "currency": "TND"
+      },
+      "stopFreeWaitMin": 2,
+      "arriveMeters": 100,
+      "leaveMeters": 200,
+      "events": [
+        {
+          "at": 100,
+          "kind": "fix",
+          "meters": 300
+        },
+        {
+          "at": 233,
+          "kind": "fix",
+          "meters": 30
+        },
+        {
+          "at": 1000,
+          "kind": "leave"
+        }
+      ],
+      "expect": {
+        "pausedSeconds": 133,
+        "pauseCount": 1,
+        "awayAtEnd": false,
+        "waitedSeconds": 867,
+        "chargedSeconds": 747,
+        "taps": [],
+        "stopLine": {
+          "amountMinor": 3113,
+          "currency": "TND"
+        }
+      }
+    },
+    {
+      "id": "tn_stop_complete_while_away",
+      "currency": "TND",
+      "stopWaitPerMin": {
+        "amountMinor": 250,
+        "currency": "TND"
+      },
+      "stopFreeWaitMin": 0,
+      "arriveMeters": 100,
+      "leaveMeters": 200,
+      "events": [
+        {
+          "at": 400,
+          "kind": "fix",
+          "meters": 250
+        },
+        {
+          "at": 1000,
+          "kind": "complete"
+        }
+      ],
+      "expect": {
+        "pausedSeconds": 0,
+        "pauseCount": 0,
+        "awayAtEnd": true,
+        "waitedSeconds": 400,
+        "chargedSeconds": 400,
+        "taps": [],
+        "stopLine": {
+          "amountMinor": 1667,
+          "currency": "TND"
+        }
+      }
+    },
+    {
+      "id": "tn_stop_two_pauses_fix_and_tap",
+      "currency": "TND",
+      "stopWaitPerMin": {
+        "amountMinor": 250,
+        "currency": "TND"
+      },
+      "stopFreeWaitMin": 1,
+      "arriveMeters": 100,
+      "leaveMeters": 200,
+      "events": [
+        {
+          "at": 60,
+          "kind": "fix",
+          "meters": 210
+        },
+        {
+          "at": 120,
+          "kind": "fix",
+          "meters": 100
+        },
+        {
+          "at": 300,
+          "kind": "fix",
+          "meters": 900
+        },
+        {
+          "at": 360,
+          "kind": "tap",
+          "meters": 180
+        },
+        {
+          "at": 500,
+          "kind": "leave"
+        }
+      ],
+      "expect": {
+        "pausedSeconds": 120,
+        "pauseCount": 2,
+        "awayAtEnd": false,
+        "waitedSeconds": 380,
+        "chargedSeconds": 320,
+        "taps": [
+          "ok"
+        ],
+        "stopLine": {
+          "amountMinor": 1333,
+          "currency": "TND"
+        }
+      }
+    }
+  ],
+  "firstTap": [
+    {
+      "id": "new_app_sent_fresh_250m",
+      "contractVersion": "0.18.108",
+      "sent": {
+        "meters": 250,
+        "ageSeconds": 10
+      },
+      "stored": null,
+      "expect": "ok"
+    },
+    {
+      "id": "new_app_sent_fresh_400m",
+      "contractVersion": "0.18.108",
+      "sent": {
+        "meters": 400,
+        "ageSeconds": 10
+      },
+      "stored": null,
+      "expect": "not_at_stop"
+    },
+    {
+      "id": "new_app_sent_old_stored_fresh_near",
+      "contractVersion": "0.18.108",
+      "sent": {
+        "meters": 50,
+        "ageSeconds": 300
+      },
+      "stored": {
+        "meters": 120,
+        "ageSeconds": 20
+      },
+      "expect": "ok"
+    },
+    {
+      "id": "new_app_sent_old_near_stored_fresh_far",
+      "contractVersion": "0.18.108",
+      "sent": {
+        "meters": 20,
+        "ageSeconds": 300
+      },
+      "stored": {
+        "meters": 900,
+        "ageSeconds": 20
+      },
+      "expect": "not_at_stop"
+    },
+    {
+      "id": "new_app_sent_old_stored_old",
+      "contractVersion": "0.18.108",
+      "sent": {
+        "meters": 50,
+        "ageSeconds": 300
+      },
+      "stored": {
+        "meters": 50,
+        "ageSeconds": 200
+      },
+      "expect": "position_stale"
+    },
+    {
+      "id": "new_app_stored_only_old",
+      "contractVersion": "0.18.108",
+      "sent": null,
+      "stored": {
+        "meters": 100,
+        "ageSeconds": 90
+      },
+      "expect": "position_stale"
+    },
+    {
+      "id": "new_app_no_position",
+      "contractVersion": "0.18.108",
+      "sent": null,
+      "stored": null,
+      "expect": "not_at_stop"
+    },
+    {
+      "id": "old_app_stored_400m",
+      "contractVersion": "0.18.97",
+      "sent": null,
+      "stored": {
+        "meters": 400,
+        "ageSeconds": 10
+      },
+      "expect": "not_at_stop"
+    },
+    {
+      "id": "old_app_stored_250m_any_age",
+      "contractVersion": "0.18.97",
+      "sent": null,
+      "stored": {
+        "meters": 250,
+        "ageSeconds": 5000
+      },
+      "expect": "ok"
+    },
+    {
+      "id": "old_app_0_18_99_stored_old_250m_edge",
+      "contractVersion": "0.18.99",
+      "sent": {
+        "meters": 20,
+        "ageSeconds": 500
+      },
+      "stored": {
+        "meters": 250,
+        "ageSeconds": 5000
+      },
+      "expect": "ok"
+    },
+    {
+      "id": "new_app_0_18_108_same_positions_edge",
+      "contractVersion": "0.18.108",
+      "sent": {
+        "meters": 20,
+        "ageSeconds": 500
+      },
+      "stored": {
+        "meters": 250,
+        "ageSeconds": 5000
+      },
+      "expect": "position_stale"
+    },
+    {
+      "id": "no_header_stored_400m",
+      "contractVersion": null,
+      "sent": {
+        "meters": 20,
+        "ageSeconds": 5
+      },
+      "stored": {
+        "meters": 400,
+        "ageSeconds": 10
+      },
+      "expect": "not_at_stop"
+    },
+    {
+      "id": "no_header_no_stored_fix",
+      "contractVersion": null,
+      "sent": null,
+      "stored": null,
+      "expect": "ok"
+    }
+  ],
+  "nextStopAuto": [
+    {
+      "id": "stops_60m_apart_still_at_open_stop",
+      "openStop": {
+        "away": false,
+        "pairMeters": [
+          10,
+          15
+        ]
+      },
+      "nextStopPairMeters": [
+        50,
+        55
+      ],
+      "expect": "none"
+    },
+    {
+      "id": "stops_60m_apart_one_fix_still_near_open",
+      "openStop": {
+        "away": false,
+        "pairMeters": [
+          95,
+          130
+        ]
+      },
+      "nextStopPairMeters": [
+        40,
+        30
+      ],
+      "expect": "none"
+    },
+    {
+      "id": "stops_150m_apart_left_open_area",
+      "openStop": {
+        "away": false,
+        "pairMeters": [
+          150,
+          145
+        ]
+      },
+      "nextStopPairMeters": [
+        20,
+        10
+      ],
+      "expect": "auto"
+    },
+    {
+      "id": "open_stop_away_then_next_stop",
+      "openStop": {
+        "away": true,
+        "pairMeters": [
+          300,
+          310
+        ]
+      },
+      "nextStopPairMeters": [
+        30,
+        25
+      ],
+      "expect": "auto"
+    },
+    {
+      "id": "no_open_stop",
+      "openStop": null,
+      "nextStopPairMeters": [
+        40,
+        60
+      ],
+      "expect": "auto"
+    },
+    {
+      "id": "next_stop_one_fix_outside",
+      "openStop": null,
+      "nextStopPairMeters": [
+        40,
+        120
+      ],
+      "expect": "none"
     }
   ]
 }

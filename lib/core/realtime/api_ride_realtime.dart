@@ -756,6 +756,9 @@ class ApiRideRealtime implements RideRealtime {
           // v0.18.93 (contract.json#autoArrive): the stopped clock.
           if (ride['waiting'] case {'away': {'since': final String at}})
             waitingAwaySinceKey: at,
+          // v0.18.108 (contract.json#autoArrive.stops): the open stop's
+          // stopped wait (a left stop keeps away only as a record).
+          if (_openStopAway(ride)) stopAwayKey: true,
           // v0.18.51 §73: a booked ride's waiting runs from waitFrom (the
           // later of Arrived and the pickup time); the booked pickup time
           // is its fallback from an older server.
@@ -809,6 +812,24 @@ class ApiRideRealtime implements RideRealtime {
   static String? _waiting(Map<String, dynamic> ride, String field) {
     final at = _waitingField(ride, field);
     return at is String ? at : null;
+  }
+
+  /// v0.18.108 (`contract.json#autoArrive.stops.projection`, job C9b): the
+  /// open stop (arrivedAt, no leftAt) carries `away` — its wait stands
+  /// still. `stops[i]` is canonical; `stopVisits[]` is the mirror, read only
+  /// when the projection has no stops list.
+  static bool _openStopAway(Map<String, dynamic> ride) {
+    final visits = ride['stops'] is List ? ride['stops'] : ride['stopVisits'];
+    if (visits is! List) return false;
+    for (final visit in visits) {
+      if (visit is Map &&
+          visit['arrivedAt'] is String &&
+          visit['leftAt'] == null &&
+          visit['away'] is Map) {
+        return true;
+      }
+    }
+    return false;
   }
 
   static Object? _waitingField(Map<String, dynamic> ride, String field) {

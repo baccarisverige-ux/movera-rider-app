@@ -251,5 +251,6 @@
   "checkingYourArea": "Vérification de votre zone…",
   "checkingYourAreaFailed": "Movera n’a pas pu vérifier votre zone. Vérifiez votre connexion et réessayez.",
   "checkingYourAreaRetry": "Réessayer",
-  "waitingPausedDriverAway": "Temps d’attente en pause : votre chauffeur n’est plus au point de prise en charge."
+  "waitingPausedDriverAway": "Temps d’attente en pause : votre chauffeur n’est plus au point de prise en charge.",
+  "stopWaitingPausedDriverAway": "Temps d’attente en pause : votre chauffeur n’est plus à l’arrêt."
 }

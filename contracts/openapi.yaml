@@ -1,11 +1,11 @@
-# Movera API v0.18.93 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.108 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.93
+  version: 0.18.108
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.93 in this folder; this file must agree with them.
+    v0.18.108 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.93
+  version: 0.18.108
   source: contract.json
 paths:
   /auth/otp/request:
@@ -3506,7 +3506,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PayoutPage'
+                $ref: '#/components/schemas/DriverPayoutPage'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4212,7 +4212,11 @@ paths:
     get:
       operationId: getFleetEarnings
       summary: 'Owner: every driver''s earnings in a period'
-      description: v0.5.3. Owner only (else 403). Defaults to the current week (zone time).
+      description: 'v0.5.3. Owner only (else 403). Defaults to the current week (zone time). v0.18.97 (J8 supervisor MF1,
+        Rules audits/impact/j8-rebase-money-fix-supervisor.md §6; contract kpis.money.fleets "Fleet views get only the driver
+        earnings", owner s06:1277): GET /driver/fleet/earnings (FleetEarnings, FleetDriverEarnings) sums only the driver''s
+        earnings entries of the period: a paid_to_movera entry (''Driver paid Movera'') is not earnings and is never in a
+        driver''s earnings (FleetDriverEarnings.earnings) or in total. Wording only; no shape change.'
       tags:
       - Driver · Fleet
       x-actor:
@@ -5808,11 +5812,11 @@ paths:
         v0.7.2 (owner 2026-10-28, one admin is enough): 200 / 201 at once for every admin with the permission, written in
         the audit. v0.18.10: For the admin trip page (Give money back): POST /admin/trips/{tripId}/refund { expectedVersion,
         amount: Money, reason, fromDriver? } (payments.refund) → 201 Refund (or 202 PendingApproval over the role limit).
-        At most what the rider paid (cash + wallet) less earlier refunds (400 refund_too_large); only a paid ended trip (409
-        not_paid). fromDriver true (''take from driver'', owner decision 31): the driver loses his share of the refunded money
-        (an earnings adjustment − share), now also in driverTotal / driverAdjustments. The rider chooses where the money goes
-        (POST /rider/refunds/{refundId}/destination); the admin marks a Swish / bank refund paid (POST /admin/refunds/{refundId}/paid,
-        finance.edit). Lists: GET /admin/refunds/payouts.'
+        At most what the rider paid (v0.18.99, BQ-M25b F2: the cash taken, or the card part, plus the wallet part) less earlier
+        refunds (400 refund_too_large); only a paid ended trip (409 not_paid). fromDriver true (''take from driver'', owner
+        decision 31): the driver loses his share of the refunded money (an earnings adjustment − share), now also in driverTotal
+        / driverAdjustments. The rider chooses where the money goes (POST /rider/refunds/{refundId}/destination); the admin
+        marks a Swish / bank refund paid (POST /admin/refunds/{refundId}/paid, finance.edit). Lists: GET /admin/refunds/payouts.'
       tags:
       - Admin · Trips
       x-actor:
@@ -10810,15 +10814,24 @@ paths:
         and replaces the trip''s earlier preview. total and fareLines are computed by the same code as POST /trips/{tripId}/complete
         would at that moment with the driver''s latest fix (pricing.driverEndsEarly): earlyEnd is true when the driver is
         farther than pricing.completeNearDropoffMeters from the drop-off. cashDue = total − the part the rider''s wallet would
-        pay. driverEarnings = the driver''s part of that total (as TripProjection.driverEarnings after complete), for the
-        sheet''s cash balance. POST /trips/{tripId}/complete { expectedVersion, previewId, cashCollected } with the trip''s
-        latest previewId before expiresAt: complete uses the frozen price exactly (total, fareLines, driverEarnings, earlyEnd):
-        no early-end flip, no extra minutes or waiting. On a cash trip cashCollected must equal its cashDue (and the wallet
-        part must be unchanged); otherwise 409 conflict, reason price_changed, with a fresh preview in the error''s preview
-        field. The app sends POST /trips/{tripId}/complete { expectedVersion, previewId, cashCollected = the cashDue it showed
-        } on a cash trip. On 409 price_changed it shows the sheet again with error.preview (never resends the old amount).
-        After completing the app shows the fare of the returned TripProjection. An older server without the preview (404)
-        leaves the app on the old flow (complete without cashCollected).'
+        pay on a trip paid in the car (paymentMethod cash); 0 on every other trip (card, Apple Pay, wallet: nothing is collected
+        in the car, contract.json#priceDisplay.nonCashZero). driverEarnings = the driver''s part of that total (as TripProjection.driverEarnings
+        after complete), for the sheet''s cash balance. POST /trips/{tripId}/complete { expectedVersion, previewId, cashCollected
+        } with the trip''s latest previewId before expiresAt: complete uses the frozen price exactly (total, fareLines, driverEarnings,
+        earlyEnd): no early-end flip, no extra minutes or waiting. On a cash trip cashCollected must equal its cashDue (and
+        the wallet part must be unchanged); otherwise 409 conflict, reason price_changed, with a fresh preview in the error''s
+        preview field. v0.18.99 (BQ-M25b; M25 supervisor F1/F2, Rules audits/impact/m25-card-cash-supervisor.md; Rule 21:
+        the wording before is kept as *Before0_18_99): on a trip not paid in the car cashCollected is not compared: 0 (its
+        cashDue) or an older app''s total − wallet part is taken, never 409 price_changed, and the trip books 0 cash; more
+        than total − wallet part stays 400 cash_above_fare. The app sends POST /trips/{tripId}/complete { expectedVersion,
+        previewId, cashCollected = the cashDue it showed } on a cash trip. On 409 price_changed it shows the sheet again with
+        error.preview (never resends the old amount). After completing the app shows the fare of the returned TripProjection.
+        An older server without the preview (404) leaves the app on the old flow (complete without cashCollected). v0.18.99:
+        On a trip whose paymentMethod is not cash (card, apple_pay, wallet): CompletePreview.cashDue = 0, TripFinish.cashToCollect
+        = 0 (driver, rider and admin views; complete, the rider''s end_early, the driver''s end with the rider on board) and
+        TripProjection.cashToCollect = 0 (where it is sent), in the trip''s currency. On a cash trip they are unchanged: fare
+        − walletApplied (cashDue: total − the wallet part; finish.cashToCollect: fare − walletApplied). Offer.cashToCollect
+        already said 0 for any other payment method (priceDisplay.offer.cashToCollect).'
       tags:
       - Driver · Trip
       x-actor:
@@ -11380,11 +11393,18 @@ paths:
         so no key is kept in the apps'' code: { provider: fcm, enabled, projectId?, webConfig? { apiKey, appId, messagingSenderId,
         projectId, authDomain? } }. The server reads the web app (display name ''Movera Driver web'' / ''Movera Rider web'')
         from the Firebase Management API with its service account once and keeps it in memory. enabled false (no projectId,
-        no webConfig) when the server has no Firebase settings; the app then skips push. v0.18.3 (R7): after sign-in the app
-        explains why (sv / fr / en) before the operating system asks for the notification permission once; when allowed it
-        gets the FCM token (on the web with the settings from GET /push/config and the service worker firebase-messaging-sw.js,
-        which loads the same settings), registers it with POST /push/devices, registers again when the token changes and unregisters
-        it on sign-out.'
+        no webConfig) when the server has no Firebase settings; the app then skips push. v0.18.105: &platform=android gives
+        androidConfig instead (auth.devices.config.android). v0.18.3 (R7): after sign-in the app explains why (sv / fr / en)
+        before the operating system asks for the notification permission once; when allowed it gets the FCM token (on the
+        web with the settings from GET /push/config and the service worker firebase-messaging-sw.js, which loads the same
+        settings), registers it with POST /push/devices, registers again when the token changes and unregisters it on sign-out.
+        v0.18.105: The Android app starts Firebase at run time with androidConfig (FirebaseOptions apiKey, appId, messagingSenderId,
+        projectId), then follows appFlow: explains, asks POST_NOTIFICATIONS on Android 13+, gets the FCM token, POST /push/devices
+        { provider: fcm, platform: android }, registers again when FCM changes the token, unregisters on sign-out. It never
+        shows a push that comes while it is open (the offer stream and the bell list show it). The offer channels driverOffers.push.native.androidChannel
+        / androidQuietChannel (sound soundFile) are made by the app at start; a channel the driver changed in Android settings
+        keeps his choice. The in-app Vibrate setting cannot change a notice Android shows (the channel decides): a known gap
+        on native, the web keeps E6 in full.'
       tags:
       - Auth
       x-actor:
@@ -11401,6 +11421,19 @@ paths:
           - rider
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
+      - name: platform
+        in: query
+        required: false
+        description: 'v0.18.105: web (default) gives webConfig, android gives androidConfig, ios is enabled false for now.
+          v0.18.105: platform=ios answers enabled false for now: iOS push needs the Apple Developer account and an APNs auth
+          key uploaded to Firebase (Rules plan/REMINDERS.md 7, at store launch). Then a later version adds iosConfig the same
+          way.'
+        schema:
+          type: string
+          enum:
+          - web
+          - android
+          - ios
       responses:
         '200':
           description: OK
@@ -11652,7 +11685,18 @@ paths:
       description: 'v0.7.1. POST /driver/trips/{tripId}/stops/{stopIndex}/arrive { expectedVersion }: the assigned driver,
         trip in_trip or approaching_dropoff (else 409 invalid_transition, not_on_trip), stopIndex 0-based into TripProjection.stops;
         sets stops[i].arrivedAt (server time); version + 1, trip_projection. Again on the same stop: 409 invalid_transition
-        (stop_already_arrived). Stops are taken in order: arriving at i while an earlier stop has no arrivedAt is 409 (stop_out_of_order).'
+        (stop_already_arrived). Stops are taken in order: arriving at i while an earlier stop has no arrivedAt is 409 (stop_out_of_order).
+        v0.18.108 (job C9b; owner 2026-11-02, Rules decisions/driver-g7.md:84 "At the pickup AND at stops"; Rule 21: the wording
+        before is kept as *Before0_18_108; v0.18.108 round 2 (C9b supervisor M1, M2, S1, S2, Rules audits/impact/c9b-middle-stops-supervisor.md)):
+        the body may carry location { lat, lng, accuracy, measuredAt } (GeoFix) as POST /trips/{tripId}/arrive. Position check
+        (contract.json#autoArrive.stops.tap): for driver apps with X-Contract-Version ≥ 0.18.108 a fresh sent location, else
+        the server''s latest fix only if fresh (an old sent location never counts); position_stale only when no fresh position
+        exists; within 300 m of stops[i] (the app shows the tap within the trip''s autoArriveMeters), else 409 invalid_transition,
+        reason not_at_stop (autoArrive.stops.texts.notAtStop). Older apps: the server''s stored latest fix (any age) within
+        300 m, else not_at_stop; none stored: taken as before. The server also marks stops[i] arrived by itself (autoArrive.stops.auto,
+        stops[i].arrivedBy auto, not while the driver is still at an open earlier stop; a tap: arrivedBy tap). While stops[i].away
+        is set the same route is the back tap (autoArrive.stops.back): position within the trip''s leaveMeters of stops[i],
+        else 409 not_at_stop; not away, a second arrive stays 409 stop_already_arrived.'
       tags:
       - Driver · Trip
       x-actor:
@@ -11700,7 +11744,10 @@ paths:
       operationId: driverLeaveStop
       summary: Driver leaves an extra stop (stop waiting ends)
       description: 'v0.7.1. POST /driver/trips/{tripId}/stops/{stopIndex}/leave { expectedVersion }: sets stops[i].leftAt;
-        before arrive: 409 invalid_transition (stop_not_arrived); twice: 409 (stop_already_left). version + 1.'
+        before arrive: 409 invalid_transition (stop_not_arrived); twice: 409 (stop_already_left). version + 1. v0.18.108:
+        Unchanged route (POST /driver/trips/{tripId}/stops/{i}/leave). Leaving while away is allowed: leftAt = now, the charge
+        stops at away.since (stops[i].away stays on the left stop as a record). The same when arriving at the next stop or
+        completing the trip while away. There is no automatic leave.'
       tags:
       - Driver · Trip
       x-actor:
@@ -15255,11 +15302,11 @@ paths:
       summary: The rider's refunds and where each one goes
       description: 'v0.18.13 (audit M4: served since v0.18.10, now in the paths). For the admin trip page (Give money back):
         POST /admin/trips/{tripId}/refund { expectedVersion, amount: Money, reason, fromDriver? } (payments.refund) → 201
-        Refund (or 202 PendingApproval over the role limit). At most what the rider paid (cash + wallet) less earlier refunds
-        (400 refund_too_large); only a paid ended trip (409 not_paid). fromDriver true (''take from driver'', owner decision
-        31): the driver loses his share of the refunded money (an earnings adjustment − share), now also in driverTotal /
-        driverAdjustments. The rider chooses where the money goes (POST /rider/refunds/{refundId}/destination); the admin
-        marks a Swish / bank refund paid (POST /admin/refunds/{refundId}/paid, finance.edit). Lists: GET /admin/refunds/payouts.'
+        Refund (or 202 PendingApproval over the role limit). At most what the rider paid (v0.18.99, BQ-M25b F2: the cash taken,
+        or the card part, plus the wallet part) less earlier refunds (400 refund_too_large); only a paid ended trip (409 not_paid).
+        fromDriver true (''take from driver'', owner decision 31): the driver loses his share of the refunded money (an earnings
+        adjustment − share), now also in driverTotal / driverAdjustments. The rider chooses where the money goes (POST /rider/refunds/{refundId}/destination);
+        the admin marks a Swish / bank refund paid (POST /admin/refunds/{refundId}/paid, finance.edit). Lists: GET /admin/refunds/payouts.'
       tags:
       - Rider · Payments
       x-actor:
@@ -16848,7 +16895,22 @@ paths:
         pending; the answer is { country, periodEnd, approved, total: Money[] (one per currency) }. A pending_approval payout
         cannot be marked paid (409 run_not_approved). The driver app shows pending_approval as pending (GET /driver/payouts
         never returns pending_approval). Changing the mode changes only later runs. One admin is enough (Q1); a single driver
-        can still be held (payoutHold).'
+        can still be held (payoutHold). v0.18.102 BQ-V38 (owner item 105 / Q-M8 2026-11-12 ''Refresh, approve again (Rec.)'',
+        Rules decisions/session-2026-11-06.md:1119: if the numbers changed while the admin looked, Approve refreshes the card
+        and asks for Approve again; Movera never pays a total the admin did not see; Q-M8 :1107 ''refuse approval if the total
+        changed''): POST /admin/payouts/runs/approve carries what the admin saw: { country, periodEnd, reason, expectedCount,
+        expectedTotal }. expectedCount = how many payouts of the run he saw (integer >= 1); expectedTotal = the run''s Payout.amount
+        summed per currency, one Money per currency (kr, € and DT are never added; minor units, TND 3 decimals). Under the
+        payouts'' row lock the server reads the run it would approve (every pending_approval payout of that country and period
+        inside the admin''s zones) and compares: the same number of payouts and, per currency, the same total (the same set
+        of currencies, none missing, none extra). Any difference (a payout joined or left the run, an amount changed, e.g.
+        a carried rest) = 409 conflict, reason run_changed, projection = the fresh PayoutRunCard { country, periodEnd, count,
+        total: Money[] }; nothing is approved and nothing is written to the audit. The admin shows why (the fresh count and
+        total), reloads the run and the admin approves again with the fresh numbers. expectedCount or expectedTotal missing
+        (an admin older than v0.18.102) = 400 invalid_request, reason expected_total_required: a run is never approved blind.
+        A match approves as before (answer PayoutRunApproved, total = what he saw; audit payout.run_approve also keeps expectedCount
+        and expectedTotal). A second click after a success still gets 409 nothing_to_approve. The other checks keep their
+        order: reason_required, nothing_to_approve, zone_out_of_scope, then this guard.'
       tags:
       - Admin · Finance
       x-actor:
@@ -18259,10 +18321,25 @@ paths:
       description: 'v0.18.84 (owner Q-S5-1a ''Both''): POST /admin/drivers/{driverId}/paid-movera { expectedOwed, amount,
         reason } (finance.edit, Idempotency-Key, audit driver.paid_movera with amount, owedBefore, owedAfter and reason):
         money the driver paid Movera another way (Swish, bank). amount > 0 in the currency of expectedOwed (= the owed the
-        admin saw); writes an earnings entry kind paid_to_movera (+amount; payout line paid_to_movera), never an edit of past
-        entries. Stale expectedOwed → 409 conflict, reason owed_changed with the fresh OwingDriver (a second click adds nothing,
-        owner 106 rule); amount above the owed now → 400 invalid_request, reason paid_above_owed; reason 1..300 characters
-        (else 400 reason_required). Answer: the fresh OwingDriver.'
+        admin saw); writes earnings entries kind paid_to_movera (+amount), never an edit of past entries. v0.18.97 (Rules
+        audits/impact/j8-rebase-money-fix-supervisor.md §6; server J8 supervisor round 1 must-fix 2; owner Q-M3 "Next payout"
+        + Q-S5-7 "Carry over") the money settles the carried rest first, under the driver row lock: the driver''s open payouts
+        below 0 in that currency (status pending or pending_approval, Payout.amount < 0), oldest first (period start, then
+        payoutId), each locked; for each, its rest = −Payout.amount − the paid_to_movera entries already linked to it; an
+        entry of min(money left, rest) is LINKED to that payout (so no later payout run takes it and pays it back to him);
+        a payout whose rest it covers in full is closed as paid (status paid, paid by the admin, note "Driver paid Movera",
+        audit payout.paid with the reason) and its Payout.summary is frozen in the same step (priceDisplay.payoutSummary.frozenWhenPaid);
+        one covered only in part stays open with less rest. Any amount left over becomes one UNLINKED entry, counted in the
+        next payout''s amount and lines (payout line paid_to_movera, +amount). A linked entry never changes the amount of
+        the payout it is linked to. No entry is ever in Payout.summary (priceDisplay.payoutSummary.paidToMovera). Stale expectedOwed
+        → 409 conflict, reason owed_changed with the fresh OwingDriver (a second click adds nothing, owner 106 rule); amount
+        above the owed now → 400 invalid_request, reason paid_above_owed; reason 1..300 characters (else 400 reason_required).
+        v0.18.106 (wording only, J8 supervisor W1, Rules audits/impact/j8-rebase-money-fix-supervisor.md; server src/admin/driversOwing.ts):
+        an amount ≤ 0 → 400 invalid_request, reason invalid_amount; an amount in another currency than expectedOwed → 400
+        invalid_request, reason currency_mismatch. Answer: the fresh OwingDriver. v0.18.97 (priceDisplay.payoutSummary.frozenWhenPaid,
+        paidToMovera): a payout below 0 whose carried rest this money covers in full is closed as paid (note "Driver paid
+        Movera", audit payout.paid) and its Payout.summary is frozen in the same step; the paid_to_movera entry is never in
+        driverGets or moveraGets.'
       tags:
       - Admin · People
       x-actor:
@@ -18292,7 +18369,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/OwingDriver'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: 'invalid_request: malformed body, unknown enum, wrong reasonCode group, bad PIN. v0.18.106 (debtModel.driverOwes.paidMovera):
+            reason invalid_amount (amount ≤ 0), currency_mismatch (amount in another currency than expectedOwed), paid_above_owed
+            (amount above the owed now), reason_required (reason not 1..300 characters).'
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
@@ -20013,7 +20101,15 @@ components:
           description: 'v0.18.89: TripProjection.cashToCollect (driver and admin views; rider view unchanged) is sent on every
             pay-in-car trip from accept, not only when the wallet paid part (before v0.18.89): fare − walletApplied. The collect
             screen shows CompletePreview.cashDue, else finish.cashToCollect, else this; none of them → "—", never fare − wallet
-            worked out on the phone.'
+            worked out on the phone. v0.18.99 (BQ-M25b; M25 supervisor F1/F2, Rules audits/impact/m25-card-cash-supervisor.md;
+            Rule 21: the wording before is kept as *Before0_18_99): on a trip not paid in the car (paymentMethod not cash)
+            TripProjection.cashToCollect is 0 in every view where it is sent (the rider''s view once the wallet paid part,
+            beside walletApplied); it is no longer fare − walletApplied there. v0.18.99: On a trip whose paymentMethod is
+            not cash (card, apple_pay, wallet): CompletePreview.cashDue = 0, TripFinish.cashToCollect = 0 (driver, rider and
+            admin views; complete, the rider''s end_early, the driver''s end with the rider on board) and TripProjection.cashToCollect
+            = 0 (where it is sent), in the trip''s currency. On a cash trip they are unchanged: fare − walletApplied (cashDue:
+            total − the wallet part; finish.cashToCollect: fare − walletApplied). Offer.cashToCollect already said 0 for any
+            other payment method (priceDisplay.offer.cashToCollect).'
         cancelPreview:
           allOf:
           - $ref: '#/components/schemas/CancelPreview'
@@ -21089,7 +21185,11 @@ components:
           $ref: '#/components/schemas/Money'
     FleetEarnings:
       type: object
-      description: 'v0.5.3: every driver''s earnings in the period, for the fleet owner.'
+      description: 'v0.5.3: every driver''s earnings in the period, for the fleet owner. v0.18.97 (J8 supervisor MF1, Rules
+        audits/impact/j8-rebase-money-fix-supervisor.md §6; contract kpis.money.fleets "Fleet views get only the driver earnings",
+        owner s06:1277): GET /driver/fleet/earnings (FleetEarnings, FleetDriverEarnings) sums only the driver''s earnings
+        entries of the period: a paid_to_movera entry (''Driver paid Movera'') is not earnings and is never in a driver''s
+        earnings (FleetDriverEarnings.earnings) or in total. Wording only; no shape change.'
       required:
       - from
       - to
@@ -22661,6 +22761,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/IncidentRideCheck'
           description: 'v0.12.0: only on kind ride_check.'
+        contactsSms:
+          allOf:
+          - $ref: '#/components/schemas/SosContactsSms'
+          description: 'v0.18.101 §92: the SMS to the driver''s emergency contacts of this case (admin views and feed).'
     RideCheckTrigger:
       type: string
       enum:
@@ -22791,6 +22895,14 @@ components:
           $ref: '#/components/schemas/Id'
         receivedAt:
           $ref: '#/components/schemas/Timestamp'
+        contactsSms:
+          allOf:
+          - $ref: '#/components/schemas/SosContactsSms'
+          description: 'v0.18.101 §92: driver SOS only; The FIRST driver SOS of a case (POST /driver/trips/{tripId}/sos that
+            opens the case, or that joins a case the rider opened): with the setting of the trip zone''s country on, one SMS
+            per contact stored for the driver at that moment. Later SOS on the same case (same or new Idempotency-Key, either
+            side) send nothing more and answer the stored result. A rider SOS never texts anybody and its SosReceipt has no
+            contactsSms.'
     AdminIncidentCommand:
       type: object
       description: 'v0.7.0: take, resolve (Solved) or dismiss (False alarm). The note becomes the resolution.'
@@ -23702,6 +23814,15 @@ components:
             fixed CHECK constant; Rule 46 (no table lock, written undo).'
         driverOwesLimit:
           $ref: '#/components/schemas/DriverOwesLimit'
+        sosContactsSms:
+          type: boolean
+          description: 'v0.18.101 §92: CountryRules.sosContactsSms (boolean) of the COUNTRY STANDARD only, like emergencyNumbers:
+            Admin › Pricing › Tips & limits per country › Emergency numbers card, switch "SMS to the driver''s emergency contacts
+            on SOS" (settings.edit, published with the country_rules document by settings.publish). A zone''s own country_rules
+            carrying it is 400 invalid_request, reason sos_sms_country_only; a value that is not true / false is 400 invalid_request,
+            reason invalid_document. Never saved = configDefaults.sosContactsSms[country] (true everywhere, the owner''s answer),
+            else configDefaults.sosContactsSms.other. Off: no SMS; the SOS, the call and the Movera alert are unchanged.'
+          default: true
       x-server-only: true
     FeeRule:
       type: object
@@ -23885,6 +24006,20 @@ components:
           description: 'v0.18.9: true = a no-answer case also rings the admin alarm and escalates like an SOS; false (default,
             as v0.12.0) = it shows in the safety list without sound.'
           default: false
+        scanEverySeconds:
+          type: integer
+          minimum: 10
+          maximum: 60
+          description: 'v0.18.100: v0.18.100 (BQ-V37, owner W1 Q66 "Yes" = Q-B6): the server looks at a trip''s GPS for a
+            ride check at most once every this many seconds (default 30; 10–60, owner 2026-11-15: at most 60 s). Per zone,
+            like the other ride-check settings. Server only: the apps ignore it (their own checks keep their own timing).
+            v0.18.100 (BQ-V37, owner W1 Q66 "Yes" = Q-B6 "at most every 30 s per trip instead of after every GPS batch"):
+            one scan per trip at most every scanEverySeconds (DriverAppConfig.rideCheck.scanEverySeconds of the trip''s zone,
+            default 30). A GPS batch that comes sooner books the scan for the end of that time instead of now (the newest
+            fixes are read then); a pending scan keeps its due time (never later). The first scan of a trip is not delayed.
+            An admin change applies from the trip''s next scan. The trigger rules, repeatMinutes, the complete / cancel check
+            (dropped_far) and the apps are unchanged.'
+          default: 30
     CategoryWaiting:
       type: object
       description: Waiting terms of one category. Default free wait 5 min, xl 3 min (contract.json#configDefaults).
@@ -23995,7 +24130,10 @@ components:
             minimum: 0
             description: 'v0.18.8: Free wait at each stop (owner re-check 2026-11-01): DriverAppConfig.waiting.stopFreeWaitMin
               (default 0 = no free minutes, as v0.7.1). stop_waiting charges, per stop, only the seconds after the first stopFreeWaitMin
-              minutes of that stop (Σ max(0, (leftAt − arrivedAt) − stopFreeWaitMin × 60) / 60 × stopWaitPerMin).'
+              minutes of that stop (Σ max(0, (leftAt − arrivedAt) − stopFreeWaitMin × 60) / 60 × stopWaitPerMin). v0.18.108
+              (job C9b, contract.json#stopWaits.charge): per stop, (leftAt − arrivedAt) becomes (min(until, away.since while
+              away) − arrivedAt) − pausedSeconds (time away from the stop is never charged; until = leftAt, else now / complete);
+              the free minutes are taken off after that, as before.'
           autoArriveMeters:
             type: integer
             minimum: 30
@@ -25655,6 +25793,21 @@ components:
             extra call buttons on the "SOS sent" screen; (3) ride check "Need help" — the same call buttons; (4) the driver''s
             emergency contacts screen — the built-in number shown is the country list, not 112. Labels in the app language
             (sv / fr / en).'
+        sosContactsSms:
+          type: object
+          description: 'v0.18.101 §92: DriverAppConfig.sosContactsSms { on (the zone country''s switch), connected (an SMS
+            company is connected on this server) }, written by the server into GET /driver/config like emergencyNumbers (driverConfigZone).
+            The app promises an SMS only when on and connected.'
+          required:
+          - 'on'
+          - connected
+          properties:
+            'on':
+              type: boolean
+              description: The zone country's switch.
+            connected:
+              type: boolean
+              description: An SMS company is connected on this server.
     CategoryPricingWaiting:
       type: object
       description: Waiting at pickup for one category; RiderAppConfig / DriverAppConfig waiting.byCategory carry the same
@@ -27070,8 +27223,10 @@ components:
       description: 'v0.18.1 (CONTRACT.md §26): the final price complete would set now, frozen for 120 s. total and fareLines
         are computed by the same code as POST /trips/{tripId}/complete would at that moment with the driver''s latest fix
         (pricing.driverEndsEarly): earlyEnd is true when the driver is farther than pricing.completeNearDropoffMeters from
-        the drop-off. cashDue = total − the part the rider''s wallet would pay. driverEarnings = the driver''s part of that
-        total (as TripProjection.driverEarnings after complete), for the sheet''s cash balance.'
+        the drop-off. cashDue = total − the part the rider''s wallet would pay on a trip paid in the car (paymentMethod cash);
+        0 on every other trip (card, Apple Pay, wallet: nothing is collected in the car, contract.json#priceDisplay.nonCashZero).
+        driverEarnings = the driver''s part of that total (as TripProjection.driverEarnings after complete), for the sheet''s
+        cash balance.'
       required:
       - previewId
       - expiresAt
@@ -27096,7 +27251,11 @@ components:
           allOf:
           - $ref: '#/components/schemas/Money'
           description: 'What the driver collects in cash: total less what the rider''s wallet would pay. Send it as cashCollected
-            on complete.'
+            on complete. v0.18.99: On a trip whose paymentMethod is not cash (card, apple_pay, wallet): CompletePreview.cashDue
+            = 0, TripFinish.cashToCollect = 0 (driver, rider and admin views; complete, the rider''s end_early, the driver''s
+            end with the rider on board) and TripProjection.cashToCollect = 0 (where it is sent), in the trip''s currency.
+            On a cash trip they are unchanged: fare − walletApplied (cashDue: total − the wallet part; finish.cashToCollect:
+            fare − walletApplied). Offer.cashToCollect already said 0 for any other payment method (priceDisplay.offer.cashToCollect).'
         driverEarnings:
           allOf:
           - $ref: '#/components/schemas/Money'
@@ -27937,7 +28096,8 @@ components:
             paid-movera), paid_above_owed and owes_limit_needs_amount (400 invalid_request). v0.18.86 reason: commission_steps_invalid
             (400 invalid_request, PUT /admin/config/pricing and its publish; details ["step:<index>", "problem:<code>"], contract.json#commissionSteps.validation).
             v0.18.93 reasons: driver_away_from_pickup (409, the driver''s no-show while the waiting clock is stopped), invalid_auto_arrive_distance
-            (400, contract.json#autoArrive.settings.validation).'
+            (400, contract.json#autoArrive.settings.validation). v0.18.108 reason: not_at_stop (409 invalid_transition, the
+            driver''s stop tap or back tap farther than allowed from the stop; contract.json#autoArrive.stops.tap / back).'
         details:
           type: array
           items:
@@ -28453,16 +28613,22 @@ components:
               previewId, cashCollected } with the trip''s latest previewId before expiresAt: complete uses the frozen price
               exactly (total, fareLines, driverEarnings, earlyEnd): no early-end flip, no extra minutes or waiting. On a cash
               trip cashCollected must equal its cashDue (and the wallet part must be unchanged); otherwise 409 conflict, reason
-              price_changed, with a fresh preview in the error''s preview field. previewId missing, unknown or expired: complete
-              prices the trip as now. If the app sent previewId with cashCollected and that no longer equals the cash part
-              of the new price: 409 conflict, reason price_changed, with a fresh preview (error.preview); the trip is not
-              completed and the driver is never trapped by a 400. Without previewId (older apps) cashCollected keeps its old
-              rule (at most the fare less the wallet, else 400 cash_above_fare).'
+              price_changed, with a fresh preview in the error''s preview field. v0.18.99 (BQ-M25b; M25 supervisor F1/F2,
+              Rules audits/impact/m25-card-cash-supervisor.md; Rule 21: the wording before is kept as *Before0_18_99): on
+              a trip not paid in the car cashCollected is not compared: 0 (its cashDue) or an older app''s total − wallet
+              part is taken, never 409 price_changed, and the trip books 0 cash; more than total − wallet part stays 400 cash_above_fare.
+              previewId missing, unknown or expired: complete prices the trip as now. If the app sent previewId with cashCollected
+              and that no longer equals the cash part of the new price: 409 conflict, reason price_changed, with a fresh preview
+              (error.preview); the trip is not completed and the driver is never trapped by a 400. Without previewId (older
+              apps) cashCollected keeps its old rule (at most the fare less the wallet, else 400 cash_above_fare).'
           cashCollected:
             allOf:
             - $ref: '#/components/schemas/Money'
             description: 'v0.18.1: on a cash trip the cashDue of GET /driver/trips/{tripId}/complete-preview that the app
-              showed; at most the fare less the wallet (else 400 cash_above_fare). Absent: the fare less the wallet.'
+              showed; at most the fare less the wallet (else 400 cash_above_fare). Absent: the fare less the wallet. v0.18.99:
+              POST /trips/{tripId}/complete with a previewId on such a trip: cashCollected 0 (the cashDue shown), an older
+              app''s total − wallet part, or none are all taken; never 409 price_changed for the cash amount; the trip books
+              0 cash. More than total − wallet part: 400 cash_above_fare (unchanged).'
     NoShowCommand:
       allOf:
       - $ref: '#/components/schemas/TripCommand'
@@ -31137,7 +31303,8 @@ components:
         so no key is kept in the apps'' code: { provider: fcm, enabled, projectId?, webConfig? { apiKey, appId, messagingSenderId,
         projectId, authDomain? } }. The server reads the web app (display name ''Movera Driver web'' / ''Movera Rider web'')
         from the Firebase Management API with its service account once and keeps it in memory. enabled false (no projectId,
-        no webConfig) when the server has no Firebase settings; the app then skips push.'
+        no webConfig) when the server has no Firebase settings; the app then skips push. v0.18.105: &platform=android gives
+        androidConfig instead (auth.devices.config.android).'
       required:
       - provider
       - enabled
@@ -31153,6 +31320,19 @@ components:
           type: string
         webConfig:
           $ref: '#/components/schemas/PushWebConfig'
+        androidConfig:
+          allOf:
+          - $ref: '#/components/schemas/PushWebConfig'
+          description: 'v0.18.105: only with platform=android. v0.18.105 (BQ-V43; G4 decision 1 "Push + sound + vibration",
+            owner R7 "Set up Firebase now", Rules decisions/driver-g4.md:2, driver-g2.md:61): GET /push/config?app=driver|rider&platform=android
+            gives { provider: fcm, enabled, projectId?, androidConfig? { apiKey, appId, messagingSenderId, projectId } }:
+            the public settings of the project''s Firebase Android app with the app''s package name (androidPackages), read
+            once with the server''s service account from the Firebase Management API (the app''s google-services.json: mobilesdk_app_id,
+            the current api key, project_number) and kept in memory. They are public (inside every APK), never a secret, so
+            no google-services.json, no Google services Gradle plugin and no key is kept in any app repository or CI. enabled
+            false (no androidConfig) when the server has no Firebase settings or the project has no Android app with that
+            package; the app then skips push and says so in its log. Without platform, or platform=web, the answer is the
+            v0.18.3 one (webConfig), unchanged. A failed read is tried again after 5 minutes.'
     AdminVehicleUpdate:
       type: object
       description: 'PATCH /admin/vehicles/{vehicleId} { expectedVersion, make?, model?, year?, color?, plate?, seats?, fuel?,
@@ -31258,7 +31438,8 @@ components:
     StopVisit:
       type: object
       description: 'v0.7.1: one extra stop the driver arrived at (contract.json#stopWaits); stop_waiting runs from arrivedAt
-        to leftAt (or to complete).'
+        to leftAt (or to complete). v0.18.108: TripProjection.stopVisits[] carries the same four fields (stops[i] is canonical).
+        A route change keeps a visited stop''s fields with it.'
       required:
       - stopIndex
       - arrivedAt
@@ -31270,6 +31451,60 @@ components:
           $ref: '#/components/schemas/Timestamp'
         leftAt:
           $ref: '#/components/schemas/Timestamp'
+        arrivedBy:
+          type: string
+          enum:
+          - auto
+          - tap
+          description: 'v0.18.108: "auto" | "tap" (absent on a stop arrived before v0.18.108). Trip status in_trip or approaching_dropoff,
+            the NEXT stop i (every earlier stop has arrivedAt, stop i has none) and the latest counting fix within autoArriveMeters
+            of stops[i], confirmed by autoArrive.confirm (2 counting fixes in a row at least 5 s apart, both within, slow:
+            at most 15 km/h): the server runs the same step as POST /driver/trips/{tripId}/stops/{i}/arrive, as the driver:
+            stops[i].arrivedAt = now (server time), an earlier stop still open gets leftAt = now (as the tap), version + 1,
+            trip_projection, stops[i].arrivedBy auto. No rider push (the stop tap has none). Stops are taken in order: fixes
+            near stop i+1 while stop i has no arrivedAt change nothing. v0.18.108 round 2 (C9b supervisor M1, M2, S1, S2,
+            Rules audits/impact/c9b-middle-stops-supervisor.md): while an earlier stop is still open (arrivedAt, no leftAt)
+            and the driver is not away from it (no away), auto arrival at the next stop also needs BOTH fixes of the confirming
+            pair farther than autoArriveMeters from that open stop; otherwise only the driver''s tap marks the next stop arrived
+            (two stops close together: he is still waiting at the open one). While the open stop is away, or no stop is open,
+            the rule above alone applies. Same job as the pickup: timer kind pickup_geofence on the trip lane (one geofence
+            job per trip; also for middle stops), booked only while the trip has an unvisited or open stop, never inside POST
+            /driver/location''s answer.'
+        away:
+          type: object
+          description: 'v0.18.108: { since: Timestamp } while the stop wait stands still; absent otherwise (on a left stop:
+            it was left while away). Stop i open (arrivedAt, no leftAt) and the latest counting fix farther than leaveMeters
+            from stops[i], confirmed (2 in a row at least 5 s apart, both farther): the stop wait stands still. stops[i].away
+            = { since } (since = the first fix of the confirming pair''s measuredAt, never before arrivedAt nor after now).
+            No version change; a trip_projection event goes out. While stops[i].away is set: a confirmed counting fix within
+            autoArriveMeters of stops[i] (2 in a row at least 5 s apart, both within, slow), or the driver''s back tap (POST
+            /driver/trips/{tripId}/stops/{i}/arrive, texts.driverStopBack; the position as for a new app''s first tap (a fresh
+            sent location, else the server''s fresh latest fix; none fresh: position_stale), for every app, and within the
+            trip''s leaveMeters of stops[i] — not the first tap''s 300 m — else 409 invalid_transition, reason not_at_stop,
+            and the clock stays stopped; then version + 1), is the new arrival: stopped = resumeAt − away.since, at least
+            0 (resumeAt = the first fix of the confirming pair''s measuredAt, never before since nor after now; a tap: now);
+            stops[i].pausedSeconds grows by stopped, stops[i].pauseCount by 1, stops[i].away goes; arrivedAt does not change.
+            GPS between leaveMeters and autoArriveMeters changes nothing (no flip-flop). Not away: a second arrive is 409
+            stop_already_arrived, as before. Charged stop time per stop = (min(until, away.since while away) − arrivedAt)
+            − pausedSeconds, at least 0, minus the free minutes stopFreeWaitMin × 60 (at least 0); until = leftAt, else now
+            / the complete moment (contract.json#stopWaits.charge). Priced as before: Σ charged seconds / 60 × stopWaitPerMin,
+            half-up to a minor unit (TND 3 decimals); 100 % the driver''s. The live fare, the complete preview''s stop_waiting
+            line and the final fare use the same number. Away time never costs the rider. Examples: fixtures/auto_arrive.json#stops
+            (SEK, TND), replayed by reference_check.py.'
+          required:
+          - since
+          properties:
+            since:
+              $ref: '#/components/schemas/Timestamp'
+          additionalProperties: false
+        pausedSeconds:
+          type: integer
+          minimum: 0
+          description: 'v0.18.108: integer ≥ 0: seconds of finished away spells at this stop (0 or absent: none).'
+        pauseCount:
+          type: integer
+          minimum: 0
+          description: 'v0.18.108: integer ≥ 0: finished away spells at this stop.'
     StopCommand:
       type: object
       description: 'v0.7.1: the driver''s arrived-at-stop or leaving-stop tap.'
@@ -31280,6 +31515,23 @@ components:
           type: integer
           minimum: 1
           description: Version the caller last saw; stale → 409 version_mismatch.
+        location:
+          allOf:
+          - $ref: '#/components/schemas/GeoFix'
+          description: 'v0.18.108: optional, on arrive (the first tap and the back tap; ignored on leave). The first stop
+            tap (POST /driver/trips/{tripId}/stops/{i}/arrive) carries a position check (owner "only within that distance").
+            v0.18.108 round 2 (C9b supervisor M1, M2, S1, S2, Rules audits/impact/c9b-middle-stops-supervisor.md): Driver
+            apps with X-Contract-Version ≥ 0.18.108: the position is the location sent with the tap (GeoFix) only when its
+            measuredAt is at most DriverAppConfig.waiting.positionMaxAgeSeconds from now; a sent location that is older never
+            counts. Otherwise the server falls back to its latest stored fix of the driver (POST /driver/location), only if
+            that fix is fresh within the same limit. Only when no fresh position exists but one was sent or stored: 409 invalid_transition,
+            reason position_stale. No position at all, or the fresh position farther than 300 m (ARRIVE_MAX_METERS, as the
+            pickup tap: app autoArriveMeters, server 300 m, decisions/driver-g5.md:2) from stops[i]: 409 invalid_transition,
+            reason not_at_stop. Driver apps without the header, or with a lower version (the same as the pickup''s old-app
+            path): the server''s latest stored fix, at any age, must be within 300 m of stops[i], else 409 invalid_transition,
+            reason not_at_stop; with no stored fix at all the tap is taken as before, so an older app is never stuck. A tap
+            after the server already marked the stop arrived answers 409 stop_already_arrived (or version_mismatch with the
+            projection): the app takes it as done.'
     ConfigHistoryEntry:
       type: object
       description: 'v0.7.1: one published version (contract.json#pricingHistory).'
@@ -33932,7 +34184,12 @@ components:
             /trips/{tripId}/receipt cashPaid. Money is formatted by moneyDisplay. Wording only: no API shape change. Server:
             no change (the rider view already carries finish.cashToCollect). Admin: none (rider-only line, no setting). Driver:
             none (its collect screen is the source of the amount). sv wording owner OK 2026-11-12 ~17:30; fr = the owner''s
-            words (no « dans la voiture », Q13).'
+            words (no « dans la voiture », Q13). v0.18.99: On a trip whose paymentMethod is not cash (card, apple_pay, wallet):
+            CompletePreview.cashDue = 0, TripFinish.cashToCollect = 0 (driver, rider and admin views; complete, the rider''s
+            end_early, the driver''s end with the rider on board) and TripProjection.cashToCollect = 0 (where it is sent),
+            in the trip''s currency. On a cash trip they are unchanged: fare − walletApplied (cashDue: total − the wallet
+            part; finish.cashToCollect: fare − walletApplied). Offer.cashToCollect already said 0 for any other payment method
+            (priceDisplay.offer.cashToCollect).'
         driverTotal:
           allOf:
           - $ref: '#/components/schemas/Money'
@@ -34143,9 +34400,11 @@ components:
         = the server''s route distance / route duration of the driver''s leg to the pickup, else dispatch''s pickup speed).
         It runs with the server ETA, every pickupWaiting.eta.everySeconds (30 s), from accept until arrived, for the whole
         wait, not only once. DriverAppConfig.headingCheck { on, headingPct, notHeadingMinutes, reassign } per zone (or the
-        country standard); defaults configDefaults.headingCheck (on, 80 %, 2 min, reassign on). The admin''s ''Smart cancel
-        check'' / ''Came closer by'' controls map to on / headingPct. v0.18.35: + notice (default true) and noticeEveryMin
-        (default 1, range 1-10); reassign default false and read-only (live rides are never taken back).'
+        country standard); defaults configDefaults.headingCheck (on, 80 %, 2 min, reassign false). The admin''s ''Smart cancel
+        check'' / ''Heading to the pickup (%)'' controls map to on / headingPct. v0.18.35: + notice (default true) and noticeEveryMin
+        (default 1, range 1-10); reassign default false and read-only (live rides are never taken back). v0.18.106 (wording
+        only, Rules audits/impact/v35-v36-safety.md): the defaults read reassign false (as since v0.18.35) and the admin control
+        is named ''Heading to the pickup (%)'' (was ''Came closer by''); no shape change.'
       properties:
         'on':
           type: boolean
@@ -34826,7 +35085,10 @@ components:
           type: integer
           minimum: 0
         earnings:
-          $ref: '#/components/schemas/Money'
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.96: the trip''s driverEarnings line, without Movera''s bonus and pickup pay; not shown to the
+            driver (he sees driverTotal).'
         status:
           $ref: '#/components/schemas/TripStatus'
         mustBeOnlineAt:
@@ -34845,6 +35107,23 @@ components:
           - $ref: '#/components/schemas/ReservationInfo'
           description: 'v0.18.19 (live test HIGH 2): the same reservation as the trip read, so the list knows changeAsk (Keep
             it at the new time?) and leaveAt.'
+        driverTotal:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.96: DriverReservation.driverTotal: Money, driver view only, on every item of GET /driver/reservations
+            (scope open and scope accepted): what the driver gets for this booked ride = driverEarnings + pickupPay + driverBonus
+            of the trip as it stands now, plus Movera''s driver-pay change on a held ride (driverAdjustments, J6: an admin
+            may change the pay of an accepted booked ride; capped so the pay never shows below 0; same as TripProjection.driverTotal,
+            finish.driverMoney.rule ''one number''); no tip (none before the trip). Movera''s bonus the admin added is inside.
+            In the trip''s currency. An open ride (not yet accepted) has no change, so there it equals Offer.driverTotal (whose
+            driverEarnings already holds the bonus). A rider change the driver is asked to keep (reservation.changeAsk) sends
+            the new number. DriverReservation.earnings stays as before (the trip''s driverEarnings line without Movera''s
+            bonus and pickup pay) and is not shown. Absent only from a server before v0.18.96: the app shows ''—'' (never
+            earnings plus anything, never a number worked out on the phone). Whole amounts keep their decimals (moneyDisplay.wholeAmounts:
+            65,00 kr, 65.000 DT). It is never sent to the rider: rider views have no DriverReservation and the rider''s trip
+            read never carries driverTotal (priceDisplay.offer, finish.driverMoney). The Booked rides list, its ride sheet,
+            the Home booked-ride popup, the ''ride changed'' notice and the ''Keep it at the new time?'' question show ONLY
+            DriverReservation.driverTotal; ''—'' without it; the app never adds, subtracts or parses amounts.'
     DriverReservationPage:
       type: object
       description: v0.18.17.
@@ -35120,6 +35399,8 @@ components:
       - country
       - periodEnd
       - reason
+      - expectedCount
+      - expectedTotal
       properties:
         country:
           type: string
@@ -35131,6 +35412,17 @@ components:
           minLength: 1
           maxLength: 300
           description: 'v0.18.29 (owner A2-3): why the run is approved; kept in the audit.'
+        expectedCount:
+          type: integer
+          minimum: 1
+          description: 'v0.18.102 (payoutMode.approveGuard): how many payouts of the run the admin saw.'
+        expectedTotal:
+          type: array
+          items:
+            $ref: '#/components/schemas/Money'
+          minItems: 1
+          description: 'v0.18.102 (payoutMode.approveGuard): the run''s Payout.amount summed per currency as the admin saw
+            it, one Money per currency.'
     PayoutRunApproved:
       type: object
       required:
@@ -36518,12 +36810,13 @@ components:
         "write only how much in amour driver get and how much movera get in amount dont write any fucking pourcentage" — "Movera
         gets = commission + app fee as one amount"). Payout.summary { driverGets: Money, moveraGets: Money }, same currency
         as Payout.amount; driver (GET /driver/payouts) and admin (GET /admin/payouts, the payout page, the payout run card)
-        views. v0.18.92 (supervisor MF1 / MF2 / G2 on server BQ-M22; GM 2026-11-14): ''the payout''s period'' means the payout''s
-        OWN entries — the earnings entries the payout pays (each entry is in one payout only: a manual and a weekly payout
-        over the same days never count an entry twice; a late or carried entry counts in the payout that pays it; a paid payout''s
-        numbers never move to another payout). driverGets = the sum of the payout''s entries (trip, tip, pickup pay, bonus,
-        pay change, cancel / no-show share, a lost-driver payment), each once — all his earnings in it, all trips (pay in
-        car and in app alike; = Payout.amount + the cash he collected); a tip, bonus or pay change is its own entry, counted
+        views. v0.18.92 (supervisor MF1 / MF2 / G2 on server BQ-M22; GM 2026-11-14; v0.18.97 J8 wording, Rules audits/impact/j8-rebase-money-fix-supervisor.md
+        §6): ''the payout''s period'' means the payout''s OWN entries — the earnings entries the payout pays (each entry is
+        in one payout only: a manual and a weekly payout over the same days never count an entry twice; a late or carried
+        entry counts in the payout that pays it; a paid payout''s numbers never move to another payout). driverGets = the
+        sum of the payout''s entries (trip, tip, pickup pay, bonus, pay change, cancel / no-show share, a lost-driver payment),
+        each once — all his earnings in it, all trips (pay in car and in app alike; = Payout.amount + the cash he collected
+        − his paid_to_movera entries in Payout.amount, see paidToMovera); a tip, bonus or pay change is its own entry, counted
         once and never added again. moveraGets = Movera''s commission PLUS the app fee, as ONE amount (owner 2026-11-14 ~05:17
         UTC, Rules decisions/session-2026-11-06.md:1278: "write only how much in amour driver get and how much movera get
         in amount dont write any fucking pourcentage" — "Movera gets = commission + app fee as one amount"): for each trip
@@ -36535,10 +36828,32 @@ components:
         payments off (moneySplit.movera; and, on a trip with no paid end, the lost driver''s bonus entry once, in the payout
         that pays it — moneyBase.lostDriverPaid.kpi), the driver''s never shows another driver''s money (moneyBase.lostDriverPaid.driverView:
         what Movera keeps from HIS trips). The app fee is never added a second time and never shown as its own line or as
-        a %. The server works both out; the apps never do (no adding of lines, no subtracting). Exactly two lines on every
-        payout card, in the driver app and in the admin: "Driver gets 1 000,00 kr" / "Movera gets 150,00 kr" — amounts only,
-        never a % (no commission % or app fee %). No other detail line on the card (no Payout.lines, no cash collected, no
-        owed, no paid-out, no app-fee line). Absent (an older server) → the card shows Payout.amount only.'
+        a %. A ''Driver paid Movera'' entry (kind paid_to_movera, debtModel.driverOwes.paidMovera) is money FROM the driver,
+        never in driverGets or moveraGets, in the payout it closes or in the next payout (paidToMovera). The server works
+        both out; the apps never do (no adding of lines, no subtracting). Exactly two lines on every payout card, in the driver
+        app and in the admin: "Driver gets 1 000,00 kr" / "Movera gets 150,00 kr" — amounts only, never a % (no commission
+        % or app fee %). No other detail line on the card (no Payout.lines, no cash collected, no owed, no paid-out, no app-fee
+        line). Absent (an older server) → the card shows Payout.amount only. v0.18.95 (server BQ-M26; M24 supervisor N1, Rules
+        audits/impact/server-m24-m22-supervisor.md:178; owner rule "a paid payout''s numbers never change"): a PAID payout''s
+        summary is frozen. When an admin marks the payout paid (POST /admin/payouts/{payoutId}/paid), or when POST /admin/drivers/{driverId}/paid-movera
+        covers the payout''s carried rest in full and closes it as paid (v0.18.97 J8, Rules audits/impact/j8-rebase-money-fix-supervisor.md
+        §6; status paid, note "Driver paid Movera", audit payout.paid; frozen in the same step, in the same transaction),
+        the server works out both views at that moment (the driver''s and the admin''s, which may differ) and from then on
+        sends exactly those amounts for that payout (server migration 0109, payouts.paid_summary): a later pay change, refund
+        or bonus on one of its trips never moves a paid payout''s driverGets or moveraGets ("what Movera keeps now" above
+        is read at the moment it is paid); such a change shows only where it is booked (a new entry in the next payout). A
+        payout not yet paid (pending, pending_approval) stays live. Payouts already paid before the server had 0109 are frozen
+        once when that server starts (freeze at deploy: the values of that moment). The apps change nothing. v0.18.97 (J8,
+        Rules audits/impact/j8-rebase-money-fix-supervisor.md §6; owner s06:1277 "Driver gets" = his earnings, Q-M3 the negative
+        rest carries): a ''Driver paid Movera'' entry (earnings entry kind paid_to_movera, written by POST /admin/drivers/{driverId}/paid-movera,
+        debtModel.driverOwes.paidMovera) is money the driver paid Movera, not earnings and not Movera''s commission: it is
+        never in driverGets or moveraGets — not in the payout it closes (an entry linked to an earlier payout below 0 to settle
+        its carried rest) and not in the next payout (an unlinked entry, that payout''s paid_to_movera line). Payout.amount
+        and Payout.lines still count an unlinked entry (line paid_to_movera, +amount), so driverGets = Payout.amount + the
+        cash he collected − his paid_to_movera entries in Payout.amount (the paid_to_movera line); an entry linked to an earlier
+        payout is not in that payout''s amount (its amount stays as it was run), so there driverGets = Payout.amount + the
+        cash he collected. The owed (debtModel.driverOwes.owed) and the admin list still count every entry. Wording only;
+        no shape change; the apps change nothing.'
       required:
       - driverGets
       - moveraGets
@@ -36548,3 +36863,93 @@ components:
         moveraGets:
           $ref: '#/components/schemas/Money'
       additionalProperties: false
+    DriverPayoutPage:
+      allOf:
+      - $ref: '#/components/schemas/PayoutPage'
+      - type: object
+        properties:
+          nextPayoutAt:
+            allOf:
+            - $ref: '#/components/schemas/Timestamp'
+            description: 'v0.18.94: nextPayoutAt = the end of the driver''s payout period that holds now (payouts.schedule:
+              the country standard''s CountryRules.payoutSchedule, default weekly Monday 08:00; the time zone of his first
+              zone, else his country''s countryTimeZones, else Europe/Stockholm; every_2_weeks counted from anchorWeek) —
+              the moment the payout job makes his next payout. A changed schedule shows at the next read (it applies to the
+              next period). Left out (absent, never null) when his payouts are paused (payoutHold: no scheduled payout is
+              made while held; the app is not told the reason) or the server cannot work it out; the app then shows its old
+              ''payout date is not available'' line. payoutMode manual does not change it: the run is still made at that moment
+              and waits for the admin''s approval (shown as pending).'
+          nextPayoutLocal:
+            type: string
+            pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$
+            description: 'v0.18.94: nextPayoutAt as wall-clock time in nextPayoutTimeZone. Driver app, Wallet: ''Next payout:
+              Mon 08:00'' — weekday short name and HH:MM of nextPayoutLocal in the app language (sv ''Nästa utbetalning: mån
+              08:00'', fr ''Prochain versement : lun. 08:00'', en ''Next payout: Mon 08:00'') with the date under it; it shows
+              the payout zone''s time, not the phone''s.'
+          nextPayoutTimeZone:
+            type: string
+            description: 'v0.18.94: the IANA time zone of the driver''s payouts (his first zone, else his country).'
+      description: 'v0.18.94: Page<Payout> of GET /driver/payouts with the driver''s next payout moment. DriverPayoutPage.nextPayoutAt
+        (Timestamp, UTC) + DriverPayoutPage.nextPayoutLocal (string ''YYYY-MM-DDTHH:MM'', the same moment as wall-clock time
+        in the payout''s time zone) + DriverPayoutPage.nextPayoutTimeZone (IANA name) on GET /driver/payouts only (every page,
+        also when items is empty). The admin GET /admin/payouts never sends them.'
+    SosContactsSms:
+      type: object
+      description: 'v0.18.101 §92: SosContactsSms { status, contacts (number of SMS asked for, 0 or more), sent? (accepted
+        by the SMS company; only for sent / failed), at (when decided) }. status: off (admin switch off), no_contacts (the
+        driver has none), not_connected (no SMS company; rows kept as skipped), queued (handed to the SMS company after the
+        save), sent, failed. Optional SosReceipt.contactsSms (driver SOS only; the stored result on a repeat) and optional
+        Incident.contactsSms (admin case views and the incident feed; absent = no driver SOS on the case, or a case from before
+        v0.18.101). The SMS rows are written in sms_outbox (kind sos_contact) inside the SOS command. No SMS company connected
+        (today: BUILD-QUEUE §3, 46elks + Twilio chosen, keys missing): every row is kept with status skipped and the result
+        is not_connected ("SMS not connected"); nothing is sent and nothing pretends it was. With an SMS company: the rows
+        are written queued and handed to it only AFTER the SOS is saved (never inside the command, so the SOS answer and the
+        emergency call never wait for it); the case''s result then becomes sent (at least one accepted) or failed (none accepted).
+        The SMS step never fails the SOS: it runs in its own savepoint; on any error only it is rolled back, the case and
+        the Movera alert stay, and the result is failed (sent 0).'
+      required:
+      - status
+      - contacts
+      - at
+      properties:
+        status:
+          type: string
+          enum:
+          - 'off'
+          - no_contacts
+          - not_connected
+          - queued
+          - sent
+          - failed
+        contacts:
+          type: integer
+          minimum: 0
+          description: SMS asked for (one per stored contact).
+        sent:
+          type: integer
+          minimum: 0
+          description: Accepted by the SMS company; only for sent / failed.
+        at:
+          $ref: '#/components/schemas/Timestamp'
+    PayoutRunCard:
+      type: object
+      description: 'v0.18.102: PayoutRunCard { country, periodEnd, count, total: Money[] } — the server''s numbers of the
+        run at that moment (count = the payouts the admin would approve; total = their Payout.amount per currency). The admin
+        shows count and total exactly as the server sent them. Sent as Error.projection with 409 conflict, reason run_changed.'
+      required:
+      - country
+      - periodEnd
+      - count
+      - total
+      properties:
+        country:
+          type: string
+        periodEnd:
+          $ref: '#/components/schemas/Timestamp'
+        count:
+          type: integer
+          minimum: 0
+        total:
+          type: array
+          items:
+            $ref: '#/components/schemas/Money'
