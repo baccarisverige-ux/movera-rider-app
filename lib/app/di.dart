@@ -459,7 +459,12 @@ class AppScope {
 
   /// The app language: the rider's choice, else the zone default (Q48).
   late final AppLanguageController language = AppLanguageController();
-  late final PickupSpotsController pickupSpots = PickupSpotsController();
+
+  /// v0.18.115 (BQ-V21): the entrance chips follow the pickup zone's
+  /// `booking.pickupSpots.on` (default on).
+  late final PickupSpotsController pickupSpots = PickupSpotsController(
+    entrancesOn: (at) => PickupSpotsController.entrancesOnFrom(riderConfig)(at),
+  );
   late final SupportController support = SupportController();
   late final OnboardingController onboarding = OnboardingController();
   late final DestinationController destinationMemory = DestinationController();
