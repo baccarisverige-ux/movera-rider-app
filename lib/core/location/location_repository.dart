@@ -193,13 +193,16 @@ class LocationRepository {
   /// Forgets the app's last good fix (not [lastZoneKey]). Called when a session ends (sign-out
   /// and session expiry) so the next person using a shared or handed-down
   /// phone never sees the previous rider's last position. Best effort.
-  static Future<void> clearLastGoodFix() async {
+  /// False when the saved position could not be removed (UserDataWipe then
+  /// keeps the previous rider recorded and wipes again).
+  static Future<bool> clearLastGoodFix() async {
     _sessionFix = null;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(lastGoodFixKey);
+      return await prefs.remove(lastGoodFixKey);
     } catch (_) {
       // Best effort only.
+      return false;
     }
   }
 

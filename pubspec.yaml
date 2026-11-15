@@ -69,6 +69,9 @@ dev_dependencies:
   # The map release test stands in a maps platform that creates its view,
   # so the widget holds a controller with a map id as it does in a browser.
   google_maps_flutter_platform_interface: ^2.14.0
+  # The wipe tests stand in a store whose remove fails (a wipe that stops
+  # part-way).
+  shared_preferences_platform_interface: ^2.4.1
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
