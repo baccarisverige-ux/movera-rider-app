@@ -138,6 +138,8 @@ class RideStageSeat {
     if (holds) {
       // Unmount: nobody may be told now; the map goes with this screen.
       _map.holder._value = null;
+      // Supervisor F1: the controller belongs to the map that just went.
+      _map._controller = null;
     }
   }
 }

@@ -354,6 +354,10 @@ class _FindingDriversState extends State<FindingDrivers> {
     // RIDE-8: a route change made on Waiting is saved to the ride snapshot
     // (and the server), not handed back here. Search again with the ride's
     // current route and price, not the ones this screen started with.
+    // G25 step B (supervisor F2): take the trip map back before any await, so
+    // it is never left without a seat while Waiting's route leaves.
+    _takeTripMapBack();
+    setState(() => _mapParked = false);
     final current = await _match.storedRide();
     if (!mounted) return;
     if (current != null) _adoptRoute(current);
@@ -373,10 +377,8 @@ class _FindingDriversState extends State<FindingDrivers> {
     _overlayOn = false;
     _nearbyPaintKey = 0;
     setWebOverlayOpen(false);
-    // G25 step B: the trip map comes back from Waiting in this frame; its
-    // owner is attached again once it is shown (_onKeptMapResumed).
-    _takeTripMapBack();
-    setState(() => _mapParked = false);
+    // G25 step B: the trip map came back from Waiting above (before the
+    // await); its owner is attached again once it is shown (_onKeptMapResumed).
     // A new dispatch round: its own "still looking" mark.
     _startMatching(
       price: effectivePrice,
