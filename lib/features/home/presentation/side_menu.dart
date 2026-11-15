@@ -14,6 +14,8 @@ import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:movera_rider/features/history/presentation/ride_history_result.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
+import 'package:movera_rider/features/profile/presentation/app_version_line.dart';
+import 'package:movera_rider/core/constants/app_version.dart';
 import 'package:movera_rider/features/profile/presentation/language_picker.dart';
 import 'package:movera_rider/features/profile/presentation/personal_info.dart';
 import 'package:movera_rider/features/profile/presentation/privacy.dart';
@@ -60,7 +62,12 @@ class RiderMenuPage extends StatelessWidget {
     );
   }
 
-  static const String appVersion = '1.0.0';
+  /// BQ-V46 (G7; owner 2026-11-11 set 2 "App version + build number inside
+  /// both apps": "Yes, both apps"): "Movera Rider 1.4.0 (583)", read from
+  /// the build ([appVersion], `MOVERA_APP_VERSION`, the same source as the
+  /// Account "Version x (build)" line); was its own hard-coded '1.0.0'.
+  static String versionText(String raw, [AppLocalizations? l10n]) =>
+      (l10n ?? L10n.current).menuAppVersion(AppVersionLine.short(raw));
 
   static const Color _ink = MoveraTokens.ink;
   // UI-6: was 0xFF6B757D, 4.27:1 on the card fill 0xFFF3F4F5.
@@ -121,7 +128,8 @@ class RiderMenuPage extends StatelessWidget {
               ..._accountRows(context),
               const SizedBox(height: 22),
               Text(
-                context.l10n.menuAppVersion(appVersion),
+                versionText(appVersion, context.l10n),
+                key: const ValueKey<String>('menu-app-version'),
                 style: _text(13, color: MoveraTokens.subtle),
               ),
             ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/constants/app_version.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
@@ -110,10 +111,7 @@ void main() {
     ]) {
       expect(find.text(title), findsOneWidget, reason: title);
     }
-    expect(
-      find.text('Movera Rider v${RiderMenuPage.appVersion}'),
-      findsOneWidget,
-    );
+    expect(find.text(RiderMenuPage.versionText(appVersion)), findsOneWidget);
     // The back arrow returns to Home.
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('menu-back')),
