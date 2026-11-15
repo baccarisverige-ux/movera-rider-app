@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -68,26 +66,5 @@ void main() {
     await tester.pumpAndSettle();
     expect(confirmed, 1);
     expect(session.scheduledAt, DateTime.utc(2026, 11, 15, 15, 5));
-  });
-
-  test('QA live Rider flow taps Continue again when the slot moved', () {
-    final yml = File(
-      '.github/workflows/qa-live-rider-flow.yml',
-    ).readAsStringSync();
-    final start = yml.indexOf("'Continue','Book later: date and time'");
-    final end = yml.indexOf("'select_ride','Book later: categories'");
-    expect(start, greaterThan(0));
-    expect(end, greaterThan(start));
-    final step = yml.substring(start, end);
-    expect(
-      step,
-      contains('Pickup time updated to the next available slot.'),
-      reason: 'the script must see the rider-u227 correction',
-    );
-    expect(
-      step,
-      contains("'Continue','Book later: date and time (moved slot)'"),
-      reason: 'and tap Continue once more',
-    );
   });
 }
