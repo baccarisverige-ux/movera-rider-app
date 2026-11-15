@@ -81,18 +81,19 @@ void main() {
     // PR that changes a text updates these to the values the failure prints.
     // v0.18.93 (job C9): + waitingPausedDriverAway (autoArrive.texts.riderPaused).
     // BQ-V46 (G7): menuAppVersion drops the "v" ("Movera Rider 1.4.0 (583)").
+    // BQ-V41 (wallet history): + 14 texts in the wallet_history area.
     const before = {
       'en': (
-        'e5aa06bc691101112fa86fda5e65b6700976ce7c05e955b956d32c397905db59',
-        2116,
+        'adb3da39855d471ebf7c11cf3ded9804f4e215dbb17f18032ff6bea611c83838',
+        2144,
       ),
       'fr': (
-        '09d9706fd14bbc58b9e2b09d603b54b974a2e53f022e7f914bcc41eefbfdc6d1',
-        1711,
+        '7fa5f1ea5af394a6800a8ab1b2376f9edaf6448bc30c0fb4bca6d961bd3ad080',
+        1725,
       ),
       'sv': (
-        'a57130bf175babe759729bb482a86ccfedb42a3e01f66d119fdafb57dc160544',
-        1711,
+        '2fbd5bb9b4d3f3e2baf0856c9af3dec3b736623b3ef2cd3cde6b438b6e4bdf46',
+        1725,
       ),
     };
     for (final lang in _langs) {

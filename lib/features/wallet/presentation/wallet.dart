@@ -16,6 +16,8 @@ import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/features/wallet/application/top_up_message.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet_balances_line.dart';
+import 'package:movera_rider/features/wallet/domain/wallet_history.dart';
+import 'package:movera_rider/features/wallet/presentation/wallet_history_section.dart';
 import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
@@ -184,9 +186,17 @@ class _WalletAndPaymentsScreenState extends State<WalletAndPaymentsScreen> {
 }
 
 class WalletHome extends StatefulWidget {
-  const WalletHome({super.key, this.wallet, this.embedded = false});
+  const WalletHome({
+    super.key,
+    this.wallet,
+    this.history,
+    this.embedded = false,
+  });
 
   final WalletController? wallet;
+
+  /// BQ-V41: where the history is read (AppScope's: the server on live).
+  final WalletHistorySource? history;
   final bool embedded;
 
   @override
@@ -701,6 +711,15 @@ class _WalletHomeState extends State<WalletHome> {
                   ),
                 ),
               ),
+              // BQ-V41 = BQ-V20: the server's wallet history (re-read
+              // after a demo top-up changes the balance).
+              if (_wallet.available) ...[
+                const SizedBox(height: 18),
+                WalletHistorySection(
+                  key: ValueKey('wallet-history-$_balance'),
+                  source: widget.history ?? AppScope.instance.walletHistory,
+                ),
+              ],
               const SizedBox(height: 18),
               Text(
                 _demoPayments

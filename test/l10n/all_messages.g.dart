@@ -1716,6 +1716,20 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'supportTopicAccount': l.supportTopicAccount,
   'supportTopicSafety': l.supportTopicSafety,
   'supportTopicOther': l.supportTopicOther,
+  'walletHistoryTitle': l.walletHistoryTitle,
+  'walletHistoryEmpty': l.walletHistoryEmpty,
+  'walletHistoryEmptyBody': l.walletHistoryEmptyBody,
+  'walletHistoryLoadFailed': l.walletHistoryLoadFailed,
+  'walletHistoryLoadFailedBody': l.walletHistoryLoadFailedBody,
+  'walletHistoryMore': l.walletHistoryMore,
+  'walletEntryCreditFromMovera': l.walletEntryCreditFromMovera,
+  'walletEntryRefund': l.walletEntryRefund,
+  'walletEntryTripPayment': l.walletEntryTripPayment,
+  'walletEntryTopUp': l.walletEntryTopUp,
+  'walletEntryPayout': l.walletEntryPayout,
+  'walletEntryFee': l.walletEntryFee,
+  'walletEntryDebtPaid': l.walletEntryDebtPaid,
+  'walletEntryOther': l.walletEntryOther,
 };
 
 /// The messages with a count, rendered with 1 for every count, so
@@ -5398,4 +5412,32 @@ class _Exhaustive implements AppLocalizations {
   String get supportTopicSafety => '';
   @override
   String get supportTopicOther => '';
+  @override
+  String get walletHistoryTitle => '';
+  @override
+  String get walletHistoryEmpty => '';
+  @override
+  String get walletHistoryEmptyBody => '';
+  @override
+  String get walletHistoryLoadFailed => '';
+  @override
+  String get walletHistoryLoadFailedBody => '';
+  @override
+  String get walletHistoryMore => '';
+  @override
+  String get walletEntryCreditFromMovera => '';
+  @override
+  String get walletEntryRefund => '';
+  @override
+  String get walletEntryTripPayment => '';
+  @override
+  String get walletEntryTopUp => '';
+  @override
+  String get walletEntryPayout => '';
+  @override
+  String get walletEntryFee => '';
+  @override
+  String get walletEntryDebtPaid => '';
+  @override
+  String get walletEntryOther => '';
 }

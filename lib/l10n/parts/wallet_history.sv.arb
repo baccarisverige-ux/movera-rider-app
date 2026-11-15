@@ -1,0 +1,16 @@
+{
+  "walletHistoryTitle": "Plånbokshändelser",
+  "walletHistoryEmpty": "Inga händelser i plånboken än",
+  "walletHistoryEmptyBody": "Återbetalningar, betalningar för resor och kredit från Movera visas här.",
+  "walletHistoryLoadFailed": "Det gick inte att läsa plånbokshändelserna",
+  "walletHistoryLoadFailedBody": "Kontrollera anslutningen och försök igen.",
+  "walletHistoryMore": "Visa fler",
+  "walletEntryCreditFromMovera": "Kredit från Movera",
+  "walletEntryRefund": "Återbetalning",
+  "walletEntryTripPayment": "Betalning för resa",
+  "walletEntryTopUp": "Påfyllning",
+  "walletEntryPayout": "Utbetalt till ditt konto",
+  "walletEntryFee": "Obetald avgift",
+  "walletEntryDebtPaid": "Obetald avgift betald",
+  "walletEntryOther": "Ändring i plånboken"
+}

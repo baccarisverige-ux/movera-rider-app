@@ -98,9 +98,11 @@ import 'package:movera_rider/features/saved_places/application/saved_places_cont
 import 'package:movera_rider/features/saved_places/data/server_saved_places.dart';
 import 'package:movera_rider/features/support/application/support_controller.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
+import 'package:movera_rider/features/wallet/data/api_wallet_history.dart';
 import 'package:movera_rider/features/wallet/data/api_wallet_repository.dart';
 import 'package:movera_rider/features/wallet/data/switched_wallet_repository.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
+import 'package:movera_rider/features/wallet/domain/wallet_history.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
 import 'package:movera_rider/core/preview/preview_mode.dart';
 
@@ -195,6 +197,12 @@ class AppScope {
             off: const DisabledWalletRepository(),
             isOn: () => flags.wallet,
           );
+    // BQ-V41 = BQ-V20 (owner G12 Q5, rule R2): release builds read the
+    // wallet history from the server's ledger (GET /wallet/entries); the
+    // demo keeps the device's own ledger.
+    walletHistory = release
+        ? ApiWalletHistory(api: api)
+        : LedgerWalletHistory(wallet);
     // Contract v0.18.17 Book later (owner 2026-11-03): release builds book
     // later on the server. Book later switched off: the fail-closed
     // stand-in (kept for that case).
@@ -347,6 +355,11 @@ class AppScope {
         RepositorySurface('paymentMethods', implementation: payments),
         RepositorySurface('defaultPayment', implementation: defaultPayment),
         RepositorySurface('rideHistory', implementation: rideHistory),
+        RepositorySurface(
+          'walletHistory',
+          implementation: walletHistory,
+          enabled: flags.wallet,
+        ),
         RepositorySurface('activeTrip', implementation: activeTrips),
         RepositorySurface('profile', implementation: profile.repository),
       ],
@@ -380,6 +393,9 @@ class AppScope {
   late final PaymentRepository payments;
   late final DefaultPaymentStore defaultPayment;
   late final WalletBalanceRepository walletBalances;
+
+  /// The rider's wallet history (BQ-V41): the server's on live.
+  late final WalletHistorySource walletHistory;
   late final ReservationRepository reservationRepository;
 
   /// rider-u124: Book for later can book in this build. Off where it is

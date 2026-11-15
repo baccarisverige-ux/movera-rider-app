@@ -1,0 +1,16 @@
+{
+  "walletHistoryTitle": "Activité du portefeuille",
+  "walletHistoryEmpty": "Aucune activité dans le portefeuille",
+  "walletHistoryEmptyBody": "Les remboursements, paiements de trajets et crédits de Movera s’affichent ici.",
+  "walletHistoryLoadFailed": "Impossible de charger l’activité du portefeuille",
+  "walletHistoryLoadFailedBody": "Vérifiez votre connexion et réessayez.",
+  "walletHistoryMore": "Voir plus",
+  "walletEntryCreditFromMovera": "Crédit de Movera",
+  "walletEntryRefund": "Remboursement",
+  "walletEntryTripPayment": "Paiement de trajet",
+  "walletEntryTopUp": "Rechargement",
+  "walletEntryPayout": "Versé sur votre compte",
+  "walletEntryFee": "Frais impayés",
+  "walletEntryDebtPaid": "Frais impayés réglés",
+  "walletEntryOther": "Mouvement du portefeuille"
+}
