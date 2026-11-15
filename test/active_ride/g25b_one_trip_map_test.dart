@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +11,8 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/core/realtime/realtime_connection.dart';
+import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_notice.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
@@ -19,6 +23,7 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/parkable_map.dart';
+import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../fixtures/fake_maps_platform.dart';
@@ -61,7 +66,10 @@ void main() {
     }
   }
 
-  Future<MockRideRealtime> openFinding(WidgetTester tester) async {
+  Future<MockRideRealtime> openFinding(
+    WidgetTester tester, {
+    bool serverLike = false,
+  }) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -69,10 +77,13 @@ void main() {
     const rideId = 'g25b-one-map';
     final server = InProcessMockClient();
     final api = ApiClient(client: server);
-    final realtime = MockRideRealtime(
-      assignAfter: const Duration(days: 1),
-      api: api,
-    );
+    final realtime = serverLike
+        ? _ServerLikeRealtime(
+            assignAfter: const Duration(days: 1),
+            api: api,
+            connection: AppScope.instance.realtime,
+          )
+        : MockRideRealtime(assignAfter: const Duration(days: 1), api: api);
     addTearDown(realtime.dispose);
     server.rides[rideId] = {'id': rideId, 'status': 'findingDriver'};
     RideRestoreCoordinator.instance.showing = RestoredSurface.home;
@@ -192,6 +203,35 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  // Device run 43741532517 (PR #625 on the Test Lab phone): at "driver
+  // found" Finding pushes Waiting in the same event, so Waiting's initState
+  // (which starts following the trip) ran while Finding's connection banner
+  // was still mounted: "setState() or markNeedsBuild() called during build"
+  // on that banner. With the server transport the connection changes on
+  // that subscribe (ApiRideRealtime.subscribe: "connecting").
+  testWidgets('native: driver found on the server transport, the connection '
+      'change of Waiting\'s first frame breaks no build', (tester) async {
+    ParkableMap.debugKeepWhileParked = true;
+    final realtime = await openFinding(tester, serverLike: true);
+    expect(find.byType(RealtimeConnectionBanner), findsOneWidget);
+
+    realtime.assignNow();
+    for (var i = 0; i < 80; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(tester.takeException(), isNull, reason: 'frame $i');
+      if (find.byType(WaitingForDriver).evaluate().isNotEmpty) break;
+    }
+    expect(find.byType(WaitingForDriver), findsOneWidget);
+    await pumpUntil(tester, () => false, max: 10);
+    expect(tester.takeException(), isNull);
+    expect(fake.createdIds, hasLength(1), reason: 'still the one trip map');
+    expect(AppScope.instance.maps.activeOwner, MapOwners.waiting);
+    expect(AppScope.instance.realtime.state, RealtimeState.connected);
+
+    realtime.dispose();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('native: a Waiting opened on its own (a reservation\'s live '
       'trip, a restored trip) builds its own map and owns it', (tester) async {
     ParkableMap.debugKeepWhileParked = true;
@@ -245,4 +285,34 @@ void main() {
     realtime.dispose();
     await tester.pumpAndSettle();
   });
+}
+
+/// The mock's trip, with the connection behaviour of the server transport
+/// (`ApiRideRealtime.subscribe`): the first listener sets the shared
+/// connection to "connecting" at once, the first answer to "connected",
+/// and the last listener leaving to "disconnected".
+class _ServerLikeRealtime extends MockRideRealtime {
+  _ServerLikeRealtime({super.assignAfter, super.api, super.connection});
+
+  @override
+  Stream<RideRealtimeEvent> subscribe(String rideId) {
+    final inner = super.subscribe(rideId);
+    StreamSubscription<RideRealtimeEvent>? feed;
+    late final StreamController<RideRealtimeEvent> out;
+    out = StreamController<RideRealtimeEvent>.broadcast(
+      onListen: () {
+        connection.state = RealtimeState.connecting;
+        feed = inner.listen(out.add, onError: out.addError);
+        scheduleMicrotask(() {
+          if (out.hasListener) connection.markConnected();
+        });
+      },
+      onCancel: () {
+        unawaited(feed?.cancel());
+        connection.markDisconnected();
+        unawaited(out.close());
+      },
+    );
+    return out.stream;
+  }
 }

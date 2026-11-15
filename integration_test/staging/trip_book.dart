@@ -316,7 +316,11 @@ extension _TripBook on TripRun {
         .waitOffer(id, const Duration(seconds: 90), stop: () => stopped)
         .whenComplete(() => offerDone = true);
     final steps = keysOf(byKeyPrefix('search-step-'));
-    final map = shows(byKey('finding-map'));
+    // G25 step B: on a phone Finding shows the one trip map (its own key);
+    // 'finding-map' is the key of Finding's own map (web).
+    final map =
+        shows(byKey('finding-map')) ||
+        shows(find.byKey(RideStageMap.instance.mapKey));
     await _sosOnFinding();
     await pumpUntil(
       tester,
