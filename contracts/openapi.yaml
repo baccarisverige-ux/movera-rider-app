@@ -1,11 +1,11 @@
-# Movera API v0.18.108 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.113 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.108
+  version: 0.18.113
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.108 in this folder; this file must agree with them.
+    v0.18.113 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.108
+  version: 0.18.113
   source: contract.json
 paths:
   /auth/otp/request:
@@ -730,7 +730,8 @@ paths:
         the trip''s zone in their zones (a Super admin with all zones passes); otherwise 403 forbidden with reason missing_permission
         or zone_out_of_scope, the same answers as GET/POST /trips/{tripId}/messages with support.reply. This applies to both
         the JSON poll and the SSE stream of /events. Riders and drivers: unchanged (own trip only). x-permission applies to
-        admins only.'
+        admins only. v0.18.113 (inAppCalls.callOpenUntil): a completed trip carries callOpenUntil while its zone''s calls
+        are on; the apps read it once when the finished trip opens and show the call button until then.'
       x-permission: trips.read
     patch:
       operationId: updateTrip
@@ -1289,7 +1290,9 @@ paths:
         '503':
           $ref: '#/components/responses/Unavailable'
       description: 'v0.18.83 (S2, owner ''Yes, 7 checks''): under overload it may answer 503 unavailable, reason server_busy,
-        Retry-After 2 at once; the app keeps the last value (contract.json#fastDispatch.shedPolls).'
+        Retry-After 2 at once; the app keeps the last value (contract.json#fastDispatch.shedPolls). v0.18.113 (inAppCalls.callOpenUntil):
+        a completed trip carries callOpenUntil while its zone''s calls are on; the apps read it once when the finished trip
+        opens and show the call button until then.'
   /rider/trips/active:
     get:
       operationId: getRiderActiveTrip
@@ -2359,10 +2362,11 @@ paths:
         server keeps a trip_calls row (state ringing) and sends call_ringing on the trip stream; the callee''s app shows the
         incoming-call sheet. Open from driver assignment (tripStatus.driverAssigned) until callWindowAfterTripMin (default
         60) minutes after the trip ended as completed (trips.ended_at). Outside it: 409 invalid_transition, reason call_window_closed.
-        A cancelled trip has no window after it. The apps show the call button only inside the window. One live call (ringing
-        or answered) per trip: a second POST /trips/{tripId}/call is 409 invalid_transition, reason call_busy, details [the
-        live callId]. calls.on false → POST /trips/{tripId}/call is 403 forbidden, reason calls_off; the apps hide the call
-        button. CountryRules.calls.mode phone + a configured provider (phoneProvider, keys only in the server environment)
+        A cancelled trip has no window after it. The apps show the call button only inside the window. v0.18.113 (BQ-S13):
+        the end of this window is sent to both apps as TripProjection.callOpenUntil (inAppCalls.callOpenUntil). One live call
+        (ringing or answered) per trip: a second POST /trips/{tripId}/call is 409 invalid_transition, reason call_busy, details
+        [the live callId]. calls.on false → POST /trips/{tripId}/call is 403 forbidden, reason calls_off; the apps hide the
+        call button. CountryRules.calls.mode phone + a configured provider (phoneProvider, keys only in the server environment)
         → TripCall { tripId, mode:''phone'', proxyNumber, expiresAt } as before (v0.13.0). Mode phone without a provider falls
         back to in_app. Owner G15: in-app calls only until a phone company is chosen. v0.18.56 §78: On call_ringing the server
         also sends a push to every push device of the callee that has no open trip stream (no SSE connection for that trip):
@@ -3799,7 +3803,14 @@ paths:
       summary: Send the sign-up details (once; the account goes on hold)
       description: 'v0.5.3. Validation reasons: under_age, country_not_open, invalid_city, invalid_email, terms_required,
         company_required, fleet_join_mismatch. A fleet account gets a Fleet in status pending; a driver account with fleetJoin
-        is linked at once (the fleet must be approved: fleet_join_mismatch otherwise). accountStatus pending → on_hold.'
+        is linked at once (the fleet must be approved: fleet_join_mismatch otherwise). accountStatus pending → on_hold. v0.18.109
+        (server BQ-FLEETCUR, owner 2026-11-15 "What u mean fleet can earn in two currencies!", Rules decisions/session-2026-11-06.md:1322):
+        a fleet works in ONE country and earns in ONE currency. A driver joins only a fleet of his own country (his country,
+        else his first zone''s). Otherwise 409 conflict with reason fleet_other_country, on POST /driver/fleet/join (and fleetJoin
+        on POST /driver/onboarding), POST /driver/fleet/invite (a number with an account), POST /driver/fleet/invitations/{invitationId}/accept
+        and POST /admin/fleets/{fleetId}/invitations/{invitationId}/accept. POST /driver/onboarding is 409 fleet_other_country
+        too when a fleet member changes his country away from his fleet''s, or a fleet owner changes it while his fleet has
+        other drivers.'
       tags:
       - Driver · Account
       x-actor:
@@ -3881,9 +3892,16 @@ paths:
     post:
       operationId: joinFleet
       summary: Ask to join a fleet with its code, the owner's name and e-mail
-      description: v0.5.3. A pending driver_request the owner accepts or declines (contract.json#driverOnboarding.fleetInvitations);
+      description: 'v0.5.3. A pending driver_request the owner accepts or declines (contract.json#driverOnboarding.fleetInvitations);
         a pending request already open → 200 with it. Driver accounts only (a fleet account → 409 invalid_transition, fleet_account);
-        already in a fleet → 409 invalid_transition (already_in_fleet).
+        already in a fleet → 409 invalid_transition (already_in_fleet). v0.18.109 (server BQ-FLEETCUR, owner 2026-11-15 "What
+        u mean fleet can earn in two currencies!", Rules decisions/session-2026-11-06.md:1322): a fleet works in ONE country
+        and earns in ONE currency. A driver joins only a fleet of his own country (his country, else his first zone''s). Otherwise
+        409 conflict with reason fleet_other_country, on POST /driver/fleet/join (and fleetJoin on POST /driver/onboarding),
+        POST /driver/fleet/invite (a number with an account), POST /driver/fleet/invitations/{invitationId}/accept and POST
+        /admin/fleets/{fleetId}/invitations/{invitationId}/accept. POST /driver/onboarding is 409 fleet_other_country too
+        when a fleet member changes his country away from his fleet''s, or a fleet owner changes it while his fleet has other
+        drivers.'
       tags:
       - Driver · Fleet
       x-actor:
@@ -3932,7 +3950,14 @@ paths:
         → 409 invalid_transition (already_in_fleet); the owner''s own number → 400. An open invite to the same number → 200
         with it. v0.18.5: v0.18.5 (owner G2-D5.5 "Name after he accepts (Recommended)"): an owner_invite shows the owner only
         the phone number ("Invitation sent to +46 70…") until the driver accepts: no driverId or driverName in the owner''s
-        view, and a decline notice names the number, not the person.'
+        view, and a decline notice names the number, not the person. v0.18.109 (server BQ-FLEETCUR, owner 2026-11-15 "What
+        u mean fleet can earn in two currencies!", Rules decisions/session-2026-11-06.md:1322): a fleet works in ONE country
+        and earns in ONE currency. A driver joins only a fleet of his own country (his country, else his first zone''s). Otherwise
+        409 conflict with reason fleet_other_country, on POST /driver/fleet/join (and fleetJoin on POST /driver/onboarding),
+        POST /driver/fleet/invite (a number with an account), POST /driver/fleet/invitations/{invitationId}/accept and POST
+        /admin/fleets/{fleetId}/invitations/{invitationId}/accept. POST /driver/onboarding is 409 fleet_other_country too
+        when a fleet member changes his country away from his fleet''s, or a fleet owner changes it while his fleet has other
+        drivers.'
       tags:
       - Driver · Fleet
       x-actor:
@@ -4014,8 +4039,15 @@ paths:
     post:
       operationId: acceptFleetInvitation
       summary: Accept (the driver an invite, the owner a request)
-      description: v0.5.3. Links the driver; his other pending invitations close. The driver on a trip → 409 (on_trip); already
-        in a fleet → 409 (already_in_fleet); expired → 409 (invitation_expired). Not pending → 409 invalid_transition.
+      description: 'v0.5.3. Links the driver; his other pending invitations close. The driver on a trip → 409 (on_trip); already
+        in a fleet → 409 (already_in_fleet); expired → 409 (invitation_expired). Not pending → 409 invalid_transition. v0.18.109
+        (server BQ-FLEETCUR, owner 2026-11-15 "What u mean fleet can earn in two currencies!", Rules decisions/session-2026-11-06.md:1322):
+        a fleet works in ONE country and earns in ONE currency. A driver joins only a fleet of his own country (his country,
+        else his first zone''s). Otherwise 409 conflict with reason fleet_other_country, on POST /driver/fleet/join (and fleetJoin
+        on POST /driver/onboarding), POST /driver/fleet/invite (a number with an account), POST /driver/fleet/invitations/{invitationId}/accept
+        and POST /admin/fleets/{fleetId}/invitations/{invitationId}/accept. POST /driver/onboarding is 409 fleet_other_country
+        too when a fleet member changes his country away from his fleet''s, or a fleet owner changes it while his fleet has
+        other drivers.'
       tags:
       - Driver · Fleet
       x-actor:
@@ -4216,7 +4248,9 @@ paths:
         Rules audits/impact/j8-rebase-money-fix-supervisor.md §6; contract kpis.money.fleets "Fleet views get only the driver
         earnings", owner s06:1277): GET /driver/fleet/earnings (FleetEarnings, FleetDriverEarnings) sums only the driver''s
         earnings entries of the period: a paid_to_movera entry (''Driver paid Movera'') is not earnings and is never in a
-        driver''s earnings (FleetDriverEarnings.earnings) or in total. Wording only; no shape change.'
+        driver''s earnings (FleetDriverEarnings.earnings) or in total. Wording only; no shape change. v0.18.109 (server BQ-FLEETCUR,
+        driverOnboarding.fleetInvitations.oneCountry): FleetDriverEarnings.earnings / .trips and FleetEarnings.total count
+        only entries in the fleet''s currency (SE SEK, FR EUR, TN TND).'
       tags:
       - Driver · Fleet
       x-actor:
@@ -8982,7 +9016,14 @@ paths:
     post:
       operationId: adminAcceptFleetInvitation
       summary: Accept a pending invitation or request for the fleet
-      description: v0.5.3. The same effect as the driver's or owner's answer; written in the audit.
+      description: 'v0.5.3. The same effect as the driver''s or owner''s answer; written in the audit. v0.18.109 (server BQ-FLEETCUR,
+        owner 2026-11-15 "What u mean fleet can earn in two currencies!", Rules decisions/session-2026-11-06.md:1322): a fleet
+        works in ONE country and earns in ONE currency. A driver joins only a fleet of his own country (his country, else
+        his first zone''s). Otherwise 409 conflict with reason fleet_other_country, on POST /driver/fleet/join (and fleetJoin
+        on POST /driver/onboarding), POST /driver/fleet/invite (a number with an account), POST /driver/fleet/invitations/{invitationId}/accept
+        and POST /admin/fleets/{fleetId}/invitations/{invitationId}/accept. POST /driver/onboarding is 409 fleet_other_country
+        too when a fleet member changes his country away from his fleet''s, or a fleet owner changes it while his fleet has
+        other drivers.'
       tags:
       - Admin · People
       x-actor:
@@ -20127,6 +20168,24 @@ components:
             admin complete — the same paid end as the KPI money, moneyBase.kpiMoney); an unpaid or cancelled trip has no moneySplit
             (the rider paid nothing, so there is no riderPaid to split). Its lost-driver payment is TripProjection.lostDriverPaid,
             and its admin ''Movera commission'' row is the admin view''s moveraKeepsNow (commissionRow.admin (2) / (3)).'
+        callOpenUntil:
+          type: string
+          format: date-time
+          description: 'v0.18.113 (BQ-S13; owner 2026-11-01 "Keep call open for 1 hour but not chat", Rules decisions/driver-g9.md:38,
+            conversation/session-2026-11-01b.md:108): TripProjection.callOpenUntil (date-time, UTC) = trips.ended_at + the
+            trip zone''s CountryRules.calls.callWindowAfterTripMin minutes (inAppCalls.settings: its own country_rules, else
+            the country standard, else the default 60; read when the trip is served, so an admin change applies at once to
+            trips already ended). Sent only on a completed trip with an end time while that zone''s calls.on is true; absent
+            otherwise (calls off, a cancelled trip, an early end, a trip not ended yet: during the trip the call button follows
+            the trip status as before). Served on GET /trips/{tripId} (rider, driver and admin views) and on every GET /rider/trips
+            item; stream events and command answers do not carry it, so an app reads GET /trips/{tripId} once when a finished
+            trip opens (not a poll). It is the same instant the server checks (inAppCalls.window): a call at or before callOpenUntil
+            is allowed, after it POST /trips/{tripId}/call is 409 invalid_transition, reason call_window_closed. Apps: on
+            the finished trip (driver: Trip finished and the ride history detail; rider: the ride complete summary and the
+            past ride in History) the ''Call rider'' / ''Call driver'' button shows while now ≤ callOpenUntil and hides by
+            itself when it passes; absent → no call button. The call itself is unchanged (in-app, never a phone number). Chat
+            stays closed after the drop-off (no change). Admin: no new setting — Pricing › Tips & limits › Calls › Call window
+            after the trip (min), 0–240, default 60, per country standard or zone. X-Api-Version stays 0.5; additive; no migration.'
     DriverSilentAlert:
       type: object
       description: 'v0.7.0: documents the server''s alert of 2026-10-26: no position for 30 min with the rider on board; the
@@ -21189,7 +21248,9 @@ components:
         audits/impact/j8-rebase-money-fix-supervisor.md §6; contract kpis.money.fleets "Fleet views get only the driver earnings",
         owner s06:1277): GET /driver/fleet/earnings (FleetEarnings, FleetDriverEarnings) sums only the driver''s earnings
         entries of the period: a paid_to_movera entry (''Driver paid Movera'') is not earnings and is never in a driver''s
-        earnings (FleetDriverEarnings.earnings) or in total. Wording only; no shape change.'
+        earnings (FleetDriverEarnings.earnings) or in total. Wording only; no shape change. v0.18.109 (server BQ-FLEETCUR,
+        driverOnboarding.fleetInvitations.oneCountry): FleetDriverEarnings.earnings / .trips and FleetEarnings.total count
+        only entries in the fleet''s currency (SE SEK, FR EUR, TN TND).'
       required:
       - from
       - to
@@ -23734,7 +23795,7 @@ components:
               description: 'Open from driver assignment (tripStatus.driverAssigned) until callWindowAfterTripMin (default
                 60) minutes after the trip ended as completed (trips.ended_at). Outside it: 409 invalid_transition, reason
                 call_window_closed. A cancelled trip has no window after it. The apps show the call button only inside the
-                window.'
+                window. v0.18.113 (BQ-S13): the end of this window is sent to both apps as TripProjection.callOpenUntil (inAppCalls.callOpenUntil).'
               default: 60
             ringSeconds:
               type: integer
@@ -28097,7 +28158,8 @@ components:
             (400 invalid_request, PUT /admin/config/pricing and its publish; details ["step:<index>", "problem:<code>"], contract.json#commissionSteps.validation).
             v0.18.93 reasons: driver_away_from_pickup (409, the driver''s no-show while the waiting clock is stopped), invalid_auto_arrive_distance
             (400, contract.json#autoArrive.settings.validation). v0.18.108 reason: not_at_stop (409 invalid_transition, the
-            driver''s stop tap or back tap farther than allowed from the stop; contract.json#autoArrive.stops.tap / back).'
+            driver''s stop tap or back tap farther than allowed from the stop; contract.json#autoArrive.stops.tap / back).
+            v0.18.109 reason: fleet_other_country (409 conflict, the driver''s country is not the fleet''s; contract.json#driverOnboarding.fleetInvitations.oneCountry).'
         details:
           type: array
           items:

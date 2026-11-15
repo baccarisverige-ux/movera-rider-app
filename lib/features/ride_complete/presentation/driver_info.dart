@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/calls/presentation/call_window_gate.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/formatters/name_format.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
@@ -27,7 +28,20 @@ class RideCompletedDriverInfo extends StatelessWidget {
   final String? rideId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      _details(context),
+      // v0.18.113 BQ-S13 (owner "Keep call open for 1 hour but not chat"):
+      // the driver can still be called until the server's callOpenUntil.
+      Padding(
+        padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
+        child: CallDriverAfterTrip(rideId: rideId),
+      ),
+    ],
+  );
+
+  Widget _details(BuildContext context) {
     final driver = AppScope.instance.rideComplete.driver(rideId: rideId);
     if (driver == null) {
       return MoveraEmptyState(
