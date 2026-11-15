@@ -199,6 +199,8 @@ public class MainActivityTest {
       String out = shell(instrumentation, command);
       if (!out.isEmpty()) Log.w(TAG, "location setup: '" + command + "' said: " + out);
     }
+    // After the set-up: a later diff shows only what the dialog changed.
+    settingsBefore = settingsSnapshot(instrumentation);
     Log.i(
         TAG,
         "location setup: enabled="
@@ -211,6 +213,39 @@ public class MainActivityTest {
             + shell(instrumentation, "settings get global network_location_opt_in")
             + " assisted_gps="
             + shell(instrumentation, "settings get global assisted_gps_enabled"));
+  }
+
+  /** secure + global settings lines read after the set-up (null: not read). */
+  private static volatile java.util.Set<String> settingsBefore;
+
+  private static java.util.Set<String> settingsSnapshot(Instrumentation instrumentation) {
+    java.util.Set<String> lines = new java.util.HashSet<>();
+    for (String table : new String[] {"secure", "global"}) {
+      for (String line : shell(instrumentation, "settings list " + table).split("\n")) {
+        lines.add(table + ":" + line.trim());
+      }
+    }
+    return lines;
+  }
+
+  /**
+   * Which location-related settings the dialog's "Turn on" changed (keys
+   * named like location / nlp / network / wifi / scan / gps only; device
+   * switches, no personal data), so a later set-up can switch the same one.
+   */
+  private static void logSettingsChangedByDialog(Instrumentation instrumentation) {
+    java.util.Set<String> before = settingsBefore;
+    if (before == null) return;
+    StringBuilder changed = new StringBuilder();
+    for (String line : settingsSnapshot(instrumentation)) {
+      String key = line.contains("=") ? line.substring(0, line.indexOf('=')) : line;
+      if (!before.contains(line)
+          && key.toLowerCase(Locale.ROOT).matches(".*(location|nlp|network|wifi|scan|gps).*")) {
+        changed.append(' ').append(line);
+      }
+    }
+    Log.i(TAG, "location dialog: settings changed since start:"
+        + (changed.length() == 0 ? " none" : changed.toString()));
   }
 
   private static final String GMS = "com.google.android.gms";
@@ -277,6 +312,7 @@ public class MainActivityTest {
                     Log.i(TAG, "location dialog answered: tapped '" + label + "' (" + how + "), "
                         + answered + " so far");
                     SystemClock.sleep(1500);
+                    logSettingsChangedByDialog(instrumentation);
                     // One answer per poll: the same window is in roots() twice.
                     break;
                   }
