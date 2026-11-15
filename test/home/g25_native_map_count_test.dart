@@ -25,13 +25,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// ride-stage map stays mounted (no new platform view on the way back), so
 /// the maps of the screens under the current one are all live at once. The
 /// web-only count tests (NAV-3 audit_fix_map_parking, home_route_flow_map)
-/// run in web mode; this one pins the native maximum through a real booking
-/// until step B (one shared ride-stage map) lowers it:
-/// at most [maxUnderWaiting] under Waiting (Home, Select ride, Finding,
-/// Waiting) and [maxWithMovePickup] with the three dots' screen open over
-/// Waiting. A real-phone memory check of these counts is still NOT CHECKED.
-const int maxUnderWaiting = 4;
-const int maxWithMovePickup = 5;
+/// run in web mode; this one pins the native maximum through a real booking.
+/// G25 step B (one trip map: Finding hands its map to Waiting) lowered it
+/// from 4 and 5: [maxUnderWaiting] under Waiting (Home, Select ride, the
+/// trip map) and [maxWithMovePickup] with the three dots' screen open over
+/// Waiting. The booking's own peak stays [maxWhileBooking] (Home, Select
+/// ride, Set pickup and Finding while Set pickup closes). A real-phone
+/// memory check of these counts is still NOT CHECKED.
+const int maxUnderWaiting = 3;
+const int maxWithMovePickup = 4;
+const int maxWhileBooking = 4;
 
 int _liveMaps() =>
     find.byType(CustomGoogleMap, skipOffstage: false).evaluate().length;
@@ -218,13 +221,13 @@ void main() {
     );
     expect(
       most,
-      lessThanOrEqualTo(maxUnderWaiting),
-      reason: 'more live native maps than G25 step A allows under Waiting',
+      lessThanOrEqualTo(maxWhileBooking),
+      reason: 'more live native maps than G25 allows while booking',
     );
     expect(
       _liveMaps(),
       maxUnderWaiting,
-      reason: 'Home, Select ride, Finding and Waiting stay mounted',
+      reason: 'Home, Select ride and the trip map stay mounted',
     );
 
     // The three dots on the ride card (demo wire: the route screen), then
@@ -260,12 +263,12 @@ void main() {
     expect(
       _liveMaps(),
       maxWithMovePickup,
-      reason: 'Home, Select ride, Finding, Waiting and the screen on top',
+      reason: 'Home, Select ride, the trip map and the screen on top',
     );
     expect(
       most,
-      lessThanOrEqualTo(maxWithMovePickup),
-      reason: 'more live native maps than G25 step A allows',
+      lessThanOrEqualTo(maxWhileBooking),
+      reason: 'more live native maps than G25 step B allows',
     );
 
     mock.unsubscribe();
