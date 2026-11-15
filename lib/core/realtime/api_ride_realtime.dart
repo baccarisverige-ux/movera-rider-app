@@ -756,7 +756,7 @@ class ApiRideRealtime implements RideRealtime {
           // v0.18.93 (contract.json#autoArrive): the stopped clock.
           if (ride['waiting'] case {'away': {'since': final String at}})
             waitingAwaySinceKey: at,
-          // v0.18.98 (contract.json#autoArrive.stops): the open stop's
+          // v0.18.108 (contract.json#autoArrive.stops): the open stop's
           // stopped wait (a left stop keeps away only as a record).
           if (_openStopAway(ride)) stopAwayKey: true,
           // v0.18.51 §73: a booked ride's waiting runs from waitFrom (the
@@ -814,7 +814,7 @@ class ApiRideRealtime implements RideRealtime {
     return at is String ? at : null;
   }
 
-  /// v0.18.98 (`contract.json#autoArrive.stops.projection`, job C9b): the
+  /// v0.18.108 (`contract.json#autoArrive.stops.projection`, job C9b): the
   /// open stop (arrivedAt, no leftAt) carries `away` — its wait stands
   /// still. `stops[i]` is canonical; `stopVisits[]` is the mirror, read only
   /// when the projection has no stops list.

@@ -15,7 +15,9 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Job C9b (contract v0.18.98 §92, `contract.json#autoArrive.stops`; owner
+import '../contracts/contract_fixtures.dart';
+
+/// Job C9b (contract v0.18.108 §93, `contract.json#autoArrive.stops`; owner
 /// 2026-11-02 "At the pickup AND at stops", Rules
 /// decisions/driver-g7.md:84): while the server marks the open middle stop
 /// as away (`stops[i].away`, the driver drove more than leaveMeters from
@@ -23,10 +25,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// (`autoArrive.stops.texts.riderStopPaused`); gone when back. The rider
 /// gets no amounts and the phone works out no money.
 ///
-/// The texts are the v0.18.98 contract's (movera-contracts e81132a,
-/// contract.json `autoArrive.stops.texts.riderStopPaused`). The rider's
-/// contract copy is still 0.18.93, so they are written here; after the
-/// copy sync a data check against `contract` can replace them.
+/// The texts are the v0.18.108 contract's (movera-contracts 0acefe8,
+/// contract.json `autoArrive.stops.texts.riderStopPaused`); the test also
+/// checks them against the synced contract copy (as data, never a source
+/// read).
 const _riderStopPaused = {
   'sv': 'Väntetiden är pausad: din förare är inte vid stoppet.',
   'fr': 'Temps d’attente en pause : votre chauffeur n’est plus à l’arrêt.',
@@ -107,7 +109,13 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   test('texts.riderStopPaused is the contract text in sv, fr and en', () {
+    // The contract copy as data (test/contracts/contract_fixtures.dart reads
+    // bytes), never a source read (CI Phase 69: fewer than 40 grep tests).
+    final texts =
+        ((contract['autoArrive'] as Map)['stops'] as Map)['texts']['riderStopPaused']
+            as Map;
     for (final lang in ['sv', 'fr', 'en']) {
+      expect(texts[lang], _riderStopPaused[lang], reason: 'copy $lang');
       expect(
         lookupAppLocalizations(Locale(lang)).stopWaitingPausedDriverAway,
         _riderStopPaused[lang],

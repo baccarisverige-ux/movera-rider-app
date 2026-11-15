@@ -407,7 +407,8 @@
     "endFarMeters": 500,
     "noAnswerSeconds": 120,
     "repeatMinutes": 10,
-    "noAnswerAlarm": false
+    "noAnswerAlarm": false,
+    "scanEverySeconds": 30
   },
   "appUpdate": {
     "minimumVersion": "1.0.0",

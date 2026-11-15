@@ -44,7 +44,7 @@ const String waitingNoShowAtKey = 'waitingNoShowAt';
 /// the driver is away from the pickup.
 const String waitingAwaySinceKey = 'waitingAwaySince';
 
-/// v0.18.98 (`contract.json#autoArrive.stops`, job C9b): true while the
+/// v0.18.108 (`contract.json#autoArrive.stops`, job C9b): true while the
 /// open middle stop (arrivedAt, no leftAt) carries `stops[i].away` — the
 /// server stopped the stop wait while the driver is away from the stop.
 const String stopAwayKey = 'stopAway';
@@ -197,7 +197,7 @@ class RideRealtimeEvent {
   DateTime? get waitingAwaySince =>
       WireTime.tryParse(payload[waitingAwaySinceKey]);
 
-  /// v0.18.98 (job C9b): the stop wait stands still (driver away from the
+  /// v0.18.108 (job C9b): the stop wait stands still (driver away from the
   /// open stop).
   bool get stopAway => payload[stopAwayKey] == true;
 

@@ -124,7 +124,7 @@ extension _WaitingSheet on _WaitingForDriverState {
         stopNote: _stops.isEmpty || _tracking.terms == null
             ? null
             : TripTermsLines.stopWaitLine(_tracking.terms!),
-        // v0.18.98 (contract.json#autoArrive.stops, job C9b): the stop
+        // v0.18.108 (contract.json#autoArrive.stops, job C9b): the stop
         // wait stands still while the driver is away from the stop.
         stopPaused: _tracking.stopAway,
         onCancel: _confirmCancel,

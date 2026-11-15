@@ -439,6 +439,9 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
       'noAnswerSeconds': 120,
       'repeatMinutes': 10,
       'noAnswerAlarm': false,
+      // v0.18.100 (BQ-V37): the server's ride-check scan cadence; the rider
+      // app does not use it, kept so the seed equals the contract fixture.
+      'scanEverySeconds': 30,
     },
     'routeChange': {
       'on': true,

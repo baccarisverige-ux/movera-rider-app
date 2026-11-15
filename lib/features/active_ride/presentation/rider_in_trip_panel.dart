@@ -59,7 +59,7 @@ class RiderInTripPanel extends StatelessWidget {
   /// has stops ("Waiting at a stop: 4,50 kr/min").
   final String? stopNote;
 
-  /// v0.18.98 (`contract.json#autoArrive.stops`, job C9b; owner
+  /// v0.18.108 (`contract.json#autoArrive.stops`, job C9b; owner
   /// decisions/driver-g7.md:84 "At the pickup AND at stops"): the server
   /// stopped the wait at the open stop (`stops[i].away`, the driver is away
   /// from it). Says so (texts.riderStopPaused); no amounts.

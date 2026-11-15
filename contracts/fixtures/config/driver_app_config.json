@@ -430,7 +430,8 @@
     "endFarMeters": 500,
     "noAnswerSeconds": 120,
     "repeatMinutes": 10,
-    "noAnswerAlarm": false
+    "noAnswerAlarm": false,
+    "scanEverySeconds": 30
   },
   "texts": {
     "byLanguage": {}
