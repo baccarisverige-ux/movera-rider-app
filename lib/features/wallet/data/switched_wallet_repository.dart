@@ -20,6 +20,9 @@ class SwitchedWalletRepository
 
   WalletBalanceRepository get _now => isOn() ? on : off;
 
+  /// The side in use right now ([on] while the admin switch is on).
+  WalletBalanceRepository get current => _now;
+
   @override
   bool get available => _now.available;
 

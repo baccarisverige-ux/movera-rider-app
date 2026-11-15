@@ -1,0 +1,58 @@
+{
+  "walletHistoryTitle": "Wallet activity",
+  "@walletHistoryTitle": {
+    "description": "BQ-V41 = BQ-V20 (owner G12 Q5, decisions/driver-g12.md:12): heading of the wallet history on the Wallet page, read from GET /wallet/entries."
+  },
+  "walletHistoryEmpty": "No wallet activity yet",
+  "@walletHistoryEmpty": {
+    "description": "BQ-V41: the wallet history has no entries."
+  },
+  "walletHistoryEmptyBody": "Refunds, trip payments and credits from Movera show here.",
+  "@walletHistoryEmptyBody": {
+    "description": "BQ-V41: under walletHistoryEmpty."
+  },
+  "walletHistoryLoadFailed": "Couldn’t load wallet activity",
+  "@walletHistoryLoadFailed": {
+    "description": "BQ-V41: GET /wallet/entries failed; a Retry button follows."
+  },
+  "walletHistoryLoadFailedBody": "Check your connection and try again.",
+  "@walletHistoryLoadFailedBody": {
+    "description": "BQ-V41: under walletHistoryLoadFailed."
+  },
+  "walletHistoryMore": "Show more",
+  "@walletHistoryMore": {
+    "description": "BQ-V41: reads the next page of the wallet history (the server's nextCursor)."
+  },
+  "walletEntryCreditFromMovera": "Credit from Movera",
+  "@walletEntryCreditFromMovera": {
+    "description": "BQ-V41: WalletEntry kind adjustment (admin Add money to wallet). contract.json#walletCredit.riderText.historyLabel."
+  },
+  "walletEntryRefund": "Refund",
+  "@walletEntryRefund": {
+    "description": "BQ-V41: WalletEntry kind refund (a refund kept in the wallet)."
+  },
+  "walletEntryTripPayment": "Trip payment",
+  "@walletEntryTripPayment": {
+    "description": "BQ-V41: WalletEntry kind charge (the wallet part of a trip)."
+  },
+  "walletEntryTopUp": "Top-up",
+  "@walletEntryTopUp": {
+    "description": "BQ-V41: WalletEntry kind topup."
+  },
+  "walletEntryPayout": "Paid out to your account",
+  "@walletEntryPayout": {
+    "description": "BQ-V41: WalletEntry kind payout (wallet money paid out)."
+  },
+  "walletEntryFee": "Unpaid fee",
+  "@walletEntryFee": {
+    "description": "BQ-V41: WalletEntry kind fee (v0.18.84). contract.json#debtModel.texts.walletFee."
+  },
+  "walletEntryDebtPaid": "Unpaid fee paid",
+  "@walletEntryDebtPaid": {
+    "description": "BQ-V41: WalletEntry kind debt_paid (v0.18.84). contract.json#debtModel.texts.walletDebtPaid."
+  },
+  "walletEntryOther": "Wallet change",
+  "@walletEntryOther": {
+    "description": "BQ-V41: a WalletEntry kind this app version does not know yet."
+  }
+}

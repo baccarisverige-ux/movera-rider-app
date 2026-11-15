@@ -2,6 +2,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/repository_authority.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/payments/payment_gateway.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
@@ -9,6 +10,7 @@ import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
 import 'package:movera_rider/features/wallet/data/api_wallet_repository.dart';
+import 'package:movera_rider/features/wallet/data/switched_wallet_repository.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
 
@@ -155,9 +157,16 @@ class WalletController {
   /// Fix job 6 (owner Q4, contract v0.18.28): every non-zero balance the
   /// rider holds, one per currency, never added together. Release builds
   /// read the server; demo/dev builds the device store.
+  ///
+  /// BQ-V41: live builds compose the server wallet behind the admin switch
+  /// ([SwitchedWalletRepository]); while it is on, the balances are the
+  /// server's, never the device store's.
   Future<List<Money>> loadBalances() async {
     final balances = _balances;
-    if (balances is ApiWalletRepository) return balances.loadBalances();
+    final now = balances is SwitchedWalletRepository
+        ? balances.current
+        : balances;
+    if (now is ApiWalletRepository) return now.loadBalances();
     if (!balances.available) return const [];
     final local = await WalletStore.balancesByCurrency();
     return [
@@ -261,7 +270,7 @@ class WalletController {
         operation: 'wallet.topup.save',
       );
     }
-    AppScope.instance.wallet.add(
+    _record(
       WalletEntry(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         kind: WalletEntryKind.credit,
@@ -271,6 +280,14 @@ class WalletController {
       ),
     );
     return TopUpCredited(next);
+  }
+
+  /// The device's own history line, demo / dev builds only (BQ-V41 =
+  /// BQ-V20, owner rule R2): with the server's wallet the history is the
+  /// server's ledger (GET /wallet/entries), so the phone makes no line.
+  void _record(WalletEntry entry) {
+    if (_balances is ServerBackedRepository) return;
+    AppScope.instance.wallet.add(entry);
   }
 
   /// Ride ids already deducted from the local balance, so a replayed
@@ -386,7 +403,7 @@ class WalletController {
       previous: previous,
       amount: amount,
     );
-    AppScope.instance.wallet.add(
+    _record(
       WalletEntry(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         kind: WalletEntryKind.ride,
@@ -403,7 +420,7 @@ class WalletController {
     required double amount,
   }) async {
     final next = await _balances.refund(previous: previous, amount: amount);
-    AppScope.instance.wallet.add(
+    _record(
       WalletEntry(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         kind: WalletEntryKind.refund,
