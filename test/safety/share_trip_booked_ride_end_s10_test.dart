@@ -211,37 +211,20 @@ void main() {
     expect(safety.shareFor(rideId)?.url, isNull);
   });
 
-  /// Taps the trip screen's Safety button. The Safety sheet's first load
-  /// notifies the screen's own safety listener while the sheet is being
-  /// built (a debug-only "setState during build" assertion, older than
-  /// S10: RideSafetyKitSheet.initState calls load()). Only that assertion
-  /// is let through here; any other error still fails the test.
+  /// Taps the trip screen's Safety button. SF-F5: no error is let through;
+  /// the sheet's first load starts after its first frame, so opening it
+  /// never notifies a listener during build ("setState() or
+  /// markNeedsBuild() called during build" fails the test).
   Future<void> openSafetySheet(
     WidgetTester tester, {
     String key = 'trip-safety-button',
   }) async {
-    final previous = FlutterError.onError;
-    final other = <FlutterErrorDetails>[];
-    FlutterError.onError = (details) {
-      final text = details.exceptionAsString();
-      final known =
-          text.contains('setState() or markNeedsBuild() called during build') &&
-          details.stack.toString().contains('SafetyController.load');
-      if (!known) other.add(details);
-    };
-    try {
-      final button = find.byKey(ValueKey(key));
-      expect(button, findsOneWidget);
-      // The sheet's row may sit below the fold of the collapsed sheet: its
-      // own tap handler is called (the same handler a finger reaches).
-      tester.widget<InkWell>(button).onTap!();
-      await frames(tester);
-    } finally {
-      FlutterError.onError = previous;
-    }
-    for (final details in other) {
-      FlutterError.reportError(details);
-    }
+    final button = find.byKey(ValueKey(key));
+    expect(button, findsOneWidget);
+    // The sheet's row may sit below the fold of the collapsed sheet: its
+    // own tap handler is called (the same handler a finger reaches).
+    tester.widget<InkWell>(button).onTap!();
+    await frames(tester);
     expect(
       find.byKey(const ValueKey('safety-sos')),
       findsOneWidget,

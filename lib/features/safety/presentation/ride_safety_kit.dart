@@ -208,7 +208,14 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
     _ctl.addListener(_onChange);
     // A Ride check now opens as its own card on the trip screen
     // (RideCheckLayer), so the kit no longer lists pending checks.
-    _ctl.load();
+    // SF-F5: the load starts right after the sheet's first frame. load()
+    // notifies at once, and the opening screen's own safety listeners must
+    // not be marked dirty while the sheet is being built ("setState() or
+    // markNeedsBuild() called during build"). SOS does not wait for it:
+    // the SOS tool is drawn in that first frame and never reads the load.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _ctl.load();
+    });
   }
 
   @override
