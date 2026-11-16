@@ -518,9 +518,18 @@ class _WaitingDriverCardState extends State<WaitingDriverCard> {
 }
 
 class WaitingNotesAndPin extends StatelessWidget {
-  const WaitingNotesAndPin({super.key, required this.notes, this.rideId});
+  const WaitingNotesAndPin({
+    super.key,
+    required this.notes,
+    this.rideId,
+    this.shareAllowed = true,
+  });
 
   final RideNotes notes;
+
+  /// BQ-S10 SF-R5: the Safety sheet's Share trip tool follows the share
+  /// button ([WaitingShareButton.canShare]).
+  final bool shareAllowed;
 
   /// rider-u66: the screen's ride (a reservation's id on a scheduled live
   /// ride), which SOS, trip sharing and recording target. Null: the
@@ -618,7 +627,10 @@ class WaitingNotesAndPin extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 12),
-        SafetyKitSheetRow(rideId: rideId ?? AppScope.instance.ride.rideId),
+        SafetyKitSheetRow(
+          rideId: rideId ?? AppScope.instance.ride.rideId,
+          shareAllowed: shareAllowed,
+        ),
       ],
     );
   }

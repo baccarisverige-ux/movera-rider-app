@@ -502,7 +502,14 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                           : context.l10n.cancelRide,
                     ),
                     const Spacer(),
-                    SafetyKitMapButton(rideId: _rideId),
+                    SafetyKitMapButton(
+                      rideId: _rideId,
+                      // BQ-S10 SF-R5: Share trip as the share button.
+                      shareAllowed: WaitingShareButton.canShare(
+                        _tracking.status,
+                        driverShown: driver != null,
+                      ),
+                    ),
                   ],
                 ),
               ),

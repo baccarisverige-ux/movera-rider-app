@@ -10,6 +10,7 @@ import 'package:movera_rider/core/web/web_gpu.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/application/rider_trip_watch.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/features/safety/application/safety_controller.dart';
 
 class AppLifecycleObserver with WidgetsBindingObserver {
   AppLifecycleObserver({
@@ -53,6 +54,10 @@ class AppLifecycleObserver with WidgetsBindingObserver {
           );
         });
         RideRestoreCoordinator.instance.resumeIfNeeded();
+        // BQ-S10 SF-R4: a kept share link whose trip ended while the app
+        // was away leaves the phone (one list read per kept link, none
+        // when no link is kept).
+        unawaited(SafetyController.sweepKeptShares());
         // v0.18.32 P21 (bookedRideSeen.pollFallback): Home polls again.
         if (AppScope.instance.api.contractWire) RiderTripWatch.instance.start();
         // v0.18.5 legal.read: again when the app comes back (no stream

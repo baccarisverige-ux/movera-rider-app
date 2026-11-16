@@ -210,4 +210,88 @@ void main() {
     await frames(tester, 40);
     expect(safety.shareFor(rideId)?.url, isNull);
   });
+
+  /// Taps the trip screen's Safety button. The Safety sheet's first load
+  /// notifies the screen's own safety listener while the sheet is being
+  /// built (a debug-only "setState during build" assertion, older than
+  /// S10: RideSafetyKitSheet.initState calls load()). Only that assertion
+  /// is let through here; any other error still fails the test.
+  Future<void> openSafetySheet(
+    WidgetTester tester, {
+    String key = 'trip-safety-button',
+  }) async {
+    final previous = FlutterError.onError;
+    final other = <FlutterErrorDetails>[];
+    FlutterError.onError = (details) {
+      final text = details.exceptionAsString();
+      final known =
+          text.contains('setState() or markNeedsBuild() called during build') &&
+          details.stack.toString().contains('SafetyController.load');
+      if (!known) other.add(details);
+    };
+    try {
+      final button = find.byKey(ValueKey(key));
+      expect(button, findsOneWidget);
+      // The sheet's row may sit below the fold of the collapsed sheet: its
+      // own tap handler is called (the same handler a finger reaches).
+      tester.widget<InkWell>(button).onTap!();
+      await frames(tester);
+    } finally {
+      FlutterError.onError = previous;
+    }
+    for (final details in other) {
+      FlutterError.reportError(details);
+    }
+    expect(
+      find.byKey(const ValueKey('safety-sos')),
+      findsOneWidget,
+      reason: 'the Safety sheet is open',
+    );
+  }
+
+  // Follow-up SF-R5: the Safety sheet's Share trip tool is gated like the
+  // share button. A booked ride held in `accepted` (driverAssigned, no
+  // driver shown) cannot be shared (409 trip_not_live).
+  testWidgets('SF-R5: a held booked ride: no Share trip in the Safety sheet '
+      'until the driver is shown', (tester) async {
+    const rideId = 'booked-share-held';
+    final realtime = await pumpBookedRide(tester, rideId, const [
+      RideStatus.driverAssigned,
+    ]);
+    expect(realtime.lastDriver, isNull, reason: 'no driver shown');
+    expect(
+      find.byIcon(Icons.ios_share_rounded),
+      findsNothing,
+      reason: 'the share button is hidden',
+    );
+    await openSafetySheet(tester);
+    expect(find.byIcon(Icons.ios_share_outlined), findsNothing);
+    Navigator.of(
+      tester.element(find.byKey(const ValueKey('safety-sos'))),
+    ).pop();
+    await frames(tester);
+    // The sheet's own Safety row opens the same sheet, gated the same way.
+    await openSafetySheet(tester, key: 'trip-safety-row');
+    expect(find.byIcon(Icons.ios_share_outlined), findsNothing);
+    Navigator.of(
+      tester.element(find.byKey(const ValueKey('safety-sos'))),
+    ).pop();
+    await frames(tester);
+    // The driver is on the way and shown: the tool is there again.
+    realtime.assignNow();
+    await frames(tester);
+    realtime.emit(
+      RideStatus.driverArriving,
+      latitude: _pickup.latitude,
+      longitude: _pickup.longitude,
+    );
+    await frames(tester);
+    expect(
+      find.byIcon(Icons.ios_share_rounded),
+      findsOneWidget,
+      reason: 'the share button shows',
+    );
+    await openSafetySheet(tester);
+    expect(find.byIcon(Icons.ios_share_outlined), findsOneWidget);
+  });
 }

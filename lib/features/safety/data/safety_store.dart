@@ -1,5 +1,6 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
@@ -448,7 +449,7 @@ class SafetyStore {
         final kept = _cache.shares[rideId];
         final remote = _remote;
         final listed = remote is ContractContactsRemoteDataSource
-            ? remote.liveShareIds
+            ? remote.liveShareIdsFor(rideId)
             : {live.shareId};
         _cache.shares[rideId] = !live.isActive
             ? (kept ?? live).ended()
@@ -483,6 +484,69 @@ class SafetyStore {
 
   /// The share kept for [rideId], if any.
   TripShare? shareFor(String rideId) => _cache.shares[rideId];
+
+  /// BQ-S10 follow-up (supervisor SF-R4): on start and on resume, every
+  /// share this phone keeps with a link is checked against the server's
+  /// list of the trip's live links (`GET /rider/trips/{tripId}/share`, the
+  /// existing route). The list is empty once the trip has ended (any
+  /// terminal status) or the zone's switch is off, and 404 when the trip
+  /// is not the rider's: then the share leaves the phone. A listed link
+  /// that is not this one (stopped on another phone) keeps no URL. With no
+  /// answer (offline, 5xx) the share stays; its 6 h end still drops it on
+  /// load. No request when no link is kept. True when a share changed.
+  Future<bool> sweepKeptShares() async {
+    final source = _loaded ? _cache : await _local.load();
+    final hasLink = source.shares.values.any(
+      (share) => (share.url ?? '').isNotEmpty,
+    );
+    if (!hasLink) return false;
+    await _ensure();
+    final ids = [
+      for (final entry in _cache.shares.entries)
+        if ((entry.value.url ?? '').isNotEmpty) entry.key,
+    ];
+    var changed = false;
+    for (final id in ids) {
+      final kept = _cache.shares[id];
+      if (kept == null) continue;
+      TripShare? live;
+      try {
+        live = await _remote.getShare(id);
+      } on ApiError catch (error) {
+        if (error.statusCode != 404) {
+          AppLog.warning(
+            'safety.share_sweep_failed',
+            extra: {'rideId': id, 'status': '${error.statusCode}'},
+          );
+          continue;
+        }
+        live = null;
+      } catch (error) {
+        AppLog.warning(
+          'safety.share_sweep_failed',
+          extra: {'rideId': id, 'error': error.runtimeType.toString()},
+        );
+        continue;
+      }
+      // A share made or stopped while the list was read is left alone.
+      if (!identical(_cache.shares[id], kept)) continue;
+      if (live == null || !live.isActive) {
+        _cache.shares.remove(id);
+        changed = true;
+        continue;
+      }
+      final remote = _remote;
+      final listed = remote is ContractContactsRemoteDataSource
+          ? remote.liveShareIdsFor(id)
+          : {live.shareId};
+      if (!listed.contains(kept.shareId)) {
+        _cache.shares[id] = live.copyWith(contactIds: kept.contactIds);
+        changed = true;
+      }
+    }
+    if (changed) await _local.save(_cache);
+    return changed;
+  }
 
   Future<void> stopShare(String rideId) async {
     await _ensure();
@@ -1108,8 +1172,14 @@ class ContractContactsRemoteDataSource extends UnservedSafetyRemoteDataSource {
     return _shareOf(json, rideId).copyWith(contactIds: contactIds);
   }
 
-  /// The shareIds of the live links the last [getShare] listed.
-  Set<String> liveShareIds = const {};
+  /// The shareIds of the live links the last [getShare] of each trip
+  /// listed. Per trip (supervisor SF-R6): two reads for two trips that
+  /// overlap never mix their lists.
+  final Map<String, Set<String>> _liveShareIds = {};
+
+  /// The shareIds the last [getShare] of [tripId] listed (empty: none).
+  Set<String> liveShareIdsFor(String tripId) =>
+      _liveShareIds[tripId] ?? const {};
 
   /// The trip's live links (`TripShareList`, without their URLs): the
   /// newest one, or a share that is not live when there is none.
@@ -1117,7 +1187,7 @@ class ContractContactsRemoteDataSource extends UnservedSafetyRemoteDataSource {
   Future<TripShare?> getShare(String rideId) async {
     final items = (await _api.get(_sharePath(rideId)))['items'];
     final live = items is List ? items.whereType<Map>().toList() : const [];
-    liveShareIds = {
+    _liveShareIds[rideId] = {
       for (final item in live)
         if (item['shareId'] is String) item['shareId'] as String,
     };

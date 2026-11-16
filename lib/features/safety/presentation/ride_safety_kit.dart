@@ -27,12 +27,17 @@ class SafetyKitMapButton extends StatelessWidget {
     super.key,
     this.rideId,
     this.driverAssigned = true,
+    this.shareAllowed = true,
   });
 
   final String? rideId;
 
   /// G14: false while Movera is still finding a driver (no trip yet).
   final bool driverAssigned;
+
+  /// BQ-S10 SF-R5: false where the trip screen's share button is hidden
+  /// (a held booked ride, no driver shown yet): no Share trip tool.
+  final bool shareAllowed;
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +53,7 @@ class SafetyKitMapButton extends StatelessWidget {
             context,
             rideId: rideId,
             driverAssigned: driverAssigned,
+            shareAllowed: shareAllowed,
           ),
           borderRadius: BorderRadius.circular(28),
           child: ConstrainedBox(
@@ -82,12 +88,20 @@ class SafetyKitMapButton extends StatelessWidget {
 }
 
 class SafetyKitSheetRow extends StatelessWidget {
-  const SafetyKitSheetRow({super.key, this.rideId, this.driverAssigned = true});
+  const SafetyKitSheetRow({
+    super.key,
+    this.rideId,
+    this.driverAssigned = true,
+    this.shareAllowed = true,
+  });
 
   final String? rideId;
 
   /// G14: false while Movera is still finding a driver (no trip yet).
   final bool driverAssigned;
+
+  /// BQ-S10 SF-R5: see [SafetyKitMapButton.shareAllowed].
+  final bool shareAllowed;
 
   @override
   Widget build(BuildContext context) {
@@ -100,6 +114,7 @@ class SafetyKitSheetRow extends StatelessWidget {
           context,
           rideId: rideId,
           driverAssigned: driverAssigned,
+          shareAllowed: shareAllowed,
         ),
         borderRadius: BorderRadius.circular(18),
         child: Container(
@@ -139,12 +154,14 @@ Future<void> showRideSafetyKit(
   BuildContext context, {
   String? rideId,
   bool driverAssigned = true,
+  bool shareAllowed = true,
 }) {
   SheetCoordinator.instance.open(RideSheet.safety);
   return MoveraSheet.show<void>(
     context: context,
     builder: (_) => RideSafetyKitSheet(
       rideId: rideId,
+      shareAllowed: shareAllowed,
       // v0.18.10 (owner G8 Q4): the server's sosAvailable when it said,
       // else a driver has the trip.
       duringTrip:
@@ -160,8 +177,14 @@ class RideSafetyKitSheet extends StatefulWidget {
     this.rideId,
     this.controller,
     this.duringTrip,
+    this.shareAllowed = true,
   });
   final String? rideId;
+
+  /// BQ-S10 SF-R5 (contract `shareTrip.notLive`): false for a held booked
+  /// ride whose driver the rider is not shown yet (the server answers 409
+  /// trip_not_live), as the trip screen's share button: no Share trip tool.
+  final bool shareAllowed;
   final SafetyController? controller;
 
   /// Contract v0.18.5 `safety.onlyDuringTrip` (owner "Only during a trip
@@ -403,8 +426,9 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
                         ),
                       ),
                     ],
-                    // BQ-S10: not shown while the zone's switch is off.
-                    if (_ctl.shareTripOn) ...[
+                    // BQ-S10: not shown while the zone's switch is off,
+                    // nor (SF-R5) where the share button is hidden.
+                    if (_ctl.shareTripOn && widget.shareAllowed) ...[
                       const SizedBox(width: 10),
                       Expanded(
                         child: _Tool(

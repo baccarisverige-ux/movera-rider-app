@@ -5,6 +5,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/config/api_rider_config_repository.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/safety/application/safety_controller.dart';
 
 /// Contract v0.18.2 `auth.beforeSignIn` (owner 2026-10-30, "Yes, stop it
 /// (Recommended)"): the reads that need the rider's bearer token (config,
@@ -95,4 +96,7 @@ Future<void> startServerReads() async {
   // BASE B13 (contract v0.18.26 §47): saved places from the server; the
   // phone's older places are uploaded once.
   unawaited(AppScope.instance.savedPlacesServer?.sync());
+  // BQ-S10 SF-R4: at start, a kept share link whose trip ended while the
+  // app was closed leaves the phone (no request when no link is kept).
+  unawaited(SafetyController.sweepKeptShares());
 }

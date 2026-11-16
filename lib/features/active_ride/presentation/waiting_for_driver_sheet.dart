@@ -171,7 +171,14 @@ extension _WaitingSheet on _WaitingForDriverState {
             const SizedBox(height: 12),
             TripTermsNote(lines: lines),
           ],
-          WaitingNotesAndPin(notes: widget.notes, rideId: _rideId),
+          WaitingNotesAndPin(
+            notes: widget.notes,
+            rideId: _rideId,
+            shareAllowed: WaitingShareButton.canShare(
+              _tracking.status,
+              driverShown: driver != null,
+            ),
+          ),
         ],
       ),
     );

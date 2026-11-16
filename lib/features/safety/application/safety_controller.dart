@@ -133,6 +133,23 @@ class SafetyController extends ChangeNotifier {
     }
   }
 
+  /// BQ-S10 follow-up (supervisor SF-R4): on start and on resume, a kept
+  /// share link whose trip the server no longer lists as live leaves the
+  /// phone (the app may have been closed at the trip's end, or a booked
+  /// ride's live page was not open). Best effort; never throws.
+  static Future<void> sweepKeptShares() async {
+    try {
+      final controller = _shared;
+      final store = controller?._session ?? SafetyStore.shared;
+      if (await store.sweepKeptShares()) controller?.notifyListeners();
+    } catch (error) {
+      AppLog.warning(
+        'safety.share.sweep_failed',
+        extra: {'error': error.runtimeType.toString()},
+      );
+    }
+  }
+
   /// rider-u201: the session expired and Sign in replaced the trip screen,
   /// so no Stop control is left on screen. A running recording (the Safety
   /// Kit's or a Ride check card's) stops and is saved for the rider.
