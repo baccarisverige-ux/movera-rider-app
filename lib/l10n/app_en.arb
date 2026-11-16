@@ -3187,15 +3187,15 @@
   "protectPinBody": "Ask your driver to confirm your PIN before the trip starts, so you know you are in the right car.",
   "protectContactsBody": "Keep trusted people one tap away. You choose who is primary and who can follow a ride.",
   "protectSharingTitle": "Trip sharing",
-  "protectSharingBody": "Share an active ride with people you trust. Tracking links are issued per ride — never as a public page from this menu.",
+  "protectSharingBody": "Send a live link of an active ride to people you trust. A link is made per ride and stops working at drop-off.",
   "protectRideCheckBody": "If a trip stops for long, goes off the route or ends far from your drop-off, Movera asks if everything is OK.",
   "protectMaskedTitle": "Masked calls",
   "protectMaskedBody": "During a ride you can reach your driver without sharing your personal number.",
   "shareIntro": "Share your active ride with people you trust.",
   "shareAuto": "Automatically share every ride",
-  "shareAutoBody": "When a ride starts, selected contacts can follow it.",
+  "shareAutoBody": "When a trip starts, Share trip opens so you can send the link.",
   "shareTrusted": "Trusted contacts",
-  "shareLinkNote": "A live tracking link is created only when a ride is shared. Movera does not publish a public URL from this screen.",
+  "shareLinkNote": "The link shows the car, the plate and the arrival time. The car’s position shows only while you are in the car, and not near the pickup, a stop or the drop-off.",
   "shareEmptyTitle": "No trusted contacts yet",
   "shareEmptyBody": "Add an emergency contact first, then choose who can follow your rides.",
   "shareAddContact": "Add emergency contact",
@@ -3250,6 +3250,47 @@
   "@contactCodeNotSentYet": {"description": "G30 (contract v0.18.76 emailVerified, owner 2026-11-12): rider e-mail check. contract.json#emailVerified.texts.codeNotSentYet: delivery pending_provider (or none)."},
   "contactEmailVerifiedDone": "E-mail verified",
   "@contactEmailVerifiedDone": {"description": "G30 (contract v0.18.76 emailVerified, owner 2026-11-12): rider e-mail check."},
+  "shareTripMessage": "Follow my Movera ride live: {url}",
+  "@shareTripMessage": {
+    "description": "BQ-S10: contract.json#shareTrip.texts.en.message, the text the rider's phone sends",
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "shareTripSend": "Send",
+  "@shareTripSend": {
+    "description": "BQ-S10: Share trip sheet, opens the SMS app for one trusted contact"
+  },
+  "shareTripWith": "Share with…",
+  "@shareTripWith": {
+    "description": "BQ-S10: Share trip sheet, opens the phone's share sheet"
+  },
+  "shareTripStop": "Stop sharing",
+  "@shareTripStop": {
+    "description": "BQ-S10: Share trip sheet, ends every live link of the trip"
+  },
+  "shareTripStopped": "Sharing stopped. The link no longer works.",
+  "@shareTripStopped": {
+    "description": "BQ-S10: after Stop sharing"
+  },
+  "shareTripStopFailed": "Could not stop sharing. Please try again.",
+  "@shareTripStopFailed": {
+    "description": "BQ-S10: Stop sharing failed"
+  },
+  "shareTripEndsAtDropoff": "The link stops working at drop-off.",
+  "@shareTripEndsAtDropoff": {
+    "description": "BQ-S10: Share trip sheet"
+  },
+  "shareTripOffInZone": "Trip sharing is not available here.",
+  "@shareTripOffInZone": {
+    "description": "BQ-S10: the zone's switch is off (403 share_trip_off)"
+  },
+  "shareTripWhatTheySee": "They see the car, the plate and the arrival time. The car’s position shows only while you are in the car, and not near the pickup, a stop or the drop-off.",
+  "@shareTripWhatTheySee": {
+    "description": "BQ-S10 (owner Q-A, Q-B, 3b, 3c): what the page behind the link shows; never promise a position before pickup or near stops / drop-off"
+  },
   "placeGym": "Gym",
   "placeMall": "Mall",
   "placeSchool": "School",

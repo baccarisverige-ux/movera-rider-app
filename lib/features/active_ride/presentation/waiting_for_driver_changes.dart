@@ -1,6 +1,14 @@
 part of 'waiting_for_driver.dart';
 
 extension _WaitingChanges on _WaitingForDriverState {
+  /// BQ-S10 (owner S10 Q4): with "Automatically share every ride", the
+  /// Share trip sheet opens once when the trip starts; the rider sends.
+  Future<void> _openAutoShare(String rideId) async {
+    final open = await SafetyController.shared.autoShareRide(rideId);
+    if (!open || !mounted) return;
+    await showShareTripSheet(context, rideId: rideId);
+  }
+
   /// Before boarding on the server wire: re-reads the zone's
   /// `routeChange.beforePickup` and says whether a destination or stop
   /// change is refused now.
@@ -198,9 +206,10 @@ extension _WaitingChanges on _WaitingForDriverState {
       ),
     );
     if (DriverEta.isInTrip(status) && !_autoShareAsked) {
-      // rider-u217: "Automatically share every ride".
+      // rider-u217 + BQ-S10 (owner S10 Q4): "Automatically share every
+      // ride" opens the Share trip sheet once when the trip starts.
       _autoShareAsked = true;
-      unawaited(SafetyController.shared.autoShareRide(rideId));
+      unawaited(_openAutoShare(rideId));
     }
     if (status.isCompletedSurface) {
       _rideCheckTripEnded(rideId);

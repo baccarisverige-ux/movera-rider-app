@@ -7,7 +7,7 @@ import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
-import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
+import 'package:movera_rider/features/safety/presentation/share_trip_sheet.dart';
 import 'package:movera_rider/features/messages/application/messages_controller.dart';
 import 'package:movera_rider/app/deferred_screens.dart';
 import 'package:movera_rider/shared/accessibility/a11y.dart';
@@ -62,20 +62,11 @@ class WaitingShareButton extends StatelessWidget {
 
   final String? rideId;
 
-  void _share(BuildContext context) {
-    final safety = SafetyController.shared;
-    if (safety.preferences.tripShareEnabled) {
-      showRideSafetyKit(context, rideId: rideId);
-      return;
-    }
-    Navigator.push(
-      context,
-      RightToLeftTransition(TripSharePage(controller: safety)),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    // BQ-S10 (contract v0.18.116): hidden while the zone's Share trip
+    // switch is off; else it opens the one Share trip sheet.
+    if (!SafetyController.shared.shareTripOn) return const SizedBox.shrink();
     return Semantics(
       button: true,
       label: context.l10n.shareTrip,
@@ -84,7 +75,7 @@ class WaitingShareButton extends StatelessWidget {
         shape: const CircleBorder(),
         child: InkWell(
           customBorder: const CircleBorder(),
-          onTap: () => _share(context),
+          onTap: () => showShareTripSheet(context, rideId: rideId),
           // rider-u64 / D5 (V39-7): the 48 px Android floor (the 20 px icon
           // was a 40 px target, then 44).
           child: const SizedBox.square(

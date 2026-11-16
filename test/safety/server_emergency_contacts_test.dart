@@ -64,7 +64,13 @@ void main() {
         'PUT /api/v1/rider/emergency-contacts',
       ]);
       expect(server['items'], [
-        {'name': 'Sara', 'phone': '+46701234567', 'relation': 'Family'},
+        // v0.18.116 (BQ-S10): "Share trips" is kept on the server too.
+        {
+          'name': 'Sara',
+          'phone': '+46701234567',
+          'relation': 'Family',
+          'shareTrips': false,
+        },
       ]);
       calls.clear();
       final again = await r.syncContacts(const []);

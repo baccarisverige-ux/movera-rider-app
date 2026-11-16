@@ -1,11 +1,11 @@
-# Movera API v0.18.108 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.116 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.108
+  version: 0.18.116
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.108 in this folder; this file must agree with them.
+    v0.18.116 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.108
+  version: 0.18.116
   source: contract.json
 paths:
   /auth/otp/request:
@@ -730,7 +730,8 @@ paths:
         the trip''s zone in their zones (a Super admin with all zones passes); otherwise 403 forbidden with reason missing_permission
         or zone_out_of_scope, the same answers as GET/POST /trips/{tripId}/messages with support.reply. This applies to both
         the JSON poll and the SSE stream of /events. Riders and drivers: unchanged (own trip only). x-permission applies to
-        admins only.'
+        admins only. v0.18.113 (inAppCalls.callOpenUntil): a completed trip carries callOpenUntil while its zone''s calls
+        are on; the apps read it once when the finished trip opens and show the call button until then.'
       x-permission: trips.read
     patch:
       operationId: updateTrip
@@ -1289,7 +1290,9 @@ paths:
         '503':
           $ref: '#/components/responses/Unavailable'
       description: 'v0.18.83 (S2, owner ''Yes, 7 checks''): under overload it may answer 503 unavailable, reason server_busy,
-        Retry-After 2 at once; the app keeps the last value (contract.json#fastDispatch.shedPolls).'
+        Retry-After 2 at once; the app keeps the last value (contract.json#fastDispatch.shedPolls). v0.18.113 (inAppCalls.callOpenUntil):
+        a completed trip carries callOpenUntil while its zone''s calls are on; the apps read it once when the finished trip
+        opens and show the call button until then.'
   /rider/trips/active:
     get:
       operationId: getRiderActiveTrip
@@ -2359,10 +2362,11 @@ paths:
         server keeps a trip_calls row (state ringing) and sends call_ringing on the trip stream; the callee''s app shows the
         incoming-call sheet. Open from driver assignment (tripStatus.driverAssigned) until callWindowAfterTripMin (default
         60) minutes after the trip ended as completed (trips.ended_at). Outside it: 409 invalid_transition, reason call_window_closed.
-        A cancelled trip has no window after it. The apps show the call button only inside the window. One live call (ringing
-        or answered) per trip: a second POST /trips/{tripId}/call is 409 invalid_transition, reason call_busy, details [the
-        live callId]. calls.on false → POST /trips/{tripId}/call is 403 forbidden, reason calls_off; the apps hide the call
-        button. CountryRules.calls.mode phone + a configured provider (phoneProvider, keys only in the server environment)
+        A cancelled trip has no window after it. The apps show the call button only inside the window. v0.18.113 (BQ-S13):
+        the end of this window is sent to both apps as TripProjection.callOpenUntil (inAppCalls.callOpenUntil). One live call
+        (ringing or answered) per trip: a second POST /trips/{tripId}/call is 409 invalid_transition, reason call_busy, details
+        [the live callId]. calls.on false → POST /trips/{tripId}/call is 403 forbidden, reason calls_off; the apps hide the
+        call button. CountryRules.calls.mode phone + a configured provider (phoneProvider, keys only in the server environment)
         → TripCall { tripId, mode:''phone'', proxyNumber, expiresAt } as before (v0.13.0). Mode phone without a provider falls
         back to in_app. Owner G15: in-app calls only until a phone company is chosen. v0.18.56 §78: On call_ringing the server
         also sends a push to every push device of the callee that has no open trip stream (no SSE connection for that trip):
@@ -3799,7 +3803,14 @@ paths:
       summary: Send the sign-up details (once; the account goes on hold)
       description: 'v0.5.3. Validation reasons: under_age, country_not_open, invalid_city, invalid_email, terms_required,
         company_required, fleet_join_mismatch. A fleet account gets a Fleet in status pending; a driver account with fleetJoin
-        is linked at once (the fleet must be approved: fleet_join_mismatch otherwise). accountStatus pending → on_hold.'
+        is linked at once (the fleet must be approved: fleet_join_mismatch otherwise). accountStatus pending → on_hold. v0.18.109
+        (server BQ-FLEETCUR, owner 2026-11-15 "What u mean fleet can earn in two currencies!", Rules decisions/session-2026-11-06.md:1322):
+        a fleet works in ONE country and earns in ONE currency. A driver joins only a fleet of his own country (his country,
+        else his first zone''s). Otherwise 409 conflict with reason fleet_other_country, on POST /driver/fleet/join (and fleetJoin
+        on POST /driver/onboarding), POST /driver/fleet/invite (a number with an account), POST /driver/fleet/invitations/{invitationId}/accept
+        and POST /admin/fleets/{fleetId}/invitations/{invitationId}/accept. POST /driver/onboarding is 409 fleet_other_country
+        too when a fleet member changes his country away from his fleet''s, or a fleet owner changes it while his fleet has
+        other drivers.'
       tags:
       - Driver · Account
       x-actor:
@@ -3881,9 +3892,16 @@ paths:
     post:
       operationId: joinFleet
       summary: Ask to join a fleet with its code, the owner's name and e-mail
-      description: v0.5.3. A pending driver_request the owner accepts or declines (contract.json#driverOnboarding.fleetInvitations);
+      description: 'v0.5.3. A pending driver_request the owner accepts or declines (contract.json#driverOnboarding.fleetInvitations);
         a pending request already open → 200 with it. Driver accounts only (a fleet account → 409 invalid_transition, fleet_account);
-        already in a fleet → 409 invalid_transition (already_in_fleet).
+        already in a fleet → 409 invalid_transition (already_in_fleet). v0.18.109 (server BQ-FLEETCUR, owner 2026-11-15 "What
+        u mean fleet can earn in two currencies!", Rules decisions/session-2026-11-06.md:1322): a fleet works in ONE country
+        and earns in ONE currency. A driver joins only a fleet of his own country (his country, else his first zone''s). Otherwise
+        409 conflict with reason fleet_other_country, on POST /driver/fleet/join (and fleetJoin on POST /driver/onboarding),
+        POST /driver/fleet/invite (a number with an account), POST /driver/fleet/invitations/{invitationId}/accept and POST
+        /admin/fleets/{fleetId}/invitations/{invitationId}/accept. POST /driver/onboarding is 409 fleet_other_country too
+        when a fleet member changes his country away from his fleet''s, or a fleet owner changes it while his fleet has other
+        drivers.'
       tags:
       - Driver · Fleet
       x-actor:
@@ -3932,7 +3950,14 @@ paths:
         → 409 invalid_transition (already_in_fleet); the owner''s own number → 400. An open invite to the same number → 200
         with it. v0.18.5: v0.18.5 (owner G2-D5.5 "Name after he accepts (Recommended)"): an owner_invite shows the owner only
         the phone number ("Invitation sent to +46 70…") until the driver accepts: no driverId or driverName in the owner''s
-        view, and a decline notice names the number, not the person.'
+        view, and a decline notice names the number, not the person. v0.18.109 (server BQ-FLEETCUR, owner 2026-11-15 "What
+        u mean fleet can earn in two currencies!", Rules decisions/session-2026-11-06.md:1322): a fleet works in ONE country
+        and earns in ONE currency. A driver joins only a fleet of his own country (his country, else his first zone''s). Otherwise
+        409 conflict with reason fleet_other_country, on POST /driver/fleet/join (and fleetJoin on POST /driver/onboarding),
+        POST /driver/fleet/invite (a number with an account), POST /driver/fleet/invitations/{invitationId}/accept and POST
+        /admin/fleets/{fleetId}/invitations/{invitationId}/accept. POST /driver/onboarding is 409 fleet_other_country too
+        when a fleet member changes his country away from his fleet''s, or a fleet owner changes it while his fleet has other
+        drivers.'
       tags:
       - Driver · Fleet
       x-actor:
@@ -4014,8 +4039,15 @@ paths:
     post:
       operationId: acceptFleetInvitation
       summary: Accept (the driver an invite, the owner a request)
-      description: v0.5.3. Links the driver; his other pending invitations close. The driver on a trip → 409 (on_trip); already
-        in a fleet → 409 (already_in_fleet); expired → 409 (invitation_expired). Not pending → 409 invalid_transition.
+      description: 'v0.5.3. Links the driver; his other pending invitations close. The driver on a trip → 409 (on_trip); already
+        in a fleet → 409 (already_in_fleet); expired → 409 (invitation_expired). Not pending → 409 invalid_transition. v0.18.109
+        (server BQ-FLEETCUR, owner 2026-11-15 "What u mean fleet can earn in two currencies!", Rules decisions/session-2026-11-06.md:1322):
+        a fleet works in ONE country and earns in ONE currency. A driver joins only a fleet of his own country (his country,
+        else his first zone''s). Otherwise 409 conflict with reason fleet_other_country, on POST /driver/fleet/join (and fleetJoin
+        on POST /driver/onboarding), POST /driver/fleet/invite (a number with an account), POST /driver/fleet/invitations/{invitationId}/accept
+        and POST /admin/fleets/{fleetId}/invitations/{invitationId}/accept. POST /driver/onboarding is 409 fleet_other_country
+        too when a fleet member changes his country away from his fleet''s, or a fleet owner changes it while his fleet has
+        other drivers.'
       tags:
       - Driver · Fleet
       x-actor:
@@ -4216,7 +4248,9 @@ paths:
         Rules audits/impact/j8-rebase-money-fix-supervisor.md §6; contract kpis.money.fleets "Fleet views get only the driver
         earnings", owner s06:1277): GET /driver/fleet/earnings (FleetEarnings, FleetDriverEarnings) sums only the driver''s
         earnings entries of the period: a paid_to_movera entry (''Driver paid Movera'') is not earnings and is never in a
-        driver''s earnings (FleetDriverEarnings.earnings) or in total. Wording only; no shape change.'
+        driver''s earnings (FleetDriverEarnings.earnings) or in total. Wording only; no shape change. v0.18.109 (server BQ-FLEETCUR,
+        driverOnboarding.fleetInvitations.oneCountry): FleetDriverEarnings.earnings / .trips and FleetEarnings.total count
+        only entries in the fleet''s currency (SE SEK, FR EUR, TN TND).'
       tags:
       - Driver · Fleet
       x-actor:
@@ -5042,7 +5076,14 @@ paths:
       description: 'Results are limited to the zones in the admin''s token scope. v0.17.2 (contract.json#adminListFilters):
         zoneId, zoneIds and country narrow the list inside those zones; an unknown query key → 400 invalid_request (reason
         unknown_filter). v0.18.78: the page carries total (v0.18.78 (owner 2026-11-12 ~17:30 item 5 "Yes, build"): admin lists
-        show "50 of N". contract.json#adminListFilters.total).'
+        show "50 of N". contract.json#adminListFilters.total). v0.18.112 order (contract.json#supportDesk.inboxOrder): v0.18.112
+        (BQ-A04, owner item 109 "Yes, pages + oldest first (Rec.)", Rules decisions/session-2026-11-06.md:1116): GET /admin/tickets
+        lists the oldest-waiting ticket first. Order: first the waiting tickets (waitingSince set), waitingSince oldest first,
+        ties by ticketId; then every other ticket, updatedAt newest first, ties by ticketId (the order before v0.18.112).
+        The filters (status, priority, assignedTo, q, zones, ...) and total work as before. GET /support/tickets (the rider''s
+        or driver''s own list) keeps newest change first. Cursor paging as before (limit, nextCursor; nextCursor null = the
+        last page). One cursor carries the place in both parts of the order; the panel sends it back unchanged with the same
+        filters. A cursor made before v0.18.112 continues in the second part (updatedAt newest first), never 400.'
       tags:
       - Admin · Lists
       x-actor:
@@ -8982,7 +9023,14 @@ paths:
     post:
       operationId: adminAcceptFleetInvitation
       summary: Accept a pending invitation or request for the fleet
-      description: v0.5.3. The same effect as the driver's or owner's answer; written in the audit.
+      description: 'v0.5.3. The same effect as the driver''s or owner''s answer; written in the audit. v0.18.109 (server BQ-FLEETCUR,
+        owner 2026-11-15 "What u mean fleet can earn in two currencies!", Rules decisions/session-2026-11-06.md:1322): a fleet
+        works in ONE country and earns in ONE currency. A driver joins only a fleet of his own country (his country, else
+        his first zone''s). Otherwise 409 conflict with reason fleet_other_country, on POST /driver/fleet/join (and fleetJoin
+        on POST /driver/onboarding), POST /driver/fleet/invite (a number with an account), POST /driver/fleet/invitations/{invitationId}/accept
+        and POST /admin/fleets/{fleetId}/invitations/{invitationId}/accept. POST /driver/onboarding is 409 fleet_other_country
+        too when a fleet member changes his country away from his fleet''s, or a fleet owner changes it while his fleet has
+        other drivers.'
       tags:
       - Admin · People
       x-actor:
@@ -18403,6 +18451,755 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/bonuses:
+    get:
+      operationId: adminListBonusCampaigns
+      summary: Bonus campaigns
+      description: 'v0.18.110: GET /admin/bonuses?zoneId&state&cursor&limit → BonusCampaignPage, newest first (drivers.read;
+        the zones in the admin''s scope).'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.read
+      parameters:
+      - $ref: '#/components/parameters/ListZoneId'
+      - name: state
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/BonusState'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BonusCampaignPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      operationId: adminCreateBonusCampaign
+      summary: Create a bonus campaign
+      description: 'v0.18.110: POST /admin/bonuses BonusCampaignCreate { zoneId, names, measure, target, amount, startDate,
+        endDate, polygon } → 201 BonusCampaign (drivers.bonuses, Idempotency-Key; audit bonus.create).'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.bonuses
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BonusCampaignCreate'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BonusCampaign'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/bonuses/{bonusId}:
+    get:
+      operationId: adminGetBonusCampaign
+      summary: One bonus campaign
+      description: 'v0.18.110: GET /admin/bonuses/{bonusId} → BonusCampaign (drivers.read).'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.read
+      parameters:
+      - $ref: '#/components/parameters/BonusId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BonusCampaign'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: adminUpdateBonusCampaign
+      summary: Edit a bonus campaign (names, later end date)
+      description: 'v0.18.110: PUT /admin/bonuses/{bonusId} BonusCampaignUpdate { expectedVersion, names?, endDate? } → BonusCampaign
+        (drivers.bonuses; audit bonus.update). Only the names and a LATER endDate (still within maxDays) can change (D8);
+        any other field → 400 invalid_request, reason bonus_field_fixed. On an ended campaign → 409 conflict, reason bonus_ended.'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.bonuses
+      parameters:
+      - $ref: '#/components/parameters/BonusId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BonusCampaignUpdate'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BonusCampaign'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/bonuses/{bonusId}/pause:
+    post:
+      operationId: adminPauseBonusCampaign
+      summary: Pause a bonus campaign
+      description: 'v0.18.110: POST /admin/bonuses/{bonusId}/pause | /resume | /end { expectedVersion } → BonusCampaign (drivers.bonuses;
+        audit bonus.pause | bonus.resume | bonus.end). pause needs status active, resume needs paused, end works on active
+        or paused; else 409 conflict, reason bonus_ended (ended) or invalid_transition. A campaign is never deleted (Rule
+        21).'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.bonuses
+      parameters:
+      - $ref: '#/components/parameters/BonusId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BonusCampaignCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BonusCampaign'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/bonuses/{bonusId}/resume:
+    post:
+      operationId: adminResumeBonusCampaign
+      summary: Resume a bonus campaign
+      description: 'v0.18.110: POST /admin/bonuses/{bonusId}/pause | /resume | /end { expectedVersion } → BonusCampaign (drivers.bonuses;
+        audit bonus.pause | bonus.resume | bonus.end). pause needs status active, resume needs paused, end works on active
+        or paused; else 409 conflict, reason bonus_ended (ended) or invalid_transition. A campaign is never deleted (Rule
+        21).'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.bonuses
+      parameters:
+      - $ref: '#/components/parameters/BonusId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BonusCampaignCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BonusCampaign'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/bonuses/{bonusId}/end:
+    post:
+      operationId: adminEndBonusCampaign
+      summary: End a bonus campaign
+      description: 'v0.18.110: POST /admin/bonuses/{bonusId}/pause | /resume | /end { expectedVersion } → BonusCampaign (drivers.bonuses;
+        audit bonus.pause | bonus.resume | bonus.end). pause needs status active, resume needs paused, end works on active
+        or paused; else 409 conflict, reason bonus_ended (ended) or invalid_transition. A campaign is never deleted (Rule
+        21).'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.bonuses
+      parameters:
+      - $ref: '#/components/parameters/BonusId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BonusCampaignCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BonusCampaign'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/bonuses/{bonusId}/drivers:
+    get:
+      operationId: adminListBonusProgress
+      summary: Drivers' progress in a bonus campaign
+      description: 'v0.18.110: GET /admin/bonuses/{bonusId}/drivers?cursor&limit → BonusProgressPage, most progress first
+        (drivers.read).'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.read
+      parameters:
+      - $ref: '#/components/parameters/BonusId'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BonusProgressPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/bonuses:
+    get:
+      operationId: listDriverBonuses
+      summary: My bonus campaigns and progress
+      description: 'v0.18.110: GET /driver/bonuses → DriverBonusList { items }: the campaigns of his zones (Driver.zoneIds)
+        in state scheduled, active or paused, plus ended ones he has progress in, for 30 days after the end (D11); active
+        first, then scheduled, then the rest.'
+      tags:
+      - Driver · Money
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverBonusList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/bonuses/opened:
+    post:
+      operationId: driverBonusesOpened
+      summary: I opened these campaigns
+      description: 'v0.18.110: POST /driver/bonuses/opened { bonusIds (1-50) } → 204: the driver opened them; isNew = he has
+        not opened it yet (kept on the server, D12; G3-D6 NEW badge).'
+      tags:
+      - Driver · Money
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverBonusOpened'
+      responses:
+        '204':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /rider/trips/{tripId}/share:
+    post:
+      operationId: riderShareTrip
+      summary: Make a live trip link
+      description: 'v0.18.116 (contract.json#shareTrip): POST /rider/trips/{tripId}/share {} + Idempotency-Key → 201 TripShareLink
+        { shareId, tripId, url, createdAt, expiresAt, endsAtDropoff: true }. The signed-in rider''s own trip only; another
+        rider''s trip is 404 trip_not_found. 409 invalid_transition, reason trip_not_live (notLive) or too_many_shares (limits.maxActivePerTrip
+        live links already); 403 forbidden, reason share_trip_off (the zone''s switch is off). Counted by the general write
+        limit. A link can be made only while the trip has a driver: the statuses above (the same list as safety.sos.riderStatuses).
+        Before a driver, after the end, and for a booked (scheduled) ride still in accepted whose driver the rider is not
+        shown yet: 409 invalid_transition, reason trip_not_live. A link stops, whichever comes first: (a) when the trip reaches
+        any tripStatus.terminal status (drop-off = completed; also every cancelled status, no_show, expired, failed), checked
+        every time the link is read, so no timer is needed; (b) when the rider stops sharing; (c) when the zone''s switch
+        is off, read on every view; (d) maxHours hours after the link was made. An ended link never shows trip data again:
+        410 with { state: ''ended'', reason: ''share_ended'' }. (c) is kept: a link seen while the switch is off stays ended
+        when the switch is turned on again. Not an end: a trip that has no driver again (public.searching). (c) is seen when
+        the link is read: a switch turned off and on again with no read in between leaves the link working, and a server copy
+        may serve its cached switch for some seconds after a publish.'
+      tags:
+      - Rider · Safety
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripShareLink'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    get:
+      operationId: riderTripShares
+      summary: The trip's live links
+      description: 'v0.18.116 (contract.json#shareTrip): GET /rider/trips/{tripId}/share → TripShareList { items: [TripShareItem
+        { shareId, tripId, createdAt, expiresAt, endsAtDropoff }] }: the trip''s live links, oldest first, without url (the
+        app keeps the URL it got). An ended trip answers an empty list.'
+      tags:
+      - Rider · Safety
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripShareList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    delete:
+      operationId: riderStopShareTrip
+      summary: Stop sharing the trip
+      description: 'v0.18.116 (contract.json#shareTrip): DELETE /rider/trips/{tripId}/share + Idempotency-Key → 204. ''Stop
+        sharing'': every live link of the trip ends at once; no live link is still 204.'
+      tags:
+      - Rider · Safety
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '204':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /share/{token}:
+    get:
+      operationId: publicTripShare
+      summary: A shared trip (no sign-in)
+      description: 'v0.18.116 (contract.json#shareTrip): GET /api/v1/share/{token} (no sign-in, no standard headers needed)
+        → 200 PublicTripShare, or 200 PublicTripShareSearching while the trip has no driver (public.searching); an ended link
+        → 410 PublicTripShareEnded { state: ''ended'', reason: ''share_ended'' }; a bad or unknown token → 404 not_found,
+        reason share_not_found, the same body for every miss so tokens cannot be probed. Both public routes answer with Cache-Control:
+        no-store, Referrer-Policy: no-referrer, X-Robots-Tag: noindex, nofollow and X-Content-Type-Options: nosniff. The HTML
+        page also carries Content-Security-Policy: default-src ''none''; style-src ''unsafe-inline''; img-src ''self''; base-uri
+        ''none''; form-action ''none''; frame-ancestors ''none'', and <meta name="robots" content="noindex, nofollow">. The
+        same four headers are on every answer of the two share paths, also the load-shed 503 and the 404 of a path that matches
+        no route (an over-long token). The public reads (both routes together) have their own budget, outside the general
+        write limit (rateLimit): perAddressPerMinute per client address and perTokenPerMinute per link, a fixed 60 s window
+        in each server copy''s memory, like telemetry.limits. Over it: 429 rate_limited, reason share_too_many, Retry-After.
+        Under load the public reads are shed first (503 unavailable, Retry-After), before any signed-in route; they are never
+        in the safety set: a contact''s page may fail under load, SOS must not.'
+      tags:
+      - Public · Share trip
+      x-actor: []
+      parameters:
+      - name: token
+        in: path
+        required: true
+        description: '128 bits as base64url, 22 characters, that cannot be guessed: the server makes them from the new link''s
+          id with a key of its own that the server derives from its secret with a fixed label (HMAC-SHA256, cut to 128 bits).
+          The server stores only the SHA-256 of the token, never the token and never the URL: a copy of the database cannot
+          open a link. A token is never written to a log, an audit row, an error message or the idempotency store.'
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{22}$
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+            Referrer-Policy:
+              schema:
+                type: string
+            X-Robots-Tag:
+              schema:
+                type: string
+            X-Content-Type-Options:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/PublicTripShare'
+                - $ref: '#/components/schemas/PublicTripShareSearching'
+        '404':
+          description: 'not_found, reason share_not_found: the same answer for every miss.'
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: 'The link has ended (share_ended): no trip data.'
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicTripShareEnded'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security: []
+      x-public: true
+  /s/{token}:
+    get:
+      operationId: publicTripSharePage
+      summary: The shared trip page (HTML, no sign-in)
+      description: 'v0.18.116 (contract.json#shareTrip): GET /s/{token} (outside /api/v1; no sign-in): the same answer as
+        an HTML page, 200 / 410 / 404, rendered by the server from the same allow-list. 429 is a short HTML page too; 503
+        is the standard error body. No script; the page reloads itself every public.refreshSeconds seconds while live. Both
+        public routes answer with Cache-Control: no-store, Referrer-Policy: no-referrer, X-Robots-Tag: noindex, nofollow and
+        X-Content-Type-Options: nosniff. The HTML page also carries Content-Security-Policy: default-src ''none''; style-src
+        ''unsafe-inline''; img-src ''self''; base-uri ''none''; form-action ''none''; frame-ancestors ''none'', and <meta
+        name="robots" content="noindex, nofollow">. The same four headers are on every answer of the two share paths, also
+        the load-shed 503 and the 404 of a path that matches no route (an over-long token). Messaging apps fetch a link to
+        build a preview. The page has no Open Graph / preview tags and its <title> is only ''Movera'' + texts.title, so a
+        preview never carries trip data. The page''s language: the viewer''s Accept-Language (sv / fr / en, first match),
+        else the trip zone''s country language (configDefaults.countries.<country>.defaultLanguage: SE sv, FR fr, TN fr),
+        else en.'
+      tags:
+      - Public · Share trip
+      x-actor: []
+      parameters:
+      - name: token
+        in: path
+        required: true
+        description: '128 bits as base64url, 22 characters, that cannot be guessed: the server makes them from the new link''s
+          id with a key of its own that the server derives from its secret with a fixed label (HMAC-SHA256, cut to 128 bits).
+          The server stores only the SHA-256 of the token, never the token and never the URL: a copy of the database cannot
+          open a link. A token is never written to a log, an audit row, an error message or the idempotency store.'
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{22}$
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+            Referrer-Policy:
+              schema:
+                type: string
+            X-Robots-Tag:
+              schema:
+                type: string
+            X-Content-Type-Options:
+              schema:
+                type: string
+          content:
+            text/html:
+              schema:
+                type: string
+                description: The share page. No script, no preview tags with trip data.
+        '404':
+          description: 'Link not found: the same page for every miss.'
+          content:
+            text/html:
+              schema:
+                type: string
+                description: The share page. No script, no preview tags with trip data.
+        '410':
+          description: 'The link has ended: the page says so and shows no trip data.'
+          content:
+            text/html:
+              schema:
+                type: string
+                description: The share page. No script, no preview tags with trip data.
+        '429':
+          description: 'rate_limited: a short HTML page; obey Retry-After.'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                minimum: 0
+          content:
+            text/html:
+              schema:
+                type: string
+                description: The share page. No script, no preview tags with trip data.
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security: []
+      x-public: true
+      servers:
+      - url: https://api.dev.movera.invalid
+        description: The server's origin, outside /api/v1.
 components:
   securitySchemes:
     bearerAuth:
@@ -18759,6 +19556,12 @@ components:
       schema:
         type: integer
         minimum: 1
+    BonusId:
+      name: bonusId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
   responses:
     BadRequest:
       description: 'invalid_request: malformed body, unknown enum, wrong reasonCode group, bad PIN.'
@@ -20127,6 +20930,24 @@ components:
             admin complete — the same paid end as the KPI money, moneyBase.kpiMoney); an unpaid or cancelled trip has no moneySplit
             (the rider paid nothing, so there is no riderPaid to split). Its lost-driver payment is TripProjection.lostDriverPaid,
             and its admin ''Movera commission'' row is the admin view''s moveraKeepsNow (commissionRow.admin (2) / (3)).'
+        callOpenUntil:
+          type: string
+          format: date-time
+          description: 'v0.18.113 (BQ-S13; owner 2026-11-01 "Keep call open for 1 hour but not chat", Rules decisions/driver-g9.md:38,
+            conversation/session-2026-11-01b.md:108): TripProjection.callOpenUntil (date-time, UTC) = trips.ended_at + the
+            trip zone''s CountryRules.calls.callWindowAfterTripMin minutes (inAppCalls.settings: its own country_rules, else
+            the country standard, else the default 60; read when the trip is served, so an admin change applies at once to
+            trips already ended). Sent only on a completed trip with an end time while that zone''s calls.on is true; absent
+            otherwise (calls off, a cancelled trip, an early end, a trip not ended yet: during the trip the call button follows
+            the trip status as before). Served on GET /trips/{tripId} (rider, driver and admin views) and on every GET /rider/trips
+            item; stream events and command answers do not carry it, so an app reads GET /trips/{tripId} once when a finished
+            trip opens (not a poll). It is the same instant the server checks (inAppCalls.window): a call at or before callOpenUntil
+            is allowed, after it POST /trips/{tripId}/call is 409 invalid_transition, reason call_window_closed. Apps: on
+            the finished trip (driver: Trip finished and the ride history detail; rider: the ride complete summary and the
+            past ride in History) the ''Call rider'' / ''Call driver'' button shows while now ≤ callOpenUntil and hides by
+            itself when it passes; absent → no call button. The call itself is unchanged (in-app, never a phone number). Chat
+            stays closed after the drop-off (no change). Admin: no new setting — Pricing › Tips & limits › Calls › Call window
+            after the trip (min), 0–240, default 60, per country standard or zone. X-Api-Version stays 0.5; additive; no migration.'
     DriverSilentAlert:
       type: object
       description: 'v0.7.0: documents the server''s alert of 2026-10-26: no position for 30 min with the rider on board; the
@@ -21189,7 +22010,9 @@ components:
         audits/impact/j8-rebase-money-fix-supervisor.md §6; contract kpis.money.fleets "Fleet views get only the driver earnings",
         owner s06:1277): GET /driver/fleet/earnings (FleetEarnings, FleetDriverEarnings) sums only the driver''s earnings
         entries of the period: a paid_to_movera entry (''Driver paid Movera'') is not earnings and is never in a driver''s
-        earnings (FleetDriverEarnings.earnings) or in total. Wording only; no shape change.'
+        earnings (FleetDriverEarnings.earnings) or in total. Wording only; no shape change. v0.18.109 (server BQ-FLEETCUR,
+        driverOnboarding.fleetInvitations.oneCountry): FleetDriverEarnings.earnings / .trips and FleetEarnings.total count
+        only entries in the fleet''s currency (SE SEK, FR EUR, TN TND).'
       required:
       - from
       - to
@@ -21848,6 +22671,15 @@ components:
               type: boolean
             solve:
               type: boolean
+        waitingSince:
+          allOf:
+          - $ref: '#/components/schemas/Timestamp'
+          description: 'v0.18.112 (contract.json#supportDesk.inboxOrder.waitingSince): SupportTicket.waitingSince (admin views
+            only: GET /admin/tickets, GET /admin/tickets/{ticketId} and the command answers): while the ticket is open, the
+            time of the first rider or driver message that has no support answer after it; absent when the ticket is not open
+            (pending, resolved, closed) or support answered last (a case an admin opened, a reopened ticket support answered
+            last). It starts again when the person writes or the ticket becomes open (reopen, waiting false) with a message
+            still not answered.'
     TicketMessage:
       type: object
       description: 'v0.9.0: one message on a support ticket.'
@@ -23191,7 +24023,11 @@ components:
           description: Minor units of currency.
         driverBonus:
           type: integer
-          description: Minor units of currency.
+          description: 'Minor units of currency. v0.18.110 (BQ-V44; owner G10-5 "Make bonuses real (Recommended)", Rules decisions/driver-g10.md:9;
+            Q12 bonus zones, decisions/admin-fake-by-group.md:40; Rules audits/impact/v44-driver-bonuses.md): a bonus campaign
+            entry (earnings entry kind bonus, tripId null, bonusId set; bonusCampaigns.award) is inside no trip''s commission:
+            it is a Movera pay change like `which`, taken off KPI moveraEarnings once and counted in KPI driverBonus, on the
+            row of the campaign''s zone and the zone-local day of the award (bonusCampaigns.money.kpi).'
         cashCollected:
           type: integer
           description: Minor units of currency.
@@ -23229,7 +24065,11 @@ components:
             is how much movera keep''): Movera''s pay changes also include the lost-driver payment (payLostDriver: the driverBonus
             of an admin cancel or reassign) and an admin driver bonus added after the trip''s paid end, as well as the adjustment
             entries; each is taken off once. A bonus that was on the trip at its paid end is inside commission and is not
-            taken off again (moneyBase.bonusOutsideCommission).'
+            taken off again (moneyBase.bonusOutsideCommission). v0.18.110 (BQ-V44; owner G10-5 "Make bonuses real (Recommended)",
+            Rules decisions/driver-g10.md:9; Q12 bonus zones, decisions/admin-fake-by-group.md:40; Rules audits/impact/v44-driver-bonuses.md):
+            a bonus campaign entry (earnings entry kind bonus, tripId null, bonusId set; bonusCampaigns.award) is inside no
+            trip''s commission: it is a Movera pay change like `which`, taken off KPI moveraEarnings once and counted in KPI
+            driverBonus, on the row of the campaign''s zone and the zone-local day of the award (bonusCampaigns.money.kpi).'
     KpiReport:
       type: object
       description: 'v0.9.0: GET /admin/kpis.'
@@ -23280,7 +24120,15 @@ components:
           description: 'v0.5.1: the driver''s shares of cancel and no-show fees credited in the period, also those the rider
             still owes (CONTRACT.md §3.7).'
         net:
-          $ref: '#/components/schemas/Money'
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.110: net includes bonus (every bonus entry of the period).'
+        bonus:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.110: GET /driver/earnings: EarningsPeriod.bonus (new, optional Money) = every bonus entry of
+            the driver in the period (trip bonuses and campaigns), and net includes it. Before v0.18.110 net left every bonus
+            entry out (server src/trips/ride/earnings.ts:39; noted in Rules decisions/driver-g10.md:13).'
     EarningsReport:
       type: object
       required:
@@ -23734,7 +24582,7 @@ components:
               description: 'Open from driver assignment (tripStatus.driverAssigned) until callWindowAfterTripMin (default
                 60) minutes after the trip ended as completed (trips.ended_at). Outside it: 409 invalid_transition, reason
                 call_window_closed. A cancelled trip has no window after it. The apps show the call button only inside the
-                window.'
+                window. v0.18.113 (BQ-S13): the end of this window is sent to both apps as TripProjection.callOpenUntil (inAppCalls.callOpenUntil).'
               default: 60
             ringSeconds:
               type: integer
@@ -23823,6 +24671,14 @@ components:
             reason invalid_document. Never saved = configDefaults.sosContactsSms[country] (true everywhere, the owner''s answer),
             else configDefaults.sosContactsSms.other. Off: no SMS; the SOS, the call and the Movera alert are unchanged.'
           default: true
+        bonusCampaignMax:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: 'v0.18.110: v0.18.110 (BQ-V44; owner G10-5 "Make bonuses real (Recommended)", Rules decisions/driver-g10.md:9;
+            Q12 bonus zones, decisions/admin-fake-by-group.md:40; Rules audits/impact/v44-driver-bonuses.md): the largest
+            amount of one bonus campaign (CountryRules.bonusCampaignMax, per country standard or zone, Admin › Pricing › Tips
+            & limits, settings.publish). Builder default values (plan §12 D13), admin-changeable. Defaults SE 2 000,00 kr
+            (200000 SEK), FR 200,00 € (20000 EUR), TN 200.000 DT (200000 TND). Optional: absent → configDefaults.bonusCampaignMax.'
       x-server-only: true
     FeeRule:
       type: object
@@ -25295,6 +26151,7 @@ components:
               type: boolean
             shareTrip:
               type: boolean
+              description: 'v0.18.116 (contract.json#shareTrip): the same value as shareTrip.on (served by the server).'
           additionalProperties:
             type: boolean
         paymentMethods:
@@ -25384,6 +26241,28 @@ components:
               description: 'v0.18.19 (owner A): the zone''s Book later switch (DriverAppConfig.reservations.on), written by
                 the server. Off: the app still shows Book later and says ''Not available in this area yet'' when tapped; the
                 server refuses (403 reservations_off).'
+            pickupSpots:
+              type: object
+              description: 'v0.18.115 (BQ-V21; owner full-audit Q6 2026-11-02 "Keep as ''approximate''" => admin on/off per
+                zone (default on), Rules decisions/rider-g4-pickup.md:7): the rider''s pickup entrance chips (Main entrance
+                / Side entrance / Parking, placed around the pin and labelled approximate in sv / fr / en) have an admin on/off
+                switch per zone, default on. Not money. X-Api-Version stays 0.5; additive; no migration. RiderAppConfig.booking.pickupSpots.on
+                (boolean, default true = configDefaults.pickupSpotsOn) in the zone''s rider document (its own, else its country
+                standard), saved and published with PUT /admin/config/rider_app_config + POST /admin/config/rider_app_config/publish
+                (settings.edit / settings.publish), the same draft / publish / version rule as the other documents. Admin:
+                Dispatch › Rides ''Pickup entrance chips (approximate)'', per zone. PUT /admin/config/rider_app_config: a
+                booking.pickupSpots that is not an object, or an on that is not true / false, is 400 invalid_request with
+                reason invalid_document. GET /rider/config always serves booking.pickupSpots { on }: the document''s value,
+                true when it is missing (a document published before v0.18.115).'
+              properties:
+                'on':
+                  type: boolean
+                  description: 'on: the Set pickup sheet shows the entrance chips as before (a chosen chip''s title, with
+                    its approximate mark, ends the booked pickup label the driver sees). off: no entrance chips, and the pickup
+                    label is the address only. ''Previously used'' (the device''s own confirmed pickups) and ''Near Home''
+                    (the rider''s saved Home) are real places, not entrance chips, and stay. A document without the field
+                    (an older server) reads as on.'
+                  default: true
         cancelFees:
           $ref: '#/components/schemas/CancelFees'
         waiting:
@@ -25471,6 +26350,21 @@ components:
             extra call buttons on the "SOS sent" screen; (3) ride check "Need help" — the same call buttons; (4) the driver''s
             emergency contacts screen — the built-in number shown is the country list, not 112. Labels in the app language
             (sv / fr / en).'
+        shareTrip:
+          type: object
+          description: 'v0.18.116 (contract.json#shareTrip): Per zone: the zone''s rider document (rider_app_config; its own,
+            else its country standard) carries shareTrip { on } (boolean), saved and published with PUT /admin/config/rider_app_config
+            + POST /admin/config/rider_app_config/publish (settings.edit / settings.publish). Admin: Dispatch › Safety, card
+            ''Share trip link'', switch ''Riders can share a live trip link''. Never saved = the document''s older features.shareTrip
+            when that is true / false, else configDefaults.shareTripOn (true). A shareTrip that is not an object, or an on
+            that is not true / false, is 400 invalid_request, reason invalid_document. GET /rider/config always serves shareTrip
+            { on } and the same value as features.shareTrip, so a rider app built before v0.18.116 reads the switch with no
+            change. The driver document gets nothing.'
+          properties:
+            'on':
+              type: boolean
+              description: The zone's switch.
+              default: true
     DriverAppConfig:
       type: object
       description: Per-zone driver document built by Admin exporters. Unknown keys are ignored; missing keys fall back to
@@ -28097,7 +28991,8 @@ components:
             (400 invalid_request, PUT /admin/config/pricing and its publish; details ["step:<index>", "problem:<code>"], contract.json#commissionSteps.validation).
             v0.18.93 reasons: driver_away_from_pickup (409, the driver''s no-show while the waiting clock is stopped), invalid_auto_arrive_distance
             (400, contract.json#autoArrive.settings.validation). v0.18.108 reason: not_at_stop (409 invalid_transition, the
-            driver''s stop tap or back tap farther than allowed from the stop; contract.json#autoArrive.stops.tap / back).'
+            driver''s stop tap or back tap farther than allowed from the stop; contract.json#autoArrive.stops.tap / back).
+            v0.18.109 reason: fleet_other_country (409 conflict, the driver''s country is not the fleet''s; contract.json#driverOnboarding.fleetInvitations.oneCountry).'
         details:
           type: array
           items:
@@ -35669,6 +36564,14 @@ components:
         relation:
           type: string
           maxLength: 40
+        shareTrips:
+          type: boolean
+          description: 'v0.18.116 (contract.json#shareTrip): Trusted contacts are the rider''s emergency contacts on the server
+            (phoneDataToServer.riderEmergencyContacts, GET | PUT /rider/emergency-contacts): no second list. v0.18.116: EmergencyContact
+            gains the optional shareTrips (boolean): ''Share trips with this contact''. The server keeps it on the rider''s
+            list and returns it; a value that is not true / false is 400 invalid_request; a driver PUT that carries it is
+            accepted and the field is not kept. The server sends nothing to a contact: the rider''s phone sends the message
+            (texts.<lang>.message with {url}).'
     EmergencyContactList:
       type: object
       required:
@@ -36821,39 +37724,75 @@ components:
         UTC, Rules decisions/session-2026-11-06.md:1278: "write only how much in amour driver get and how much movera get
         in amount dont write any fucking pourcentage" — "Movera gets = commission + app fee as one amount"): for each trip
         whose trip entry is in the payout, what Movera keeps now on it as the VIEWER sees it (TripProjection.moveraKeepsNow
-        of that view; moneyBase.commissionRow) — fare − debtCollected − driverEarnings − pickupPay − driverBonus after later
-        pay changes, the app fee inside the fare (example 20 DT ride, 20 % commission, 10 % app fee: rider 22.000 DT, driver
-        16.000 DT, Movera gets 6.000 DT = 4.000 commission + 2.000 app fee) — plus Movera''s share of each cancel / no-show
-        fee of a cancel / no-show share in the payout. The two views may differ: the admin''s moveraGets takes the lost-driver
-        payments off (moneySplit.movera; and, on a trip with no paid end, the lost driver''s bonus entry once, in the payout
-        that pays it — moneyBase.lostDriverPaid.kpi), the driver''s never shows another driver''s money (moneyBase.lostDriverPaid.driverView:
-        what Movera keeps from HIS trips). The app fee is never added a second time and never shown as its own line or as
-        a %. A ''Driver paid Movera'' entry (kind paid_to_movera, debtModel.driverOwes.paidMovera) is money FROM the driver,
-        never in driverGets or moveraGets, in the payout it closes or in the next payout (paidToMovera). The server works
-        both out; the apps never do (no adding of lines, no subtracting). Exactly two lines on every payout card, in the driver
-        app and in the admin: "Driver gets 1 000,00 kr" / "Movera gets 150,00 kr" — amounts only, never a % (no commission
-        % or app fee %). No other detail line on the card (no Payout.lines, no cash collected, no owed, no paid-out, no app-fee
-        line). Absent (an older server) → the card shows Payout.amount only. v0.18.95 (server BQ-M26; M24 supervisor N1, Rules
-        audits/impact/server-m24-m22-supervisor.md:178; owner rule "a paid payout''s numbers never change"): a PAID payout''s
-        summary is frozen. When an admin marks the payout paid (POST /admin/payouts/{payoutId}/paid), or when POST /admin/drivers/{driverId}/paid-movera
-        covers the payout''s carried rest in full and closes it as paid (v0.18.97 J8, Rules audits/impact/j8-rebase-money-fix-supervisor.md
-        §6; status paid, note "Driver paid Movera", audit payout.paid; frozen in the same step, in the same transaction),
-        the server works out both views at that moment (the driver''s and the admin''s, which may differ) and from then on
-        sends exactly those amounts for that payout (server migration 0109, payouts.paid_summary): a later pay change, refund
-        or bonus on one of its trips never moves a paid payout''s driverGets or moveraGets ("what Movera keeps now" above
-        is read at the moment it is paid); such a change shows only where it is booked (a new entry in the next payout). A
-        payout not yet paid (pending, pending_approval) stays live. Payouts already paid before the server had 0109 are frozen
-        once when that server starts (freeze at deploy: the values of that moment). The apps change nothing. v0.18.97 (J8,
-        Rules audits/impact/j8-rebase-money-fix-supervisor.md §6; owner s06:1277 "Driver gets" = his earnings, Q-M3 the negative
-        rest carries): a ''Driver paid Movera'' entry (earnings entry kind paid_to_movera, written by POST /admin/drivers/{driverId}/paid-movera,
-        debtModel.driverOwes.paidMovera) is money the driver paid Movera, not earnings and not Movera''s commission: it is
-        never in driverGets or moveraGets — not in the payout it closes (an entry linked to an earlier payout below 0 to settle
-        its carried rest) and not in the next payout (an unlinked entry, that payout''s paid_to_movera line). Payout.amount
-        and Payout.lines still count an unlinked entry (line paid_to_movera, +amount), so driverGets = Payout.amount + the
-        cash he collected − his paid_to_movera entries in Payout.amount (the paid_to_movera line); an entry linked to an earlier
-        payout is not in that payout''s amount (its amount stays as it was run), so there driverGets = Payout.amount + the
-        cash he collected. The owed (debtModel.driverOwes.owed) and the admin list still count every entry. Wording only;
-        no shape change; the apps change nothing.'
+        of that view; moneyBase.commissionRow) — except laterBonus (v0.18.111, server BQ-M28) and laterPayChange (v0.18.111,
+        server BQ-M29): a paid trip''s own bonus entries booked in another payout or in none yet are added back here and taken
+        off once, in the payout that pays them (its own pay-change entries the same way: each counted once, in the payout
+        that pays it) — fare − debtCollected − driverEarnings − pickupPay − driverBonus after later pay changes, the app fee
+        inside the fare (example 20 DT ride, 20 % commission, 10 % app fee: rider 22.000 DT, driver 16.000 DT, Movera gets
+        6.000 DT = 4.000 commission + 2.000 app fee) — plus Movera''s share of each cancel / no-show fee of a cancel / no-show
+        share in the payout. The two views may differ: the admin''s moveraGets takes the lost-driver payments off (moneySplit.movera;
+        and, on a trip with no paid end, the lost driver''s bonus entry once, in the payout that pays it — moneyBase.lostDriverPaid.kpi),
+        the driver''s never shows another driver''s money (moneyBase.lostDriverPaid.driverView: what Movera keeps from HIS
+        trips). The app fee is never added a second time and never shown as its own line or as a %. A ''Driver paid Movera''
+        entry (kind paid_to_movera, debtModel.driverOwes.paidMovera) is money FROM the driver, never in driverGets or moveraGets,
+        in the payout it closes or in the next payout (paidToMovera). The server works both out; the apps never do (no adding
+        of lines, no subtracting). Exactly two lines on every payout card, in the driver app and in the admin: "Driver gets
+        1 000,00 kr" / "Movera gets 150,00 kr" — amounts only, never a % (no commission % or app fee %). No other detail line
+        on the card (no Payout.lines, no cash collected, no owed, no paid-out, no app-fee line). Absent (an older server)
+        → the card shows Payout.amount only. v0.18.95 (server BQ-M26; M24 supervisor N1, Rules audits/impact/server-m24-m22-supervisor.md:178;
+        owner rule "a paid payout''s numbers never change"): a PAID payout''s summary is frozen. When an admin marks the payout
+        paid (POST /admin/payouts/{payoutId}/paid), or when POST /admin/drivers/{driverId}/paid-movera covers the payout''s
+        carried rest in full and closes it as paid (v0.18.97 J8, Rules audits/impact/j8-rebase-money-fix-supervisor.md §6;
+        status paid, note "Driver paid Movera", audit payout.paid; frozen in the same step, in the same transaction), the
+        server works out both views at that moment (the driver''s and the admin''s, which may differ) and from then on sends
+        exactly those amounts for that payout (server migration 0109, payouts.paid_summary): a later pay change, refund or
+        bonus on one of its trips never moves a paid payout''s driverGets or moveraGets ("what Movera keeps now" above is
+        read at the moment it is paid; v0.18.111: with laterBonus, so a later bonus not booked in this payout is not in its
+        frozen number and is taken off in the payout that pays it; v0.18.111: with laterPayChange, a later pay change not
+        booked in this payout is not in its frozen number and counts in the payout that pays it); such a change shows only
+        where it is booked (a new entry in the next payout). A payout not yet paid (pending, pending_approval) stays live.
+        Payouts already paid before the server had 0109 are frozen once when that server starts (freeze at deploy: the values
+        of that moment). The apps change nothing. v0.18.97 (J8, Rules audits/impact/j8-rebase-money-fix-supervisor.md §6;
+        owner s06:1277 "Driver gets" = his earnings, Q-M3 the negative rest carries): a ''Driver paid Movera'' entry (earnings
+        entry kind paid_to_movera, written by POST /admin/drivers/{driverId}/paid-movera, debtModel.driverOwes.paidMovera)
+        is money the driver paid Movera, not earnings and not Movera''s commission: it is never in driverGets or moveraGets
+        — not in the payout it closes (an entry linked to an earlier payout below 0 to settle its carried rest) and not in
+        the next payout (an unlinked entry, that payout''s paid_to_movera line). Payout.amount and Payout.lines still count
+        an unlinked entry (line paid_to_movera, +amount), so driverGets = Payout.amount + the cash he collected − his paid_to_movera
+        entries in Payout.amount (the paid_to_movera line); an entry linked to an earlier payout is not in that payout''s
+        amount (its amount stays as it was run), so there driverGets = Payout.amount + the cash he collected. The owed (debtModel.driverOwes.owed)
+        and the admin list still count every entry. Wording only; no shape change; the apps change nothing. v0.18.110 (BQ-V44;
+        owner G10-5 "Make bonuses real (Recommended)", Rules decisions/driver-g10.md:9; Q12 bonus zones, decisions/admin-fake-by-group.md:40;
+        Rules audits/impact/v44-driver-bonuses.md): a bonus campaign entry in the payout (kind bonus AND bonusId set) is one
+        of the payout''s entries: driverGets counts it once; moveraGets takes it off once, in BOTH views (admin and driver):
+        Movera pays it and it is the driver''s own money (owner 2026-11-13 ''Movera commission is how much movera keep'',
+        Rules decisions/session-2026-11-06.md:1263; moneyBase.lostDriverPaid.driverView hides only another driver''s money).
+        moveraGets may then be below 0 and is sent as it is. Payout.lines bonus and Payout.amount count it as any bonus entry.
+        A paid payout''s frozen summary never changes (frozenWhenPaid). Supervisor MF4 (Rules audits/impact/v44-driver-bonuses-supervisor.md):
+        the server selects bonus_id with the payout''s entries and takes off ONLY entries with kind = ''bonus'' AND bonus_id
+        IS NOT NULL; it never keys on ''no trip'': a ''Driver paid Movera'' entry (paid_to_movera, also tripless) stays out
+        of driverGets and moveraGets (paidToMovera). The lost-driver payment keeps its own rule (admin view only), so the
+        two views can differ. v0.18.111 (server BQ-M28; M28 supervisor MF3, Rules audits/impact/m28-late-bonus-supervisor.md
+        §3.4; owner s06:1263 "Movera commission is how much Movera keeps, everywhere"): a paid trip''s own bonus entries (kind
+        bonus, the trip''s driver, written at or after the paid end: the end bonus and every admin bonus after the paid end,
+        moneyBase.bonusOutsideCommission afterPaidEnd) each lower moveraGets once, in the payout that pays that entry. The
+        payout with the trip''s entry reads moveraKeepsNow with those bonus entries added back when they are booked in another
+        payout or in none yet. A payout with such a bonus entry but not the trip''s entry takes it off (its moveraGets can
+        be below 0). Both in one payout: once. Driver and admin views alike. A lost-driver payment is never one of them, even
+        when it went to the driver who later ends the trip (it is written before the end; moneyBase.lostDriverPaid). frozenWhenPaid
+        reads the same rule at the moment of paid. driverGets is unchanged. Wording only, no shape change, no migration, no
+        admin setting; the apps change nothing (they show the server''s two amounts). v0.18.111 (server BQ-M29; M28 supervisor
+        §3.2, Rules audits/impact/m28-late-bonus-supervisor.md; owner s06:1263 "Movera commission is how much Movera keeps,
+        everywhere"): laterBonus also holds for a paid trip''s own pay-change entries (kind adjustment, the trip''s driver,
+        written at or after the paid end: the change kept at the paid end, every admin pay change after the end (finish.driverMoney.payChange)
+        and the driver''s share taken back by a refund (finish.refund, fromDriver)). Each one moves moveraGets once, in the
+        payout that pays that entry: a + change lowers it, a − change raises it (its moveraGets can be below 0). The payout
+        with the trip''s entry reads moveraKeepsNow with those entries added back when they are booked in another payout or
+        in none yet. Both in one payout: once. Driver and admin views alike. A pay-change entry of a trip with no paid end
+        (a no-show''s share taken back, arrivedWaiting.reverseNoShow) is not one of them and stays as before. A refund is
+        not an entry: it stays in the trip''s moveraKeepsNow. frozenWhenPaid reads the same rule at the moment of paid. driverGets
+        is unchanged. Wording only, no shape change, no migration, no admin setting; the apps change nothing (they show the
+        server''s two amounts).'
       required:
       - driverGets
       - moveraGets
@@ -36931,6 +37870,374 @@ components:
           description: Accepted by the SMS company; only for sent / failed.
         at:
           $ref: '#/components/schemas/Timestamp'
+    BonusMeasure:
+      type: string
+      enum:
+      - trips
+      - online_hours
+      description: 'v0.18.110: trips = trips with a paid end whose pickup is inside the area; online_hours = time online (or
+        on a trip) inside the area. A trip counts once per campaign when it reaches a PAID end (completed, ended early by
+        the rider, ended by the driver with the rider on board, admin complete: moneyBase.kpiMoney) while the campaign is
+        active, its driver is that driver (counting.who), and its PICKUP point is inside the area (D5). Every category and
+        payment method. Counted in creditTrip, the one step every paid end goes through, in the same transaction as the trip''s
+        earnings entry. A later refund takes neither the count nor the bonus back (D5). One trip counts in every campaign
+        it fits (D14). The rider limit (riderLimit) applies. Supervisor MF3 (Rules audits/impact/v44-driver-bonuses-supervisor.md):
+        from the driver''s fixes (POST /driver/location). A fix is COUNTED only when all hold: his online status is online
+        or on_trip when it arrives (D6); accuracy at most accuracyMaxMeters; the point is inside the area; the campaign is
+        active at the fix time AND at the server''s now (receivedAt); fix time ≥ drivers.online_since (no time from before
+        he went online); fix time ≤ the server''s now (no future time); it is later than the last counted fix (twice or out
+        of order adds nothing); the straight-line speed from the last counted fix is at most maxSpeedKmh (a faster jump is
+        a fake position and is ignored); and it is at least writeEverySeconds after the last counted fix (a fix sooner than
+        that only waits, nothing is written; Rule 33, at most one write per about 30 s per driver and campaign, run on the
+        newest fix of a batch). A counted fix adds min(fix time − last counted fix time, receivedAt − last counted receivedAt),
+        and only when the fix-time gap is at most gapMaxSeconds; a longer gap adds 0. So a batch of backdated fixes can never
+        add more than the server time that really passed. The first counted fix adds 0. progress.done = whole minutes counted
+        (floor), progress.target = target × 60.'
+    BonusState:
+      type: string
+      enum:
+      - scheduled
+      - active
+      - paused
+      - ended
+      description: 'v0.18.110: A campaign counts from startDate 00:00 to the day after endDate 00:00, local time of its zone
+        (daylight saving follows the time zone). state = ended when status is ended or now is at or after the window end;
+        scheduled when now is before the window start; paused when status is paused; else active. Nothing counts unless state
+        is active at that moment.'
+    BonusProgressNumbers:
+      type: object
+      description: 'v0.18.110: the server''s numbers; the apps show them and never work progress out.'
+      required:
+      - done
+      - target
+      properties:
+        done:
+          type: integer
+          minimum: 0
+          description: Trips counted, or whole minutes online counted (online_hours).
+        target:
+          type: integer
+          minimum: 1
+          description: 'The target in the same unit: trips, or target hours × 60 minutes.'
+    BonusCampaign:
+      type: object
+      description: 'v0.18.110: v0.18.110 (BQ-V44; owner G10-5 "Make bonuses real (Recommended)", Rules decisions/driver-g10.md:9;
+        Q12 bonus zones, decisions/admin-fake-by-group.md:40; Rules audits/impact/v44-driver-bonuses.md): BONUS CAMPAIGNS
+        (not the trip bonus of adminDispatch.driverBonus, which is unchanged): an admin makes a campaign for one operating
+        zone with its own area drawn on the map (separate from the operating zones), a measure (trips or hours online), a
+        target, an amount and dates. Every driver who reaches the target inside the area and the dates earns the amount once;
+        the server writes one earnings entry kind bonus and the next payout pays it. The driver app shows the campaigns and
+        his progress from the server. Rule 0: contract (this), server (migration 0110), admin (Drivers › Bonuses + setting),
+        driver app (Campaigns screen), rider app (not affected). Supervisor MF1 (Rules audits/impact/v44-driver-bonuses-supervisor.md):
+        when a driver''s progress reaches the target (done ≥ target) the server, in the SAME transaction as the count that
+        reached it: (1) gate: UPDATE bonus_progress SET earned_at = now WHERE bonus_id = $1 AND driver_id = $2 AND earned_at
+        IS NULL AND done ≥ target RETURNING — the row lock gives one winner; (2) only the winner inserts ONE earnings entry
+        { kind bonus, tripId null, bonusId, amount, currency = the campaign''s, at = earnedAt } with INSERT … ON CONFLICT
+        (driver_id, bonus_id) WHERE bonus_id IS NOT NULL DO NOTHING — the unique index is the second guard, never the first;
+        (3) the counting step never makes the trip end or the location post fail: a lost race is a no-op; when one trip or
+        fix fits several campaigns, bonus_progress rows are locked in bonus_id order (no deadlock). earnedAt and the entry''s
+        at are the SERVER''s now, never the phone''s measuredAt. After he earned it nothing more counts for him in that campaign:
+        progress.done stays at the target (trips) or at target × 60 minutes (online_hours). No push notice in this version
+        (D10; driver notices are the G13 job). Reads drivers.read, writes drivers.bonuses (contract adminPermissions); one
+        admin is enough (decisions/admin-fake-by-group.md:29). An admin reads and changes only campaigns of zones in his scope
+        (Super admin: all); create in a zone outside it → 403 forbidden, reason zone_out_of_scope. Every write takes an Idempotency-Key
+        (POST) or expectedVersion (409 version_mismatch with the current campaign).'
+      required:
+      - bonusId
+      - zoneId
+      - country
+      - currency
+      - timeZone
+      - names
+      - measure
+      - target
+      - amount
+      - startDate
+      - endDate
+      - polygon
+      - bounds
+      - status
+      - state
+      - version
+      - createdAt
+      - createdBy
+      - updatedAt
+      - driversWithProgress
+      - driversEarned
+      - paidTotal
+      properties:
+        bonusId:
+          $ref: '#/components/schemas/Id'
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        timeZone:
+          type: string
+          description: The zone's IANA time zone.
+        names:
+          $ref: '#/components/schemas/ZoneNames'
+        measure:
+          $ref: '#/components/schemas/BonusMeasure'
+        target:
+          type: integer
+          minimum: 1
+          description: trips 1-500, online_hours 1-200 (hours).
+        amount:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: Paid once to each driver who reaches the target; the zone's currency. Money in the zone's currency,
+            amountMinor > 0 and at most the zone's CountryRules.bonusCampaignMax (its own rules, else the country standard,
+            else configDefaults.bonusCampaignMax). Above → 400 invalid_request, reason bonus_amount_above_max; another currency
+            or 0 → bonus_amount_invalid.
+        startDate:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}$
+          description: Local date YYYY-MM-DD in the zone's time zone.
+        endDate:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}$
+          description: Local date YYYY-MM-DD in the zone's time zone.
+        polygon:
+          allOf:
+          - $ref: '#/components/schemas/ZonePolygon'
+          description: 'Supervisor MF6 (Rules audits/impact/v44-driver-bonuses-supervisor.md): the area as zones.polygon (3
+            to 500 points [lat, lng], not closed, not self-crossing; a point on the edge is inside); the server computes bounds.
+            It is the campaign''s own shape, never an operating zone (Q12), and EVERY point of it lies inside its zone''s
+            polygon (a point on the zone''s edge counts as inside; D3), so its currency, KPI row and drivers belong together.
+            Otherwise, or a bad outline → 400 invalid_request, reason bonus_area_invalid.'
+        bounds:
+          $ref: '#/components/schemas/ZoneBounds'
+        status:
+          type: string
+          enum:
+          - active
+          - paused
+          - ended
+          description: Stored status.
+        state:
+          $ref: '#/components/schemas/BonusState'
+        version:
+          type: integer
+          minimum: 1
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        createdBy:
+          $ref: '#/components/schemas/Id'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        endedAt:
+          $ref: '#/components/schemas/Timestamp'
+        driversWithProgress:
+          type: integer
+          minimum: 0
+          description: Drivers with any progress.
+        driversEarned:
+          type: integer
+          minimum: 0
+          description: Drivers who earned it.
+        paidTotal:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          description: The sum of the campaign's earnings entries (amount × driversEarned).
+    BonusCampaignCreate:
+      type: object
+      description: 'v0.18.110: POST /admin/bonuses BonusCampaignCreate { zoneId, names, measure, target, amount, startDate,
+        endDate, polygon } → 201 BonusCampaign (drivers.bonuses, Idempotency-Key; audit bonus.create). startDate and endDate
+        are local dates YYYY-MM-DD in the zone''s time zone; startDate ≤ endDate; startDate not before today (zone time);
+        at most maxDays days from startDate to endDate, both counted. Else 400 invalid_request, reason bonus_dates_invalid.
+        Errors: bonus_target_invalid, bonus_amount_invalid, bonus_amount_above_max, bonus_dates_invalid, bonus_area_invalid,
+        bonus_field_fixed.'
+      required:
+      - zoneId
+      - names
+      - measure
+      - target
+      - amount
+      - startDate
+      - endDate
+      - polygon
+      properties:
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        names:
+          $ref: '#/components/schemas/ZoneNames'
+        measure:
+          $ref: '#/components/schemas/BonusMeasure'
+        target:
+          type: integer
+          minimum: 1
+        amount:
+          $ref: '#/components/schemas/Money'
+        startDate:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}$
+          description: Local date YYYY-MM-DD in the zone's time zone.
+        endDate:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}$
+          description: Local date YYYY-MM-DD in the zone's time zone.
+        polygon:
+          $ref: '#/components/schemas/ZonePolygon'
+      additionalProperties: false
+    BonusCampaignUpdate:
+      type: object
+      description: 'v0.18.110: PUT /admin/bonuses/{bonusId} BonusCampaignUpdate { expectedVersion, names?, endDate? } → BonusCampaign
+        (drivers.bonuses; audit bonus.update). Only the names and a LATER endDate (still within maxDays) can change (D8);
+        any other field → 400 invalid_request, reason bonus_field_fixed. On an ended campaign → 409 conflict, reason bonus_ended.'
+      required:
+      - expectedVersion
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: Version the caller last saw; stale → 409 version_mismatch.
+        names:
+          $ref: '#/components/schemas/ZoneNames'
+        endDate:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}$
+          description: Local date YYYY-MM-DD in the zone's time zone.
+      additionalProperties: false
+    BonusCampaignCommand:
+      type: object
+      description: 'v0.18.110: POST /admin/bonuses/{bonusId}/pause | /resume | /end { expectedVersion } → BonusCampaign (drivers.bonuses;
+        audit bonus.pause | bonus.resume | bonus.end). pause needs status active, resume needs paused, end works on active
+        or paused; else 409 conflict, reason bonus_ended (ended) or invalid_transition. A campaign is never deleted (Rule
+        21).'
+      required:
+      - expectedVersion
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: Version the caller last saw; stale → 409 version_mismatch.
+      additionalProperties: false
+    BonusCampaignPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/BonusCampaign'
+      description: 'v0.18.110: Page<BonusCampaign>, newest first.'
+    BonusProgress:
+      type: object
+      description: 'v0.18.110: one driver''s progress in a campaign (admin view).'
+      required:
+      - driverId
+      - firstName
+      - progress
+      - earned
+      properties:
+        driverId:
+          $ref: '#/components/schemas/Id'
+        firstName:
+          type: string
+        progress:
+          $ref: '#/components/schemas/BonusProgressNumbers'
+        earned:
+          type: boolean
+        earnedAt:
+          $ref: '#/components/schemas/Timestamp'
+        entryId:
+          $ref: '#/components/schemas/Id'
+    BonusProgressPage:
+      allOf:
+      - $ref: '#/components/schemas/Page'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/BonusProgress'
+      description: 'v0.18.110: Page<BonusProgress>, most progress first.'
+    DriverBonus:
+      type: object
+      description: 'v0.18.110: a campaign as the driver sees it (no other driver''s numbers). Side menu Campaigns (sv Kampanjer,
+        fr Campagnes) on live reads GET /driver/bonuses: one card per campaign with name (app language), amount, dates, progress
+        bar from progress.done / progress.target (progressFormat), state, the area on a small map; earned → texts.earned.
+        NEW badge while any item has isNew; opening the screen sends POST /driver/bonuses/opened. Earnings shows EarningsPeriod.bonus.
+        The demo catalog (PEAK80, ARN120, EVE60) stays demo-only (Rule 21). The app never works progress or money out.'
+      required:
+      - bonusId
+      - names
+      - measure
+      - state
+      - startDate
+      - endDate
+      - timeZone
+      - polygon
+      - bounds
+      - amount
+      - progress
+      - earned
+      - isNew
+      properties:
+        bonusId:
+          $ref: '#/components/schemas/Id'
+        names:
+          $ref: '#/components/schemas/ZoneNames'
+        measure:
+          $ref: '#/components/schemas/BonusMeasure'
+        state:
+          $ref: '#/components/schemas/BonusState'
+        startDate:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}$
+          description: Local date YYYY-MM-DD in the zone's time zone.
+        endDate:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}$
+          description: Local date YYYY-MM-DD in the zone's time zone.
+        timeZone:
+          type: string
+        polygon:
+          $ref: '#/components/schemas/ZonePolygon'
+        bounds:
+          $ref: '#/components/schemas/ZoneBounds'
+        amount:
+          $ref: '#/components/schemas/Money'
+        progress:
+          $ref: '#/components/schemas/BonusProgressNumbers'
+        earned:
+          type: boolean
+        earnedAt:
+          $ref: '#/components/schemas/Timestamp'
+        isNew:
+          type: boolean
+          description: He has not opened it yet (POST /driver/bonuses/opened).
+    DriverBonusList:
+      type: object
+      description: 'v0.18.110: GET /driver/bonuses → DriverBonusList { items }: the campaigns of his zones (Driver.zoneIds)
+        in state scheduled, active or paused, plus ended ones he has progress in, for 30 days after the end (D11); active
+        first, then scheduled, then the rest.'
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverBonus'
+    DriverBonusOpened:
+      type: object
+      description: 'v0.18.110: POST /driver/bonuses/opened { bonusIds (1-50) } → 204: the driver opened them; isNew = he has
+        not opened it yet (kept on the server, D12; G3-D6 NEW badge).'
+      required:
+      - bonusIds
+      properties:
+        bonusIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Id'
+          minItems: 1
+          maxItems: 50
+          uniqueItems: true
+      additionalProperties: false
     PayoutRunCard:
       type: object
       description: 'v0.18.102: PayoutRunCard { country, periodEnd, count, total: Money[] } — the server''s numbers of the
@@ -36953,3 +38260,270 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Money'
+    TripShareItem:
+      type: object
+      description: 'v0.18.116 (contract.json#shareTrip): GET /rider/trips/{tripId}/share → TripShareList { items: [TripShareItem
+        { shareId, tripId, createdAt, expiresAt, endsAtDropoff }] }: the trip''s live links, oldest first, without url (the
+        app keeps the URL it got). An ended trip answers an empty list.'
+      required:
+      - shareId
+      - tripId
+      - createdAt
+      - expiresAt
+      - endsAtDropoff
+      properties:
+        shareId:
+          $ref: '#/components/schemas/Id'
+        tripId:
+          $ref: '#/components/schemas/Id'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        expiresAt:
+          allOf:
+          - $ref: '#/components/schemas/Timestamp'
+          description: createdAt + 6 h (shareTrip.maxHours); the link ends earlier at drop-off.
+        endsAtDropoff:
+          type: boolean
+          enum:
+          - true
+      additionalProperties: false
+    TripShareLink:
+      type: object
+      description: 'v0.18.116 (contract.json#shareTrip): POST /rider/trips/{tripId}/share {} + Idempotency-Key → 201 TripShareLink
+        { shareId, tripId, url, createdAt, expiresAt, endsAtDropoff: true }. The signed-in rider''s own trip only; another
+        rider''s trip is 404 trip_not_found. 409 invalid_transition, reason trip_not_live (notLive) or too_many_shares (limits.maxActivePerTrip
+        live links already); 403 forbidden, reason share_trip_off (the zone''s switch is off). Counted by the general write
+        limit.'
+      required:
+      - shareId
+      - tripId
+      - url
+      - createdAt
+      - expiresAt
+      - endsAtDropoff
+      properties:
+        shareId:
+          $ref: '#/components/schemas/Id'
+        tripId:
+          $ref: '#/components/schemas/Id'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        expiresAt:
+          allOf:
+          - $ref: '#/components/schemas/Timestamp'
+          description: createdAt + 6 h (shareTrip.maxHours); the link ends earlier at drop-off.
+        endsAtDropoff:
+          type: boolean
+          enum:
+          - true
+        url:
+          type: string
+          format: uri
+          description: '<share base>/s/<token>: the server''s own public origin (server env SHARE_LINK_BASE, not a secret,
+            so the host can change with no app release). 128 bits as base64url, 22 characters, that cannot be guessed: the
+            server makes them from the new link''s id with a key of its own that the server derives from its secret with a
+            fixed label (HMAC-SHA256, cut to 128 bits). The server stores only the SHA-256 of the token, never the token and
+            never the URL: a copy of the database cannot open a link. A token is never written to a log, an audit row, an
+            error message or the idempotency store.'
+      additionalProperties: false
+    TripShareList:
+      type: object
+      description: 'v0.18.116 (contract.json#shareTrip): GET /rider/trips/{tripId}/share → TripShareList { items: [TripShareItem
+        { shareId, tripId, createdAt, expiresAt, endsAtDropoff }] }: the trip''s live links, oldest first, without url (the
+        app keeps the URL it got). An ended trip answers an empty list.'
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TripShareItem'
+          maxItems: 3
+      additionalProperties: false
+    PublicTripShare:
+      type: object
+      description: 'v0.18.116 (contract.json#shareTrip): PublicTripShare { state: ''live'', phase (phases, or queuedPhase),
+        car: { make, model, color, plate }, eta: { minutes, target: pickup | dropoff, arriveAround } | null, position: { lat,
+        lng, at } | null, updatedAt, refreshSeconds }. A FIXED ALLOW-LIST: the answer is built field by field from this list
+        and never from TripProjection; a field not listed here is never sent. Never: any phone number (rider, driver, contacts);
+        any name (rider, driver first name or surname, contacts); the pickup, stop and drop-off addresses and coordinates;
+        the destination, its city or area; saved places; fare, price, payment, tip; rating; driver photo; any id other than
+        the token in the address (no tripId, riderId, driverId, shareId, zoneId).'
+      required:
+      - state
+      - phase
+      - car
+      - eta
+      - position
+      - updatedAt
+      - refreshSeconds
+      properties:
+        state:
+          type: string
+          enum:
+          - live
+        phase:
+          type: string
+          enum:
+          - to_pickup
+          - at_pickup
+          - on_trip
+          - queued
+          x-statuses:
+            to_pickup:
+            - accepted
+            - driver_to_pickup
+            at_pickup:
+            - arrived
+            on_trip:
+            - rider_onboard
+            - in_trip
+            - approaching_dropoff
+        car:
+          type: object
+          description: The car as on the trip. No driver name, photo or rating.
+          required:
+          - make
+          - model
+          - color
+          - plate
+          properties:
+            make:
+              type: string
+              maxLength: 80
+            model:
+              type: string
+              maxLength: 80
+            color:
+              type: string
+              maxLength: 80
+            plate:
+              type: string
+              maxLength: 80
+          additionalProperties: false
+        eta:
+          oneOf:
+          - type: object
+            description: 'eta comes from the trip''s stored ETA (TripEta): minutes = the seconds still left at the time of
+              the read, rounded up to whole minutes, at least 1; target = pickup before the rider is in the car, dropoff after;
+              arriveAround = that arrival instant as HH:MM in the trip zone''s time zone. null when the server has no ETA,
+              and in phase at_pickup.'
+            required:
+            - minutes
+            - target
+            - arriveAround
+            properties:
+              minutes:
+                type: integer
+                minimum: 1
+              target:
+                type: string
+                enum:
+                - pickup
+                - dropoff
+              arriveAround:
+                type: string
+                pattern: ^[0-2][0-9]:[0-5][0-9]$
+                description: HH:MM in the trip zone's time zone.
+            additionalProperties: false
+          - type: 'null'
+        position:
+          oneOf:
+          - type: object
+            description: 'position is the car''s latest GPS fix the server has (from POST /driver/location), lat / lng with
+              5 decimals, at = when it was measured. It is sent ONLY when all of these hold, else null: (1) owner Q-A 2026-11-15
+              ''Hide until rider is in'': the rider is in the car (status in tripStatus.riderOnboard: phase on_trip). On the
+              way to the pickup and waiting at it (to_pickup, at_pickup, queued) there is never a position and no Maps link,
+              only the phase text. (2) owner Q-B 2026-11-15 ''Hide last 500 m'': the car is farther than hideWithinMetersOfDropoff
+              metres (straight line) from the trip''s drop-off AND from every middle stop of the trip (the same 500 m around
+              each stop: a session decision of 2026-11-15 under the owner''s overnight rule ''take the Recommended choice'',
+              following the owner''s ''never the destination''; for the owner to review). The same distance applies around
+              the trip''s PICKUP (Q-D, a session decision of 2026-11-15 under the owner''s overnight rule, for the owner''s
+              morning review, Rule 43(2): the status says the rider is in the car while the car still stands at the pickup,
+              often the rider''s home, which owner Q-A means to hide). Inside it the position and the Maps link are hidden
+              and the page shows only ''Arriving in about N min''. A pickup, drop-off or stop the server has no finite coordinates
+              for hides the position. The server works the distances out itself; the pickup, the drop-off, the stops and the
+              distances are never sent. (3) the fix is not older than positionMaxAgeSeconds. The page shows a position only
+              as the link positionLink (''Open in Maps''): no map tiles, no map key; with no position it shows no position
+              line at all. Queued trip (supervisor MF-1): while the trip waits behind the driver''s current trip (accepted
+              with the server''s next_after_trip_id set) the car still carries ANOTHER rider: position is null by rule (1),
+              eta is null and phase is queuedPhase, never to_pickup.'
+            required:
+            - lat
+            - lng
+            - at
+            properties:
+              lat:
+                type: number
+                minimum: -90
+                maximum: 90
+              lng:
+                type: number
+                minimum: -180
+                maximum: 180
+              at:
+                $ref: '#/components/schemas/Timestamp'
+            additionalProperties: false
+          - type: 'null'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        refreshSeconds:
+          type: integer
+          enum:
+          - 20
+      additionalProperties: false
+      x-never:
+      - any phone number (rider, driver, contacts)
+      - any name (rider, driver first name or surname, contacts)
+      - the pickup, stop and drop-off addresses and coordinates
+      - the destination, its city or area
+      - saved places
+      - fare, price, payment, tip
+      - rating
+      - driver photo
+      - any id other than the token in the address (no tripId, riderId, driverId, shareId, zoneId)
+    PublicTripShareEnded:
+      type: object
+      description: 'v0.18.116 (contract.json#shareTrip): A link stops, whichever comes first: (a) when the trip reaches any
+        tripStatus.terminal status (drop-off = completed; also every cancelled status, no_show, expired, failed), checked
+        every time the link is read, so no timer is needed; (b) when the rider stops sharing; (c) when the zone''s switch
+        is off, read on every view; (d) maxHours hours after the link was made. An ended link never shows trip data again:
+        410 with { state: ''ended'', reason: ''share_ended'' }. (c) is kept: a link seen while the switch is off stays ended
+        when the switch is turned on again. Not an end: a trip that has no driver again (public.searching). (c) is seen when
+        the link is read: a switch turned off and on again with no read in between leaves the link working, and a server copy
+        may serve its cached switch for some seconds after a publish.'
+      required:
+      - state
+      - reason
+      properties:
+        state:
+          type: string
+          enum:
+          - ended
+        reason:
+          type: string
+          enum:
+          - share_ended
+      additionalProperties: false
+    PublicTripShareSearching:
+      type: object
+      description: 'v0.18.116 (contract.json#shareTrip): While the trip has no driver (the driver cancelled and a new search
+        runs; also a held booked ride whose driver the rider is not shown yet) the link is NOT ended: both public routes answer
+        200 with PublicTripShareSearching { state: ''searching'', updatedAt, refreshSeconds } and the page says texts.searching
+        and keeps reloading. No car, plate, time or position is sent. When a driver is assigned the link shows the new car.'
+      required:
+      - state
+      - updatedAt
+      - refreshSeconds
+      properties:
+        state:
+          type: string
+          enum:
+          - searching
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        refreshSeconds:
+          type: integer
+          enum:
+          - 20
+      additionalProperties: false

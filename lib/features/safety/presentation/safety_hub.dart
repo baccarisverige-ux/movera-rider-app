@@ -129,13 +129,15 @@ class _SafetyHubState extends State<SafetyHub> {
                   status: _ctl.contactsStatusLabel(),
                   onTap: () => _open(EmergencyContactsPage(controller: _ctl)),
                 ),
-                SafetyRow(
-                  mark: SafetyMarks.share,
-                  title: context.l10n.safetyShareTitle,
-                  subtitle: context.l10n.safetyShareSubtitle,
-                  status: _ctl.shareStatusLabel(),
-                  onTap: () => _open(TripSharePage(controller: _ctl)),
-                ),
+                // BQ-S10: hidden while the zone's Share trip switch is off.
+                if (_ctl.shareTripOn)
+                  SafetyRow(
+                    mark: SafetyMarks.share,
+                    title: context.l10n.safetyShareTitle,
+                    subtitle: context.l10n.safetyShareSubtitle,
+                    status: _ctl.shareStatusLabel(),
+                    onTap: () => _open(TripSharePage(controller: _ctl)),
+                  ),
                 SafetyRow(
                   mark: SafetyMarks.rideCheck,
                   title: context.l10n.rideCheckTitle,

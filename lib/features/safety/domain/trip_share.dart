@@ -14,6 +14,7 @@ class TripShare {
     this.startedAt,
     this.expiresAt,
     this.shareToken,
+    this.url,
     this.isActive = false,
   });
 
@@ -31,7 +32,25 @@ class TripShare {
   final DateTime? startedAt;
   final DateTime? expiresAt;
   final String? shareToken;
+
+  /// BQ-S10 (contract v0.18.116 `TripShareLink.url`): the live link the
+  /// rider sends. Only the phone keeps it (the server stores a hash), and
+  /// only until sharing stops.
+  final String? url;
   final bool isActive;
+
+  /// A share the rider can still send: live, not past its end, with a link.
+  bool get canSend => isActive && !expired && (url ?? '').isNotEmpty;
+
+  /// The share after "Stop sharing" or the trip's end: not live, no link.
+  TripShare ended() => TripShare(
+    shareId: shareId,
+    rideId: rideId,
+    userId: userId,
+    contactIds: contactIds,
+    startedAt: startedAt,
+    expiresAt: expiresAt,
+  );
 
   bool get expired {
     final end = expiresAt;
@@ -54,6 +73,7 @@ class TripShare {
     DateTime? startedAt,
     DateTime? expiresAt,
     String? shareToken,
+    String? url,
     bool? isActive,
   }) {
     return TripShare(
@@ -71,6 +91,7 @@ class TripShare {
       startedAt: startedAt ?? this.startedAt,
       expiresAt: expiresAt ?? this.expiresAt,
       shareToken: shareToken ?? this.shareToken,
+      url: url ?? this.url,
       isActive: isActive ?? this.isActive,
     );
   }
@@ -90,6 +111,7 @@ class TripShare {
     'startedAt': startedAt?.toIso8601String(),
     'expiresAt': expiresAt?.toIso8601String(),
     'shareToken': shareToken,
+    'url': url,
     'isActive': isActive,
   };
 
@@ -112,6 +134,7 @@ class TripShare {
       startedAt: DateTime.tryParse('${json['startedAt'] ?? ''}'),
       expiresAt: DateTime.tryParse('${json['expiresAt'] ?? ''}'),
       shareToken: json['shareToken'] as String?,
+      url: json['url'] as String?,
       isActive: json['isActive'] == true,
     );
   }
