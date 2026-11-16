@@ -285,6 +285,8 @@ class SafetyMockApi {
           'startedAt': now.toIso8601String(),
           'expiresAt': now.add(const Duration(hours: 6)).toIso8601String(),
           'shareToken': token,
+          // BQ-S10: the demo's stand-in for `TripShareLink.url`.
+          'url': 'https://share.movera.example/s/$token',
           'isActive': true,
           'serverAuthoritative': true,
         };

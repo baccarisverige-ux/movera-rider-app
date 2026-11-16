@@ -86,18 +86,21 @@ void main() {
     // v0.18.108 (job C9b): + stopWaitingPausedDriverAway
     // (autoArrive.stops.texts.riderStopPaused).
     // BQ-V16: + historyPlannedRoute (past ride on the server's planned route).
+    // BQ-S10 (v0.18.116): + 9 Share trip sheet texts; shareAutoBody,
+    // shareLinkNote and protectSharingBody reworded (no position promised
+    // before pickup or near stops).
     const before = {
       'en': (
-        '8be2333a13a9abf0f529332990a44fe0388b18f936c9b04e31ec9d6a46120a8e',
-        2189,
+        '0d31f51875f5ab9a4a2da4e2ddf3a7af05c25ef68d1fddf8961529b723a3ae9b',
+        2207,
       ),
       'fr': (
-        '8aa9486b467210aa55f21f1c8f0a0eaa2a97eef1da3da1acbe9d2da27b5926e4',
-        1748,
+        '8f6696bbb2f78a74b232d71f629a8af3b999a17864321d7b821319d77d71fea5',
+        1757,
       ),
       'sv': (
-        'a475e13b1fa23a294520a97888f99425c4394f82b09956f4b4f899e022199a40',
-        1748,
+        'a2de645d5625e53c0eed0d9b20f3c3cd51da5c9fb8c161f08a783d72c6f12b02',
+        1757,
       ),
     };
     for (final lang in _langs) {

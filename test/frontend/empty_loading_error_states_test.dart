@@ -363,6 +363,10 @@ void main() {
     );
     expect(find.text('Add emergency contact'), findsOneWidget);
 
+    // BQ-S10: the note above says what the link shows (longer), so on a
+    // short screen the button is reached by scrolling.
+    await tester.ensureVisible(find.text('Add emergency contact'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Add emergency contact'));
     await tester.pumpAndSettle();
     expect(find.text('Emergency contacts'), findsOneWidget);

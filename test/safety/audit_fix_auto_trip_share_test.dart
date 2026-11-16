@@ -22,6 +22,7 @@ import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
 import 'package:movera_rider/features/safety/data/safety_repository.dart';
 import 'package:movera_rider/features/safety/data/safety_store.dart';
 import 'package:movera_rider/features/safety/domain/safety_preferences.dart';
+import 'package:movera_rider/features/safety/presentation/share_trip_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _pickup = LatLng(59.3293, 18.0686);
@@ -156,9 +157,11 @@ void main() {
     }
   }
 
-  testWidgets('auto share on: the trip starting shares it with the contacts', (
-    tester,
-  ) async {
+  // BQ-S10 (owner S10 Q4 "Open share at start, SMS later"): a phone cannot
+  // send a message without a tap, so "auto" opens the Share trip sheet once
+  // when the trip starts; it no longer starts a share by itself.
+  testWidgets('auto share on: the trip starting opens the Share trip sheet '
+      'once', (tester) async {
     await tester.runAsync(() async {
       await safety.load();
       await safety.addContact(
@@ -169,14 +172,28 @@ void main() {
       await safety.setTripShare(enabled: true, mode: TripShareMode.auto);
     });
     const rideId = 'rc-auto-share';
-    await pumpInTrip(tester, rideId);
+    final realtime = await pumpInTrip(tester, rideId);
     await frames(tester);
-    final share = safetyMockForProcess().shares[rideId];
-    expect(share, isNotNull, reason: 'the rider asked to share every ride');
-    expect(share!['contactIds'], [safety.contacts.single.id]);
+    expect(find.byType(ShareTripSheet), findsOneWidget);
+    expect(find.text('Anna'), findsOneWidget);
+    expect(
+      safetyMockForProcess().shares[rideId],
+      isNull,
+      reason: 'nothing is sent until the rider taps',
+    );
+    Navigator.of(tester.element(find.byType(ShareTripSheet))).pop();
+    await frames(tester);
+    expect(find.byType(ShareTripSheet), findsNothing);
+    realtime.emit(
+      RideStatus.tripInProgress,
+      latitude: _pickup.latitude,
+      longitude: _pickup.longitude,
+    );
+    await frames(tester);
+    expect(find.byType(ShareTripSheet), findsNothing, reason: 'once per ride');
   });
 
-  testWidgets('auto share off: the trip starting shares nothing', (
+  testWidgets('auto share off: the trip starting opens nothing', (
     tester,
   ) async {
     await tester.runAsync(() async {
@@ -191,6 +208,7 @@ void main() {
     const rideId = 'rc-manual-share';
     await pumpInTrip(tester, rideId);
     await frames(tester);
+    expect(find.byType(ShareTripSheet), findsNothing);
     expect(safetyMockForProcess().shares[rideId], isNull);
   });
 }

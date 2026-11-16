@@ -71,6 +71,7 @@ import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
 import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
+import 'package:movera_rider/features/safety/presentation/share_trip_sheet.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_monitor.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_record.dart';
 import 'package:movera_rider/features/safety/domain/safety_event.dart';

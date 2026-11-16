@@ -400,7 +400,12 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'completeRateBody': l.completeRateBody,
   'readyForFeedback': l.readyForFeedback,
   'completeDefaultBody': l.completeDefaultBody,
-  'droppedPinLabel': l.droppedPinLabel('<lat>', '<latSide>', '<lng>', '<lngSide>'),
+  'droppedPinLabel': l.droppedPinLabel(
+    '<lat>',
+    '<latSide>',
+    '<lng>',
+    '<lngSide>',
+  ),
   'compassNorth': l.compassNorth,
   'compassSouth': l.compassSouth,
   'compassEast': l.compassEast,
@@ -1466,6 +1471,15 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'contactCodeSentTo': l.contactCodeSentTo('<email>'),
   'contactCodeNotSentYet': l.contactCodeNotSentYet,
   'contactEmailVerifiedDone': l.contactEmailVerifiedDone,
+  'shareTripMessage': l.shareTripMessage('<url>'),
+  'shareTripSend': l.shareTripSend,
+  'shareTripWith': l.shareTripWith,
+  'shareTripStop': l.shareTripStop,
+  'shareTripStopped': l.shareTripStopped,
+  'shareTripStopFailed': l.shareTripStopFailed,
+  'shareTripEndsAtDropoff': l.shareTripEndsAtDropoff,
+  'shareTripOffInZone': l.shareTripOffInZone,
+  'shareTripWhatTheySee': l.shareTripWhatTheySee,
   'placeGym': l.placeGym,
   'placeMall': l.placeMall,
   'placeSchool': l.placeSchool,
@@ -1711,7 +1725,10 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'supportExit': l.supportExit,
   'supportFailed': l.supportFailed,
   'supportPriceCancelled': l.supportPriceCancelled('<price>'),
-  'supportPriceCancelledExtra': l.supportPriceCancelledExtra('<price>', '<extra>'),
+  'supportPriceCancelledExtra': l.supportPriceCancelledExtra(
+    '<price>',
+    '<extra>',
+  ),
   'supportIssueAck': l.supportIssueAck,
   'supportFollowUp': l.supportFollowUp,
   'supportWelcomeRide': l.supportWelcomeRide,
@@ -1974,6 +1991,7 @@ const messagePlaceholders = <String, List<String>>{
   'contactDeleteQ': ['name'],
   'contactPrimaryFailed': ['name'],
   'contactCodeSentTo': ['email'],
+  'shareTripMessage': ['url'],
   'spReplaceQ': ['label'],
   'spReplaceBody': ['label', 'location'],
   'spReplaceConfirm': ['label'],
@@ -2807,7 +2825,12 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get completeDefaultBody => '';
   @override
-  String droppedPinLabel(String lat, String latSide, String lng, String lngSide) => '';
+  String droppedPinLabel(
+    String lat,
+    String latSide,
+    String lng,
+    String lngSide,
+  ) => '';
   @override
   String get compassNorth => '';
   @override
@@ -4938,6 +4961,24 @@ class _Exhaustive implements AppLocalizations {
   String get contactCodeNotSentYet => '';
   @override
   String get contactEmailVerifiedDone => '';
+  @override
+  String shareTripMessage(String url) => '';
+  @override
+  String get shareTripSend => '';
+  @override
+  String get shareTripWith => '';
+  @override
+  String get shareTripStop => '';
+  @override
+  String get shareTripStopped => '';
+  @override
+  String get shareTripStopFailed => '';
+  @override
+  String get shareTripEndsAtDropoff => '';
+  @override
+  String get shareTripOffInZone => '';
+  @override
+  String get shareTripWhatTheySee => '';
   @override
   String get placeGym => '';
   @override

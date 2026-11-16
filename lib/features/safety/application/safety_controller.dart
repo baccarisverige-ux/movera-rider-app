@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
+import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
@@ -415,38 +417,74 @@ class SafetyController extends ChangeNotifier {
     return share;
   }
 
-  /// Rides already shared automatically (one share per ride).
+  /// BQ-S10 (contract v0.18.116 `contract.json#shareTrip.setting`): the
+  /// zone's "Riders can share a live trip link" switch as the server serves
+  /// it (`shareTrip.on` = `features.shareTrip`; on until it says otherwise).
+  /// Off hides Share trip everywhere.
+  bool get shareTripOn => const FeatureFlags().safetyShareTrip;
+
+  /// Trips whose share the server refused with 403 `share_trip_off` (the
+  /// switch went off mid-trip): Share trip says so instead of its buttons.
+  final Set<String> _shareRefused = {};
+
+  bool shareRefusedFor(String rideId) => _shareRefused.contains(rideId);
+
+  /// The trip's live link ([TripShare.url]), if this phone holds one.
+  TripShare? shareFor(String rideId) => _session.shareFor(rideId);
+
+  /// Asks the server whether [rideId] still has a live link (best effort).
+  Future<void> refreshShare(String rideId) async {
+    if (rideId.trim().isEmpty) return;
+    await _session.getShare(rideId);
+    notifyListeners();
+  }
+
+  /// BQ-S10: the link to send for [rideId]: the one this phone holds while
+  /// it is live, else a new one (`POST /rider/trips/{tripId}/share`). So
+  /// sending to three contacts makes one link, not three.
+  Future<String> shareLink(String rideId) async {
+    final kept = _session.shareFor(rideId);
+    if (kept != null && kept.canSend) return kept.url!;
+    try {
+      final share = await startShare(rideId);
+      final url = share.url ?? '';
+      if (url.isEmpty) {
+        throw SafetyException('NO_LINK', L10n.current.tripSharingFailed);
+      }
+      _shareRefused.remove(rideId);
+      return url;
+    } on ApiError catch (error) {
+      if (error.reason == 'share_trip_off') {
+        _shareRefused.add(rideId);
+        notifyListeners();
+      }
+      rethrow;
+    }
+  }
+
+  /// Rides the trip screen already asked about (once per ride).
   final Set<String> _autoShared = {};
 
-  /// rider-u217: with Trip share on and "Automatically share every ride"
-  /// chosen, the trip screen calls this when the trip starts. It shares the
-  /// ride once with the trip-share contacts; with no such contact, or the
-  /// mode off, it does nothing.
-  Future<TripShare?> autoShareRide(String rideId) async {
+  /// BQ-S10 (owner S10 Q4 "Open share at start, SMS later"): with Trip
+  /// share on and "Automatically share every ride" chosen, the trip screen
+  /// calls this when the trip starts and opens the Share trip sheet when the
+  /// answer is true: once per ride. A phone cannot send a message without
+  /// a tap and the server sends none, so nothing is shared here.
+  Future<bool> autoShareRide(String rideId) async {
     final id = rideId.trim();
-    if (id.isEmpty || !_autoShared.add(id)) return null;
+    if (id.isEmpty || _autoShared.contains(id)) return false;
     try {
       if (!hasLoaded) await load();
-      if (!preferences.tripShareEnabled ||
-          preferences.tripShareMode != TripShareMode.auto ||
-          tripShareRecipients.isEmpty) {
-        return null;
-      }
-      final share = await startShare(id);
-      AppLog.info(
-        'safety.share.auto_started',
-        extra: {'rideId': id, 'contacts': share.contactIds.length},
-      );
-      return share;
     } catch (error) {
-      // A later trip screen for this ride may try again.
-      _autoShared.remove(id);
-      AppLog.warning(
-        'safety.share.auto_failed',
-        extra: {'rideId': id, 'error': '$error'},
-      );
-      return null;
+      AppLog.warning('safety.share.auto_failed', extra: {'error': '$error'});
+      return false;
     }
+    if (!shareTripOn ||
+        !preferences.tripShareEnabled ||
+        preferences.tripShareMode != TripShareMode.auto) {
+      return false;
+    }
+    return _autoShared.add(id);
   }
 
   Future<void> stopShare(String rideId) async {

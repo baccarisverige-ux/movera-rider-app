@@ -349,23 +349,25 @@ class _ContactEditorState extends State<_ContactEditor> {
                 if (value != null) setState(() => _relationship = value);
               },
             ),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                context.l10n.contactShareTrips,
-                style: SafetyUi.text(14.5),
+            // BQ-S10: not shown while the zone's Share trip switch is off.
+            if (widget.controller.shareTripOn)
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  context.l10n.contactShareTrips,
+                  style: SafetyUi.text(14.5),
+                ),
+                value: _share,
+                activeThumbColor: adaptiveSwitchThumbColor(
+                  context,
+                  SafetyUi.accent,
+                ),
+                activeTrackColor: adaptiveSwitchTrackColor(
+                  context,
+                  SafetyUi.accent,
+                ),
+                onChanged: (value) => setState(() => _share = value),
               ),
-              value: _share,
-              activeThumbColor: adaptiveSwitchThumbColor(
-                context,
-                SafetyUi.accent,
-              ),
-              activeTrackColor: adaptiveSwitchTrackColor(
-                context,
-                SafetyUi.accent,
-              ),
-              onChanged: (value) => setState(() => _share = value),
-            ),
             if (widget.existing != null)
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,

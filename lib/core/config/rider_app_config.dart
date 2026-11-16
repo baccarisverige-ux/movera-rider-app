@@ -382,7 +382,10 @@ class RiderAppConfig {
           _string(raw['timeZone']) ?? fallback?.timeZone ?? defaultTimeZone,
       categories:
           _categories(raw['catalog']) ?? fallback?.categories ?? const [],
-      features: _features(raw['features']) ?? fallback?.features ?? const {},
+      features: _withShareTrip(
+        _features(raw['features']) ?? fallback?.features ?? const {},
+        raw['shareTrip'],
+      ),
       paymentMethods:
           readZonePaymentMethods(raw['paymentMethods']) ??
           fallback?.paymentMethods ??
@@ -555,6 +558,17 @@ class RiderAppConfig {
     }
     out.sort((a, b) => a.sort.compareTo(b.sort));
     return out;
+  }
+
+  /// v0.18.116 (BQ-S10, `RiderAppConfig.shareTrip { on }`): the zone's
+  /// Share trip switch. The server serves the same value as
+  /// `features.shareTrip`; when both are there the switch itself wins.
+  static Map<String, bool> _withShareTrip(
+    Map<String, bool> features,
+    Object? raw,
+  ) {
+    final on = raw is Map ? raw['on'] : null;
+    return on is bool ? {...features, 'shareTrip': on} : features;
   }
 
   static Map<String, bool>? _features(Object? raw) {

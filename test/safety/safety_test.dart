@@ -11,6 +11,7 @@ import 'package:movera_rider/features/safety/application/ride_check_controller.d
 import 'package:movera_rider/features/safety/application/safety_audio_service.dart';
 import 'package:movera_rider/features/safety/application/safety_recorder.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
+import 'package:movera_rider/features/safety/application/share_trip_actions.dart';
 import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
 import 'package:movera_rider/features/safety/data/safety_repository.dart';
 import 'package:movera_rider/features/safety/data/safety_store.dart';
@@ -26,6 +27,7 @@ import 'package:movera_rider/features/safety/presentation/pin_verification_page.
 import 'package:movera_rider/features/safety/presentation/ride_check_card.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
+import 'package:movera_rider/features/safety/presentation/share_trip_sheet.dart';
 import 'package:movera_rider/features/safety/presentation/safety_audio_option.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -610,7 +612,10 @@ void main() {
     expect(EmergencyContact.fromJson({}).name, '');
   });
 
-  testWidgets('Safety Kit finishes closing before Trip Share page opens', (
+  // BQ-S10 (contract v0.18.116): the Safety sheet's "Share trip" opens the
+  // one Share trip sheet (it used to open the settings page or start a
+  // share with nothing to send).
+  testWidgets('Safety Kit finishes closing before the Share trip sheet opens', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -634,15 +639,14 @@ void main() {
     await tester.tap(find.text('Share trip'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Share trip status'), findsOneWidget);
-    expect(find.text('Trip sharing'), findsOneWidget);
+    expect(find.byType(ShareTripSheet), findsOneWidget);
+    expect(find.text('Share with…'), findsOneWidget);
     expect(find.text('Safety tools'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Safety Kit share action creates an active share for the ride', (
-    tester,
-  ) async {
+  testWidgets('Safety Kit share action: Send makes a live link for the ride '
+      'and opens the SMS app', (tester) async {
     final session = SafetyStore(
       local: PreferencesSafetyLocalDataSource(memoryOnly: true),
       remote: ApiSafetyRemoteDataSource(
@@ -657,29 +661,42 @@ void main() {
       shareTrips: true,
     );
     await ctl.setTripShare(enabled: true);
+    SafetyController.sharedForTest = ctl;
+    addTearDown(() => SafetyController.sharedForTest = null);
+    final sms = <Uri>[];
+    ShareTripActions.launcher = (uri) async {
+      sms.add(uri);
+      return true;
+    };
+    addTearDown(ShareTripActions.reset);
 
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: RideSafetyKitSheet(
-            rideId: 'ride_share_action',
-            controller: ctl,
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () =>
+                  showRideSafetyKit(context, rideId: 'ride_share_action'),
+              child: const Text('Open Safety Kit'),
+            ),
           ),
         ),
       ),
     );
+    await tester.tap(find.text('Open Safety Kit'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Share trip'));
     await tester.pumpAndSettle();
+    expect(find.text('Trusted contact'), findsOneWidget);
+    await tester.tap(find.text('Send'));
+    await tester.pumpAndSettle();
 
-    final share = await session.getShare('ride_share_action');
+    final share = ctl.shareFor('ride_share_action');
     expect(share, isNotNull);
     expect(share!.isActive, isTrue);
     expect(share.contactIds, contains(ctl.contacts.single.id));
-    expect(
-      find.text('Trip sharing started for 1 trusted contact.'),
-      findsOneWidget,
-    );
+    expect(sms.single.path, '+46701234567');
+    expect(sms.single.query, contains(Uri.encodeComponent(share.url!)));
   });
 
   testWidgets('Safety Kit finishes closing before Safety Hub opens', (

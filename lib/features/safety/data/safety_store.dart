@@ -1,5 +1,6 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/features/safety/data/ride_check_reporter.dart';
@@ -224,7 +225,22 @@ class SafetyStore {
     ];
   }
 
-  Future<SafetyPreferences> patchPreferences(SafetyPreferences next) {
+  Future<SafetyPreferences> patchPreferences(SafetyPreferences next) async {
+    // BQ-S10: the server keeps no Safety preferences (the contract has no
+    // route for them), but Share trip is served now. Its three choices
+    // (on, "every ride", the ticked contacts) are the phone's own, so on the
+    // contract wire they are saved here; any other change still says "not
+    // on the server".
+    if (_remote is ContractContactsRemoteDataSource) {
+      await _ensure();
+      final now = _cache.preferences;
+      if (next.pinRequired == now.pinRequired &&
+          next.rideCheckEnabled == now.rideCheckEnabled) {
+        _cache.preferences = next.copyWith(updatedAt: DateTime.now().toUtc());
+        await _local.save(_cache);
+        return _cache.preferences;
+      }
+    }
     return _write(
       () => _remote.patchPreferences(next),
       next.copyWith(updatedAt: DateTime.now().toUtc()),
@@ -419,10 +435,16 @@ class SafetyStore {
     try {
       final live = await _remote.getShare(rideId);
       if (live != null) {
-        _cache.shares[rideId] = live;
+        // BQ-S10: the server lists live links without their URL (it keeps
+        // only a hash), so a link this phone still holds stays; a trip
+        // with no live link drops it.
+        final kept = _cache.shares[rideId];
+        _cache.shares[rideId] = !live.isActive
+            ? (kept ?? live).ended()
+            : (live.url == null && kept != null && kept.canSend ? kept : live);
         await _local.save(_cache);
       }
-      return live ?? _cache.shares[rideId];
+      return _cache.shares[rideId];
     } catch (error, stackTrace) {
       AppLog.error(
         'safety.share_refresh_failed',
@@ -440,7 +462,8 @@ class SafetyStore {
   Future<void> stopShare(String rideId) async {
     await _ensure();
     final previous = _cache.shares[rideId];
-    final current = previous?.copyWith(isActive: false);
+    // BQ-S10: the link is not kept after sharing stops.
+    final current = previous?.ended();
     if (current != null) _cache.shares[rideId] = current;
     await _local.save(_cache);
     try {
@@ -961,8 +984,13 @@ class UnservedSafetyRemoteDataSource implements SafetyRemoteDataSource {
 /// BASE B13 (contract v0.18.26 §47, owner 2026-11-04 "Yes, same as
 /// drivers"): on the contract wire the rider's emergency contacts live on the
 /// server as one list (`GET|PUT /rider/emergency-contacts`); the other Safety
-/// settings are still not on the server. Only name, phone and relation are
-/// kept there; the phone keeps the rest (primary, share trips, on/off).
+/// settings are still not on the server. Only name, phone, relation and
+/// (v0.18.116) "Share trips" are kept there; the phone keeps the rest
+/// (primary, on/off).
+///
+/// BQ-S10 (contract v0.18.116 `contract.json#shareTrip`; owner 2026-11-02
+/// "Build it for real"): the trip's live link is served too:
+/// `POST|GET|DELETE /rider/trips/{tripId}/share`.
 class ContractContactsRemoteDataSource extends UnservedSafetyRemoteDataSource {
   ContractContactsRemoteDataSource(this._api);
 
@@ -997,6 +1025,7 @@ class ContractContactsRemoteDataSource extends UnservedSafetyRemoteDataSource {
       final phone = item['phone'] as String;
       final mine = local.where((c) => c.phoneE164 == phone).firstOrNull;
       final relation = item['relation'];
+      final shareTrips = item['shareTrips'];
       out.add(
         (mine ??
                 EmergencyContact(
@@ -1009,17 +1038,71 @@ class ContractContactsRemoteDataSource extends UnservedSafetyRemoteDataSource {
             .copyWith(
               name: item['name'] as String,
               relationship: relation is String ? relation : null,
+              shareTrips: shareTrips is bool ? shareTrips : null,
             ),
       );
     }
     return out;
   }
 
-  static Map<String, String> itemOf(EmergencyContact c) => {
+  static Map<String, Object> itemOf(EmergencyContact c) => {
     'name': c.name.trim(),
     'phone': c.phoneE164.replaceAll(RegExp(r'[\s()-]'), ''),
     if (c.relationship.trim().isNotEmpty) 'relation': c.relationship.trim(),
+    'shareTrips': c.shareTrips,
   };
+
+  static String _sharePath(String tripId) =>
+      '/api/v1/rider/trips/${Uri.encodeComponent(tripId)}/share';
+
+  /// `TripShareLink` / `TripShareItem` as the app's share.
+  static TripShare _shareOf(Map<String, dynamic> json, String tripId) =>
+      TripShare(
+        shareId: json['shareId'] is String ? json['shareId'] as String : '',
+        rideId: tripId,
+        userId: '',
+        startedAt: DateTime.tryParse('${json['createdAt'] ?? ''}'),
+        expiresAt: DateTime.tryParse('${json['expiresAt'] ?? ''}'),
+        url: json['url'] is String ? json['url'] as String : null,
+        isActive: true,
+      );
+
+  /// Makes a new live link (201 `TripShareLink`). 403 `share_trip_off`,
+  /// 409 `trip_not_live` / `too_many_shares` come back as [ApiError].
+  @override
+  Future<TripShare> startShare(
+    String rideId, {
+    List<String>? contactIds,
+    String? idempotencyKey,
+  }) async {
+    final json = await _api.post(
+      _sharePath(rideId),
+      body: const <String, dynamic>{},
+      idempotencyKey: idempotencyKey ?? newIdempotencyKey('share-trip'),
+    );
+    return _shareOf(json, rideId).copyWith(contactIds: contactIds);
+  }
+
+  /// The trip's live links (`TripShareList`, without their URLs): the
+  /// newest one, or a share that is not live when there is none.
+  @override
+  Future<TripShare?> getShare(String rideId) async {
+    final items = (await _api.get(_sharePath(rideId)))['items'];
+    final live = items is List ? items.whereType<Map>().toList() : const [];
+    if (live.isEmpty) {
+      return TripShare(shareId: '', rideId: rideId, userId: '');
+    }
+    return _shareOf(Map<String, dynamic>.from(live.last), rideId);
+  }
+
+  /// "Stop sharing": every live link of the trip ends at once (204).
+  @override
+  Future<void> stopShare(String rideId) async {
+    await _api.delete(
+      _sharePath(rideId),
+      idempotencyKey: newIdempotencyKey('share-trip-stop'),
+    );
+  }
 
   Future<void> _put(List<EmergencyContact> list) async {
     await _api.put(_path, body: {'items': list.map(itemOf).toList()});
