@@ -126,6 +126,11 @@ class SafetyStore {
 
   Future<void> load() async {
     _cache = await _local.load();
+    // BQ-S10 round 2 (supervisor MF-R1): a kept share past its end (the
+    // link's 6 h cap) is not kept; its URL is dead.
+    final kept = _cache.shares.length;
+    _cache.shares.removeWhere((_, share) => share.expired);
+    if (_cache.shares.length != kept) await _local.save(_cache);
     // A cached per-user PIN cannot prove that the current ride still uses it.
     // Never display cached digits after a network failure or while refreshing.
     _cache.pin = RidePin.unavailable;
@@ -437,11 +442,22 @@ class SafetyStore {
       if (live != null) {
         // BQ-S10: the server lists live links without their URL (it keeps
         // only a hash), so a link this phone still holds stays; a trip
-        // with no live link drops it.
+        // with no live link drops it. Round 2 (supervisor SF-R1): it stays
+        // only while the server lists THAT link (the same shareId), so a
+        // link stopped from another phone is never sent again.
         final kept = _cache.shares[rideId];
+        final remote = _remote;
+        final listed = remote is ContractContactsRemoteDataSource
+            ? remote.liveShareIds
+            : {live.shareId};
         _cache.shares[rideId] = !live.isActive
             ? (kept ?? live).ended()
-            : (live.url == null && kept != null && kept.canSend ? kept : live);
+            : (live.url == null &&
+                      kept != null &&
+                      kept.canSend &&
+                      listed.contains(kept.shareId)
+                  ? kept
+                  : live);
         await _local.save(_cache);
       }
       return _cache.shares[rideId];
@@ -454,6 +470,15 @@ class SafetyStore {
       );
       return _cache.shares[rideId];
     }
+  }
+
+  /// BQ-S10 round 2 (supervisor MF-R1): the trip is over, so the share
+  /// kept for [rideId] (its link) leaves the phone. No request: the server
+  /// ends the link itself at the trip's end.
+  Future<void> dropShare(String rideId) async {
+    await _ensure();
+    if (_cache.shares.remove(rideId) == null) return;
+    await _local.save(_cache);
   }
 
   /// The share kept for [rideId], if any.
@@ -1083,12 +1108,19 @@ class ContractContactsRemoteDataSource extends UnservedSafetyRemoteDataSource {
     return _shareOf(json, rideId).copyWith(contactIds: contactIds);
   }
 
+  /// The shareIds of the live links the last [getShare] listed.
+  Set<String> liveShareIds = const {};
+
   /// The trip's live links (`TripShareList`, without their URLs): the
   /// newest one, or a share that is not live when there is none.
   @override
   Future<TripShare?> getShare(String rideId) async {
     final items = (await _api.get(_sharePath(rideId)))['items'];
     final live = items is List ? items.whereType<Map>().toList() : const [];
+    liveShareIds = {
+      for (final item in live)
+        if (item['shareId'] is String) item['shareId'] as String,
+    };
     if (live.isEmpty) {
       return TripShare(shareId: '', rideId: rideId, userId: '');
     }

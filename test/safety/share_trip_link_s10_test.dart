@@ -13,6 +13,7 @@ import 'package:http/testing.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/core/contracts/ride_status.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
@@ -21,6 +22,7 @@ import 'package:movera_rider/features/safety/application/share_trip_actions.dart
 import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
 import 'package:movera_rider/features/safety/data/safety_store.dart';
 import 'package:movera_rider/features/safety/domain/safety_preferences.dart';
+import 'package:movera_rider/features/safety/domain/trip_share.dart';
 import 'package:movera_rider/features/safety/presentation/share_trip_sheet.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -38,6 +40,7 @@ class _Server {
   Map<String, dynamic> contacts = {'items': <Object>[], 'updatedAt': null};
   final links = <Map<String, dynamic>>[];
   bool zoneOff = false;
+  bool deleteFails = false;
 
   Future<http.Response> answer(http.Request request) async {
     calls.add('${request.method} ${request.url.path}');
@@ -76,6 +79,9 @@ class _Server {
         return json({...link, 'url': _url}, 201);
       }
       if (request.method == 'DELETE') {
+        if (deleteFails) {
+          return json({'code': 'unavailable', 'message': 'no'}, 503);
+        }
         links.clear();
         return http.Response('', 204);
       }
@@ -93,6 +99,18 @@ void main() {
   late SafetyController safety;
   late List<Uri> sms;
   late List<String> shared;
+  late PreferencesSafetyLocalDataSource local;
+
+  SafetyController controllerOn(PreferencesSafetyLocalDataSource store) =>
+      SafetyController(
+        session: SafetyStore(
+          local: store,
+          remote: ContractContactsRemoteDataSource(
+            ApiClient(client: MockClient(server.answer), env: _staging),
+          ),
+        ),
+        emergency: EmergencyCallService(dialer: RecordingEmergencyDialer()),
+      );
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -100,15 +118,8 @@ void main() {
     server = _Server();
     sms = [];
     shared = [];
-    safety = SafetyController(
-      session: SafetyStore(
-        local: PreferencesSafetyLocalDataSource(memoryOnly: true),
-        remote: ContractContactsRemoteDataSource(
-          ApiClient(client: MockClient(server.answer), env: _staging),
-        ),
-      ),
-      emergency: EmergencyCallService(dialer: RecordingEmergencyDialer()),
-    );
+    local = PreferencesSafetyLocalDataSource(memoryOnly: true);
+    safety = controllerOn(local);
     SafetyController.sharedForTest = safety;
     ShareTripActions.launcher = (uri) async {
       sms.add(uri);
@@ -304,6 +315,121 @@ void main() {
     ServerFeatures.apply({'shareTrip': false});
     expect(await safety.autoShareRide('t3'), isFalse);
     expect(server.calls.where((c) => c.startsWith('POST')), isEmpty);
+  });
+
+  // Round 2, supervisor MF-R1: the link is on the phone only while sharing
+  // is live. Before, nothing dropped it when the trip ended.
+  test('MF-R1: the trip ending drops the kept link, with no request', () async {
+    await safety.load();
+    expect(await safety.shareLink('t1'), _url);
+    expect((await local.load()).shares['t1']?.url, _url);
+    server.calls.clear();
+    await SafetyController.dropShareForRideEnd('t1');
+    expect(safety.shareFor('t1'), isNull);
+    expect((await local.load()).shares.containsKey('t1'), isFalse);
+    expect(server.calls, isEmpty);
+    // The ride-end hook of the ride controller (completion and every
+    // cancel) drops it too, even when the link was not live any more.
+    expect(await safety.shareLink('t1'), _url);
+    server.links.clear();
+    await safety.refreshShare('t1');
+    await SafetyController.stopShareForRideEnd('t1');
+    expect((await local.load()).shares.containsKey('t1'), isFalse);
+  });
+
+  test('MF-R1: the ride-end hook drops the link even when the stop request '
+      'fails', () async {
+    await safety.load();
+    expect(await safety.shareLink('t1'), _url);
+    server.deleteFails = true;
+    await SafetyController.stopShareForRideEnd('t1');
+    expect(server.calls, contains('DELETE $_sharePath'));
+    expect(safety.shareFor('t1')?.url, isNull);
+    expect((await local.load()).shares['t1']?.url, isNull);
+  });
+
+  test('MF-R1: on load a kept share past its end is dropped', () async {
+    final now = DateTime.now().toUtc();
+    TripShare kept(String id, DateTime end) => TripShare(
+      shareId: 'sh_$id',
+      rideId: id,
+      userId: '',
+      expiresAt: end,
+      url: _url,
+      isActive: true,
+    );
+    await local.load();
+    await local.save(
+      SafetyCache(
+        shares: {
+          'old': kept('old', now.subtract(const Duration(minutes: 1))),
+          'live': kept('live', now.add(const Duration(hours: 1))),
+        },
+      ),
+    );
+    final next = controllerOn(local);
+    await next.load();
+    expect(next.shareFor('old'), isNull);
+    expect(next.shareFor('live')?.url, _url);
+    expect((await local.load()).shares.keys, ['live']);
+  });
+
+  // Round 2, supervisor SF-R1: a link stopped from another phone must not
+  // be sent again because some other link of the trip is live.
+  test('SF-R1: the kept URL stays only while the server lists the same '
+      'shareId', () async {
+    await safety.load();
+    expect(await safety.shareLink('t1'), _url);
+    await safety.refreshShare('t1');
+    expect(safety.shareFor('t1')?.canSend, isTrue, reason: 'same shareId');
+    // Another phone stopped sharing and made a new link.
+    server.links
+      ..clear()
+      ..add({
+        'shareId': 'sh_other',
+        'tripId': 't1',
+        'createdAt': '2026-11-16T08:05:00Z',
+        'expiresAt': '2099-01-01T00:00:00Z',
+        'endsAtDropoff': true,
+      });
+    await safety.refreshShare('t1');
+    final now = safety.shareFor('t1');
+    expect(now?.isActive, isTrue);
+    expect(now?.url, isNull, reason: 'the dead link is not kept');
+    expect(now?.canSend, isFalse);
+    final posts = server.calls.where((c) => c == 'POST $_sharePath').length;
+    await safety.shareLink('t1');
+    expect(
+      server.calls.where((c) => c == 'POST $_sharePath'),
+      hasLength(posts + 1),
+    );
+  });
+
+  // Round 2, supervisor SF-R2: a held booked ride (accepted, the driver not
+  // shown to the rider yet) cannot be shared: the server answers 409.
+  testWidgets('SF-R2: no share button for a held booked ride until the '
+      'driver is on the way', (tester) async {
+    Future<void> pump(RideStatus status, bool driverShown) => tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: WaitingShareButton(
+            rideId: 't1',
+            status: status,
+            driverShown: driverShown,
+          ),
+        ),
+      ),
+    );
+    await pump(RideStatus.driverAssigned, false);
+    expect(find.byIcon(Icons.ios_share_rounded), findsNothing);
+    await pump(RideStatus.driverAssigned, true);
+    expect(find.byIcon(Icons.ios_share_rounded), findsOneWidget);
+    await pump(RideStatus.driverArriving, false);
+    expect(find.byIcon(Icons.ios_share_rounded), findsOneWidget);
+    await pump(RideStatus.tripInProgress, false);
+    expect(find.byIcon(Icons.ios_share_rounded), findsOneWidget);
   });
 
   test('the texts promise no car position before pickup or near stops', () {
