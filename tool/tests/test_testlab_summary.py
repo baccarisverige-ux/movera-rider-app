@@ -778,6 +778,54 @@ class TestlabSummaryTest(unittest.TestCase):
     PROBES = json.loads(
         (pathlib.Path(__file__).resolve().parent / 'mask_probes.json').read_text(encoding='utf-8'))
 
+    # The rider harness's test reads the same table as Dart constants (its
+    # repo gate counts a test that reads a file as a source-reading test):
+    # test/device_suite/mask_probes.g.dart is generated from the JSON and
+    # this test fails when the two differ. To write it again:
+    #   MF1_WRITE_DART=1 python3 -m unittest discover -s tool/tests
+    DART_TABLE = pathlib.Path(__file__).resolve().parents[2] / 'test' / 'device_suite' / 'mask_probes.g.dart'
+
+    @staticmethod
+    def _dart_string(text):
+        out = []
+        for ch in text:
+            if ch in ('\\', "'", '$'):
+                out.append('\\' + ch)
+            elif ch == '\n':
+                out.append('\\n')
+            elif ord(ch) < 0x20 or ord(ch) > 0x7e:
+                out.append('\\u{%x}' % ord(ch))
+            else:
+                out.append(ch)
+        return "'%s'" % ''.join(out)
+
+    def _dart_table(self):
+        q = self._dart_string
+        lines = [
+            '// GENERATED from tool/tests/mask_probes.json. Do not edit by hand:',
+            '// MF1_WRITE_DART=1 python3 -m unittest discover -s tool/tests',
+            '// (tool/tests/test_testlab_summary.py fails when the two differ).',
+            '// Made-up values only.',
+            '',
+            '/// The 76 probe lines, then the builder\'s extra lines: input, what must',
+            '/// be gone, the exact output.',
+            'const int probeLines = %d;' % len(self.PROBES['mask']),
+            'const List<(String, List<String>, String)> maskProbes = [',
+        ]
+        for row in self.PROBES['mask'] + self.PROBES['more']:
+            lines.append('  (%s, [%s], %s),' % (q(row['in']), ', '.join(q(g) for g in row['gone']), q(row['out'])))
+        lines += ['];', '', '/// Lines that must come out unchanged.', 'const List<String> keepProbes = [']
+        lines += ['  %s,' % q(text) for text in self.PROBES['keep']]
+        lines += ['];', '']
+        return '\n'.join(lines)
+
+    def test_mf1_dart_table_is_the_json_table(self):
+        if not self.DART_TABLE.parent.is_dir():
+            self.skipTest('no Dart harness in this repo (the rider repo has it)')
+        if os.environ.get('MF1_WRITE_DART') == '1':
+            self.DART_TABLE.write_text(self._dart_table(), encoding='utf-8')
+        self.assertEqual(self.DART_TABLE.read_text(encoding='utf-8'), self._dart_table())
+
     def test_mf1_probe_table_is_whole(self):
         self.assertEqual(len(self.PROBES['mask']), 76)
         self.assertGreaterEqual(len(self.PROBES['keep']), 19)

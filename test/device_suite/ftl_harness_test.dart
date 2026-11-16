@@ -1,10 +1,8 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../integration_test/staging/mask_text.dart';
 import '../../integration_test/staging/trip_rules.dart';
+import 'mask_probes.g.dart';
 
 /// FTL-H1, FTL-H3, FTL-H4 (Rules audits/impact/firebase-trip-run-2026-11-16.md
 /// rows 1, 4 and 5): the plain rules of the rider device run's trip steps
@@ -243,40 +241,33 @@ void main() {
   });
 
   // FTL MF-1 (post-merge read 2026-11-16): one table for maskText and
-  // tool/testlab_summary.py mask_generic (tool/tests/mask_probes.json):
-  // the 76 probe lines, the builder's own extra lines, the lines that
-  // must stay readable. Made-up values only.
+  // tool/testlab_summary.py mask_generic: tool/tests/mask_probes.json (the
+  // 76 probe lines, the builder's own extra lines, the lines that must
+  // stay readable), here as mask_probes.g.dart; the tool's unit test
+  // fails when the two differ. Made-up values only.
   group('FTL MF-1 shared probe table', () {
-    final probes =
-        jsonDecode(File('tool/tests/mask_probes.json').readAsStringSync())
-            as Map<String, dynamic>;
-    final rows = [
-      ...(probes['mask'] as List).cast<Map<String, dynamic>>(),
-      ...(probes['more'] as List).cast<Map<String, dynamic>>(),
-    ];
-
     test('the table is whole', () {
-      expect(probes['mask'], hasLength(76));
-      expect((probes['keep'] as List).length, greaterThanOrEqualTo(19));
-      for (final row in rows) {
-        expect(row['gone'], isNotEmpty, reason: '${row['in']}');
-        expect(row['out'], isNotEmpty, reason: '${row['in']}');
+      expect(probeLines, 76);
+      expect(maskProbes.length, greaterThanOrEqualTo(probeLines));
+      expect(keepProbes.length, greaterThanOrEqualTo(19));
+      for (final (text, gone, out) in maskProbes) {
+        expect(gone, isNotEmpty, reason: text);
+        expect(out, isNotEmpty, reason: text);
       }
     });
 
     test('every probe line is masked, with the same output as the tool', () {
-      for (final row in rows) {
-        final text = row['in'] as String;
+      for (final (text, gone, expected) in maskProbes) {
         final out = maskText(text);
-        for (final leak in (row['gone'] as List).cast<String>()) {
+        for (final leak in gone) {
           expect(out, isNot(contains(leak)), reason: text);
         }
-        expect(out, row['out'], reason: text);
+        expect(out, expected, reason: text);
       }
     });
 
     test('what a diagnosis needs stays', () {
-      for (final text in (probes['keep'] as List).cast<String>()) {
+      for (final text in keepProbes) {
         expect(maskText(text), text);
       }
     });
