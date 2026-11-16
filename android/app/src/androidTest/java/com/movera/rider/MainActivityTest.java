@@ -1,25 +1,33 @@
 package com.movera.rider;
 
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Instrumentation;
+import android.app.UiAutomation;
 import android.content.Context;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
+import android.graphics.Rect;
 import android.os.SystemClock;
 import android.system.Os;
 import android.util.Log;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityWindowInfo;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 import dev.flutter.plugins.integration_test.FlutterTestRunner;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import org.junit.Rule;
 import org.junit.runner.RunWith;
@@ -137,12 +145,16 @@ public class MainActivityTest {
     }
   }
 
-  private static void shell(Instrumentation instrumentation, String command) {
+  /** Runs a shell command as the shell user; returns its output (trimmed, never null). */
+  private static String shell(Instrumentation instrumentation, String command) {
     ParcelFileDescriptor pfd = instrumentation.getUiAutomation().executeShellCommand(command);
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
     try (InputStream in = new FileInputStream(pfd.getFileDescriptor())) {
       byte[] buffer = new byte[256];
-      while (in.read(buffer) != -1) {
-        // Drain: the command ends when its output is read.
+      int n;
+      while ((n = in.read(buffer)) != -1) {
+        // The command ends when its output is read.
+        if (out.size() < 4096) out.write(buffer, 0, n);
       }
     } catch (IOException e) {
       Log.w(TAG, "shell: " + e.getClass().getSimpleName());
@@ -153,6 +165,229 @@ public class MainActivityTest {
         // Closed already.
       }
     }
+    return new String(out.toByteArray(), StandardCharsets.UTF_8).trim();
+  }
+
+  /**
+   * Device location on, in high-accuracy mode, with Google location accuracy
+   * (network location consent) on, BEFORE the app starts.
+   *
+   * <p>Test Lab runs 43408227182, 43428481576 and 43737785526: the phone had
+   * Google location accuracy off, so Play services answered the app's
+   * high-accuracy location request with its own dialog
+   * ({@code location.settings.CHECK_SETTINGS}, LocationSettingsCheckerActivity).
+   * Nobody answered it, no fix reached the app (the mock fixes were injected
+   * but never delivered), the pickup stayed the fallback point and Confirm
+   * stayed disabled (D-002), so BOOK never posted /trips. This sets the
+   * phone up the way a rider's phone with location on is; the app is not
+   * changed.
+   *
+   * <p>Runs 43739902949 and 43741708751 (oriole API 33, Play services
+   * 26.42): these settings read back as set, but Play services still showed
+   * the dialog, and its "Turn on" changed no secure/global setting (Play
+   * services keeps that consent in its own storage). So the dialog cannot be
+   * prevented from the shell; {@link #watchLocationDialog} answers it (the
+   * path both runs took, about 1-3 s after it opened). The settings values
+   * are device switches, not personal data; logged so a run shows the path.
+   */
+  private static void prepareDeviceLocation(Instrumentation instrumentation) {
+    String[] commands = {
+      "cmd location set-location-enabled true",
+      // 3 = LOCATION_MODE_HIGH_ACCURACY (GPS + network).
+      "settings put secure location_mode 3",
+      // Google location accuracy on older Play services (newer ones keep it
+      // in their own storage; see above): both tables, harmless when unread.
+      "settings put secure network_location_opt_in 1",
+      "settings put global network_location_opt_in 1",
+      "settings put global assisted_gps_enabled 1",
+    };
+    for (String command : commands) {
+      String out = shell(instrumentation, command);
+      if (!out.isEmpty()) Log.w(TAG, "location setup: '" + command + "' said: " + out);
+    }
+    // After the set-up: a later diff shows only what the dialog changed.
+    settingsBefore = settingsSnapshot(instrumentation);
+    Log.i(
+        TAG,
+        "location setup: enabled="
+            + shell(instrumentation, "cmd location is-location-enabled")
+            + " location_mode="
+            + shell(instrumentation, "settings get secure location_mode")
+            + " nlp_opt_in(secure)="
+            + shell(instrumentation, "settings get secure network_location_opt_in")
+            + " nlp_opt_in(global)="
+            + shell(instrumentation, "settings get global network_location_opt_in")
+            + " assisted_gps="
+            + shell(instrumentation, "settings get global assisted_gps_enabled"));
+  }
+
+  /** secure + global settings lines read after the set-up (null: not read). */
+  private static volatile java.util.Set<String> settingsBefore;
+
+  private static java.util.Set<String> settingsSnapshot(Instrumentation instrumentation) {
+    java.util.Set<String> lines = new java.util.HashSet<>();
+    for (String table : new String[] {"secure", "global"}) {
+      for (String line : shell(instrumentation, "settings list " + table).split("\n")) {
+        lines.add(table + ":" + line.trim());
+      }
+    }
+    return lines;
+  }
+
+  /**
+   * Which location-related settings the dialog's "Turn on" changed (keys
+   * named like location / nlp / network / wifi / scan / gps only; device
+   * switches, no personal data), so a later set-up can switch the same one.
+   */
+  private static void logSettingsChangedByDialog(Instrumentation instrumentation) {
+    java.util.Set<String> before = settingsBefore;
+    if (before == null) return;
+    StringBuilder changed = new StringBuilder();
+    for (String line : settingsSnapshot(instrumentation)) {
+      String key = line.contains("=") ? line.substring(0, line.indexOf('=')) : line;
+      if (!before.contains(line)
+          && key.toLowerCase(Locale.ROOT).matches(".*(location|nlp|network|wifi|scan|gps).*")) {
+        changed.append(' ').append(line);
+      }
+    }
+    Log.i(TAG, "location dialog: settings changed since start:"
+        + (changed.length() == 0 ? " none" : changed.toString()));
+  }
+
+  private static final String GMS = "com.google.android.gms";
+
+  /** The accepting button of Play services' location dialog (never "No thanks"). */
+  private static final String[] ACCEPT = {"turn on", "ok", "agree", "accept", "yes"};
+
+  /**
+   * Fallback for {@link #prepareDeviceLocation}: if Play services' location
+   * dialog shows anyway, taps its accepting button (as a rider would) and logs
+   * it ("location dialog answered"). Polls every 0.5 s for the whole run.
+   */
+  private static void watchLocationDialog(final Instrumentation instrumentation) {
+    Thread watcher =
+        new Thread(
+            () -> {
+              UiAutomation ui;
+              try {
+                ui = instrumentation.getUiAutomation();
+                AccessibilityServiceInfo info = ui.getServiceInfo();
+                if (info != null) {
+                  info.flags |= AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
+                  ui.setServiceInfo(info);
+                }
+              } catch (RuntimeException e) {
+                Log.w(TAG, "location dialog watcher off: " + e.getClass().getSimpleName());
+                return;
+              }
+              Log.i(TAG, "location dialog watcher on");
+              int answered = 0;
+              int polls = 0;
+              long lastSeenLog = 0;
+              while (true) {
+                try {
+                  for (AccessibilityNodeInfo root : roots(ui)) {
+                    if (root == null || !GMS.equals(String.valueOf(root.getPackageName()))) {
+                      continue;
+                    }
+                    AccessibilityNodeInfo button = acceptButton(root);
+                    if (button == null) {
+                      long now = SystemClock.elapsedRealtime();
+                      if (now - lastSeenLog > 5000) {
+                        lastSeenLog = now;
+                        Log.i(TAG, "location dialog: Play services window, no accept button yet: "
+                            + texts(root));
+                      }
+                      continue;
+                    }
+                    String label = String.valueOf(button.getText());
+                    AccessibilityNodeInfo target = clickable(button);
+                    boolean clicked = target.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                    String how = "click";
+                    if (!clicked) {
+                      Rect r = new Rect();
+                      target.getBoundsInScreen(r);
+                      if (r.isEmpty()) {
+                        how = "none (button gone)";
+                      } else {
+                        shell(instrumentation, "input tap " + r.centerX() + " " + r.centerY());
+                        how = "input tap";
+                      }
+                    }
+                    answered++;
+                    Log.i(TAG, "location dialog answered: tapped '" + label + "' (" + how + "), "
+                        + answered + " so far");
+                    SystemClock.sleep(1500);
+                    logSettingsChangedByDialog(instrumentation);
+                    // One answer per poll: the same window is in roots() twice.
+                    break;
+                  }
+                } catch (RuntimeException e) {
+                  // A window went away while read; the next poll reads again.
+                }
+                polls++;
+                if (polls == 120 && answered == 0) {
+                  Log.i(TAG, "location dialog: none in the first 60 s (set-up path)");
+                }
+                SystemClock.sleep(500);
+              }
+            },
+            "movera-tl-location-dialog");
+    watcher.setDaemon(true);
+    watcher.start();
+  }
+
+  private static List<AccessibilityNodeInfo> roots(UiAutomation ui) {
+    List<AccessibilityNodeInfo> roots = new ArrayList<>();
+    AccessibilityNodeInfo active = ui.getRootInActiveWindow();
+    if (active != null) roots.add(active);
+    List<AccessibilityWindowInfo> windows = ui.getWindows();
+    if (windows != null) {
+      for (AccessibilityWindowInfo window : windows) {
+        AccessibilityNodeInfo root = window.getRoot();
+        if (root != null) roots.add(root);
+      }
+    }
+    return roots;
+  }
+
+  /** The node whose text is an accepting word ("Turn on", "OK", ...), or null. */
+  private static AccessibilityNodeInfo acceptButton(AccessibilityNodeInfo node) {
+    if (node == null) return null;
+    CharSequence text = node.getText();
+    if (text != null) {
+      String t = text.toString().trim().toLowerCase(Locale.ROOT);
+      for (String word : ACCEPT) {
+        if (t.equals(word)) return node;
+      }
+    }
+    for (int i = 0; i < node.getChildCount(); i++) {
+      AccessibilityNodeInfo found = acceptButton(node.getChild(i));
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  /** The node itself when clickable, else its nearest clickable parent (3 up at most). */
+  private static AccessibilityNodeInfo clickable(AccessibilityNodeInfo node) {
+    AccessibilityNodeInfo target = node;
+    for (int up = 0; target != null && !target.isClickable() && up < 3; up++) {
+      target = target.getParent();
+    }
+    return target != null && target.isClickable() ? target : node;
+  }
+
+  /** The window's visible texts (Play services' own UI text, no app data). */
+  private static String texts(AccessibilityNodeInfo node) {
+    StringBuilder out = new StringBuilder();
+    collect(node, out, 0);
+    return out.toString();
+  }
+
+  private static void collect(AccessibilityNodeInfo node, StringBuilder out, int depth) {
+    if (node == null || depth > 30 || out.length() > 300) return;
+    if (node.getText() != null) out.append('[').append(node.getText()).append(']');
+    for (int i = 0; i < node.getChildCount(); i++) collect(node.getChild(i), out, depth + 1);
   }
 
   // Where the mock fixes go now; moved by the Dart test through targetFile.
@@ -182,7 +417,7 @@ public class MainActivityTest {
       return;
     }
     if (n <= 0) return;
-    String[] parts = new String(buffer, 0, n, java.nio.charset.StandardCharsets.US_ASCII)
+    String[] parts = new String(buffer, 0, n, StandardCharsets.US_ASCII)
         .trim().split(",");
     if (parts.length != 2) return;
     double lat = parse(parts[0], Double.NaN);
@@ -197,6 +432,8 @@ public class MainActivityTest {
   }
 
   private static void startMockLocation(Instrumentation instrumentation, Context app) {
+    prepareDeviceLocation(instrumentation);
+    watchLocationDialog(instrumentation);
     shell(instrumentation, "appops set " + app.getPackageName() + " android:mock_location allow");
     final LocationManager manager =
         (LocationManager) app.getSystemService(Context.LOCATION_SERVICE);

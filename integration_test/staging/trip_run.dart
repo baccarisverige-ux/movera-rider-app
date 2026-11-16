@@ -16,6 +16,7 @@ import 'package:movera_rider/features/ride_selection/presentation/select_ride.da
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/shared/widgets/ride_stage_map.dart';
 
 import 'check_log.dart';
 import 'cleanup_scope.dart';

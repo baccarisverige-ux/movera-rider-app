@@ -177,6 +177,17 @@ class AuthRepository {
   /// e.g. after an account deletion request).
   Future<void> clearLocalSession() => _tokens.clear();
 
+  /// Ends a session this device must not keep (a sign-in refused because
+  /// the previous rider's data could not be wiped). The tokens leave the
+  /// device FIRST, so an app killed during the server call does not start
+  /// again signed in; the server is then told with the token just removed.
+  Future<void> endRefusedSession() async {
+    final access = await _tokens.readAccess();
+    await _tokens.clear();
+    if (access == null || access.isEmpty) return;
+    await _api.post('/api/v1/auth/sign-out', accessToken: access);
+  }
+
   Future<void> signOut() async {
     try {
       await _api.post('/api/v1/auth/sign-out');

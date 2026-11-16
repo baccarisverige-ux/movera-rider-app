@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/auth/application/pending_rider_name.dart';
+import 'package:movera_rider/features/auth/application/user_data_wipe.dart';
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scaffold.dart';
@@ -86,6 +87,7 @@ class _RiderNameScreenState extends State<RiderNameScreen> {
         ),
       );
       await PendingRiderName.clear();
+      await UserDataWipe.nameGiven();
       if (!mounted) return;
       enterMoveraApp(context);
     } catch (_) {

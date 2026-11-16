@@ -75,6 +75,11 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
   bool _paused = false;
   GoogleMapController? _controller;
 
+  /// G25 step B: this screen's place in the one trip map. At "driver found"
+  /// Finding hands its map over, and this screen draws on that map instead
+  /// of building a new one.
+  final RideStageSeat _mapSeat = RideStageSeat(startsMap: false);
+
   void pauseWhileParked() {
     _paused = true;
     _pendingRepaint?.cancel();
@@ -175,6 +180,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     _pendingRepaint?.cancel();
     _driverAnim.dispose();
     _markerSet.dispose();
+    _mapSeat.dispose();
     super.dispose();
   }
 
@@ -591,9 +597,34 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     });
   }
 
+  /// The map is ready on this screen: its owner, then the trip's road.
+  void _takeMap(GoogleMapController controller) {
+    _mapReady = true;
+    _controller = controller;
+    AppScope.instance.maps.attach(controller, owner: MapOwners.waiting);
+    unawaited(_refreshRoadRoute(force: true));
+  }
+
   Widget _buildMap(Set<Marker> markers) {
+    return RideStageMapSlot(
+      seat: _mapSeat,
+      placeholder: const ColoredBox(color: Color(0xFFF6F5F1)),
+      // Finding's map, taken over: no onMapCreated comes for it.
+      onAdopted: (controller) {
+        if (_paused) {
+          _controller = controller;
+          _mapReady = true;
+          return;
+        }
+        _takeMap(controller);
+      },
+      builder: (context, sharedKey) => _buildOwnMap(markers, sharedKey),
+    );
+  }
+
+  Widget _buildOwnMap(Set<Marker> markers, Key? sharedKey) {
     return CustomGoogleMap(
-      key: const ValueKey('waiting-map'),
+      key: sharedKey ?? const ValueKey('waiting-map'),
       // Owner, live test 2026-10-26 (N6): the booking and trip maps stay
       // flat; the route is read from above, never along a tilted horizon.
       tiltWithZoom: false,
@@ -611,10 +642,8 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
       rotateGesturesEnabled: false,
       mapType: MapType.normal,
       onMapCreated: (controller) {
-        _mapReady = true;
-        _controller = controller;
-        AppScope.instance.maps.attach(controller, owner: MapOwners.waiting);
-        unawaited(_refreshRoadRoute(force: true));
+        _mapSeat.noteCreated(controller);
+        _takeMap(controller);
       },
     );
   }
