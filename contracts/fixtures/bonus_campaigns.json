@@ -1,0 +1,2706 @@
+{
+  "version": "0.18.110",
+  "note": "Bonus campaigns (contract.json#bonusCampaigns, BQ-V44; owner decisions/driver-g10.md:9). Money in minor units: SEK öre, EUR cent, TND millime (1 DT = 1000). Replayed by reference_check.py.",
+  "validate": [
+    {
+      "id": "se_ok",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 10,
+        "amount": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-22",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ]
+      },
+      "expect": "ok"
+    },
+    {
+      "id": "se_amount_at_max",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 10,
+        "amount": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-22",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ]
+      },
+      "expect": "ok"
+    },
+    {
+      "id": "se_amount_above_max",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 10,
+        "amount": {
+          "amountMinor": 200001,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-22",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ]
+      },
+      "expect": "bonus_amount_above_max"
+    },
+    {
+      "id": "se_amount_other_currency",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 10,
+        "amount": {
+          "amountMinor": 15000,
+          "currency": "EUR"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-22",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ]
+      },
+      "expect": "bonus_amount_invalid"
+    },
+    {
+      "id": "se_amount_zero",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 10,
+        "amount": {
+          "amountMinor": 0,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-22",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ]
+      },
+      "expect": "bonus_amount_invalid"
+    },
+    {
+      "id": "se_target_zero",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 0,
+        "amount": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-22",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ]
+      },
+      "expect": "bonus_target_invalid"
+    },
+    {
+      "id": "se_target_trips_above",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 501,
+        "amount": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-22",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ]
+      },
+      "expect": "bonus_target_invalid"
+    },
+    {
+      "id": "se_target_not_whole",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 2.5,
+        "amount": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-22",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ]
+      },
+      "expect": "bonus_target_invalid"
+    },
+    {
+      "id": "se_hours_200_ok",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "online_hours",
+        "target": 200,
+        "amount": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-22",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ]
+      },
+      "expect": "ok"
+    },
+    {
+      "id": "se_hours_above",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "online_hours",
+        "target": 201,
+        "amount": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-22",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ]
+      },
+      "expect": "bonus_target_invalid"
+    },
+    {
+      "id": "se_end_before_start",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 10,
+        "amount": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-22",
+        "endDate": "2026-11-16",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ]
+      },
+      "expect": "bonus_dates_invalid"
+    },
+    {
+      "id": "se_start_in_past",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 10,
+        "amount": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-13",
+        "endDate": "2026-11-22",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ]
+      },
+      "expect": "bonus_dates_invalid"
+    },
+    {
+      "id": "se_start_today_one_day",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 10,
+        "amount": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-14",
+        "endDate": "2026-11-14",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ]
+      },
+      "expect": "ok"
+    },
+    {
+      "id": "se_92_days_ok",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 10,
+        "amount": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2027-02-15",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ]
+      },
+      "expect": "ok"
+    },
+    {
+      "id": "se_93_days",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 10,
+        "amount": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2027-02-16",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ]
+      },
+      "expect": "bonus_dates_invalid"
+    },
+    {
+      "id": "se_area_two_points",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 10,
+        "amount": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-22",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ]
+        ]
+      },
+      "expect": "bonus_area_invalid"
+    },
+    {
+      "id": "se_area_closed",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 10,
+        "amount": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-22",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ],
+          [
+            59.32,
+            18.05
+          ]
+        ]
+      },
+      "expect": "bonus_area_invalid"
+    },
+    {
+      "id": "fr_amount_at_max",
+      "zone": {
+        "currency": "EUR",
+        "timeZone": "Europe/Paris",
+        "max": {
+          "amountMinor": 20000,
+          "currency": "EUR"
+        },
+        "polygon": [
+          [
+            48.7,
+            2.1
+          ],
+          [
+            48.7,
+            2.6
+          ],
+          [
+            49.0,
+            2.6
+          ],
+          [
+            49.0,
+            2.1
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "online_hours",
+        "target": 10,
+        "amount": {
+          "amountMinor": 20000,
+          "currency": "EUR"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-30",
+        "polygon": [
+          [
+            48.85,
+            2.33
+          ],
+          [
+            48.85,
+            2.37
+          ],
+          [
+            48.87,
+            2.37
+          ],
+          [
+            48.87,
+            2.33
+          ]
+        ]
+      },
+      "expect": "ok"
+    },
+    {
+      "id": "fr_amount_above_max",
+      "zone": {
+        "currency": "EUR",
+        "timeZone": "Europe/Paris",
+        "max": {
+          "amountMinor": 20000,
+          "currency": "EUR"
+        },
+        "polygon": [
+          [
+            48.7,
+            2.1
+          ],
+          [
+            48.7,
+            2.6
+          ],
+          [
+            49.0,
+            2.6
+          ],
+          [
+            49.0,
+            2.1
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "online_hours",
+        "target": 10,
+        "amount": {
+          "amountMinor": 20001,
+          "currency": "EUR"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-30",
+        "polygon": [
+          [
+            48.85,
+            2.33
+          ],
+          [
+            48.85,
+            2.37
+          ],
+          [
+            48.87,
+            2.37
+          ],
+          [
+            48.87,
+            2.33
+          ]
+        ]
+      },
+      "expect": "bonus_amount_above_max"
+    },
+    {
+      "id": "tn_amount_at_max",
+      "zone": {
+        "currency": "TND",
+        "timeZone": "Africa/Tunis",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "TND"
+        },
+        "polygon": [
+          [
+            36.6,
+            9.9
+          ],
+          [
+            36.6,
+            10.4
+          ],
+          [
+            37.0,
+            10.4
+          ],
+          [
+            37.0,
+            9.9
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 20,
+        "amount": {
+          "amountMinor": 200000,
+          "currency": "TND"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-30",
+        "polygon": [
+          [
+            36.79,
+            10.16
+          ],
+          [
+            36.79,
+            10.2
+          ],
+          [
+            36.82,
+            10.2
+          ],
+          [
+            36.82,
+            10.16
+          ]
+        ]
+      },
+      "expect": "ok"
+    },
+    {
+      "id": "tn_amount_above_max",
+      "zone": {
+        "currency": "TND",
+        "timeZone": "Africa/Tunis",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "TND"
+        },
+        "polygon": [
+          [
+            36.6,
+            9.9
+          ],
+          [
+            36.6,
+            10.4
+          ],
+          [
+            37.0,
+            10.4
+          ],
+          [
+            37.0,
+            9.9
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 20,
+        "amount": {
+          "amountMinor": 200001,
+          "currency": "TND"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-30",
+        "polygon": [
+          [
+            36.79,
+            10.16
+          ],
+          [
+            36.79,
+            10.2
+          ],
+          [
+            36.82,
+            10.2
+          ],
+          [
+            36.82,
+            10.16
+          ]
+        ]
+      },
+      "expect": "bonus_amount_above_max"
+    },
+    {
+      "id": "se_area_outside_zone",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 10,
+        "amount": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-22",
+        "polygon": [
+          [
+            48.85,
+            2.33
+          ],
+          [
+            48.85,
+            2.37
+          ],
+          [
+            48.87,
+            2.37
+          ],
+          [
+            48.87,
+            2.33
+          ]
+        ]
+      },
+      "expect": "bonus_area_invalid",
+      "note": "MF6: a Paris area in a Stockholm zone."
+    },
+    {
+      "id": "se_area_on_zone_edge",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 10,
+        "amount": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-22",
+        "polygon": [
+          [
+            59.2,
+            18.0
+          ],
+          [
+            59.25,
+            18.05
+          ],
+          [
+            59.25,
+            17.95
+          ]
+        ]
+      },
+      "expect": "ok",
+      "note": "MF6: a point on the zone edge counts as inside."
+    },
+    {
+      "id": "se_area_partly_outside_zone",
+      "zone": {
+        "currency": "SEK",
+        "timeZone": "Europe/Stockholm",
+        "max": {
+          "amountMinor": 200000,
+          "currency": "SEK"
+        },
+        "polygon": [
+          [
+            59.2,
+            17.8
+          ],
+          [
+            59.2,
+            18.3
+          ],
+          [
+            59.5,
+            18.3
+          ],
+          [
+            59.5,
+            17.8
+          ]
+        ]
+      },
+      "today": "2026-11-14",
+      "input": {
+        "measure": "trips",
+        "target": 10,
+        "amount": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        },
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-22",
+        "polygon": [
+          [
+            59.3,
+            18.2
+          ],
+          [
+            59.3,
+            18.4
+          ],
+          [
+            59.4,
+            18.2
+          ]
+        ]
+      },
+      "expect": "bonus_area_invalid",
+      "note": "MF6: one point outside the zone."
+    }
+  ],
+  "trips": [
+    {
+      "id": "trips_sek_target_3",
+      "note": "Window 2026-11-16 00:00 to 2026-11-23 00:00 Europe/Stockholm = 2026-11-15T23:00:00Z to 2026-11-22T23:00:00Z. t1 before the window; t3 pickup outside; t4 no paid end; t5 while paused; t6 sent twice counts once; t7 reaches 3 and earns; t8 after earned counts nothing; t9 at the window end is outside it; t11 pickup on the edge is inside.",
+      "campaign": {
+        "measure": "trips",
+        "target": 3,
+        "amount": {
+          "amountMinor": 15000,
+          "currency": "SEK"
+        },
+        "timeZone": "Europe/Stockholm",
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-22",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ],
+        "pauses": [
+          [
+            "2026-11-18T10:00:00Z",
+            "2026-11-18T12:00:00Z"
+          ]
+        ],
+        "zoneId": "Z001"
+      },
+      "trips": [
+        {
+          "tripId": "t1",
+          "driverId": "d1",
+          "paidEndAt": "2026-11-15T22:30:00Z",
+          "paidEnd": true,
+          "pickup": [
+            59.33,
+            18.07
+          ],
+          "riderId": "r1",
+          "riderPhone": "+46700000001"
+        },
+        {
+          "tripId": "t2",
+          "driverId": "d1",
+          "paidEndAt": "2026-11-15T23:10:00Z",
+          "paidEnd": true,
+          "pickup": [
+            59.33,
+            18.07
+          ],
+          "riderId": "r2",
+          "riderPhone": "+46700000002"
+        },
+        {
+          "tripId": "t3",
+          "driverId": "d1",
+          "paidEndAt": "2026-11-16T09:00:00Z",
+          "paidEnd": true,
+          "pickup": [
+            59.36,
+            18.07
+          ],
+          "riderId": "r3",
+          "riderPhone": "+46700000003"
+        },
+        {
+          "tripId": "t4",
+          "driverId": "d1",
+          "paidEndAt": "2026-11-16T10:00:00Z",
+          "paidEnd": false,
+          "pickup": [
+            59.33,
+            18.07
+          ],
+          "riderId": "r4",
+          "riderPhone": "+46700000004"
+        },
+        {
+          "tripId": "t5",
+          "driverId": "d1",
+          "paidEndAt": "2026-11-18T11:00:00Z",
+          "paidEnd": true,
+          "pickup": [
+            59.33,
+            18.07
+          ],
+          "riderId": "r5",
+          "riderPhone": "+46700000005"
+        },
+        {
+          "tripId": "t6",
+          "driverId": "d1",
+          "paidEndAt": "2026-11-19T08:00:00Z",
+          "paidEnd": true,
+          "pickup": [
+            59.33,
+            18.07
+          ],
+          "riderId": "r6",
+          "riderPhone": "+46700000006"
+        },
+        {
+          "tripId": "t6",
+          "driverId": "d1",
+          "paidEndAt": "2026-11-19T08:00:00Z",
+          "paidEnd": true,
+          "pickup": [
+            59.33,
+            18.07
+          ],
+          "riderId": "r6",
+          "riderPhone": "+46700000006"
+        },
+        {
+          "tripId": "t7",
+          "driverId": "d1",
+          "paidEndAt": "2026-11-20T08:00:00Z",
+          "paidEnd": true,
+          "pickup": [
+            59.33,
+            18.07
+          ],
+          "riderId": "r7",
+          "riderPhone": "+46700000007"
+        },
+        {
+          "tripId": "t8",
+          "driverId": "d1",
+          "paidEndAt": "2026-11-21T08:00:00Z",
+          "paidEnd": true,
+          "pickup": [
+            59.33,
+            18.07
+          ],
+          "riderId": "r8",
+          "riderPhone": "+46700000008"
+        },
+        {
+          "tripId": "t9",
+          "driverId": "d2",
+          "paidEndAt": "2026-11-22T23:00:00Z",
+          "paidEnd": true,
+          "pickup": [
+            59.33,
+            18.07
+          ],
+          "riderId": "r9",
+          "riderPhone": "+46700000009"
+        },
+        {
+          "tripId": "t10",
+          "driverId": "d2",
+          "paidEndAt": "2026-11-22T22:59:00Z",
+          "paidEnd": true,
+          "pickup": [
+            59.33,
+            18.07
+          ],
+          "riderId": "r10",
+          "riderPhone": "+46700000010"
+        },
+        {
+          "tripId": "t11",
+          "driverId": "d2",
+          "paidEndAt": "2026-11-21T10:00:00Z",
+          "paidEnd": true,
+          "pickup": [
+            59.32,
+            18.07
+          ],
+          "riderId": "r11",
+          "riderPhone": "+46700000011"
+        }
+      ],
+      "expect": {
+        "drivers": {
+          "d1": {
+            "done": 3,
+            "target": 3,
+            "earned": true,
+            "earnedAt": "2026-11-20T08:00:00Z"
+          },
+          "d2": {
+            "done": 2,
+            "target": 3,
+            "earned": false
+          }
+        },
+        "entries": [
+          {
+            "driverId": "d1",
+            "kind": "bonus",
+            "tripId": null,
+            "amount": {
+              "amountMinor": 15000,
+              "currency": "SEK"
+            },
+            "at": "2026-11-20T08:00:00Z"
+          }
+        ]
+      },
+      "drivers": {
+        "d1": {
+          "zoneIds": [
+            "Z001"
+          ],
+          "phone": "+46799999000"
+        },
+        "d2": {
+          "zoneIds": [
+            "Z001"
+          ],
+          "phone": "+46799999001"
+        }
+      }
+    },
+    {
+      "id": "trips_tnd_ended_by_admin",
+      "note": "Africa/Tunis (UTC+1): window from 2026-11-15T23:00:00Z; the admin ends it at 2026-11-17T12:00:00Z. d4 earns before the end; d3 has one trip before and one after the end.",
+      "campaign": {
+        "measure": "trips",
+        "target": 2,
+        "amount": {
+          "amountMinor": 20000,
+          "currency": "TND"
+        },
+        "timeZone": "Africa/Tunis",
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-30",
+        "polygon": [
+          [
+            36.79,
+            10.16
+          ],
+          [
+            36.79,
+            10.2
+          ],
+          [
+            36.82,
+            10.2
+          ],
+          [
+            36.82,
+            10.16
+          ]
+        ],
+        "pauses": [],
+        "endedAt": "2026-11-17T12:00:00Z",
+        "zoneId": "TN-TC"
+      },
+      "trips": [
+        {
+          "tripId": "u1",
+          "driverId": "d3",
+          "paidEndAt": "2026-11-16T08:00:00Z",
+          "paidEnd": true,
+          "pickup": [
+            36.8,
+            10.18
+          ],
+          "riderId": "r12",
+          "riderPhone": "+46700000012"
+        },
+        {
+          "tripId": "u2",
+          "driverId": "d3",
+          "paidEndAt": "2026-11-17T13:00:00Z",
+          "paidEnd": true,
+          "pickup": [
+            36.8,
+            10.18
+          ],
+          "riderId": "r13",
+          "riderPhone": "+46700000013"
+        },
+        {
+          "tripId": "u3",
+          "driverId": "d4",
+          "paidEndAt": "2026-11-16T09:00:00Z",
+          "paidEnd": true,
+          "pickup": [
+            36.8,
+            10.18
+          ],
+          "riderId": "r14",
+          "riderPhone": "+46700000014"
+        },
+        {
+          "tripId": "u4",
+          "driverId": "d4",
+          "paidEndAt": "2026-11-17T11:59:00Z",
+          "paidEnd": true,
+          "pickup": [
+            36.8,
+            10.18
+          ],
+          "riderId": "r15",
+          "riderPhone": "+46700000015"
+        },
+        {
+          "tripId": "u5",
+          "driverId": "d4",
+          "paidEndAt": "2026-11-16T10:00:00Z",
+          "paidEnd": true,
+          "pickup": [
+            36.85,
+            10.18
+          ],
+          "riderId": "r16",
+          "riderPhone": "+46700000016"
+        }
+      ],
+      "expect": {
+        "drivers": {
+          "d3": {
+            "done": 1,
+            "target": 2,
+            "earned": false
+          },
+          "d4": {
+            "done": 2,
+            "target": 2,
+            "earned": true,
+            "earnedAt": "2026-11-17T11:59:00Z"
+          }
+        },
+        "entries": [
+          {
+            "driverId": "d4",
+            "kind": "bonus",
+            "tripId": null,
+            "amount": {
+              "amountMinor": 20000,
+              "currency": "TND"
+            },
+            "at": "2026-11-17T11:59:00Z"
+          }
+        ]
+      },
+      "drivers": {
+        "d3": {
+          "zoneIds": [
+            "TN-TC"
+          ],
+          "phone": "+46799999000"
+        },
+        "d4": {
+          "zoneIds": [
+            "TN-TC"
+          ],
+          "phone": "+46799999001"
+        }
+      }
+    },
+    {
+      "id": "trips_sek_rider_limit_and_zone",
+      "note": "MF7 + MF5. Window 2026-11-15T23:00:00Z..2026-11-22T23:00:00Z (Europe/Stockholm). v2: rider r1 again the same local day → no; v3: r1 at 23:30Z = 00:30 the next local day → counts; v4: the rider has the driver's own phone → never; d5 is not in the campaign zone → never counted, not listed.",
+      "campaign": {
+        "measure": "trips",
+        "target": 5,
+        "amount": {
+          "amountMinor": 25000,
+          "currency": "SEK"
+        },
+        "timeZone": "Europe/Stockholm",
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-22",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ],
+        "pauses": [],
+        "zoneId": "Z001"
+      },
+      "drivers": {
+        "d1": {
+          "zoneIds": [
+            "Z001",
+            "ARN"
+          ],
+          "phone": "+46701112233"
+        },
+        "d5": {
+          "zoneIds": [
+            "Z002"
+          ],
+          "phone": "+46704445566"
+        }
+      },
+      "trips": [
+        {
+          "tripId": "v1",
+          "driverId": "d1",
+          "paidEndAt": "2026-11-16T08:00:00Z",
+          "paidEnd": true,
+          "pickup": [
+            59.33,
+            18.07
+          ],
+          "riderId": "r1",
+          "riderPhone": "+46700000101"
+        },
+        {
+          "tripId": "v2",
+          "driverId": "d1",
+          "paidEndAt": "2026-11-16T15:00:00Z",
+          "paidEnd": true,
+          "pickup": [
+            59.33,
+            18.07
+          ],
+          "riderId": "r1",
+          "riderPhone": "+46700000101"
+        },
+        {
+          "tripId": "v3",
+          "driverId": "d1",
+          "paidEndAt": "2026-11-16T23:30:00Z",
+          "paidEnd": true,
+          "pickup": [
+            59.33,
+            18.07
+          ],
+          "riderId": "r1",
+          "riderPhone": "+46700000101"
+        },
+        {
+          "tripId": "v4",
+          "driverId": "d1",
+          "paidEndAt": "2026-11-17T09:00:00Z",
+          "paidEnd": true,
+          "pickup": [
+            59.33,
+            18.07
+          ],
+          "riderId": "r2",
+          "riderPhone": "+46701112233"
+        },
+        {
+          "tripId": "v5",
+          "driverId": "d1",
+          "paidEndAt": "2026-11-17T10:00:00Z",
+          "paidEnd": true,
+          "pickup": [
+            59.33,
+            18.07
+          ],
+          "riderId": "r3",
+          "riderPhone": "+46700000103"
+        },
+        {
+          "tripId": "v6",
+          "driverId": "d5",
+          "paidEndAt": "2026-11-17T10:00:00Z",
+          "paidEnd": true,
+          "pickup": [
+            59.33,
+            18.07
+          ],
+          "riderId": "r4",
+          "riderPhone": "+46700000104"
+        }
+      ],
+      "expect": {
+        "drivers": {
+          "d1": {
+            "done": 3,
+            "target": 5,
+            "earned": false
+          }
+        },
+        "entries": []
+      }
+    }
+  ],
+  "hours": [
+    {
+      "id": "hours_tnd_target_1h",
+      "note": "gapMaxSeconds 120, accuracyMaxMeters 50, online or on_trip. f3 out of order and f4 twice add nothing; f5 after a 180 s gap adds 0; f6 accuracy 80 m not counted; f8 outside; f9 offline; f10 on_trip after 150 s adds 0; then a fix every 120 s (series) until 60 min: earned at the 29th; the 30th adds nothing (earned).",
+      "campaign": {
+        "measure": "online_hours",
+        "target": 1,
+        "amount": {
+          "amountMinor": 20000,
+          "currency": "TND"
+        },
+        "timeZone": "Africa/Tunis",
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-20",
+        "polygon": [
+          [
+            36.79,
+            10.16
+          ],
+          [
+            36.79,
+            10.2
+          ],
+          [
+            36.82,
+            10.2
+          ],
+          [
+            36.82,
+            10.16
+          ]
+        ],
+        "pauses": [],
+        "zoneId": "TN-TC"
+      },
+      "fixes": [
+        {
+          "driverId": "d3",
+          "at": "2026-11-16T10:00:00Z",
+          "point": [
+            36.8,
+            10.18
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d3",
+          "at": "2026-11-16T10:01:00Z",
+          "point": [
+            36.8,
+            10.18
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d3",
+          "at": "2026-11-16T10:00:30Z",
+          "point": [
+            36.8,
+            10.18
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d3",
+          "at": "2026-11-16T10:01:00Z",
+          "point": [
+            36.8,
+            10.18
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d3",
+          "at": "2026-11-16T10:04:00Z",
+          "point": [
+            36.8,
+            10.18
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d3",
+          "at": "2026-11-16T10:05:00Z",
+          "point": [
+            36.8,
+            10.18
+          ],
+          "accuracyMeters": 80,
+          "status": "online"
+        },
+        {
+          "driverId": "d3",
+          "at": "2026-11-16T10:06:00Z",
+          "point": [
+            36.8,
+            10.18
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d3",
+          "at": "2026-11-16T10:07:00Z",
+          "point": [
+            36.85,
+            10.18
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d3",
+          "at": "2026-11-16T10:08:00Z",
+          "point": [
+            36.8,
+            10.18
+          ],
+          "accuracyMeters": 10,
+          "status": "offline"
+        },
+        {
+          "driverId": "d3",
+          "at": "2026-11-16T10:08:30Z",
+          "point": [
+            36.8,
+            10.18
+          ],
+          "accuracyMeters": 10,
+          "status": "on_trip"
+        },
+        {
+          "driverId": "d4",
+          "at": "2026-11-16T10:00:00Z",
+          "point": [
+            36.8,
+            10.18
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d4",
+          "at": "2026-11-16T10:01:00Z",
+          "point": [
+            36.8,
+            10.18
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d4",
+          "at": "2026-11-16T10:02:30Z",
+          "point": [
+            36.8,
+            10.18
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        }
+      ],
+      "series": [
+        {
+          "driverId": "d3",
+          "everySeconds": 120,
+          "count": 30,
+          "point": [
+            36.8,
+            10.18
+          ],
+          "accuracyMeters": 10,
+          "status": "online",
+          "from": "2026-11-16T10:10:30Z"
+        }
+      ],
+      "expect": {
+        "drivers": {
+          "d3": {
+            "done": 60,
+            "target": 60,
+            "earned": true,
+            "earnedAt": "2026-11-16T11:06:30Z"
+          },
+          "d4": {
+            "done": 2,
+            "target": 60,
+            "earned": false
+          }
+        },
+        "entries": [
+          {
+            "driverId": "d3",
+            "kind": "bonus",
+            "tripId": null,
+            "amount": {
+              "amountMinor": 20000,
+              "currency": "TND"
+            },
+            "at": "2026-11-16T11:06:30Z"
+          }
+        ]
+      },
+      "drivers": {
+        "d3": {
+          "zoneIds": [
+            "TN-TC"
+          ],
+          "onlineSince": "2026-11-16T09:00:00Z"
+        },
+        "d4": {
+          "zoneIds": [
+            "TN-TC"
+          ],
+          "onlineSince": "2026-11-16T09:00:00Z"
+        }
+      }
+    },
+    {
+      "id": "hours_sek_before_start_and_paused",
+      "note": "Europe/Stockholm: the window starts 2026-11-15T23:00:00Z, so the 22:58 and 22:59 fixes are before it. 07:58 is the first counted fix; 07:59 adds 60 s; 08:30 is in the pause (08:00-09:00Z) and is not counted; 09:00:30 comes 61 min after the last counted fix and adds 0; 09:02:30 adds 120 s. done = 3 min of 120.",
+      "campaign": {
+        "measure": "online_hours",
+        "target": 2,
+        "amount": {
+          "amountMinor": 30000,
+          "currency": "SEK"
+        },
+        "timeZone": "Europe/Stockholm",
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-16",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ],
+        "pauses": [
+          [
+            "2026-11-16T08:00:00Z",
+            "2026-11-16T09:00:00Z"
+          ]
+        ],
+        "zoneId": "Z001"
+      },
+      "fixes": [
+        {
+          "driverId": "d1",
+          "at": "2026-11-15T22:58:00Z",
+          "point": [
+            59.33,
+            18.07
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d1",
+          "at": "2026-11-15T22:59:00Z",
+          "point": [
+            59.33,
+            18.07
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d1",
+          "at": "2026-11-16T07:58:00Z",
+          "point": [
+            59.33,
+            18.07
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d1",
+          "at": "2026-11-16T07:59:00Z",
+          "point": [
+            59.33,
+            18.07
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d1",
+          "at": "2026-11-16T08:30:00Z",
+          "point": [
+            59.33,
+            18.07
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d1",
+          "at": "2026-11-16T09:00:30Z",
+          "point": [
+            59.33,
+            18.07
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d1",
+          "at": "2026-11-16T09:02:30Z",
+          "point": [
+            59.33,
+            18.07
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        }
+      ],
+      "series": [],
+      "expect": {
+        "drivers": {
+          "d1": {
+            "done": 3,
+            "target": 120,
+            "earned": false
+          }
+        },
+        "entries": []
+      },
+      "drivers": {
+        "d1": {
+          "zoneIds": [
+            "Z001"
+          ],
+          "onlineSince": "2026-11-15T22:00:00Z"
+        }
+      }
+    },
+    {
+      "id": "hours_sek_abuse",
+      "note": "MF3. d1 online since 10:00:00Z: a1 before online_since → no; a2 first counted (0); a3 10 s later only waits (writeEverySeconds 30); a4 +60; a backdated batch received at 10:10:00 dated 100 s apart adds min(fix gap, server gap): 100 for the first, 0 for the rest; a fix dated after the server time → no. d2: j2 jumps 3.1 km in 30 s (> 200 km/h) → ignored; j3 back at the first point +60. receivedAt = at when not given.",
+      "campaign": {
+        "measure": "online_hours",
+        "target": 1,
+        "amount": {
+          "amountMinor": 30000,
+          "currency": "SEK"
+        },
+        "timeZone": "Europe/Stockholm",
+        "startDate": "2026-11-16",
+        "endDate": "2026-11-16",
+        "polygon": [
+          [
+            59.32,
+            18.05
+          ],
+          [
+            59.32,
+            18.09
+          ],
+          [
+            59.34,
+            18.09
+          ],
+          [
+            59.34,
+            18.05
+          ]
+        ],
+        "pauses": [],
+        "zoneId": "Z001"
+      },
+      "drivers": {
+        "d1": {
+          "zoneIds": [
+            "Z001"
+          ],
+          "onlineSince": "2026-11-16T10:00:00Z"
+        },
+        "d2": {
+          "zoneIds": [
+            "Z001"
+          ],
+          "onlineSince": "2026-11-16T10:00:00Z"
+        }
+      },
+      "fixes": [
+        {
+          "driverId": "d1",
+          "at": "2026-11-16T09:59:00Z",
+          "point": [
+            59.33,
+            18.07
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d1",
+          "at": "2026-11-16T10:00:00Z",
+          "point": [
+            59.33,
+            18.07
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d1",
+          "at": "2026-11-16T10:00:10Z",
+          "point": [
+            59.33,
+            18.07
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d1",
+          "at": "2026-11-16T10:01:00Z",
+          "point": [
+            59.33,
+            18.07
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d1",
+          "at": "2026-11-16T10:02:40Z",
+          "point": [
+            59.33,
+            18.07
+          ],
+          "accuracyMeters": 10,
+          "status": "online",
+          "receivedAt": "2026-11-16T10:10:00Z"
+        },
+        {
+          "driverId": "d1",
+          "at": "2026-11-16T10:04:20Z",
+          "point": [
+            59.33,
+            18.07
+          ],
+          "accuracyMeters": 10,
+          "status": "online",
+          "receivedAt": "2026-11-16T10:10:00Z"
+        },
+        {
+          "driverId": "d1",
+          "at": "2026-11-16T10:06:00Z",
+          "point": [
+            59.33,
+            18.07
+          ],
+          "accuracyMeters": 10,
+          "status": "online",
+          "receivedAt": "2026-11-16T10:10:00Z"
+        },
+        {
+          "driverId": "d1",
+          "at": "2026-11-16T10:07:40Z",
+          "point": [
+            59.33,
+            18.07
+          ],
+          "accuracyMeters": 10,
+          "status": "online",
+          "receivedAt": "2026-11-16T10:10:00Z"
+        },
+        {
+          "driverId": "d1",
+          "at": "2026-11-16T10:09:20Z",
+          "point": [
+            59.33,
+            18.07
+          ],
+          "accuracyMeters": 10,
+          "status": "online",
+          "receivedAt": "2026-11-16T10:10:00Z"
+        },
+        {
+          "driverId": "d1",
+          "at": "2026-11-16T10:11:00Z",
+          "point": [
+            59.33,
+            18.07
+          ],
+          "accuracyMeters": 10,
+          "status": "online",
+          "receivedAt": "2026-11-16T10:10:30Z"
+        },
+        {
+          "driverId": "d2",
+          "at": "2026-11-16T10:00:00Z",
+          "point": [
+            59.3201,
+            18.0501
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d2",
+          "at": "2026-11-16T10:00:30Z",
+          "point": [
+            59.3399,
+            18.0899
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        },
+        {
+          "driverId": "d2",
+          "at": "2026-11-16T10:01:00Z",
+          "point": [
+            59.3201,
+            18.0501
+          ],
+          "accuracyMeters": 10,
+          "status": "online"
+        }
+      ],
+      "series": [],
+      "expect": {
+        "drivers": {
+          "d1": {
+            "done": 2,
+            "target": 60,
+            "earned": false
+          },
+          "d2": {
+            "done": 1,
+            "target": 60,
+            "earned": false
+          }
+        },
+        "entries": []
+      }
+    }
+  ],
+  "payout": [
+    {
+      "id": "payout_sek",
+      "currency": "SEK",
+      "note": "Trips 900,00 kr, Movera kept 180,00 kr on them, campaign 150,00 kr: Driver gets 1 050,00 kr, Movera gets 30,00 kr (both views).",
+      "entries": [
+        {
+          "kind": "trip",
+          "amountMinor": 50000,
+          "cashMinor": 0,
+          "waitingMinor": 0
+        },
+        {
+          "kind": "trip",
+          "amountMinor": 40000,
+          "cashMinor": 0,
+          "waitingMinor": 1000
+        },
+        {
+          "kind": "bonus",
+          "amountMinor": 15000,
+          "campaign": true
+        }
+      ],
+      "moveraKeepsNowOfTrips": 18000,
+      "expect": {
+        "lines": {
+          "trips": 89000,
+          "waiting": 1000,
+          "bonus": 15000
+        },
+        "tripCount": 2,
+        "amountMinor": 105000,
+        "driverGets": {
+          "amountMinor": 105000,
+          "currency": "SEK"
+        },
+        "moveraGets": {
+          "admin": {
+            "amountMinor": 3000,
+            "currency": "SEK"
+          },
+          "driver": {
+            "amountMinor": 3000,
+            "currency": "SEK"
+          }
+        }
+      }
+    },
+    {
+      "id": "payout_tnd_cash_movera_below_0",
+      "currency": "TND",
+      "note": "A cash trip of 80.000 DT (driver 64.000 DT, Movera kept 16.000 DT) and a campaign of 20.000 DT: Payout.amount 4.000 DT; Driver gets 84.000 DT; Movera gets −4.000 DT, sent as it is.",
+      "entries": [
+        {
+          "kind": "trip",
+          "amountMinor": 64000,
+          "cashMinor": 80000,
+          "waitingMinor": 0
+        },
+        {
+          "kind": "bonus",
+          "amountMinor": 20000,
+          "campaign": true
+        }
+      ],
+      "moveraKeepsNowOfTrips": 16000,
+      "expect": {
+        "lines": {
+          "trips": 64000,
+          "bonus": 20000,
+          "cash_collected": -80000
+        },
+        "tripCount": 1,
+        "amountMinor": 4000,
+        "driverGets": {
+          "amountMinor": 84000,
+          "currency": "TND"
+        },
+        "moveraGets": {
+          "admin": {
+            "amountMinor": -4000,
+            "currency": "TND"
+          },
+          "driver": {
+            "amountMinor": -4000,
+            "currency": "TND"
+          }
+        }
+      }
+    },
+    {
+      "id": "payout_eur_trip_bonus_unchanged",
+      "currency": "EUR",
+      "note": "A trip bonus (inside the trip, already out of moveraKeepsNow) is not taken off again; only campaign entries are.",
+      "entries": [
+        {
+          "kind": "trip",
+          "amountMinor": 1500,
+          "cashMinor": 0,
+          "waitingMinor": 0
+        },
+        {
+          "kind": "bonus",
+          "amountMinor": 500
+        },
+        {
+          "kind": "bonus",
+          "amountMinor": 1000,
+          "campaign": true
+        }
+      ],
+      "moveraKeepsNowOfTrips": 1500,
+      "expect": {
+        "lines": {
+          "trips": 1500,
+          "bonus": 1500
+        },
+        "tripCount": 1,
+        "amountMinor": 3000,
+        "driverGets": {
+          "amountMinor": 3000,
+          "currency": "EUR"
+        },
+        "moveraGets": {
+          "admin": {
+            "amountMinor": 500,
+            "currency": "EUR"
+          },
+          "driver": {
+            "amountMinor": 500,
+            "currency": "EUR"
+          }
+        }
+      }
+    },
+    {
+      "id": "payout_sek_campaign_paid_to_movera_lost_driver",
+      "currency": "SEK",
+      "note": "MF4 + weak spot 1. One payout: a trip 500,00 kr (Movera kept 120,00 kr), a campaign 150,00 kr, a lost-driver payment 30,00 kr (bonus on a trip with no paid end, admin view only) and an unlinked 'Driver paid Movera' 200,00 kr. paid_to_movera is in Payout.lines/amount but never in driverGets or moveraGets. Admin Movera gets 120 − 150 − 30 = −60,00 kr; driver Movera gets 120 − 150 = −30,00 kr; Driver gets 500 + 150 + 30 = 680,00 kr = Payout.amount 880,00 − paid_to_movera 200,00.",
+      "entries": [
+        {
+          "kind": "trip",
+          "amountMinor": 50000,
+          "cashMinor": 0,
+          "waitingMinor": 0
+        },
+        {
+          "kind": "bonus",
+          "amountMinor": 15000,
+          "campaign": true
+        },
+        {
+          "kind": "bonus",
+          "amountMinor": 3000,
+          "lostDriver": true
+        },
+        {
+          "kind": "paid_to_movera",
+          "amountMinor": 20000
+        }
+      ],
+      "moveraKeepsNowOfTrips": 12000,
+      "expect": {
+        "lines": {
+          "trips": 50000,
+          "bonus": 18000,
+          "paid_to_movera": 20000
+        },
+        "tripCount": 1,
+        "amountMinor": 88000,
+        "driverGets": {
+          "amountMinor": 68000,
+          "currency": "SEK"
+        },
+        "moveraGets": {
+          "admin": {
+            "amountMinor": -6000,
+            "currency": "SEK"
+          },
+          "driver": {
+            "amountMinor": -3000,
+            "currency": "SEK"
+          }
+        }
+      }
+    }
+  ],
+  "kpi": [
+    {
+      "id": "kpi_sek_local_day",
+      "timeZone": "Europe/Stockholm",
+      "day": "2026-11-20",
+      "note": "The 23:30Z entry is 00:30 on 2026-11-21 local: not this day.",
+      "before": {
+        "driverBonus": 3000,
+        "moveraEarnings": 50000
+      },
+      "campaignEntries": [
+        {
+          "at": "2026-11-20T08:00:00Z",
+          "amountMinor": 15000
+        },
+        {
+          "at": "2026-11-20T23:30:00Z",
+          "amountMinor": 15000
+        }
+      ],
+      "expect": {
+        "driverBonus": 18000,
+        "moveraEarnings": 35000
+      }
+    },
+    {
+      "id": "kpi_tnd_below_0",
+      "timeZone": "Africa/Tunis",
+      "day": "2026-11-16",
+      "before": {
+        "driverBonus": 0,
+        "moveraEarnings": 10000
+      },
+      "campaignEntries": [
+        {
+          "at": "2026-11-16T11:06:30Z",
+          "amountMinor": 20000
+        }
+      ],
+      "expect": {
+        "driverBonus": 20000,
+        "moveraEarnings": -10000
+      }
+    }
+  ]
+}
