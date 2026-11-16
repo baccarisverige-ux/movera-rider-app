@@ -76,12 +76,14 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     return trimmed.isEmpty ? context.l10n.notAdded : trimmed;
   }
 
-  String _serverContact(
+  String? _serverContact(
     String value, {
     required bool verified,
     required bool known,
     required String unavailableLabel,
   }) {
+    // G21 follow-up: still loading (spinner below) is not a failure.
+    if (_security.loading && _security.state == null) return null;
     if (!_security.available || _security.state == null) {
       return unavailableLabel;
     }
