@@ -1,11 +1,11 @@
-# Movera API v0.18.113 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.115 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.113
+  version: 0.18.115
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.113 in this folder; this file must agree with them.
+    v0.18.115 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.113
+  version: 0.18.115
   source: contract.json
 paths:
   /auth/otp/request:
@@ -25940,6 +25940,28 @@ components:
               description: 'v0.18.19 (owner A): the zone''s Book later switch (DriverAppConfig.reservations.on), written by
                 the server. Off: the app still shows Book later and says ''Not available in this area yet'' when tapped; the
                 server refuses (403 reservations_off).'
+            pickupSpots:
+              type: object
+              description: 'v0.18.115 (BQ-V21; owner full-audit Q6 2026-11-02 "Keep as ''approximate''" => admin on/off per
+                zone (default on), Rules decisions/rider-g4-pickup.md:7): the rider''s pickup entrance chips (Main entrance
+                / Side entrance / Parking, placed around the pin and labelled approximate in sv / fr / en) have an admin on/off
+                switch per zone, default on. Not money. X-Api-Version stays 0.5; additive; no migration. RiderAppConfig.booking.pickupSpots.on
+                (boolean, default true = configDefaults.pickupSpotsOn) in the zone''s rider document (its own, else its country
+                standard), saved and published with PUT /admin/config/rider_app_config + POST /admin/config/rider_app_config/publish
+                (settings.edit / settings.publish), the same draft / publish / version rule as the other documents. Admin:
+                Dispatch › Rides ''Pickup entrance chips (approximate)'', per zone. PUT /admin/config/rider_app_config: a
+                booking.pickupSpots that is not an object, or an on that is not true / false, is 400 invalid_request with
+                reason invalid_document. GET /rider/config always serves booking.pickupSpots { on }: the document''s value,
+                true when it is missing (a document published before v0.18.115).'
+              properties:
+                'on':
+                  type: boolean
+                  description: 'on: the Set pickup sheet shows the entrance chips as before (a chosen chip''s title, with
+                    its approximate mark, ends the booked pickup label the driver sees). off: no entrance chips, and the pickup
+                    label is the address only. ''Previously used'' (the device''s own confirmed pickups) and ''Near Home''
+                    (the rider''s saved Home) are real places, not entrance chips, and stay. A document without the field
+                    (an older server) reads as on.'
+                  default: true
         cancelFees:
           $ref: '#/components/schemas/CancelFees'
         waiting:
