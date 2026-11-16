@@ -638,5 +638,62 @@ class TestlabSummaryTest(unittest.TestCase):
         self.assertLessEqual(lock_min, 16)
 
 
+    # FTL-H4 (Rules audits/impact/firebase-trip-run-2026-11-16.md row 5):
+    # run 43900906554's 40 crash lines were all start-up noise, so the
+    # Flutter errors that came later were cut.
+    def _noisy_log_then_flutter_error(self, noise=60, blocks=1):
+        head = '11-16 07:58:%02d.000  1234  1234 '
+        lines = []
+        for i in range(noise):
+            lines.append(head % (i % 60) + 'I AndroidRuntime: Calling main entry com.android.commands.am.Am %d' % i)
+            lines.append(head % (i % 60) + 'W GoogleApiManager: java.lang.SecurityException: Unknown calling package %d' % i)
+        for b in range(blocks):
+            lines += [
+                head % 1 + 'I flutter : MOVERA-TL STEP app exception FlutterError (widgets library): '
+                'A RenderFlex overflowed by %d pixels @ #0 RenderFlex.paint' % b,
+                head % 1 + 'I flutter : \u2550\u2550\u2561 EXCEPTION CAUGHT BY WIDGETS LIBRARY \u255e\u2550\u2550\u2550\u2550',
+                head % 1 + 'I flutter : The following assertion was thrown building RideCompleted(block %d):' % b,
+                head % 1 + "I flutter : 'package:flutter/src/widgets/framework.dart': Failed assertion: line 5 pos 1: '_lifecycle'",
+                head % 1 + 'I flutter : When the exception was thrown, this was the stack:',
+                head % 1 + 'I flutter : #0      _AssertionError._doThrowNew (dart:core-patch/errors_patch.dart:50:61)',
+                head % 1 + 'I flutter : #1      _AssertionError._throwNew (dart:core-patch/errors_patch.dart:40:5)',
+                head % 1 + 'I flutter : #2      _RideCompletedState.build (package:movera_rider/x.dart:10:3)',
+                head % 1 + 'I flutter : #3      StatelessElement.build (package:flutter/y.dart:1:1)',
+                head % 1 + 'I flutter : \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550',
+            ]
+        lines.append(head % 2 + 'E flutter : [ERROR:flutter/runtime/dart_vm_initializer.cc(41)] Unhandled Exception: Bad state: late')
+        self.logcat.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+
+    def test_noise_first_does_not_push_out_flutter_errors(self):
+        self._noisy_log_then_flutter_error()
+        crashes = testlab_summary.crash_lines(str(self.root))
+        self.assertLessEqual(len(crashes), testlab_summary.MAX_CRASH_LINES)
+        self.assertTrue(any('EXCEPTION CAUGHT BY' in c for c in crashes))
+        self.assertTrue(any('Unhandled Exception' in c for c in crashes))
+        noise = [c for c in crashes if 'AndroidRuntime' in c or 'SecurityException' in c]
+        self.assertLessEqual(len(noise), testlab_summary.NOISE_LINES)
+        # The real lines come before the noise.
+        first_noise = min(i for i, c in enumerate(crashes) if c in noise)
+        self.assertTrue(all(c not in noise for c in crashes[:first_noise]))
+
+    def test_summary_keeps_every_flutter_block_with_message_and_first_frames(self):
+        self._noisy_log_then_flutter_error(blocks=3)
+        text = testlab_summary.summary_text(str(self.root))
+        self.assertIn('Flutter errors in logcat (EXCEPTION CAUGHT BY): 3', text)
+        for b in range(3):
+            self.assertIn('building RideCompleted(block %d)' % b, text)
+        self.assertIn("Failed assertion: line 5 pos 1: '_lifecycle'", text)
+        self.assertIn('#2      _RideCompletedState.build', text)
+        self.assertNotIn('#3      StatelessElement.build', text)
+        self.assertIn('App exceptions the test saw: 3', text)
+        self.assertIn('A RenderFlex overflowed by 0 pixels', text)
+
+    def test_flutter_blocks_are_capped(self):
+        self._noisy_log_then_flutter_error(noise=1, blocks=testlab_summary.MAX_FLUTTER_BLOCKS + 5)
+        blocks = testlab_summary.flutter_error_blocks(str(self.root))
+        self.assertEqual(len(blocks), testlab_summary.MAX_FLUTTER_BLOCKS)
+        self.assertTrue(all(len(b['frames']) == testlab_summary.BLOCK_FRAMES for b in blocks))
+
+
 if __name__ == '__main__':
     unittest.main()

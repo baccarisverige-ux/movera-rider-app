@@ -62,12 +62,15 @@ import xml.etree.ElementTree as ET
 
 REDACTED = "[REDACTED]"
 PREFIX = "MOVERA-TL "
+# FTL-H4 (Rules audits/impact/firebase-trip-run-2026-11-16.md row 5): run
+# 43900906554 lost every "EXCEPTION CAUGHT BY" line because the phone's
+# start-up noise (AndroidRuntime am/content launches, Play services
+# SecurityException) filled the 40 crash lines first. Real crash lines now
+# come first; the noise only fills what is left, and at most NOISE_LINES.
 CRASH_PATTERNS = [
     re.compile(p)
     for p in (
         r"FATAL EXCEPTION",
-        r"AndroidRuntime",
-        r"SecurityException",
         r"ANR in ",
         r"Unhandled Exception",
         r"EXCEPTION CAUGHT BY",
@@ -76,7 +79,20 @@ CRASH_PATTERNS = [
         r"Process .* has died",
     )
 ]
+NOISE_PATTERNS = [re.compile(p) for p in (r"AndroidRuntime", r"SecurityException")]
 MAX_CRASH_LINES = 40
+NOISE_LINES = 10
+# Flutter error blocks ("══╡ EXCEPTION CAUGHT BY ... ╞══"): every block is
+# kept (up to MAX_FLUTTER_BLOCKS), each with its message lines (at most
+# BLOCK_MESSAGE_LINES) and the first BLOCK_FRAMES stack frames.
+FLUTTER_BLOCK_START = re.compile(r"EXCEPTION CAUGHT BY")
+MAX_FLUTTER_BLOCKS = 20
+BLOCK_MESSAGE_LINES = 12
+BLOCK_FRAMES = 3
+_FRAME_RE = re.compile(r"^#\d+\s")
+# logcat line heads: "11-16 07:58:01.123  1234  1234 I flutter : ", "I/flutter (1234): "
+_LOGCAT_HEAD = re.compile(
+    r"^(?:\d\d-\d\d\s+\d\d:\d\d:\d\d\.\d+\s+\d+\s+\d+\s+)?[VDIWEF][ /]\s*flutter\s*(?:\(\s*\d+\))?\s*:\s?")
 
 
 # Country codes of the app's countries (lib/core/auth/phone_country.dart);
@@ -463,18 +479,82 @@ def junit_from(root):
 
 
 def crash_lines(root):
-    seen = []
+    """Crash lines of logcat: the real ones first (Flutter, fatal, ANR,
+    died), then at most NOISE_LINES of the phone's start-up noise, all
+    within MAX_CRASH_LINES."""
+    real, noise = [], []
     for path in _logcat_files(root):
         for line in _lines(path):
             if PREFIX in line:
                 continue
+            short = line.strip()[:300]
             if any(p.search(line) for p in CRASH_PATTERNS):
-                short = line.strip()[:300]
-                if short not in seen:
-                    seen.append(short)
-                if len(seen) >= MAX_CRASH_LINES:
-                    return seen
-    return seen
+                if short not in real and len(real) < MAX_CRASH_LINES:
+                    real.append(short)
+            elif any(p.search(line) for p in NOISE_PATTERNS):
+                if short not in noise and len(noise) < NOISE_LINES:
+                    noise.append(short)
+    room = max(0, MAX_CRASH_LINES - len(real))
+    return real + noise[:room]
+
+
+def _flutter_text(line):
+    """The text of a flutter logcat line (head cut), or None for other tags."""
+    m = _LOGCAT_HEAD.match(line.strip())
+    return line.strip()[m.end():] if m else None
+
+
+def flutter_error_blocks(root):
+    """Every Flutter "EXCEPTION CAUGHT BY" block (up to MAX_FLUTTER_BLOCKS):
+    its header, message lines and first BLOCK_FRAMES stack frames."""
+    blocks = []
+    for path in _logcat_files(root):
+        current = None
+        for line in _lines(path):
+            text = _flutter_text(line)
+            if text is None:
+                text = line.strip() if FLUTTER_BLOCK_START.search(line) else None
+                if text is None:
+                    continue
+            if FLUTTER_BLOCK_START.search(text):
+                if len(blocks) >= MAX_FLUTTER_BLOCKS:
+                    return blocks
+                current = {"head": text[:300], "message": [], "frames": [], "stack": False}
+                blocks.append(current)
+                continue
+            if current is None:
+                continue
+            body = text.strip()
+            if not body:
+                continue
+            if set(body) <= set("═╡╞ "):
+                current = None  # the block's closing rule
+                continue
+            if _FRAME_RE.match(body):
+                if len(current["frames"]) < BLOCK_FRAMES:
+                    current["frames"].append(body[:300])
+                current["stack"] = True
+                continue
+            if body.startswith("When the exception was thrown"):
+                current["stack"] = True
+                continue
+            if not current["stack"] and len(current["message"]) < BLOCK_MESSAGE_LINES:
+                current["message"].append(body[:300])
+    return blocks
+
+
+def app_exception_lines(root):
+    """The harness's own "STEP app exception" lines (type, masked text)."""
+    out = []
+    marker = PREFIX + "STEP app exception "
+    for path in _logcat_files(root):
+        for line in _lines(path):
+            at = line.find(marker)
+            if at >= 0:
+                text = line[at + len(marker):].strip()[:500]
+                if text not in out:
+                    out.append(text)
+    return out[:MAX_CRASH_LINES]
 
 
 def transitions_from(root):
@@ -560,6 +640,19 @@ def summary_text(root):
     if failed_cases:
         out.append("Failed JUnit cases: " + ", ".join(failed_cases))
     out += ["", SHARED_ACCOUNTS_NOTE]
+    exceptions = app_exception_lines(root)
+    if exceptions:
+        out += ["", "App exceptions the test saw: %d" % len(exceptions), "```"]
+        out += exceptions
+        out.append("```")
+    blocks = flutter_error_blocks(root)
+    if blocks:
+        out += ["", "Flutter errors in logcat (EXCEPTION CAUGHT BY): %d" % len(blocks), "```"]
+        for b in blocks:
+            out.append(b["head"])
+            out += ["  " + m for m in b["message"]]
+            out += ["  " + f for f in b["frames"]]
+        out.append("```")
     out += ["", "Crash / error lines in logcat: %d" % len(crashes)]
     if crashes:
         out.append("```")

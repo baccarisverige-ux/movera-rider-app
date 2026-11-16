@@ -8,6 +8,7 @@ import 'package:movera_rider/app/bootstrap.dart';
 import 'package:movera_rider/app/config/env.dart';
 
 import 'check_log.dart';
+import 'mask_text.dart';
 import 'movera_api.dart';
 import 'recording_client.dart';
 import 'rider_steps.dart';
@@ -72,8 +73,13 @@ class RiderSession {
   final String dropoffQuery =
       tlEnv('MOVERA_TL_DROPOFF_QUERY') ?? defaultDropoffQuery;
 
-  /// Flutter exceptions the app reported while the run went on (type only).
+  /// Flutter exceptions the app reported while the run went on: type,
+  /// library, the masked message and the first stack frames (FTL-H4).
   final List<String> appExceptions = <String>[];
+
+  /// The run's own phone numbers and code, masked in every recorded error
+  /// text (set by the run before sign-in; never printed).
+  final List<String> secretValues = <String>[];
 
   FlutterExceptionHandler? _testOnError;
   ErrorCallback? _testPlatformOnError;
@@ -93,11 +99,19 @@ class RiderSession {
     await http.runWithClient(bootstrap, () => rec);
     final appOnError = FlutterError.onError;
     FlutterError.onError = (details) {
-      appExceptions.add(details.exception.runtimeType.toString());
-      CheckLog.say(
-        'STEP app exception ${details.exception.runtimeType} '
-        '(${details.library ?? 'no library'})',
-      );
+      var text = details.exception.runtimeType.toString();
+      try {
+        text = exceptionText(
+          details.exception,
+          library: details.library,
+          stack: details.stack,
+          known: secretValues,
+        );
+      } catch (_) {
+        // Keep the type when the message cannot be read.
+      }
+      appExceptions.add(text);
+      CheckLog.say('STEP app exception $text');
       appOnError?.call(details);
     };
     await tester.pump();
