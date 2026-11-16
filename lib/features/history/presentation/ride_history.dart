@@ -652,7 +652,10 @@ class _RideHistoryState extends State<RideHistory> {
               loader: widget.pathLoader,
             ),
             // v0.18.113 BQ-S13: Call driver until the server's callOpenUntil.
-            if (ride.status.isCompleted && !ride.endedEarly)
+            // SF-S1: the server's field alone decides (a driver's end
+            // before the drop-off is a completed trip with a window; the
+            // rider's own early end gets no callOpenUntil).
+            if (ride.status.isCompleted)
               CallDriverAfterTrip(
                 rideId: ride.reservationId.substring('ondemand-'.length),
               ),
