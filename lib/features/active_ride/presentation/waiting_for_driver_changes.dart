@@ -212,6 +212,9 @@ extension _WaitingChanges on _WaitingForDriverState {
       unawaited(_openAutoShare(rideId));
     }
     if (status.isCompletedSurface) {
+      // BQ-S10 round 2 (supervisor MF-R1): the trip is over, so its live
+      // link leaves the phone.
+      unawaited(SafetyController.dropShareForRideEnd(rideId));
       _rideCheckTripEnded(rideId);
       return;
     }

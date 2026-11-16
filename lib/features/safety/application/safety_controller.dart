@@ -101,13 +101,34 @@ class SafetyController extends ChangeNotifier {
   static Future<void> stopShareForRideEnd(String? rideId) async {
     final controller = _shared;
     if (controller == null || rideId == null || rideId.isEmpty) return;
-    if (controller._session.shareFor(rideId)?.isActive != true) return;
+    if (controller._session.shareFor(rideId)?.isActive == true) {
+      try {
+        await controller.stopShare(rideId);
+      } catch (error) {
+        AppLog.warning(
+          'safety.share.stop_failed',
+          extra: {'rideId': rideId, 'error': '$error'},
+        );
+      }
+    }
+    await dropShareForRideEnd(rideId);
+  }
+
+  /// BQ-S10 round 2 (supervisor MF-R1): the link is on the phone only
+  /// while the trip is live. When the trip ends (drop-off, a cancel, any
+  /// other end) the share kept for it is dropped; no request is made (the
+  /// server ends the link itself). Only a controller that already exists.
+  static Future<void> dropShareForRideEnd(String? rideId) async {
+    final controller = _shared;
+    final id = rideId?.trim() ?? '';
+    if (controller == null || id.isEmpty) return;
     try {
-      await controller.stopShare(rideId);
+      await controller._session.dropShare(id);
+      controller.notifyListeners();
     } catch (error) {
       AppLog.warning(
-        'safety.share.stop_failed',
-        extra: {'rideId': rideId, 'error': '$error'},
+        'safety.share.drop_failed',
+        extra: {'rideId': id, 'error': '$error'},
       );
     }
   }

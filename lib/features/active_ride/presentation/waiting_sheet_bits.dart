@@ -5,6 +5,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
+import 'package:movera_rider/core/contracts/ride_status.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/safety/presentation/share_trip_sheet.dart';
@@ -58,15 +59,35 @@ TextStyle waitingText(
 }
 
 class WaitingShareButton extends StatelessWidget {
-  const WaitingShareButton({super.key, this.rideId});
+  const WaitingShareButton({
+    super.key,
+    this.rideId,
+    this.status,
+    this.driverShown = true,
+  });
 
   final String? rideId;
+
+  /// The trip's status and whether the rider is shown a driver, where the
+  /// screen knows them.
+  final RideStatus? status;
+  final bool driverShown;
+
+  /// BQ-S10 round 2 (supervisor SF-R2; contract `shareTrip.notLive`): a
+  /// booked ride held in `accepted`, whose driver the rider is not shown
+  /// yet, cannot be shared (409 trip_not_live), so the button waits until
+  /// the driver is on the way.
+  static bool canShare(RideStatus? status, {required bool driverShown}) =>
+      status != RideStatus.driverAssigned || driverShown;
 
   @override
   Widget build(BuildContext context) {
     // BQ-S10 (contract v0.18.116): hidden while the zone's Share trip
     // switch is off; else it opens the one Share trip sheet.
-    if (!SafetyController.shared.shareTripOn) return const SizedBox.shrink();
+    if (!SafetyController.shared.shareTripOn ||
+        !canShare(status, driverShown: driverShown)) {
+      return const SizedBox.shrink();
+    }
     return Semantics(
       button: true,
       label: context.l10n.shareTrip,

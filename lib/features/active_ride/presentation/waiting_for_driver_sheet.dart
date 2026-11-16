@@ -97,7 +97,11 @@ extension _WaitingSheet on _WaitingForDriverState {
             ),
           ),
           const SizedBox(width: 8),
-          WaitingShareButton(rideId: _rideId),
+          WaitingShareButton(
+            rideId: _rideId,
+            status: _tracking.status,
+            driverShown: driver != null,
+          ),
         ],
       ),
     );

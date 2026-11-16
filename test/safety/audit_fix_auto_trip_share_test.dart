@@ -193,6 +193,26 @@ void main() {
     expect(find.byType(ShareTripSheet), findsNothing, reason: 'once per ride');
   });
 
+  // Round 2, supervisor MF-R1: the link stays on the phone only while the
+  // trip is live; the trip screen drops it when it sees the trip's end.
+  testWidgets('the trip ending drops the kept link', (tester) async {
+    await tester.runAsync(() async {
+      await safety.load();
+      await safety.setTripShare(enabled: true, mode: TripShareMode.manual);
+    });
+    const rideId = 'rc-share-ends';
+    await tester.runAsync(() => safety.shareLink(rideId));
+    expect(safety.shareFor(rideId)?.url, isNotNull);
+    final realtime = await pumpInTrip(tester, rideId);
+    realtime.emit(
+      RideStatus.tripCompleted,
+      latitude: _destination.latitude,
+      longitude: _destination.longitude,
+    );
+    await frames(tester);
+    expect(safety.shareFor(rideId)?.url, isNull);
+  });
+
   testWidgets('auto share off: the trip starting opens nothing', (
     tester,
   ) async {

@@ -99,6 +99,12 @@ extension _WaitingFeed on _WaitingForDriverState {
       // that is the trip's end too (was the rider left far from the
       // drop-off?), decided before the "trip ended" sheet.
       final rideId = _rideId?.trim();
+      // BQ-S10 round 2 (supervisor MF-R1): a cancel or any other end drops
+      // the trip's live link from the phone. Not a driver cancel before
+      // pickup: the same trip searches again and its link is not ended.
+      if (status != RideStatus.cancelledByDriver) {
+        unawaited(SafetyController.dropShareForRideEnd(rideId));
+      }
       if (status == RideStatus.endedByDriver &&
           _rideCheckOnBoard &&
           rideId != null &&
