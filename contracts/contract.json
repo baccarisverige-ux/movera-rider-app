@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.113",
+  "version": "0.18.115",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -4023,7 +4023,8 @@
         "amountMinor": 200000,
         "currency": "TND"
       }
-    }
+    },
+    "pickupSpotsOn": true
   },
   "realtime": {
     "envelope": [
@@ -10226,5 +10227,12 @@
     },
     "fixtures": "fixtures/bonus_campaigns.json (reference_check.py): validation, trips counting, online hours, payout lines + Driver gets / Movera gets, KPI day row — SEK, EUR and TND.",
     "progressFormat": "Supervisor note (weak spot 2): for online_hours progress.done and progress.target are MINUTES; the app writes each with texts.duration (h = minutes div 60, m = minutes mod 60, e.g. 260 → '4 h 20 min') or texts.durationWholeHours when m = 0 (600 → '10 h'), then fills texts.progressHours: '4 h 20 min av 10 h online'. Trips use texts.progressTrips with the plain numbers. Every number is the server's (owner s06:1275-1276: the apps show the server's numbers, the same on every screen)."
+  },
+  "pickupSpots": {
+    "note": "v0.18.115 (BQ-V21; owner full-audit Q6 2026-11-02 \"Keep as 'approximate'\" => admin on/off per zone (default on), Rules decisions/rider-g4-pickup.md:7): the rider's pickup entrance chips (Main entrance / Side entrance / Parking, placed around the pin and labelled approximate in sv / fr / en) have an admin on/off switch per zone, default on. Not money. X-Api-Version stays 0.5; additive; no migration.",
+    "setting": "RiderAppConfig.booking.pickupSpots.on (boolean, default true = configDefaults.pickupSpotsOn) in the zone's rider document (its own, else its country standard), saved and published with PUT /admin/config/rider_app_config + POST /admin/config/rider_app_config/publish (settings.edit / settings.publish), the same draft / publish / version rule as the other documents. Admin: Dispatch › Rides 'Pickup entrance chips (approximate)', per zone.",
+    "server": "PUT /admin/config/rider_app_config: a booking.pickupSpots that is not an object, or an on that is not true / false, is 400 invalid_request with reason invalid_document. GET /rider/config always serves booking.pickupSpots { on }: the document's value, true when it is missing (a document published before v0.18.115).",
+    "rider": "on: the Set pickup sheet shows the entrance chips as before (a chosen chip's title, with its approximate mark, ends the booked pickup label the driver sees). off: no entrance chips, and the pickup label is the address only. 'Previously used' (the device's own confirmed pickups) and 'Near Home' (the rider's saved Home) are real places, not entrance chips, and stay. A document without the field (an older server) reads as on.",
+    "driver": "No change: the driver reads the booked pickup label from the trip (Offer / TripProjection pickup); no config field."
   }
 }
