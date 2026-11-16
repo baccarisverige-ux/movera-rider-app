@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../integration_test/staging/mask_text.dart';
@@ -238,4 +241,70 @@ void main() {
       expect(text, endsWith('...'));
     });
   });
+
+  // FTL MF-1 (post-merge read 2026-11-16): one table for maskText and
+  // tool/testlab_summary.py mask_generic (tool/tests/mask_probes.json):
+  // the 76 probe lines, the builder's own extra lines, the lines that
+  // must stay readable. Made-up values only.
+  group('FTL MF-1 shared probe table', () {
+    final probes =
+        jsonDecode(File('tool/tests/mask_probes.json').readAsStringSync())
+            as Map<String, dynamic>;
+    final rows = [
+      ...(probes['mask'] as List).cast<Map<String, dynamic>>(),
+      ...(probes['more'] as List).cast<Map<String, dynamic>>(),
+    ];
+
+    test('the table is whole', () {
+      expect(probes['mask'], hasLength(76));
+      expect((probes['keep'] as List).length, greaterThanOrEqualTo(19));
+      for (final row in rows) {
+        expect(row['gone'], isNotEmpty, reason: '${row['in']}');
+        expect(row['out'], isNotEmpty, reason: '${row['in']}');
+      }
+    });
+
+    test('every probe line is masked, with the same output as the tool', () {
+      for (final row in rows) {
+        final text = row['in'] as String;
+        final out = maskText(text);
+        for (final leak in (row['gone'] as List).cast<String>()) {
+          expect(out, isNot(contains(leak)), reason: text);
+        }
+        expect(out, row['out'], reason: text);
+      }
+    });
+
+    test('what a diagnosis needs stays', () {
+      for (final text in (probes['keep'] as List).cast<String>()) {
+        expect(maskText(text), text);
+      }
+    });
+
+    test('a known number with slashes or spaced dashes', () {
+      for (final spelling in [
+        '000/097 531',
+        '000 / 097 / 531',
+        '000 - 097 - 531',
+      ]) {
+        final out = maskText('x $spelling y', known: const ['+46000097531']);
+        expect(out.replaceAll(RegExp(r'\D'), ''), isEmpty, reason: spelling);
+      }
+    });
+
+    test('exceptionText: a bare code in a sign-in error is masked', () {
+      final text = exceptionText(_OtpProblem('482913'), library: 'x');
+      expect(text, isNot(contains('482913')));
+      expect(text, startsWith('_OtpProblem (x): '));
+      // Not a sign-in error: a plain number stays.
+      expect(exceptionText(StateError('line 5108')), contains('5108'));
+    });
+  });
+}
+
+class _OtpProblem implements Exception {
+  _OtpProblem(this.value);
+  final String value;
+  @override
+  String toString() => value;
 }
