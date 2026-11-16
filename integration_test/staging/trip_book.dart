@@ -588,6 +588,10 @@ extension _TripBook on TripRun {
       await wait(tester, const Duration(seconds: 3));
     });
     await rideCheckGate();
+    // What is on top is read BEFORE the server status, so an arrived sheet
+    // is always judged against a status read after it showed.
+    final tripTop = onTripTop();
+    final sheetTop = arrivedSheetOnTop();
     final after = (await riderView())?['status'];
     final mapAfter = watch.mapStates()['trip'];
     final sameMap =
@@ -595,13 +599,18 @@ extension _TripBook on TripRun {
         mapAfter != null &&
         mapBefore.intersection(mapAfter).isNotEmpty;
     // FTL-H1: the app's own "Driver arrived" sheet over the trip screen
-    // counts as the trip kept (server auto-arrived meanwhile).
-    final kept = tripKeptOnTop();
+    // counts as the trip kept only while the server says `arrived` (it
+    // auto-arrived meanwhile); any other route on top stays a FAIL.
+    final kept = tripKept(
+      tripOnTop: tripTop,
+      arrivedSheetOnTop: sheetTop,
+      statusAfter: after as String?,
+    );
     final detail =
-        'trip screen on top=${onTripTop()} arrived sheet on top='
-        '${arrivedSheetOnTop()} same map=$sameMap server '
+        'trip screen on top=$tripTop arrived sheet on top='
+        '$sheetTop same map=$sameMap server '
         'before=$before after=$after stage=${riderStage()}';
-    kept && sameMap && switchStatusKept(before as String?, after as String?)
+    kept && sameMap && switchStatusKept(before as String?, after)
         ? log.pass(id, title, detail)
         : log.fail(id, title, detail);
   }

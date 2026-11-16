@@ -36,6 +36,17 @@ bool switchStatusKept(String? before, String? after) {
       (before == 'driver_to_pickup' || before == 'accepted');
 }
 
+/// SWITCH-n: the trip is still what the rider sees: the trip screen is the
+/// top route, or the app's own "Driver arrived" sheet is over it AND the
+/// server says `arrived` (the right screen after an auto-arrive). The
+/// sheet at any other status, or any other route on top, is a FAIL: a
+/// lost trip screen can never pass.
+bool tripKept({
+  required bool tripOnTop,
+  required bool arrivedSheetOnTop,
+  required String? statusAfter,
+}) => tripOnTop || (arrivedSheetOnTop && statusAfter == 'arrived');
+
 /// ARRIVED: send `arrive` only when the trip is not yet `arrived`.
 bool arriveNeeded(String? status) => status != 'arrived';
 

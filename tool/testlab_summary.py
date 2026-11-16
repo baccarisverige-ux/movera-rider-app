@@ -95,6 +95,48 @@ _LOGCAT_HEAD = re.compile(
     r"^(?:\d\d-\d\d\s+\d\d:\d\d:\d\d\.\d+\s+\d+\s+\d+\s+)?[VDIWEF][ /]\s*flutter\s*(?:\(\s*\d+\))?\s*:\s?")
 
 
+# FTL-H4 (supervisor review 2026-11-16): the summary prints app text from
+# logcat into the job log (Flutter error blocks, "STEP app exception"
+# lines, crash lines). `scrub` has already removed the run's own numbers
+# and code; mask_generic also removes anything SHAPED like a secret, so a
+# value nobody listed (another number, a session token, a password in an
+# error text) is never printed. The same rules as the rider harness's
+# integration_test/staging/mask_text.dart.
+_S = "[ \u00a0\u202f\u2009.\\-]"  # one space (also no-break / thin), dot or dash
+_DIGIT_SEP = "(?:%s?\\(|\\)%s?|%s)?" % (_S, _S, _S)
+# 8-15 digits with single separators, with or without a lead: "+46 70 123
+# 45 67", "070-123 45 67", "+33 (0)6 12 34 56 78", "20 123 456" (Tunisian).
+# No colon or comma between digits: times, source positions, sizes stay.
+_PHONE_SHAPE = re.compile("(?<![\\d.:])\\+?\\(?\\d(?:%s\\d){7,14}(?!\\d)" % _DIGIT_SEP)
+_LONG_DIGITS = re.compile(r"\d{8,}")
+_BEARER = re.compile(r"\b(Bearer|Basic)\s+[A-Za-z0-9\-._~+/=]+", re.I)
+_JWT = re.compile(r"eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+(?:\.[A-Za-z0-9_\-]+)?")
+_EMAIL = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+_NAMED = re.compile(
+    r"""((?:[A-Za-z0-9_\-]*(?:token|password|passwd|pwd|secret|api[_\-]?key|authorization|otp)|\b(?:code|pin))\b["']?\s*[:=]?\s*["']?)([^\s"',;}&)]+)""",
+    re.I)
+_CODE_NEAR = re.compile(r"(\b(?:code|otp|pin|kod)\b[^\d\n]{0,24})\d{4,8}(?!\d)", re.I)
+_OPAQUE = re.compile(r"(?=[A-Za-z_\-]*\d)[A-Za-z0-9_\-]{32,}")
+# A logcat line's own head (date, time, pid, tid, level) is kept as it is.
+_LOGCAT_STAMP = re.compile(r"^\s*\d\d-\d\d\s+\d\d:\d\d:\d\d\.\d+\s+\d+\s+\d+\s+[VDIWEF]\s")
+
+
+def mask_generic(text):
+    """text with everything shaped like a phone number, a code, a token, a
+    password or an e-mail address replaced by [REDACTED]."""
+    m = _LOGCAT_STAMP.match(text)
+    head, out = (text[:m.end()], text[m.end():]) if m else ("", text)
+    out = _BEARER.sub(lambda b: "%s %s" % (b.group(1), REDACTED), out)
+    out = _JWT.sub(REDACTED, out)
+    out = _EMAIL.sub(REDACTED, out)
+    out = _NAMED.sub(lambda n: n.group(1) + REDACTED, out)
+    out = _CODE_NEAR.sub(lambda c: c.group(1) + REDACTED, out)
+    out = _OPAQUE.sub(REDACTED, out)
+    out = _PHONE_SHAPE.sub(REDACTED, out)
+    out = _LONG_DIGITS.sub(REDACTED, out)
+    return head + out
+
+
 # Country codes of the app's countries (lib/core/auth/phone_country.dart);
 # others fall back to the whole number.
 _COUNTRY_CODES = ("216", "33", "46")
@@ -487,7 +529,7 @@ def crash_lines(root):
         for line in _lines(path):
             if PREFIX in line:
                 continue
-            short = line.strip()[:300]
+            short = mask_generic(line.strip())[:300]
             if any(p.search(line) for p in CRASH_PATTERNS):
                 if short not in real and len(real) < MAX_CRASH_LINES:
                     real.append(short)
@@ -519,7 +561,7 @@ def flutter_error_blocks(root):
             if FLUTTER_BLOCK_START.search(text):
                 if len(blocks) >= MAX_FLUTTER_BLOCKS:
                     return blocks
-                current = {"head": text[:300], "message": [], "frames": [], "stack": False}
+                current = {"head": mask_generic(text)[:300], "message": [], "frames": [], "stack": False}
                 blocks.append(current)
                 continue
             if current is None:
@@ -532,26 +574,27 @@ def flutter_error_blocks(root):
                 continue
             if _FRAME_RE.match(body):
                 if len(current["frames"]) < BLOCK_FRAMES:
-                    current["frames"].append(body[:300])
+                    current["frames"].append(mask_generic(body)[:300])
                 current["stack"] = True
                 continue
             if body.startswith("When the exception was thrown"):
                 current["stack"] = True
                 continue
             if not current["stack"] and len(current["message"]) < BLOCK_MESSAGE_LINES:
-                current["message"].append(body[:300])
+                current["message"].append(mask_generic(body)[:300])
     return blocks
 
 
 def app_exception_lines(root):
-    """The harness's own "STEP app exception" lines (type, masked text)."""
+    """The harness's own "STEP app exception" lines (type, masked text;
+    masked here again: this file is the last gate before the job log)."""
     out = []
     marker = PREFIX + "STEP app exception "
     for path in _logcat_files(root):
         for line in _lines(path):
             at = line.find(marker)
             if at >= 0:
-                text = line[at + len(marker):].strip()[:500]
+                text = mask_generic(line[at + len(marker):].strip())[:500]
                 if text not in out:
                     out.append(text)
     return out[:MAX_CRASH_LINES]
@@ -593,7 +636,7 @@ def transitions_text(rows):
             continue
         bad = [k for k, v in (("FREEZE", not r.get("smooth", True)), ("RELOAD", r.get("reload")),
                               ("ERRORS", r.get("errors"))) if v]
-        errors = list(r.get("failedCalls") or []) + list(r.get("exceptions") or [])
+        errors = list(r.get("failedCalls") or []) + [mask_generic(str(e)) for e in (r.get("exceptions") or [])]
         out.append("| %s | %s | %s | %s | %s | %s | %s/%s | %s | %s |" % (
             str(r.get("name", "?")).replace("|", "/"), r.get("frames"), r.get("missed"), r.get("worstMs"),
             r.get("gets"), ", ".join(r.get("recreatedMaps") or []) or "-", r.get("loaderSamples"),

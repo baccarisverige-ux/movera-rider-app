@@ -45,6 +45,22 @@ void main() {
       expect(switchStatusKept(null, 'arrived'), isFalse);
     });
 
+    test('SWITCH trip kept: the arrived sheet only with a server arrived', () {
+      bool kept(bool trip, bool sheet, String? status) => tripKept(
+        tripOnTop: trip,
+        arrivedSheetOnTop: sheet,
+        statusAfter: status,
+      );
+      expect(kept(true, false, 'driver_to_pickup'), isTrue);
+      expect(kept(false, true, 'arrived'), isTrue);
+      // A lost trip screen never passes.
+      expect(kept(false, false, 'arrived'), isFalse);
+      expect(kept(false, false, 'driver_to_pickup'), isFalse);
+      expect(kept(false, true, 'driver_to_pickup'), isFalse);
+      expect(kept(false, true, 'in_trip'), isFalse);
+      expect(kept(false, true, null), isFalse);
+    });
+
     test('arrive only when not arrived; 409 after an auto-arrive is fine', () {
       expect(arriveNeeded('driver_to_pickup'), isTrue);
       expect(arriveNeeded('arrived'), isFalse);
@@ -118,6 +134,73 @@ void main() {
       ]) {
         expect(out, isNot(contains(leak)), reason: leak);
       }
+    });
+
+    // Supervisor review 2026-11-16: spellings the first version let through.
+    test('phone numbers without a lead, with thin spaces, in brackets', () {
+      for (final leak in [
+        '20 123 456', // Tunisian national (8 digits, no trunk 0)
+        '20123456',
+        '+216 20 123 456',
+        '216 20 123 456',
+        '06 12 34 56 78', // French national
+        '06.12.34.56.78',
+        '+33 6 12 34 56 78',
+        '+33 6 12 34 56 78', // no-break spaces
+        '+33 6 12 34 56 78',
+        '+33 (0)6 12 34 56 78',
+        '46 70 123 45 67', // +46 without the plus
+        '70 123 45 67',
+        '+46 (0) 70 123 45 67',
+        '(070) 123-45-67',
+        '070-123 45 67',
+        '0046701234567',
+      ]) {
+        final out = maskText('rider $leak not found');
+        expect(out, 'rider $masked not found', reason: leak);
+        expect(maskText('user_$leak'), isNot(contains(leak)), reason: leak);
+      }
+    });
+
+    test('tokens and passwords under any name', () {
+      final out = maskText(
+        'access_token=tokA1 refresh_token: tokB2 {"idToken":"tokC3"} '
+        'client_secret=secD4 newPassword=pwE5 pwd=pwF6 x-api-key: keyG7 '
+        'Authorization: Basic dXNlcjpwYXNzH8 sessionToken=tokI9 '
+        'sess 0a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R the code was 482913 '
+        'mail someone@example.com',
+      );
+      for (final leak in [
+        'tokA1',
+        'tokB2',
+        'tokC3',
+        'secD4',
+        'pwE5',
+        'pwF6',
+        'keyG7',
+        'dXNlcjpwYXNzH8',
+        'tokI9',
+        '0a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R',
+        '482913',
+        'someone@example.com',
+      ]) {
+        expect(out, isNot(contains(leak)), reason: leak);
+      }
+    });
+
+    test('a known value of 8 digits does not break the masking', () {
+      final out = maskText(
+        'code 12345678 / 1234 5678',
+        known: const ['12345678'],
+      );
+      expect(out.replaceAll(RegExp(r'\D'), ''), isEmpty);
+    });
+
+    test('keeps a stack frame and a size', () {
+      const text =
+          '#12     _RideCompletedState.build (package:movera_rider/x.dart:1080:33) '
+          'Size(1080.0, 2400.0) overflowed by 12.5 pixels';
+      expect(maskText(text), text);
     });
 
     test('keeps times, source positions and plain text', () {

@@ -3,6 +3,7 @@ import io
 import json
 import os
 import pathlib
+import re
 import sys
 import tempfile
 import unittest
@@ -693,6 +694,81 @@ class TestlabSummaryTest(unittest.TestCase):
         blocks = testlab_summary.flutter_error_blocks(str(self.root))
         self.assertEqual(len(blocks), testlab_summary.MAX_FLUTTER_BLOCKS)
         self.assertTrue(all(len(b['frames']) == testlab_summary.BLOCK_FRAMES for b in blocks))
+
+    # FTL-H4, supervisor review 2026-11-16: the summary prints app text from
+    # logcat (Flutter error blocks, the test's own exception lines) into the
+    # job log, so anything shaped like a phone number, a code, a token, a
+    # password or an e-mail address is masked there too. Made-up values.
+    TRICKY_NUMBERS = (
+        '20 123 456', '20123456', '+216 20 123 456', '216 20 123 456', '0021620123456',
+        '06 12 34 56 78', '06.12.34.56.78', '+33 6 12 34 56 78',
+        '+33 6 12 34 56 78', '+33 6 12 34 56 78',
+        '+33 (0)6 12 34 56 78', '46 70 123 45 67', '70 123 45 67', '+46 (0) 70 123 45 67',
+        '(070) 123-45-67', '070-123 45 67', '0046701234567', '+46701234567',
+    )
+    TRICKY_SECRETS = (
+        ('access_token=tokA1', 'tokA1'), ('refresh_token: tokB2', 'tokB2'),
+        ('{"idToken":"tokC3"}', 'tokC3'), ('client_secret=secD4', 'secD4'),
+        ('newPassword=pwE5', 'pwE5'), ('pwd=pwF6', 'pwF6'), ('x-api-key: keyG7', 'keyG7'),
+        ('Authorization: Basic dXNlcjpwYXNzH8', 'dXNlcjpwYXNzH8'),
+        ('Authorization: Bearer abc.def-123', 'abc.def-123'),
+        ('eyJhbGciOi.eyJzdWIiOi.sig_1', 'eyJhbGciOi'),
+        ('sess 0a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R', '0a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R'),
+        ('the code was 482913', '482913'), ('otp 135790', '135790'), ('code=2468', '2468'),
+        ('password: hunter2', 'hunter2'), ('mail someone@example.com', 'someone@example.com'),
+    )
+
+    def test_mask_generic_phone_numbers_in_any_spelling(self):
+        for number in self.TRICKY_NUMBERS:
+            self.assertEqual(testlab_summary.mask_generic('rider %s not found' % number),
+                             'rider [REDACTED] not found', number)
+            self.assertNotIn(number, testlab_summary.mask_generic('user_%s' % number), number)
+
+    def test_mask_generic_tokens_codes_passwords(self):
+        for text, leak in self.TRICKY_SECRETS:
+            self.assertNotIn(leak, testlab_summary.mask_generic('failed: %s (retry)' % text), text)
+
+    def test_mask_generic_keeps_what_a_diagnosis_needs(self):
+        for text in (
+            "'package:flutter/src/widgets/framework.dart': Failed assertion: line 5108 pos 12: '_lifecycleState' at 07:58:01",
+            '#12     _RideCompletedState.build (package:movera_rider/x.dart:1080:33)',
+            'A RenderFlex overflowed by 12.5 pixels; Size(1080.0, 2400.0)',
+            '11-16 07:58:01.123 12345 12345 I flutter : The following assertion was thrown building RideCompleted:',
+            '11-16 07:58:01.123  1234  1234 E AndroidRuntime: FATAL EXCEPTION: main',
+        ):
+            self.assertEqual(testlab_summary.mask_generic(text), text)
+
+    def test_summary_never_prints_a_secret_from_logcat(self):
+        head = '11-16 07:58:01.000 12345 12345 '
+        lines = []
+        texts = ['rider %s not found' % n for n in self.TRICKY_NUMBERS] + [t for t, _ in self.TRICKY_SECRETS]
+        for i, text in enumerate(texts):
+            lines += [
+                head + 'I flutter : MOVERA-TL STEP app exception StateError (widgets library): %s @ #0 a (package:x/a.dart:1:1)' % text,
+                head + 'I flutter : ══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞════',
+                head + 'I flutter : The following StateError was thrown building X(%d):' % i,
+                head + 'I flutter : Bad state: ' + text,
+                head + 'I flutter : When the exception was thrown, this was the stack:',
+                head + 'I flutter : #0      a (package:x/a.dart:1:1) ' + text,
+                head + 'I flutter : ════════',
+                head + 'E flutter : [ERROR:flutter/runtime/dart_vm_initializer.cc(41)] Unhandled Exception: ' + text,
+                head + 'E AndroidRuntime: FATAL EXCEPTION: main ' + text,
+            ]
+        self.logcat.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+        with unittest.mock.patch.object(testlab_summary, 'MAX_FLUTTER_BLOCKS', 100), \
+                unittest.mock.patch.object(testlab_summary, 'MAX_CRASH_LINES', 400):
+            text = testlab_summary.summary_text(str(self.root))
+        self.assertIn('Flutter errors in logcat (EXCEPTION CAUGHT BY): %d' % len(texts), text)
+        self.assertIn('building X(0):', text)
+        self.assertIn('#0      a (package:x/a.dart:1:1)', text)
+        for number in self.TRICKY_NUMBERS:
+            self.assertNotIn(number, text, number)
+        for _, leak in self.TRICKY_SECRETS:
+            self.assertNotIn(leak, text, leak)
+        # Not even with the separators taken out.
+        body = re.sub(r'\D', '', text.replace('07:58:01.000 12345 12345', ' '))
+        for digits in ('20123456', '612345678', '701234567'):
+            self.assertNotIn(digits, body, digits)
 
 
 if __name__ == '__main__':
