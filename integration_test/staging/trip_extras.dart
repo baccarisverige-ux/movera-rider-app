@@ -395,16 +395,24 @@ extension _TripExtras on TripRun {
     final view = await riderView();
     final after = view?['rideCheck'];
     final answers = after is Map ? after['answers'] : null;
+    // FTL-H3 (Rules audits/impact/firebase-trip-run-2026-11-16.md row 4):
+    // the rider's POSTs count from the card's FIRST appearance (any step
+    // may have answered it through the gate), and the app's own check
+    // (server `rideCheck` stays null for it) counts when its POST was taken.
     final posts = calls(
       '/api/v1/rider/trips/$tripId/ride-check',
       method: 'POST',
-      from: mark,
+      from: rideCheckMark ?? mark,
     ).map((c) => c.status ?? c.error).toList();
-    final riderOk = answers is Map && answers['rider'] != null;
+    final riderOk = rideCheckAnswered(
+      serverRideCheck: after,
+      postsSinceCard: posts,
+    );
     final detail =
         'card seen=${rideCheckSeenAt != null} after '
         '${rideCheckSeenAt?.difference(since).inSeconds ?? '-'} s on board '
-        '(stopMinutes=$stopMin); rider POST=$posts; server trigger='
+        'in ${rideCheckSeenIn ?? '-'} (reason: ${rideCheckReason ?? '-'}) '
+        '(stopMinutes=$stopMin); rider POST since the card=$posts; server trigger='
         '${after is Map ? after['trigger'] : null} rider answer='
         '${answers is Map ? answers['rider'] : null}; driver answered $driverAnswer';
     rideCheckSeenAt != null && riderOk

@@ -36,6 +36,14 @@ List<String> keysOf(Finder finder) => <String>[
 /// screen there: blank frames, full-screen loaders). Null = nothing.
 void Function()? pumpProbe;
 
+/// Called inside every [pumpUntil] (with `dismiss`), after the one-off
+/// prompts: the trip test answers an open ride check card here, so no wait
+/// of any step sits behind the card's barrier (FTL-H2/H3, Rules
+/// audits/impact/firebase-trip-run-2026-11-16.md rows 3-4). It may tap and
+/// pump, never call [pumpUntil]. Null = nothing.
+Future<void> Function()? pumpGate;
+bool _inPumpGate = false;
+
 /// Hard stop for the test's steps (the trip test sets it, then clears it
 /// for its clean-up): past it every [pumpUntil] / [wait] returns at once,
 /// so the running step ends in seconds and the clean-up still runs inside
@@ -66,7 +74,18 @@ Future<bool> pumpUntil(
     await tester.pump(step);
     pumpProbe?.call();
     if (done()) return true;
-    if (dismiss) await dismissPrompts(tester);
+    if (dismiss) {
+      await dismissPrompts(tester);
+      final gate = pumpGate;
+      if (gate != null && !_inPumpGate) {
+        _inPumpGate = true;
+        try {
+          await gate();
+        } finally {
+          _inPumpGate = false;
+        }
+      }
+    }
   }
   return done();
 }

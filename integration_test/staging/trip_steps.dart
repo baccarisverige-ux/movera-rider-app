@@ -36,6 +36,14 @@ bool onTripTop() {
   return ModalRoute.of(f.evaluate().first)?.isCurrent ?? false;
 }
 
+/// The app's own "Driver arrived" sheet (driver_arrived_sheet.dart, a modal
+/// route over the trip screen) is the top route.
+bool arrivedSheetOnTop() {
+  final f = byKey('driver-arrived-on-way');
+  if (!shows(f) || !tripScreenShown()) return false;
+  return ModalRoute.of(f.evaluate().first)?.isCurrent ?? false;
+}
+
 /// Back until the trip screen is on top again (at most [tries]).
 Future<void> backToTrip(WidgetTester tester, {int tries = 3}) async {
   for (var i = 0; i < tries && !onTripTop(); i++) {
