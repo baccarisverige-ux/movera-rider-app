@@ -426,7 +426,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
           firstName: driver?.displayFirstName,
           status: _tracking.status,
         ) ??
-        (driver == null
+        (_tracking.status.isCompletedSurface
+            ? ''
+            : driver == null
             ? context.l10n.driverDetailsLater
             : context.l10n.etaLeaveNowName(driver.displayFirstName));
     final media = MediaQuery.of(context);

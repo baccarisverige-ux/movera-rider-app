@@ -154,6 +154,8 @@ class DriverEta {
   }
 
   String headline({RideStatus status = RideStatus.driverAssigned}) {
+    // G26 (G-S7): after the drop-off the last ETA is no pickup line.
+    if (status.isCompletedSurface) return L10n.current.tripCompleted;
     if (isInTrip(status)) {
       return L10n.current.etaRideInProgress;
     }
@@ -176,6 +178,8 @@ class DriverEta {
     String? firstName,
     RideStatus status = RideStatus.driverAssigned,
   }) {
+    // G26 (G-S7): no "Leave now to meet …" once the trip is over.
+    if (status.isCompletedSurface) return '';
     if (isInTrip(status)) {
       final routed = routedLine(status: status);
       if (routed != null && !stale) return routed;
