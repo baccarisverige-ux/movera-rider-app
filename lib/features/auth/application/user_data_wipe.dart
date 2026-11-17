@@ -45,7 +45,8 @@ import 'package:movera_rider/features/driver_arriving/application/driver_photo.d
 ///   rider's own, taken at their first accepted sign-in),
 ///   `movera_rider_session_started_at` (since when, rider-r5-44).
 /// - `movera_home_address`, `movera_work_address`, `movera_saved_places`,
-///   `movera_recent_addresses`, `movera_previous_pickups_v1`.
+///   `movera_recent_addresses`, `movera_recent_points_v1`,
+///   `movera_previous_pickups_v1`.
 /// - `movera_saved_cards`, `movera_default_payment`, `movera_payment_methods`,
 ///   `movera_payment_business`, `movera_wallet_first`,
 ///   `movera_wallet_balance`, `movera_wallet_charged_rides` and the legacy

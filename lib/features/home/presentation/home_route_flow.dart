@@ -45,27 +45,24 @@ extension _HomeRouteFlow on _HomeState {
     }
   }
 
-  Future<void> _handleDestinationTap({
-    String? initialRideId,
-  }) => _runRouteFlow(() async {
-    // Capture from the tap itself: the sheet sequencing below takes long enough
-    // that anything typed in the meantime would otherwise be lost.
-    final capture = EarlyInputCapture()..start();
-    try {
-      if (!_destinationSheetOpen) {
-        await _openDestinationSheet();
-        await WidgetsBinding.instance.endOfFrame;
-        if (!mounted) return;
-      }
-      await _showRouteAddressPicker(
-        initialField: 'destination',
-        capture: capture,
-        initialRideId: initialRideId,
-      );
-    } finally {
-      capture.stop();
-    }
-  });
+  Future<void> _handleDestinationTap({String? initialRideId}) =>
+      _runRouteFlow(() async {
+        // Capture from the tap itself: anything typed before the field is
+        // attached would otherwise be lost.
+        final capture = EarlyInputCapture()..start();
+        try {
+          // Owner 2026-11-17 ("like the example"): the picker slides up out of
+          // the bar at the tap; Home's sheet no longer expands first.
+          await _showRouteAddressPicker(
+            fromBar: true,
+            initialField: 'destination',
+            capture: capture,
+            initialRideId: initialRideId,
+          );
+        } finally {
+          capture.stop();
+        }
+      });
 
   /// Long-press on Home / Work / a custom place: change its address.
   Future<void> _editSavedPlace(String target, {String? customType}) =>
@@ -472,6 +469,7 @@ extension _HomeRouteFlow on _HomeState {
     bool scheduled = false,
     String? initialRideId,
     GeoPoint? pickupPoint,
+    bool fromBar = false,
   }) async {
     // Either the capture the caller started at tap time, or a fresh one for
     // entry points that open the picker directly.
@@ -485,48 +483,47 @@ extension _HomeRouteFlow on _HomeState {
         (gps == null ? null : GeoPoint(gps.latitude, gps.longitude));
     Map<String, dynamic>? draft;
     try {
+      final page = RoutePickerPage(
+        pickupAddress: _placeOrNull(_pickupAddress),
+        pickupUpdates: pickupPoint == null ? _livePickup : null,
+        destinationAddress: _destinationAddress ?? '',
+        destinationPoint: _routeDestinationPoint,
+        stops: _HomeState._stopsSupported ? _routeStops : const <String>[],
+        stopPoints: _HomeState._stopsSupported ? _routeStopPoints : const [],
+        stopsSupported: _HomeState._stopsSupported,
+        initialField: initialField,
+        capture: routeCapture,
+        here: here,
+        homeAddress: _placeOrNull(_homeAddress),
+        workAddress: _placeOrNull(_workAddress),
+        savedPlaces: _places.savedPlaces,
+        recent: _recentAddresses,
+        recentPoints: _places.recentPoints,
+        onSetFavourite: (target) async {
+          await _showAddressPicker(target: target);
+          return _placeOrNull(target == 'home' ? _homeAddress : _workAddress);
+        },
+        onPickOnMap: ({required pickup, required address}) async {
+          final result = await _openPickupMapPicker(
+            address,
+            isDestination: !pickup,
+          );
+          if (result == null) return null;
+          return RoutePickerMapPick(
+            address: result.address,
+            point: GeoPoint(
+              result.position.latitude,
+              result.position.longitude,
+            ),
+          );
+        },
+        onFinish: (selection) =>
+            _confirmRouteSelection(selection, scheduled: scheduled),
+      );
       draft = await Navigator.of(context).push<Map<String, dynamic>>(
-        BottomToTopTransition(
-          RoutePickerPage(
-            pickupAddress: _placeOrNull(_pickupAddress),
-            destinationAddress: _destinationAddress ?? '',
-            destinationPoint: _routeDestinationPoint,
-            stops: _HomeState._stopsSupported ? _routeStops : const <String>[],
-            stopPoints: _HomeState._stopsSupported
-                ? _routeStopPoints
-                : const [],
-            stopsSupported: _HomeState._stopsSupported,
-            initialField: initialField,
-            capture: routeCapture,
-            here: here,
-            homeAddress: _placeOrNull(_homeAddress),
-            workAddress: _placeOrNull(_workAddress),
-            savedPlaces: _places.savedPlaces,
-            recent: _recentAddresses,
-            onSetFavourite: (target) async {
-              await _showAddressPicker(target: target);
-              return _placeOrNull(
-                target == 'home' ? _homeAddress : _workAddress,
-              );
-            },
-            onPickOnMap: ({required pickup, required address}) async {
-              final result = await _openPickupMapPicker(
-                address,
-                isDestination: !pickup,
-              );
-              if (result == null) return null;
-              return RoutePickerMapPick(
-                address: result.address,
-                point: GeoPoint(
-                  result.position.latitude,
-                  result.position.longitude,
-                ),
-              );
-            },
-            onFinish: (selection) =>
-                _confirmRouteSelection(selection, scheduled: scheduled),
-          ),
-        ),
+        fromBar
+            ? WhereToSlideTransition(page, startFraction: _barTopFraction())
+            : BottomToTopTransition(page),
       );
     } finally {
       if (ownsCapture) routeCapture.stop();
@@ -602,10 +599,20 @@ extension _HomeRouteFlow on _HomeState {
           ),
         );
       }
-      if (pickup.isNotEmpty) _rememberAddress(pickup);
-      if (destination.isNotEmpty) _rememberAddress(destination);
-      for (final stop in stops) {
-        _rememberAddress(stop);
+      if (pickup.isNotEmpty) {
+        _rememberAddress(pickup, position: exactPickupPosition);
+      }
+      if (destination.isNotEmpty) {
+        _rememberAddress(destination, position: exactDestinationPosition);
+      }
+      for (final (i, stop) in stops.indexed) {
+        final point = stopPoints[i];
+        _rememberAddress(
+          stop,
+          position: point == null
+              ? null
+              : LatLng(point.latitude, point.longitude),
+        );
       }
     });
     await _persistAddressData();

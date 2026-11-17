@@ -163,7 +163,7 @@ void main() {
     await tearDownHome(tester);
   });
 
-  testWidgets('NAV-6: menu Where to opens the sheet and keeps it open', (
+  testWidgets('NAV-6: menu Where to opens the picker; Home stays at the bar', (
     tester,
   ) async {
     await pumpHome(tester);
@@ -176,15 +176,14 @@ void main() {
         matching: find.text('Where to?'),
       ),
     );
-    // The sheet opens with the tap and is never closed again by the menu's
-    // cleanup (which reversed its animation before the picker came up).
+    // Owner 2026-11-17 ("like the example"): the picker slides up out of
+    // the bar; Home's sheet is not expanded under it (it was before).
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 100));
-      expect(homeSheetOpen(tester), isTrue, reason: 'sheet closed at frame $i');
+      expect(homeSheetOpen(tester), isFalse, reason: 'sheet opened at $i');
     }
     expect(find.byType(RiderMenuPage), findsNothing);
     expect(find.byType(RoutePickerPage), findsOneWidget);
-    expect(homeSheetOpen(tester), isTrue);
     await tearDownHome(tester);
   });
 
@@ -337,6 +336,9 @@ void main() {
         gps.moveTo(59.3293 + i * 0.00012, 18.0686);
         await tester.pump(const Duration(seconds: 1));
       }
+      // Owner 2026-11-17: Where to? now opens at the tap (no sheet first),
+      // so let the puck's smoothing reach the last fix before tapping.
+      await frames(tester, 10);
 
       // The card now shows the last destination instead of "Where to?".
       await tester.tap(

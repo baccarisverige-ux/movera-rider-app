@@ -1,4 +1,5 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart'
     show isPlaceholderPickupLabel, isRawCoordinateLabel;
@@ -51,7 +52,8 @@ class HomePlacesController {
 
   Stream<void> get changes => _store.changes;
 
-  static const maxRecent = 8;
+  /// Owner 2026-11-17 ('like the example'): Where to? lists up to ten.
+  static const maxRecent = 10;
   static const maxCustom = 8;
 
   String? pickupAddress;
@@ -60,6 +62,9 @@ class HomePlacesController {
   String? workAddress;
   List<String> routeStops = [];
   List<String> recentAddresses = [];
+
+  /// The point of each recent that has one (Where to? shows its km).
+  Map<String, GeoPoint> recentPoints = {};
   List<SavedPlaceData> savedPlaces = [];
 
   /// rider-40: stored custom places past [maxCustom]. Home shows only the
@@ -74,6 +79,7 @@ class HomePlacesController {
     homeAddress = saved.home;
     workAddress = saved.work;
     recentAddresses = List<String>.from(saved.recent);
+    recentPoints = Map<String, GeoPoint>.from(saved.recentPoints);
     // rider-41: a place stored before ids existed gets the id Saved Places
     // gives it, so it can be edited on its own (rider-u220: never an id
     // another place has).
@@ -93,6 +99,7 @@ class HomePlacesController {
         home: homeAddress,
         work: workAddress,
         recent: recentAddresses,
+        recentPoints: recentPoints,
         places: [
           ...savedPlaces.map((place) => place.toJson()),
           ..._placesBeyondCap,
@@ -103,7 +110,7 @@ class HomePlacesController {
 
   /// rider-46: placeholders ('Location off, set pickup') and raw
   /// coordinates are not places; they never become Recents.
-  void remember(String address) {
+  void remember(String address, {GeoPoint? point}) {
     final clean = address.trim();
     // rider-r5-34: nor the label of a pickup whose street was not found.
     if (isPlaceholderPickupLabel(clean) ||
@@ -111,11 +118,27 @@ class HomePlacesController {
         clean == pickupLocationFallbackLabel) {
       return;
     }
+    final previous = recentAddresses.where(
+      (saved) => saved.toLowerCase() == clean.toLowerCase(),
+    );
+    // A recent chosen again without a point keeps the point it had.
+    final kept =
+        point ??
+        [
+          for (final saved in previous) recentPoints[saved],
+        ].whereType<GeoPoint>().firstOrNull;
+    for (final saved in previous.toList()) {
+      recentPoints.remove(saved);
+    }
     recentAddresses.removeWhere(
       (saved) => saved.toLowerCase() == clean.toLowerCase(),
     );
     recentAddresses.insert(0, clean);
+    if (kept != null) recentPoints[clean] = kept;
     if (recentAddresses.length > maxRecent) {
+      for (final dropped in recentAddresses.skip(maxRecent)) {
+        recentPoints.remove(dropped);
+      }
       recentAddresses = recentAddresses.take(maxRecent).toList();
     }
   }

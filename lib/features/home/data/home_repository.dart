@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 
@@ -9,14 +10,49 @@ class HomeAddressSnapshot {
     this.home,
     this.work,
     this.recent = const [],
+    this.recentPoints = const {},
     this.places = const [],
   });
 
   final String? home;
   final String? work;
   final List<String> recent;
+
+  /// Owner 2026-11-17: the point of each recent that has one (for its km in
+  /// Where to?). Recents saved before this have none.
+  final Map<String, GeoPoint> recentPoints;
   final List<Map<String, String>> places;
 }
+
+const recentPointsKey = 'movera_recent_points_v1';
+
+Map<String, GeoPoint> decodeRecentPoints(String? raw) {
+  if (raw == null || raw.isEmpty) return {};
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return {};
+    final points = <String, GeoPoint>{};
+    decoded.forEach((key, value) {
+      if (key is String &&
+          value is List &&
+          value.length == 2 &&
+          value[0] is num &&
+          value[1] is num) {
+        points[key] = GeoPoint(
+          (value[0] as num).toDouble(),
+          (value[1] as num).toDouble(),
+        );
+      }
+    });
+    return points;
+  } catch (_) {
+    return {};
+  }
+}
+
+String encodeRecentPoints(Map<String, GeoPoint> points) => jsonEncode({
+  for (final e in points.entries) e.key: [e.value.latitude, e.value.longitude],
+});
 
 /// [places] with an id on every custom place, the same in Home and Saved
 /// Places. A place stored before ids existed gets one from its position
@@ -84,6 +120,7 @@ class HomeAddressRepository {
       home: prefs.getString('movera_home_address'),
       work: prefs.getString('movera_work_address'),
       recent: prefs.getStringList('movera_recent_addresses') ?? <String>[],
+      recentPoints: decodeRecentPoints(prefs.getString(recentPointsKey)),
       places: places,
     );
   }
@@ -102,6 +139,14 @@ class HomeAddressRepository {
         await prefs.setString('movera_work_address', data.work!);
       }
       await prefs.setStringList('movera_recent_addresses', data.recent);
+      await prefs.setString(
+        recentPointsKey,
+        encodeRecentPoints({
+          for (final address in data.recent)
+            if (data.recentPoints[address] != null)
+              address: data.recentPoints[address]!,
+        }),
+      );
       await prefs.setString('movera_saved_places', jsonEncode(data.places));
     } catch (error) {
       // uat-r1: Home awaits this write right after a destination is

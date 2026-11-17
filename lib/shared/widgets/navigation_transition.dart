@@ -17,6 +17,36 @@ class BottomToTopTransition<T> extends PageRouteBuilder<T> {
       );
 }
 
+/// Owner 2026-11-17 ("like the example"): Where to? rises out of the Home
+/// bar in one slide, with no fade, and X slides it back into the bar.
+/// [startFraction] is where the bar's top sits, as a fraction of the
+/// screen height (0 = top, 1 = bottom).
+class WhereToSlideTransition<T> extends PageRouteBuilder<T> {
+  WhereToSlideTransition(
+    Widget page, {
+    required double startFraction,
+    super.settings,
+  }) : super(
+         pageBuilder: (context, animation, secondary) => page,
+         transitionDuration: MoveraDurations.large,
+         reverseTransitionDuration: MoveraDurations.large,
+         transitionsBuilder: (context, animation, secondary, child) {
+           if (MoveraMotion.reduced(context)) return child;
+           return _Curved(
+             animation: animation,
+             curve: MoveraCurves.open,
+             builder: (curved) => SlideTransition(
+               position: Tween<Offset>(
+                 begin: Offset(0, startFraction.clamp(0.0, 1.0)),
+                 end: Offset.zero,
+               ).animate(curved),
+               child: child,
+             ),
+           );
+         },
+       );
+}
+
 class TopToBottomTransition<T> extends PageRouteBuilder<T> {
   TopToBottomTransition(Widget page, {super.settings})
     : super(
