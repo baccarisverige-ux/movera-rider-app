@@ -9,6 +9,7 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
+import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -123,6 +124,63 @@ void main() {
     await frames(tester, 8);
     expect(find.byType(RoutePickerPage), findsNothing);
     expect(homeSheetOpen(tester), isFalse, reason: 'back at the bar');
+    await tearDownHome(tester);
+  });
+
+  double sheetTop(WidgetTester tester) =>
+      tester.getTopLeft(find.byType(WhereToCard)).dy;
+
+  testWidgets('from an expanded sheet: same slide, X returns it expanded', (
+    tester,
+  ) async {
+    await pumpHome(tester);
+    await tester.drag(find.byType(WhereToCard), const Offset(0, -400));
+    await frames(tester, 10);
+    expect(homeSheetOpen(tester), isTrue);
+    final before = sheetTop(tester);
+    await tester.tap(find.text('Where to?'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(find.byType(RoutePickerPage, skipOffstage: false), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 120));
+    for (final fade in above<FadeTransition>(tester)) {
+      expect(fade.opacity.value, 1.0, reason: 'no fade in');
+    }
+    await frames(tester, 8);
+    await tester.tap(find.byIcon(Icons.close_rounded).last);
+    await frames(tester, 12);
+    expect(find.byType(RoutePickerPage), findsNothing);
+    expect(homeSheetOpen(tester), isTrue, reason: 'back expanded');
+    expect(sheetTop(tester), closeTo(before, 2));
+    await tearDownHome(tester);
+  });
+
+  testWidgets('from a collapsed sheet: X returns it to the same spot', (
+    tester,
+  ) async {
+    await pumpHome(tester);
+    final before = sheetTop(tester);
+    await tester.tap(find.text('Where to?'));
+    await frames(tester, 8);
+    await tester.tap(find.byIcon(Icons.close_rounded).last);
+    await frames(tester, 12);
+    expect(homeSheetOpen(tester), isFalse);
+    expect(sheetTop(tester), closeTo(before, 2));
+    await tearDownHome(tester);
+  });
+
+  testWidgets('dragging the Home sheet works as before: up expands, down '
+      'returns to the bar, no search screen', (tester) async {
+    await pumpHome(tester);
+    expect(homeSheetOpen(tester), isFalse);
+    await tester.drag(find.byType(WhereToCard), const Offset(0, -400));
+    await frames(tester, 10);
+    expect(homeSheetOpen(tester), isTrue, reason: 'drag up expands');
+    expect(find.byType(RoutePickerPage), findsNothing);
+    await tester.drag(find.byType(WhereToCard), const Offset(0, 600));
+    await frames(tester, 10);
+    expect(homeSheetOpen(tester), isFalse, reason: 'drag down collapses');
+    expect(find.byType(RoutePickerPage), findsNothing);
     await tearDownHome(tester);
   });
 

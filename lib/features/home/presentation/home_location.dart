@@ -142,13 +142,18 @@ extension _HomeLocation on _HomeState {
     );
   }
 
-  void _rememberAddress(String address) {
+  void _rememberAddress(String address, {LatLng? position}) {
     // D-004: raw "lat, lng" strings and placeholders are not places; never
     // offer them back as Recents.
     if (isRawCoordinateLabel(address) || isPlaceholderPickupLabel(address)) {
       return;
     }
-    _places.remember(address);
+    _places.remember(
+      address,
+      point: position == null
+          ? null
+          : GeoPoint(position.latitude, position.longitude),
+    );
   }
 
   Future<String> _bookingPickup(String label, LatLng position) =>
