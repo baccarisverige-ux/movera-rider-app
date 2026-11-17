@@ -6,6 +6,7 @@ import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/maps/camera_tilt.dart';
 import 'package:movera_rider/core/maps/map_camera_motion.dart';
 import 'package:movera_rider/core/maps/map_camera_report.dart';
+import 'package:movera_rider/core/maps/map_zoom_limit.dart';
 import 'package:movera_rider/core/web/map_touch.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/core/web/web_gpu.dart';
@@ -396,6 +397,7 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
       // (green/red/yellow roads) never rides over the Movera map style; the
       // cloud Map ID is the only styling on every map.
       trafficEnabled: false,
+      minMaxZoomPreference: kMapZoomPreference,
       buildingsEnabled: widget.buildingsEnabled,
       indoorViewEnabled: widget.indoorViewEnabled,
       scrollGesturesEnabled: widget.scrollGesturesEnabled,
