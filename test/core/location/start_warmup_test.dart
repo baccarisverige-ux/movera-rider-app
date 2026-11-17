@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
@@ -71,6 +70,14 @@ class _Loc extends LocationRepository {
       StreamController<Position>().stream;
 }
 
+class _HangingLoc extends _Loc {
+  @override
+  Future<Position> getCurrentPosition({LocationSettings? locationSettings}) {
+    calls.add('position');
+    return Completer<Position>().future;
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -80,13 +87,17 @@ void main() {
     LocationRepository.debugForgetSessionFix();
   });
 
-  test('1. bootstrap starts the warmup before the boot steps and runApp', () {
-    final src = File('lib/app/bootstrap.dart').readAsStringSync();
-    final warm = src.indexOf('StartWarmup.start(');
-    expect(warm, greaterThan(0), reason: 'bootstrap must start the warmup');
-    expect(warm, lessThan(src.indexOf('await NativeMapsConfig.load()')));
-    expect(warm, lessThan(src.indexOf('runApp(')));
-  });
+  test(
+    '1. the warmup never holds the start: a hanging fix does not block',
+    () async {
+      final loc = _HangingLoc();
+      await StartWarmup.start(
+        location: loc,
+        signedIn: () async => true,
+      ).timeout(const Duration(seconds: 1));
+      expect(loc.calls.where((c) => c == 'position'), hasLength(1));
+    },
+  );
 
   test('1b. signed in + granted: one position read starts at once', () async {
     final loc = _Loc();
