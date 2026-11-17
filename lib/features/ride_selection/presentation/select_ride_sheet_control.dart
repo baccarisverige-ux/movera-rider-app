@@ -3,8 +3,11 @@ part of 'select_ride.dart';
 extension _SelectRideSheetControl on _SelectRideState {
   /// Whether [ride] has a price in this pickup's currency yet (a list price
   /// in kronor is never shown for a pickup priced in euros or dinars).
-  bool _hasPrice(_RideOption ride) =>
-      _selection.hasPriceFor(ride.id, catalogCurrency: ride.currency);
+  bool _hasPrice(_RideOption ride) => _selection.hasPriceFor(
+    ride.id,
+    catalogCurrency: ride.currency,
+    catalogPrice: ride.price,
+  );
 
   List<_RideOption> get _visibleRides {
     final rides = _allRides;
