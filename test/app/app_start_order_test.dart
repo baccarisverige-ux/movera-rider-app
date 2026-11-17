@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/app/app_start.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Owner job "Fast start behind the intro" (REMINDERS 144/145): what starts
 /// with the intro (position search, map load) starts before the boot steps
@@ -29,5 +30,18 @@ void main() {
     bootGate.complete();
     await start.timeout(const Duration(seconds: 1));
     expect(log, ['early', 'boot', 'boot done', 'first screen']);
+  });
+
+  test('the page is told to load the map early only after a start that '
+      'opened Home', () async {
+    SharedPreferences.setMockInitialValues({});
+    await rememberHomeFirst(true);
+    expect((await SharedPreferences.getInstance()).getBool(homeFirstKey), true);
+    await rememberHomeFirst(false);
+    expect(
+      (await SharedPreferences.getInstance()).containsKey(homeFirstKey),
+      isFalse,
+      reason: 'the sign-in screen keeps LT-4 (map loads on open)',
+    );
   });
 }

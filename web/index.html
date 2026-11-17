@@ -647,6 +647,10 @@
       var script = document.createElement('script');
       script.src = window.moveraMapsSrc;
       script.async = true;
+      // Fast start: the map is built on this signal, not at a later check.
+      script.onload = function() {
+        try { window.dispatchEvent(new Event('movera-maps-ready')); } catch (_) {}
+      };
       script.onerror = function() {
         window.moveraGoogleMapsRequested = false;
         if (script.parentNode) script.parentNode.removeChild(script);
@@ -655,5 +659,20 @@
     };
   </script>
   <script src="flutter_bootstrap.js" defer onerror="window.moveraBootFailed && window.moveraBootFailed()"></script>
+  <script>
+    // Fast start (REMINDERS 144/145): a rider whose last start opened Home
+    // (the app writes this flag) gets Maps JavaScript loading now, with the
+    // page, behind the intro. The sign-in screen still loads it only on
+    // open (LT-4). The loader runs once: the map's own request later is a
+    // no-op, so there is never a second script. The deploy sets
+    // window.moveraMapsSrc just above the start script, so it is set here.
+    (function() {
+      try {
+        if (localStorage.getItem('flutter.movera.web.home_first') === 'true') {
+          window.moveraLoadGoogleMaps();
+        }
+      } catch (_) {}
+    })();
+  </script>
 </body>
 </html>

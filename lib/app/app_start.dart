@@ -4,6 +4,7 @@ import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/location/start_warmup.dart';
 import 'package:movera_rider/core/web/web_maps_available.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Owner job "Fast start behind the intro" (REMINDERS 144/145): the start
 /// order. [early] is started first and never awaited, so the position
@@ -28,7 +29,11 @@ void startBehindIntro() {
   unawaited(
     StartWarmup.start(
       location: AppScope.instance.location,
-      signedIn: homeComesFirst,
+      signedIn: () async {
+        final home = await homeComesFirst();
+        unawaited(rememberHomeFirst(home));
+        return home;
+      },
       warmMap: requestGoogleMaps,
     ),
   );
@@ -42,4 +47,24 @@ Future<bool> homeComesFirst() async {
   final tokens = AppScope.instance.tokens;
   return (await tokens.readAccess())?.isNotEmpty == true &&
       (await tokens.readRefresh())?.isNotEmpty == true;
+}
+
+/// The flag web/index.html reads at the next page start to load Maps
+/// JavaScript with the page (stored by SharedPreferences web as
+/// `flutter.movera.web.home_first` in localStorage).
+const homeFirstKey = 'movera.web.home_first';
+
+/// Remembers whether this start opened Home (true) or the sign-in screen
+/// (removed). Best effort.
+Future<void> rememberHomeFirst(bool home) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    if (home) {
+      await prefs.setBool(homeFirstKey, true);
+    } else {
+      await prefs.remove(homeFirstKey);
+    }
+  } catch (_) {
+    // Only a speed hint.
+  }
 }
