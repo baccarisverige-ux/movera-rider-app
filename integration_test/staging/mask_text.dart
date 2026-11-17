@@ -34,6 +34,73 @@ final RegExp _phone = RegExp(
 /// Any plain run of 8 or more digits.
 final RegExp _longDigits = RegExp('$_d{8,}');
 
+/// MF-1 round 2: a phone number written with "_", "," or ":" between its
+/// digit groups ("070_123_45_67", "+46:70:123:45:67"): it starts with + or
+/// 0, the same separator each time, 4+ groups, 8+ digits. A time
+/// ("07:58:01"), a size and a source position have fewer groups or no
+/// lead 0.
+final RegExp _phoneJoined = RegExp(
+  '(?<!$_d)(?<![.:,_])(?:\\+|0)$_d{0,3}([,:_])$_d{2,4}(?:\\1$_d{2,4}){2,}'
+  '(?!$_d|[.:,_]$_d)',
+);
+
+/// MF-1 round 2: a code written in digit groups ("482 913", "48 29 13",
+/// "4 8 2 9 1 3", "48.29"), masked whole on a line about a code or a
+/// sign-in: 4-8 digits in all. Not a date, not a decimal like "1080.0".
+final RegExp _spacedCode = RegExp(
+  '(?<![A-Za-z0-9_#+])(?<!$_d)(?<!$_d[.:,])$_d{1,4}'
+  '(?:[ \\u00a0.\\-]{1,3}$_d{1,4})+(?!$_d|[A-Za-z0-9_]|[.:,]$_d)',
+);
+final RegExp _date = RegExp(r'^\d{4}-\d\d-\d\d$');
+final RegExp _fourDigits = RegExp(r'\d{4}');
+
+/// MF-1 round 2: a code glued to its name: "PIN4829", "OTP482913",
+/// "code482913".
+final RegExp _gluedCode = RegExp(
+  '(?<![A-Za-z])((?:pin|otp|code|kod|sms)[_\\-]?)($_d{4,8})(?!$_d)',
+  caseSensitive: false,
+);
+
+/// MF-1 round 2: a secret type's text, "OtpSession(id: ...)",
+/// "Session(...)": the last word of the type name is a secret word.
+final RegExp _call = RegExp(r'(?<![A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_]*)\(');
+final RegExp _camel = RegExp(r'[A-Z]?[a-z]+|[A-Z]+(?![a-z])');
+const Set<String> _callWords = {
+  'session',
+  'token',
+  'tokens',
+  'otp',
+  'pin',
+  'credential',
+  'credentials',
+  'secret',
+  'password',
+};
+
+/// MF-1 round 2: the secret words of the three markets that are not one
+/// Latin name: French, Arabic, Russian. A password to the end of the line,
+/// a code one value.
+const String _notLetter =
+    r'(?<![A-Za-z\u00c0-\u024f\u0400-\u04ff\u0600-\u06ff])';
+const String _phraseSep =
+    r'(\s*[:=]\s*|\s+(?:est|\u00e4r|is|\u0647\u0648|\u0647\u064a)\s*[:=]?\s*)';
+final RegExp _phraseLine = RegExp(
+  '$_notLetter'
+  r'(mot\s+de\s+passe|mdp|\u0643\u0644\u0645\u0629\s+(?:\u0627\u0644\u0645\u0631\u0648\u0631|\u0627\u0644\u0633\u0631)'
+  r'|[\u041f\u043f]\u0430\u0440\u043e\u043b[\u044c\u044f])(?![A-Za-z\u0400-\u04ff\u0600-\u06ff])'
+  '$_phraseSep'
+  r'([^\n]+)',
+);
+final RegExp _phraseCode = RegExp(
+  '$_notLetter'
+  r'(code\s+de\s+(?:v[\u00e9e]rification|confirmation|validation)'
+  r'|\u0631\u0645\u0632(?:\s+(?:\u0627\u0644\u062a\u062d\u0642\u0642|\u0627\u0644\u062a\u0623\u0643\u064a\u062f|\u0627\u0644\u062f\u062e\u0648\u0644|\u0627\u0644\u062a\u0641\u0639\u064a\u0644))?'
+  r'|\u0627\u0644\u0631\u0645\u0632|[\u041a\u043a]\u043e\u0434(?:\s+\u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0438\u044f)?)'
+  r'(?![A-Za-z\u0400-\u04ff\u0600-\u06ff])'
+  '$_phraseSep'
+  r'''([^\s"',;}&)]+)''',
+);
+
 /// "Bearer abc", "bearer:abc", "Basic = abc", and JWTs.
 final RegExp _bearer = RegExp(
   r'\b(Bearer|Basic)(?:\s*[:=]\s*|\s+)[A-Za-z0-9\-._~+/=]+',
@@ -43,9 +110,9 @@ final RegExp _jwt = RegExp(
   r'eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+(?:\.[A-Za-z0-9_\-]+)?',
 );
 
-/// An e-mail address.
+/// An e-mail address (MF-1 round 2: also with a URL-coded "@", %40).
 final RegExp _email = RegExp(
-  r'[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}',
+  r'[A-Za-z0-9._%+\-]+(?:@|%40)[A-Za-z0-9.\-]+\.[A-Za-z]{2,}',
 );
 
 /// A name and what follows it: `name: value`, `"name":"value"`,
@@ -57,7 +124,7 @@ final RegExp _key = RegExp(
 
 /// name + "is" / "was" + value, and name + space + value.
 final RegExp _keyIs = RegExp(
-  r'(?<![A-Za-z0-9_\-\u00c0-\u024f])([A-Za-z\u00c0-\u024f][A-Za-z0-9_\-\u00c0-\u024f]*)(\s+(?:is|was|are|were)(?:\s*[:=]\s*|\s+))',
+  r'(?<![A-Za-z0-9_\-\u00c0-\u024f])([A-Za-z\u00c0-\u024f][A-Za-z0-9_\-\u00c0-\u024f]*)(\s+(?:is|was|are|were|\u00e4r|var|est|ist)(?:\s*[:=]\s*|\s+))',
   caseSensitive: false,
 );
 final RegExp _keySpace = RegExp(
@@ -69,13 +136,13 @@ final RegExp _keySpace = RegExp(
 /// Names whose value is masked to the end of the value: the closing
 /// quote, or the end of the line (a password may hold spaces and & , ; ) ).
 final RegExp _nameLine = RegExp(
-  r'passw(?:or)?d|passphrase|pwd|secret|authorization|cookie|l[o\u00f6]senord|^(?:pass|pw|psw|auth)$',
+  r'passw(?:or)?d|passphrase|pwd|secret|authorization|cookie|l[o\u00f6]senord|^(?:pass|pw|psw|auth)$|[_\-]auth$',
   caseSensitive: false,
 );
 
 /// Names whose value is one token (or a quoted text).
 final RegExp _nameSecret = RegExp(
-  r'token|api[_\-]?key|private[_\-]?key|access[_\-]?key|session|credential|signature|code',
+  r'token|api[_\-]?key|private[_\-]?key|access[_\-]?key|session|credential|signature|code|jwt|nonce|^key$|[_\-]key$',
   caseSensitive: false,
 );
 
@@ -167,7 +234,7 @@ final RegExp _base64 = RegExp(
 /// number standing alone on it is masked ("482913 is your code").
 final RegExp _authLine = RegExp(
   r'code|kod|verif|passw|passphrase|l[o\u00f6]senord|token|secret|api[_\-]?key|sign[ _\-]?in|log[ _\-]?in|auth|'
-  r'credential',
+  r'credential|mot de passe|\u0631\u0645\u0632|\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631|\u0627\u0644\u062a\u062d\u0642\u0642|\u043f\u0430\u0440\u043e\u043b|\u043a\u043e\u0434',
   caseSensitive: false,
 );
 
@@ -176,9 +243,9 @@ final RegExp _authLine = RegExp(
 /// ("3000 ms").
 final RegExp _bareCode = RegExp(
   '(?<![A-Za-z0-9_#])(?<!$_d)'
-  r'(?<!\d[.:,])(?<!line )(?<!pos )'
+  r'(?<!\d[.:,])(?<!\.dart:)(?<!line )(?<!pos )'
   '$_d{4,8}(?!$_d'
-  r'|[A-Za-z0-9_]|[.:,]\d|:|-\d\d-\d\d| ?(?:ms|px|dp|s|m|km|kB|KB|MB|bytes)\b)',
+  r'|[A-Za-z0-9_]|[.:,]\d|-\d\d-\d\d| ?(?:ms|px|dp|s|m|km|kB|KB|MB|bytes)\b)',
 );
 
 /// A logcat line's own head (date, time, pid, tid, level) is kept as it is.
@@ -211,6 +278,79 @@ RegExpMatch? _next(RegExp re, String text, int from) {
   return null;
 }
 
+String _maskJoined(Match m) =>
+    _digit.allMatches(m[0]!).length >= 8 ? masked : m[0]!;
+
+String _maskSpacedCode(Match m) {
+  final value = m[0]!;
+  final digits = _digit.allMatches(value).length;
+  if (digits < 4 ||
+      digits > 8 ||
+      _date.hasMatch(value) ||
+      (value.contains('.') && _fourDigits.hasMatch(value))) {
+    return value;
+  }
+  return masked;
+}
+
+/// The end of the bracket that opens at [pos]: its matching close, or the
+/// end of the line.
+int _close(String text, int pos) {
+  var depth = 0;
+  for (var i = pos; i < text.length; i++) {
+    final c = text[i];
+    if (c == '\n') return i;
+    if (c == '{' || c == '[' || c == '(') {
+      depth++;
+    } else if (c == '}' || c == ']' || c == ')') {
+      depth--;
+      if (depth == 0) return i + 1;
+    }
+  }
+  return text.length;
+}
+
+/// "OtpSession(id: ...)": the text of a secret type masked.
+String _maskCalls(String text) {
+  final out = StringBuffer();
+  var pos = 0;
+  while (true) {
+    final m = _next(_call, text, pos);
+    if (m == null) break;
+    final words = _camel.allMatches(m[1]!).map((w) => w[0]!).toList();
+    final end = _close(text, m.end - 1);
+    final inner = end > m.end && text[end - 1] == ')'
+        ? text.substring(m.end, end - 1)
+        : text.substring(m.end, end < m.end ? m.end : end);
+    if (words.isEmpty ||
+        !_callWords.contains(words.last.toLowerCase()) ||
+        inner.isEmpty ||
+        _readable(inner)) {
+      out.write(text.substring(pos, m.end));
+      pos = m.end;
+      continue;
+    }
+    out
+      ..write(text.substring(pos, m.end))
+      ..write(masked);
+    pos = m.end + inner.length;
+  }
+  out.write(text.substring(pos));
+  return out.toString();
+}
+
+String _maskPhrase(Match m) {
+  if (_notAValue.matchAsPrefix(m[3]!) != null || m[3]!.startsWith('[')) {
+    return m[0]!;
+  }
+  return '${m[1]}${m[2]}$masked';
+}
+
+/// French / Arabic / Russian secret words and their value.
+String _maskPhrases(String text) => text
+    .replaceAllMapped(_phraseLine, _maskPhrase)
+    .replaceAllMapped(_phraseCode, _maskPhrase);
+
 /// `name: value` pairs: the value of a secret name masked.
 String _maskNamed(String text) {
   final out = StringBuffer();
@@ -227,6 +367,14 @@ String _maskNamed(String text) {
     }
     out.write(text.substring(pos, m.end));
     pos = m.end;
+    if (kind != 'plain' &&
+        pos < text.length &&
+        (text[pos] == '{' || text[pos] == '[')) {
+      // MF-1 round 2: an object or a list goes whole.
+      out.write(masked);
+      pos = _close(text, pos);
+      continue;
+    }
     final q = _valueQuoted.matchAsPrefix(text, pos);
     if (q != null) {
       final inner = q[1] ?? q[2] ?? q[3] ?? '';
@@ -344,6 +492,18 @@ String maskText(String text, {Iterable<String> known = const <String>[]}) {
   // a value "070/123" with the rest left behind.
   out = out.replaceAll(_phone, masked);
   out = out.replaceAll(_longDigits, masked);
+  out = out.replaceAllMapped(_phoneJoined, _maskJoined);
+  out = out
+      .split('\n')
+      .map(
+        (line) => isAuthText(line)
+            ? line.replaceAllMapped(_spacedCode, _maskSpacedCode)
+            : line,
+      )
+      .join('\n');
+  out = out.replaceAllMapped(_gluedCode, (g) => '${g[1]}$masked');
+  out = _maskCalls(out);
+  out = _maskPhrases(out);
   out = _maskNamed(out);
   out = _maskIs(out);
   out = out.replaceAllMapped(_keySpace, _maskSpaced);
