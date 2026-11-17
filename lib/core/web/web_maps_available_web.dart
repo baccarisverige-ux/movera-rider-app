@@ -17,3 +17,22 @@ void webRequestGoogleMaps() {
     // No loader (an older page): the map waits and says it is unavailable.
   }
 }
+
+/// Round 5 (fast start): calls [ready] once when the page's Maps script has
+/// loaded (web/index.html fires `movera-maps-ready` on the script's onload),
+/// at once when it already has. No polling delay.
+void webOnGoogleMapsReady(void Function() ready) {
+  if (webGoogleMapsAvailable()) {
+    ready();
+    return;
+  }
+  try {
+    globalContext.callMethod<JSAny?>(
+      'addEventListener'.toJS,
+      'movera-maps-ready'.toJS,
+      ((JSAny? _) => ready()).toJS,
+    );
+  } catch (_) {
+    // No event support: the map's fallback check still finds it.
+  }
+}

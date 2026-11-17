@@ -10,3 +10,7 @@ bool googleMapsAvailable() => webGoogleMapsAvailable();
 /// Web: asks the page to load Maps JavaScript, which it no longer loads at
 /// start (owner 2026-11-03, LT-4 "load on open"). Phones: nothing.
 void requestGoogleMaps() => webRequestGoogleMaps();
+
+/// Web: calls [ready] when Maps JavaScript has loaded (the script's onload),
+/// at once if it already has. Phones: never (nothing to load).
+void onGoogleMapsReady(void Function() ready) => webOnGoogleMapsReady(ready);

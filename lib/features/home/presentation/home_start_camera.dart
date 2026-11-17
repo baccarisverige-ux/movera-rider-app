@@ -25,9 +25,14 @@ extension _HomeStartCamera on _HomeState {
   /// a trip or a sign-in) opens the map on the first frame. Otherwise the
   /// cached and first fixes open it ([_openMapAt]), or the wait runs out.
   void _initStartCamera() {
-    final known = LocationRepository.sessionFix;
+    final known = StartWarmup.startPoint();
     if (known != null) {
       _startCamera = _homeCameraAt(LatLng(known.latitude, known.longitude));
+    } else if (StartWarmup.granted) {
+      // Fast start (REMINDERS 145): location is allowed but no position is
+      // known yet; the map shows at the zone city at once and moves when
+      // the fix lands. Never a wait longer than the intro.
+      unawaited(_openMapAtZoneCity());
     }
     // Otherwise the saved fix (_centerCameraOnQuickFix), the first fix, or
     // a refusal ([_openMapAtZoneCity]) opens it.
