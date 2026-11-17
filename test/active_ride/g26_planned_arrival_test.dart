@@ -59,4 +59,22 @@ void main() {
       isNull,
     );
   });
+
+  test('a 2-stop trip does not show the no-stops time (stops counted)', () {
+    const stops = [GeoPoint(36.8600, 10.1500), GeoPoint(36.7900, 10.2800)];
+    DateTime? at(List<GeoPoint> s) => tripArrivalAt(
+      status: RideStatus.tripStarted,
+      liveSeconds: null,
+      plannedFrom: start,
+      pickup: pickup,
+      stops: s,
+      destination: drop,
+      now: start,
+    );
+    expect(at(stops)!.isAfter(at(const [])!), isTrue);
+    expect(
+      at(stops),
+      start.add(Duration(minutes: estimatedRouteMinutes(pickup, stops, drop))),
+    );
+  });
 }
