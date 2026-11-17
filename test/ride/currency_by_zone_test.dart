@@ -226,14 +226,14 @@ void main() {
       expect(formatKr(-25), '-25,00 kr');
       expect(formatMoney(const Money(3500)), '35,00 kr');
       expect(formatMoney(const Money(3550)), '35,50 kr'); // rider-r4-16
-      expect(formatMoney(const Money(7410), whole: true), '74,10 kr');
+      expect(formatMoney(const Money(7410)), '74,10 kr');
     });
 
     test('euros and dinars in their own format, to the minor unit', () {
       expect(formatMoney(const Money(741, 'EUR')), '7,41 €');
-      expect(formatMoney(const Money(700, 'EUR'), whole: true), '7,00 €');
+      expect(formatMoney(const Money(700, 'EUR')), '7,00 €');
       expect(formatMoney(const Money(7410, 'TND')), '7.410 DT');
-      expect(formatMoney(const Money(19500, 'TND'), whole: true), '19.500 DT');
+      expect(formatMoney(const Money(19500, 'TND')), '19.500 DT');
       expect(formatMajor(5, 'EUR'), '5,00 €');
     });
   });
@@ -512,7 +512,7 @@ void main() {
         });
         expect(completed.currency, market.currency);
         final fare = Money(quote.totalMinor, market.currency);
-        final shown = formatMoney(fare, whole: true);
+        final shown = formatMoney(fare);
         expect(shown, endsWith(' ${market.symbol}'));
         expect(shown, isNot(contains('kr')));
 
@@ -685,7 +685,7 @@ void main() {
       }
       expect(selection.currency, 'EUR');
       final quote = selection.authoritativeQuotes['economy']!;
-      final price = formatMoney(Money(quote.totalMinor, 'EUR'), whole: true);
+      final price = formatMoney(Money(quote.totalMinor, 'EUR'));
       expect(find.text(price), findsWidgets);
       expect(find.textContaining(RegExp(r'\d kr\b')), findsNothing);
       expect(

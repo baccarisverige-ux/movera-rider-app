@@ -482,7 +482,7 @@ class TripRun extends RiderSession {
   static bool hasMoney(Iterable<String> texts, (int, String)? money) {
     if (money == null) return false;
     final m = Money(money.$1, money.$2);
-    final forms = {formatMoney(m), formatMoney(m, whole: true)};
+    final forms = {formatMoney(m), formatMoney(m)};
     return texts.any((t) => forms.any(t.contains));
   }
 }

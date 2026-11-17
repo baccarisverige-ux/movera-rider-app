@@ -16,6 +16,7 @@ import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/features/wallet/application/top_up_message.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet_balances_line.dart';
+import 'package:movera_rider/features/wallet/presentation/wallet_balance_text.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_history.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet_history_section.dart';
 import 'package:movera_rider/features/wallet/application/rider_refunds_repository.dart';
@@ -227,7 +228,7 @@ class _WalletHomeState extends State<WalletHome> {
   List<int> get _topUps => _topUpAmounts[_currency] ?? const [100, 200, 500];
 
   String _money(num major) =>
-      formatMoney(Money.fromLegacyMajor(major, _currency), whole: true);
+      formatMoney(Money.fromLegacyMajor(major, _currency));
 
   double _balance = 0;
   bool _loading = true;
@@ -642,15 +643,11 @@ class _WalletHomeState extends State<WalletHome> {
                         // the wallet does not have. J10 (contract v0.18.84
                         // debtModel.riderWallet): below 0 it is a debt and
                         // reads "You owe X" (the server's balance).
-                        _balance < 0
-                            ? context.l10n.walletYouOwe(
-                                formatMoney(
-                                  Money.fromLegacyMajor(-_balance, _currency),
-                                ),
-                              )
-                            : formatMoney(
-                                Money.fromLegacyMajor(_balance, _currency),
-                              ),
+                        // J10 tidy: from integer minor units, not the double.
+                        walletBalanceText(
+                          walletBalanceMoney(_balance, _currency),
+                          youOwe: context.l10n.walletYouOwe,
+                        ),
                         key: const ValueKey('wallet-balance'),
                         style: _style(
                           34,

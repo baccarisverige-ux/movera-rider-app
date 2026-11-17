@@ -65,9 +65,9 @@ void main() {
   });
 
   group('nothing rounds to whole units any more', () {
-    test('SEK: formatMoney(whole: true) is exact', () {
-      expect(formatMoney(const Money(7410), whole: true), '74,10 kr');
-      expect(formatMoney(const Money(25950), whole: true), '259,50 kr');
+    test('SEK: formatMoney is exact', () {
+      expect(formatMoney(const Money(7410)), '74,10 kr');
+      expect(formatMoney(const Money(25950)), '259,50 kr');
     });
     test('formatMajor is exact in every currency', () {
       expect(formatMajor(259.5, 'SEK'), '259,50 kr');
