@@ -118,8 +118,15 @@ Future<void> bootstrap() async {
   unawaited(
     StartWarmup.start(
       location: AppScope.instance.location,
-      signedIn: () async =>
-          (await AppScope.instance.tokens.readAccess())?.isNotEmpty ?? false,
+      // As the start route decides: Home without sign-in (demo), else a
+      // stored session.
+      signedIn: () async {
+        final env = AppEnv.current;
+        if (!env.authRequired && !env.authPreview) return true;
+        final tokens = AppScope.instance.tokens;
+        return (await tokens.readAccess())?.isNotEmpty == true &&
+            (await tokens.readRefresh())?.isNotEmpty == true;
+      },
     ),
   );
   await configureBundledFonts();
