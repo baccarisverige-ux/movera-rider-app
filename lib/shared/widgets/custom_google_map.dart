@@ -104,6 +104,12 @@ class CustomGoogleMap extends StatefulWidget {
   @visibleForTesting
   static void Function() requestMaps = requestGoogleMaps;
 
+  /// Round 5 (fast start): tells the map the moment Maps JavaScript has
+  /// loaded (the script's onload), so it is built at once instead of at the
+  /// next fallback check. Tests replace it.
+  @visibleForTesting
+  static void Function(void Function() ready) onMapsReady = onGoogleMapsReady;
+
   /// Audit phase 6: how long the web waits for Maps JavaScript before the
   /// placeholder says the map is unavailable (the driver app's value).
   static const Duration mapsUnavailableAfter = Duration(seconds: 12);
@@ -157,12 +163,23 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
   Timer? _mapsPoll;
   bool _mapsUnavailable = false;
 
+  void _mapsArrived() {
+    if (!mounted || _mapsPoll == null || !googleMapsAvailable()) return;
+    _mapsPoll!.cancel();
+    _mapsPoll = null;
+    _mapsUnavailable = false;
+    setState(() {});
+  }
+
   /// rider-r4-20: rebuild once the Maps engine turns up.
   void _waitForMaps() {
     if (_mapsPoll != null || !(CustomGoogleMap.debugWaitForMaps ?? kIsWeb)) {
       return;
     }
     CustomGoogleMap.requestMaps();
+    CustomGoogleMap.onMapsReady(_mapsArrived);
+    // Fallback only (a lost onload, a reload of the script, the
+    // "unavailable" notice): the map normally builds on [_mapsArrived].
     const poll = Duration(milliseconds: 500);
     _mapsPoll = Timer.periodic(poll, (timer) {
       if (!googleMapsAvailable()) {

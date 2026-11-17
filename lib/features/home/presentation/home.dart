@@ -22,6 +22,7 @@ import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/core/maps/camera_mode.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
+import 'package:movera_rider/core/location/start_warmup.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
@@ -157,7 +158,26 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   set _lastMapZoom(double value) => _locationCtl.lastMapZoom = value;
   set _lastMapTarget(LatLng value) => _locationCtl.lastMapTarget = value;
   String? get _pickupAddress => _places.pickupAddress;
-  set _pickupAddress(String? value) => _places.pickupAddress = value;
+  set _pickupAddress(String? value) {
+    _places.pickupAddress = value;
+    _livePickup.value = _placeOrNull(value);
+  }
+
+  /// Owner 2026-11-17: an open Where to? fills From when the current
+  /// address is found after it opened.
+  final ValueNotifier<String?> _livePickup = ValueNotifier<String?>(null);
+
+  /// Where the bar's top sits (fraction of the screen height): Where to?
+  /// slides up from there and back into it.
+  double _barTopFraction() {
+    final screen = MediaQuery.sizeOf(context).height;
+    if (screen <= 0) return 1;
+    final sheet = _homeSheetController.hasClient
+        ? (_homeSheetController.metrics?.offset ?? _sheetMinPixels)
+        : _sheetMinPixels;
+    return ((screen - sheet) / screen).clamp(0.0, 1.0);
+  }
+
   String? get _destinationAddress => _places.destinationAddress;
   set _destinationAddress(String? value) => _places.destinationAddress = value;
   String? get _homeAddress => _places.homeAddress;
@@ -434,6 +454,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     _sheetCtl.dispose();
     _locationCtl.dispose();
     _mapParked.dispose();
+    _livePickup.dispose();
     AppScope.instance.maps.detach(owner: MapOwners.home);
     setWebOverlayOpen(false);
     _homeSheetController
@@ -761,6 +782,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// What [setWebOverlayOpen] was last told; null after the map was parked.
   bool? _webOverlayCovering;
 
+  // Unused since Where to? slides from the bar (owner 2026-11-17); kept
+  // under Rule 21 (nothing is deleted without the owner).
+  // ignore: unused_element
   Future<void> _openDestinationSheet() async {
     if (!_destinationSheetOpen) setState(() => _destinationSheetOpen = true);
     await _sheetCtl.open();
@@ -808,8 +832,20 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         );
       });
       if (!mounted) return;
+      // Where to? now slides up at once (owner 2026-11-17): let the menu
+      // finish sliding away first, so the two never move together.
+      if (then != null) await _homeUncovered();
+      if (!mounted) return;
       await then?.call();
     }());
+  }
+
+  /// Completes once the menu (its exit is [MoveraDurations.micro]) has
+  /// left the screen above Home.
+  Future<void> _homeUncovered() async {
+    await Future<void>.delayed(MoveraDurations.micro);
+    if (!mounted) return;
+    await WidgetsBinding.instance.endOfFrame;
   }
 
   void _openAccount() => _openTab(HomeTabs.account);

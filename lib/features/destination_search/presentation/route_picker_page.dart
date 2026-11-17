@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show ValueListenable;
+
 import 'package:flutter/material.dart';
 import 'package:movera_rider/features/home/application/home_places_controller.dart';
 import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
@@ -69,6 +71,7 @@ class RoutePickerPage extends StatefulWidget {
   const RoutePickerPage({
     super.key,
     required this.pickupAddress,
+    this.pickupUpdates,
     required this.destinationAddress,
     this.destinationPoint,
     required this.stops,
@@ -85,6 +88,7 @@ class RoutePickerPage extends StatefulWidget {
     this.openWithNewStop = false,
     this.finishLabel,
     required this.recent,
+    this.recentPoints = const {},
     this.onSetFavourite,
     required this.onPickOnMap,
     required this.onFinish,
@@ -92,6 +96,10 @@ class RoutePickerPage extends StatefulWidget {
 
   /// The rider's exact pickup address, or null while it is still unknown.
   final String? pickupAddress;
+
+  /// Owner 2026-11-17: the current address as Home finds it. One found
+  /// after the picker opened fills From, unless the rider changed From.
+  final ValueListenable<String?>? pickupUpdates;
   final String destinationAddress;
 
   /// rider-u87: the exact points of the route already booked (Change
@@ -111,6 +119,13 @@ class RoutePickerPage extends StatefulWidget {
   /// with the same icons as the Home page.
   final List<SavedPlaceData> savedPlaces;
   final List<String> recent;
+
+  /// The point of each recent that has one, for its distance from [here].
+  /// Recents saved before points were kept have none and show no km.
+  final Map<String, GeoPoint> recentPoints;
+
+  /// Owner 2026-11-17 ("like the example"): up to ten recents.
+  static const maxRecentRows = 10;
 
   /// Header text; "Change route" while a ride is live.
   final String? pageTitle;
@@ -200,9 +215,27 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     return full != null && compactAddress(full) == clean ? full : clean;
   }
 
-  late final TextEditingController _pickup = _shortField(
-    widget.pickupAddress ?? '',
-  );
+  late final TextEditingController _pickup = _shortField(_knownPickup ?? '');
+
+  /// The current address: the latest from [RoutePickerPage.pickupUpdates],
+  /// else the one given at open.
+  String? get _knownPickup =>
+      widget.pickupUpdates?.value ?? widget.pickupAddress;
+
+  /// What From was last filled with automatically; any other text is the
+  /// rider's own and is never replaced.
+  late String _autoPickupText = _pickup.text;
+
+  void _onPickupUpdate() {
+    final address = widget.pickupUpdates?.value;
+    if (!mounted || address == null || address.trim().isEmpty) return;
+    if (widget.pickupLocked || _active == 'pickup') return;
+    if (_pickup.text != _autoPickupText) return;
+    setState(() {
+      _show(_pickup, address);
+      _autoPickupText = _pickup.text;
+    });
+  }
 
   TextEditingController _shortField(String address) {
     final field = TextEditingController();
@@ -281,6 +314,9 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     // the sheet opened, so they start a search like any other typing.
     widget.capture.onChanged = _onTyped;
     widget.capture.attach(_activeController, focus);
+    // Owner 2026-11-17: cursor and keyboard at once, not after the slide.
+    focus.requestFocus();
+    widget.pickupUpdates?.addListener(_onPickupUpdate);
     // Opened on a field that already has an address (changing the route of a
     // live ride): typing replaces it instead of adding to its end.
     final prefilled = _activeController;
@@ -301,6 +337,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   @override
   void dispose() {
     widget.capture.onChanged = null;
+    widget.pickupUpdates?.removeListener(_onPickupUpdate);
     _suggestDebounce?.cancel();
     _pickup.dispose();
     _destination.dispose();
@@ -722,7 +759,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
         controller: _pickup,
         focus: _pickupFocus,
         // GPS without a street name still works as the pickup point.
-        hint: widget.pickupAddress != null
+        hint: _knownPickup != null
             ? context.l10n.pickup
             : widget.here != null
             ? context.l10n.yourCurrentLocation
@@ -949,7 +986,8 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
 
   List<Widget> _beforeTyping() {
     final rows = <Widget>[];
-    if (_active == 'pickup' && widget.pickupAddress != null) {
+    final knownPickup = _knownPickup;
+    if (_active == 'pickup' && knownPickup != null) {
       rows.add(
         _row(
           icon: Icons.near_me_outlined,
@@ -958,8 +996,8 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
             context.l10n.myLocation,
             style: _t(16, weight: FontWeight.w600, color: _accent),
           ),
-          subtitle: compactAddress(widget.pickupAddress),
-          onTap: () => _choose(widget.pickupAddress!, point: widget.here),
+          subtitle: compactAddress(knownPickup),
+          onTap: () => _choose(knownPickup, point: widget.here),
         ),
       );
     }
@@ -1008,7 +1046,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
         ),
       );
     }
-    // A short, clean list: three real places, no repeats of the same spot.
+    // A clean list: up to ten real places, no repeats of the same spot.
     final recent = <String>[];
     final seenRecent = <String>{};
     for (final address in widget.recent) {
@@ -1017,7 +1055,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       if (short.isEmpty || _isFallbackLabel(address)) continue;
       if (!seenRecent.add(short.toLowerCase())) continue;
       recent.add(address);
-      if (recent.length == 3) break;
+      if (recent.length == RoutePickerPage.maxRecentRows) break;
     }
     if (recent.isNotEmpty) {
       rows.add(
@@ -1045,6 +1083,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
               style: _t(16),
             ),
             subtitle: subtitle,
+            trailing: _recentKm(recent[i]),
             onTap: () => _choose(recent[i]),
             last: i == recent.length - 1,
           ),
@@ -1052,6 +1091,15 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       }
     }
     return rows;
+  }
+
+  /// "1.4 km" from [RoutePickerPage.here], or null without both points.
+  String? _recentKm(String address) {
+    final km = PlaceSuggestion(
+      title: address,
+      point: widget.recentPoints[address],
+    ).distanceKm(widget.here);
+    return km == null ? null : formatDistanceKm(km);
   }
 
   static bool _isFallbackLabel(String address) =>
