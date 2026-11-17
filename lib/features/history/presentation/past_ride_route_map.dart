@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/core/maps/map_zoom_limit.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/features/history/application/trip_path.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -168,7 +169,7 @@ class _PastRideRouteMapState extends State<PastRideRouteMap> {
             (bounds.southwest.latitude + bounds.northeast.latitude) / 2,
             (bounds.southwest.longitude + bounds.northeast.longitude) / 2,
           ),
-          zoom: _zoomFor(bounds),
+          zoom: pastRideFitZoom(bounds),
         ),
         markers: markers,
         polylines: polylines,
@@ -230,14 +231,17 @@ class _PastRideRouteMapState extends State<PastRideRouteMap> {
       northeast: LatLng(north, east),
     );
   }
+}
 
-  /// A zoom that fits the box before the map can measure it.
-  static double _zoomFor(LatLngBounds b) {
-    final span = math.max(
-      b.northeast.latitude - b.southwest.latitude,
-      b.northeast.longitude - b.southwest.longitude,
-    );
-    if (span <= 0) return 15;
-    return (math.log(360 / span) / math.ln2 - 1).clamp(3, 16).toDouble();
-  }
+/// A zoom that fits the box before the map can measure it; never wider
+/// than [kMapMinZoom] (owner 2026-11-17, max zoom-out).
+double pastRideFitZoom(LatLngBounds b) {
+  final span = math.max(
+    b.northeast.latitude - b.southwest.latitude,
+    b.northeast.longitude - b.southwest.longitude,
+  );
+  if (span <= 0) return 15;
+  return (math.log(360 / span) / math.ln2 - 1)
+      .clamp(kMapMinZoom, 16)
+      .toDouble();
 }
