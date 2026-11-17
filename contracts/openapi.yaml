@@ -1,11 +1,11 @@
-# Movera API v0.18.118 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.119 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.118
+  version: 0.18.119
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.118 in this folder; this file must agree with them.
+    v0.18.119 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.118
+  version: 0.18.119
   source: contract.json
 paths:
   /auth/otp/request:
@@ -94,7 +94,28 @@ paths:
       description: 'Rate limited per phone and device (429 rate_limited with Retry-After). A test number (contract.json#auth.testSignIn,
         outside production) gets no SMS and accepts the fixed code. v0.15.0: 429 reasons otp_resend_too_soon and otp_too_many
         (contract.json#auth.limits: per phone and app, per address, in an hour); 403 forbidden, reason sign_in_restricted,
-        for a number not open for sign-in (the app offers POST /auth/waitlist).'
+        for a number not open for sign-in (the app offers POST /auth/waitlist). v0.18.119 (contract.json#rateLimit.key): v0.18.119
+        (S7 W2 Q117 + Q118; owner 2026-11-15 "Yes, per user (Rec.)" and "Yes, phone + address (Rec.)", 2026-11-16 OQ-1 "Lock
+        at 60 for 24 h (Rec.)" and OQ-2 "Keep fixed in server (Rec.)", Rules decisions/session-2026-11-06.md, audits/impact/s7-q117-q118.md):
+        a valid access token: its actor and user (sub), so many accounts behind one address never share a budget. An access
+        token that ran out but carries the server''s signature, at most the refresh lifetime (auth.tokens.refreshExpiresDays)
+        ago: still its user, on a key of its own apart from the live one, at the user budget; the answer is still 401 (the
+        app refreshes), not 429 from a shared address budget, and it gets no safety-write pass (safetyWrites needs a valid
+        token). A forged token, a changed sub or an older token: the client address. Without a token, POST /auth/otp/request
+        and /auth/otp/verify: the phone in the body + the client address; POST /auth/refresh and /admin/auth/refresh: the
+        refresh token''s session + the client address (an unknown token, a body without a valid phone or a failed look-up:
+        the client address); each at the address budget. On these four calls the phone alone and the address alone are only
+        ceilings of 10 × the address budget (a fixed server factor, not an admin setting); the address ceiling is counted
+        before the body is read, and a call refused on its phone + address key adds nothing to the phone''s ceiling, so one
+        address alone never fills a number''s ceiling. So one address may cause up to 10 × the address budget refresh look-ups
+        a minute (one indexed read each). The two code calls are counted in production only (signInOutsideProduction). Every
+        other call without a valid token: the client address (the address the trusted proxy saw, TRUST_PROXY_HOPS). The wrong-code
+        locks are not this limit: auth.otp.note. v0.18.119 (auth.signInErrors.otp_locked_today): 429 rate_limited (v0.18.14):
+        too many wrong codes for this number today (countryLimits.wrongCodesPerDay, admin setting per country, default 15);
+        the app says "Too many wrong codes today. Try again later." with the wait from retryAfterSeconds and disables Send
+        code v0.18.119 (S7 W2 Q118, owner OQ-1 "Lock at 60 for 24 h (Rec.)"): also when the number alone reaches 4 × wrongCodesPerDay
+        wrong codes in 24 h over all addresses (default 60): then every address gets it for that number, even with the right
+        code, for up to 24 h or until an admin unlocks it (auth.otp.note). The app text and handling are unchanged.'
       tags:
       - Auth
       x-actor:
@@ -143,7 +164,28 @@ paths:
         reason otp_too_many_attempts; ask for a new code). With a linkToken the verified phone is linked to the provider account.
         v0.18.5 (G1-B3): 429 rate_limited on the wrong code that reaches otp.maxAttempts (v0.18.5 G1-B3: the 5th wrong code
         itself, counted before the answer) and on every try after it on that session: the app says "Too many wrong tries –
-        tap Send new code", disables Verify and highlights its resend button; a new code starts a new session'
+        tap Send new code", disables Verify and highlights its resend button; a new code starts a new session v0.18.119 (contract.json#rateLimit.key):
+        v0.18.119 (S7 W2 Q117 + Q118; owner 2026-11-15 "Yes, per user (Rec.)" and "Yes, phone + address (Rec.)", 2026-11-16
+        OQ-1 "Lock at 60 for 24 h (Rec.)" and OQ-2 "Keep fixed in server (Rec.)", Rules decisions/session-2026-11-06.md, audits/impact/s7-q117-q118.md):
+        a valid access token: its actor and user (sub), so many accounts behind one address never share a budget. An access
+        token that ran out but carries the server''s signature, at most the refresh lifetime (auth.tokens.refreshExpiresDays)
+        ago: still its user, on a key of its own apart from the live one, at the user budget; the answer is still 401 (the
+        app refreshes), not 429 from a shared address budget, and it gets no safety-write pass (safetyWrites needs a valid
+        token). A forged token, a changed sub or an older token: the client address. Without a token, POST /auth/otp/request
+        and /auth/otp/verify: the phone in the body + the client address; POST /auth/refresh and /admin/auth/refresh: the
+        refresh token''s session + the client address (an unknown token, a body without a valid phone or a failed look-up:
+        the client address); each at the address budget. On these four calls the phone alone and the address alone are only
+        ceilings of 10 × the address budget (a fixed server factor, not an admin setting); the address ceiling is counted
+        before the body is read, and a call refused on its phone + address key adds nothing to the phone''s ceiling, so one
+        address alone never fills a number''s ceiling. So one address may cause up to 10 × the address budget refresh look-ups
+        a minute (one indexed read each). The two code calls are counted in production only (signInOutsideProduction). Every
+        other call without a valid token: the client address (the address the trusted proxy saw, TRUST_PROXY_HOPS). The wrong-code
+        locks are not this limit: auth.otp.note. v0.18.119 (auth.signInErrors.otp_locked_today): 429 rate_limited (v0.18.14):
+        too many wrong codes for this number today (countryLimits.wrongCodesPerDay, admin setting per country, default 15);
+        the app says "Too many wrong codes today. Try again later." with the wait from retryAfterSeconds and disables Send
+        code v0.18.119 (S7 W2 Q118, owner OQ-1 "Lock at 60 for 24 h (Rec.)"): also when the number alone reaches 4 × wrongCodesPerDay
+        wrong codes in 24 h over all addresses (default 60): then every address gets it for that number, even with the right
+        code, for up to 24 h or until an admin unlocks it (auth.otp.note). The app text and handling are unchanged.'
       tags:
       - Auth
       x-actor:
@@ -260,13 +302,31 @@ paths:
         codesPerAddressPerHour, codesPerPhonePerHour, uploadsPerHour). One phone at a time for drivers: a new driver sign-in
         ends his other sessions — their calls and POST /auth/refresh answer 401 reason signed_in_elsewhere (auth.signedOut.reasons);
         the old phone is set offline (the driver goes online again from the new phone) and a notice kind signed_in_elsewhere
-        is sent. Riders keep several phones. v0.18.49 §71 (owner Q6, Rules plan/finders-2026-11-07/D.md D9 + D8): a refresh
-        token already used, whose replacement was never used, sent again more than refreshRetryWindowSeconds after its last
-        use, is a lost answer (a dead zone, a tunnel, a lift), not theft: answered once with a fresh pair; the never-used
-        replacement is dropped. A second late use of the same old token ends the session (refresh_token_reused). A replacement
-        that WAS used means two holders of the session: the session ends at once, as before. Each old refresh token is accepted
-        at most once outside the 60 s window (the server keeps the time it accepted it: refresh_tokens.late_retry_at). Inside
-        the 60 s window after that answer, retries still work.'
+        is sent. Riders keep several phones. v0.18.119 (S7 W2 Q118): otp_locked_today also per number over all addresses at
+        4 × wrongCodesPerDay wrong codes in 24 h (up to 24 h, admin unlock; auth.otp.note). POST /auth/refresh and /admin/auth/refresh
+        are write-limited per refresh session + address (contract.json#rateLimit.key). v0.18.49 §71 (owner Q6, Rules plan/finders-2026-11-07/D.md
+        D9 + D8): a refresh token already used, whose replacement was never used, sent again more than refreshRetryWindowSeconds
+        after its last use, is a lost answer (a dead zone, a tunnel, a lift), not theft: answered once with a fresh pair;
+        the never-used replacement is dropped. A second late use of the same old token ends the session (refresh_token_reused).
+        A replacement that WAS used means two holders of the session: the session ends at once, as before. Each old refresh
+        token is accepted at most once outside the 60 s window (the server keeps the time it accepted it: refresh_tokens.late_retry_at).
+        Inside the 60 s window after that answer, retries still work. v0.18.119 (contract.json#rateLimit.key): v0.18.119 (S7
+        W2 Q117 + Q118; owner 2026-11-15 "Yes, per user (Rec.)" and "Yes, phone + address (Rec.)", 2026-11-16 OQ-1 "Lock at
+        60 for 24 h (Rec.)" and OQ-2 "Keep fixed in server (Rec.)", Rules decisions/session-2026-11-06.md, audits/impact/s7-q117-q118.md):
+        a valid access token: its actor and user (sub), so many accounts behind one address never share a budget. An access
+        token that ran out but carries the server''s signature, at most the refresh lifetime (auth.tokens.refreshExpiresDays)
+        ago: still its user, on a key of its own apart from the live one, at the user budget; the answer is still 401 (the
+        app refreshes), not 429 from a shared address budget, and it gets no safety-write pass (safetyWrites needs a valid
+        token). A forged token, a changed sub or an older token: the client address. Without a token, POST /auth/otp/request
+        and /auth/otp/verify: the phone in the body + the client address; POST /auth/refresh and /admin/auth/refresh: the
+        refresh token''s session + the client address (an unknown token, a body without a valid phone or a failed look-up:
+        the client address); each at the address budget. On these four calls the phone alone and the address alone are only
+        ceilings of 10 × the address budget (a fixed server factor, not an admin setting); the address ceiling is counted
+        before the body is read, and a call refused on its phone + address key adds nothing to the phone''s ceiling, so one
+        address alone never fills a number''s ceiling. So one address may cause up to 10 × the address budget refresh look-ups
+        a minute (one indexed read each). The two code calls are counted in production only (signInOutsideProduction). Every
+        other call without a valid token: the client address (the address the trusted proxy saw, TRUST_PROXY_HOPS). The wrong-code
+        locks are not this limit: auth.otp.note.'
       tags:
       - Auth
       x-actor:
@@ -10002,8 +10062,24 @@ paths:
     post:
       operationId: adminRefresh
       summary: Rotate the admin refresh token
-      description: Rotated on every call; lives at most 12 h. A used, revoked or unknown token → 401 unauthenticated. Separate
-        from /auth/refresh (rider and driver).
+      description: 'Rotated on every call; lives at most 12 h. A used, revoked or unknown token → 401 unauthenticated. Separate
+        from /auth/refresh (rider and driver). v0.18.119 (contract.json#rateLimit.key): v0.18.119 (S7 W2 Q117 + Q118; owner
+        2026-11-15 "Yes, per user (Rec.)" and "Yes, phone + address (Rec.)", 2026-11-16 OQ-1 "Lock at 60 for 24 h (Rec.)"
+        and OQ-2 "Keep fixed in server (Rec.)", Rules decisions/session-2026-11-06.md, audits/impact/s7-q117-q118.md): a valid
+        access token: its actor and user (sub), so many accounts behind one address never share a budget. An access token
+        that ran out but carries the server''s signature, at most the refresh lifetime (auth.tokens.refreshExpiresDays) ago:
+        still its user, on a key of its own apart from the live one, at the user budget; the answer is still 401 (the app
+        refreshes), not 429 from a shared address budget, and it gets no safety-write pass (safetyWrites needs a valid token).
+        A forged token, a changed sub or an older token: the client address. Without a token, POST /auth/otp/request and /auth/otp/verify:
+        the phone in the body + the client address; POST /auth/refresh and /admin/auth/refresh: the refresh token''s session
+        + the client address (an unknown token, a body without a valid phone or a failed look-up: the client address); each
+        at the address budget. On these four calls the phone alone and the address alone are only ceilings of 10 × the address
+        budget (a fixed server factor, not an admin setting); the address ceiling is counted before the body is read, and
+        a call refused on its phone + address key adds nothing to the phone''s ceiling, so one address alone never fills a
+        number''s ceiling. So one address may cause up to 10 × the address budget refresh look-ups a minute (one indexed read
+        each). The two code calls are counted in production only (signInOutsideProduction). Every other call without a valid
+        token: the client address (the address the trusted proxy saw, TRUST_PROXY_HOPS). The wrong-code locks are not this
+        limit: auth.otp.note.'
       tags:
       - Admin · Auth
       x-actor:
@@ -15587,12 +15663,22 @@ paths:
         wrong codes in 24 h from one address for one number, that address gets 429 rate_limited reason otp_locked_today for
         that number (Retry-After = until the oldest leaves the 24 h window), on request and verify; an admin can lift it (POST
         /admin/auth/sign-in-locks/unlock { phone }). Codes per number per hour and per address per hour are admin settings
-        (countryLimits). v0.18.62 §84: An admin caller needs settings.edit (x-permission); otherwise 403 forbidden, reason
-        missing_permission. 200 { phone, lifted }: phone = the number sent (E.164, not masked); lifted = integer >= 0, how
-        many of the number''s wrong-code sessions of the last 24 h were unlocked (0 when nothing was locked; still 200). Audited
-        auth.sign_in_unlock { lifted } with the number''s last 4 digits hidden. 400 invalid_request reason invalid_body when
-        phone is missing or not a string; 400 invalid_request reason invalid_phone when phone is not international form (^\+[1-9][0-9]{6,14}$);
-        401 unauthenticated; 403 forbidden missing_permission. The server never answers 404 here.'
+        (countryLimits). v0.18.119 (S7 W2 Q117 + Q118; owner 2026-11-15 "Yes, per user (Rec.)" and "Yes, phone + address (Rec.)",
+        2026-11-16 OQ-1 "Lock at 60 for 24 h (Rec.)" and OQ-2 "Keep fixed in server (Rec.)", Rules decisions/session-2026-11-06.md,
+        audits/impact/s7-q117-q118.md): besides that lock per number AND address, the number alone has a ceiling of 4 × countryLimits.wrongCodesPerDay
+        wrong codes in 24 h over all addresses and both apps (default 60; the factor 4 is fixed in the server, not an admin
+        setting). At it the number is locked for EVERY address: 429 rate_limited reason otp_locked_today on request and verify,
+        even with the right code, until the oldest of those wrong codes is 24 h old (at most 24 h) or an admin unlocks it;
+        POST /admin/auth/sign-in-locks/unlock { phone } lifts both locks for all addresses at once. Phones already signed
+        in keep working (refresh does not read it). So a stranger guessing from 4 or more networks can lock a number for up
+        to 24 h (codesPerPhonePerHour already let one block new codes for one hour). The write limit in front of these calls
+        is keyed by phone + address (contract.json#rateLimit.key). v0.18.62 §84: An admin caller needs settings.edit (x-permission);
+        otherwise 403 forbidden, reason missing_permission. 200 { phone, lifted }: phone = the number sent (E.164, not masked);
+        lifted = integer >= 0, how many of the number''s wrong-code sessions of the last 24 h were unlocked (0 when nothing
+        was locked; still 200). Audited auth.sign_in_unlock { lifted } with the number''s last 4 digits hidden. 400 invalid_request
+        reason invalid_body when phone is missing or not a string; 400 invalid_request reason invalid_phone when phone is
+        not international form (^\+[1-9][0-9]{6,14}$); 401 unauthenticated; 403 forbidden missing_permission. The server never
+        answers 404 here.'
       tags:
       - Admin · Auth
       x-actor:
@@ -35696,8 +35782,11 @@ components:
           type: integer
           minimum: 3
           maximum: 100
-          description: Wrong sign-in codes for one phone number from one client address in 24 h before that address is locked
-            for that number (429 otp_locked_today) until the oldest leaves the window; admins can unlock. Range 3–100.
+          description: 'Wrong sign-in codes for one phone number from one client address in 24 h before that address is locked
+            for that number (429 otp_locked_today) until the oldest leaves the window; admins can unlock. v0.18.119 (S7 W2
+            Q118, owner OQ-1 / OQ-2): 4 × this value (a fixed server factor) is also the number''s ceiling over all addresses
+            in 24 h; at it the number is locked for every address (otp_locked_today) for up to 24 h; the admin unlock lifts
+            it. Range 3–100.'
           default: 15
         codesPerAddressPerHour:
           type: integer

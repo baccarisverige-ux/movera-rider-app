@@ -38,7 +38,7 @@ void main() {
 
   test('the copy is contract v0.18.113', () {
     expect(contract['contract'], 'movera');
-    expect(contract['version'], '0.18.118');
+    expect(contract['version'], '0.18.119');
     expect(TripStateMachine.contractVersion, contract['version']);
   });
 
