@@ -522,7 +522,11 @@ extension _HomeRouteFlow on _HomeState {
       );
       draft = await Navigator.of(context).push<Map<String, dynamic>>(
         fromBar
-            ? WhereToSlideTransition(page, startFraction: _barTopFraction())
+            ? WhereToSlideTransition(
+                page,
+                startFraction: _barTopFraction(),
+                barInset: _barInset(),
+              )
             : BottomToTopTransition(page),
       );
     } finally {

@@ -169,6 +169,19 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   /// Where the bar's top sits (fraction of the screen height): Where to?
   /// slides up from there and back into it.
+  /// Owner 2026-11-17: the Where to? bar, so the rising panel can start
+  /// with its bar exactly where Home shows it.
+  final GlobalKey _whereToCardKey = GlobalKey();
+
+  /// How far the Where to? bar sits below the sheet's top, in pixels.
+  double _barInset() {
+    final screen = MediaQuery.sizeOf(context).height;
+    final box = _whereToCardKey.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return 0;
+    final top = box.localToGlobal(Offset.zero).dy;
+    return (top - _barTopFraction() * screen).clamp(0.0, screen);
+  }
+
   double _barTopFraction() {
     final screen = MediaQuery.sizeOf(context).height;
     if (screen <= 0) return 1;
@@ -1042,6 +1055,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                         ),
                       );
                       final premiumWhereToCard = WhereToCard(
+                        key: _whereToCardKey,
                         destinationAddress: _destinationAddress,
                         onDestinationTap: _handleDestinationTap,
                         onOpenSchedule: _openSchedule,

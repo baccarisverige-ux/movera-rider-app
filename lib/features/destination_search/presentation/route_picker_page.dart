@@ -19,6 +19,10 @@ import 'package:movera_rider/features/home/presentation/widgets/premium_route_lo
 import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/widgets/responsive_size.dart';
+import 'package:movera_rider/features/home/presentation/widgets/home_sheet_layout.dart';
+import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
+import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 /// What the rider picked on [RoutePickerPage].
 /// Thrown by the page's `onFinish` when the route could not be prepared
@@ -1223,80 +1227,179 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     return rows;
   }
 
+  /// Owner 2026-11-17: the route header slides down from above the top.
+  Widget _splitHeader(WhereToSplit? split, Widget header) {
+    if (split == null) return header;
+    final box = ColoredBox(color: Colors.white, child: header);
+    return AnimatedBuilder(
+      animation: split.animation,
+      builder: (context, child) => FractionalTranslation(
+        key: const ValueKey('where-to-split-header'),
+        translation: Offset(0, split.headerOffset),
+        child: child,
+      ),
+      child: box,
+    );
+  }
+
+  /// Owner 2026-11-17: the Home panel (Where to? bar + places) rises from
+  /// where it was to meet the header, its bar fading out; X reverses it.
+  Widget _splitPanel(WhereToSplit? split, Widget list) {
+    if (split == null) return list;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screen = MediaQuery.sizeOf(context).height;
+        // The list runs to the bottom of the screen, so its open top is
+        // the screen height less its own height.
+        final listTop = screen - constraints.maxHeight;
+        return AnimatedBuilder(
+          animation: split.animation,
+          builder: (context, child) {
+            final shift = split.panelShift(screen, listTop);
+            final bar = split.barOpacity;
+            final barH = ResSize.h * 58;
+            return Transform.translate(
+              key: const ValueKey('where-to-split-panel'),
+              offset: Offset(0, shift),
+              // Above Home's bar the panel is see-through at first, so
+              // Home's own handle and offer stay where they are; that strip
+              // closes as the bar fades.
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    top: split.barInset * bar,
+                    child: const ColoredBox(color: Colors.white),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(
+                      top: (split.barInset + barH) * bar,
+                    ),
+                    child: child,
+                  ),
+                  if (bar > 0)
+                    Positioned(
+                      left: HomeSheetLayout.sideMargin,
+                      right: HomeSheetLayout.sideMargin,
+                      top: (split.barInset + barH) * bar - barH,
+                      child: IgnorePointer(
+                        child: Opacity(
+                          key: const ValueKey('where-to-split-bar'),
+                          opacity: bar,
+                          child: WhereToCard(
+                            destinationAddress: null,
+                            onDestinationTap: () {},
+                            onOpenSchedule: () {},
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+          child: list,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final typing = _query.trim().isNotEmpty;
+    final split = WhereToSplit.maybeOf(context);
     // rider-u88: while the next step runs (geocoding, the time picker, the
     // route-change price) back must not close the picker under it; that
     // step would then open its sheet over the screen the rider went back to.
     return PopScope(
       canPop: !_finishing,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: split == null ? Colors.white : Colors.transparent,
         body: SafeArea(
+          top: split == null,
           bottom: false,
           child: Stack(
             children: [
               Column(
+                // The header comes last so it paints over the rising panel
+                // (owner 2026-11-17: from an UP sheet they overlap briefly).
+                verticalDirection: VerticalDirection.up,
                 children: [
-                  // Swipe down on the header to close, like a sheet.
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onVerticalDragEnd: (details) {
-                      if ((details.primaryVelocity ?? 0) > 300) {
-                        Navigator.of(context).maybePop();
-                      }
-                    },
-                    child: SizedBox(
-                      height: 56,
-                      child: Row(
-                        children: [
-                          const SizedBox(width: 4),
-                          IconButton(
-                            tooltip: context.l10n.close,
-                            onPressed: () => Navigator.of(context).maybePop(),
-                            icon: const Icon(Icons.close_rounded, size: 26),
-                            color: _ink,
+                  Expanded(
+                    child: _splitPanel(
+                      split,
+                      ListView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                        children: typing ? _whileTyping() : _beforeTyping(),
+                      ),
+                    ),
+                  ),
+                  _splitHeader(
+                    split,
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (split != null)
+                          SizedBox(height: MediaQuery.paddingOf(context).top),
+                        // Swipe down on the header to close, like a sheet.
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onVerticalDragEnd: (details) {
+                            if ((details.primaryVelocity ?? 0) > 300) {
+                              Navigator.of(context).maybePop();
+                            }
+                          },
+                          child: SizedBox(
+                            height: 56,
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 4),
+                                IconButton(
+                                  tooltip: context.l10n.close,
+                                  onPressed: () =>
+                                      Navigator.of(context).maybePop(),
+                                  icon: const Icon(
+                                    Icons.close_rounded,
+                                    size: 26,
+                                  ),
+                                  color: _ink,
+                                ),
+                                Expanded(
+                                  child: Center(
+                                    child: Text(
+                                      widget.pageTitle ??
+                                          context.l10n.planYourRide,
+                                      style: _t(18, weight: FontWeight.w700),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 52),
+                              ],
+                            ),
                           ),
-                          Expanded(
-                            child: Center(
-                              child: Text(
-                                widget.pageTitle ?? context.l10n.planYourRide,
-                                style: _t(18, weight: FontWeight.w700),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
+                          child: _fields(),
+                        ),
+                        // v0.18.9 (G7 decision 5): the zone's max stops, shown
+                        // once the route has a stop (the server checks it too).
+                        if (widget.stopsSupported && _stops.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 0, 20, 4),
+                            child: Text(
+                              _stops.length >= _maxStops
+                                  ? context.l10n.g7TooManyStops('$_maxStops')
+                                  : context.l10n.g7MaxStopsShown('$_maxStops'),
+                              key: const ValueKey('route-picker-max-stops'),
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: Color(0xFF5C656C),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 52),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
-                    child: _fields(),
-                  ),
-                  // v0.18.9 (G7 decision 5): the zone's max stops, shown
-                  // once the route has a stop (the server checks it too).
-                  if (widget.stopsSupported && _stops.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 20, 4),
-                      child: Text(
-                        _stops.length >= _maxStops
-                            ? context.l10n.g7TooManyStops('$_maxStops')
-                            : context.l10n.g7MaxStopsShown('$_maxStops'),
-                        key: const ValueKey('route-picker-max-stops'),
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          color: Color(0xFF5C656C),
-                        ),
-                      ),
-                    ),
-                  Expanded(
-                    child: ListView(
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                      children: typing ? _whileTyping() : _beforeTyping(),
+                      ],
                     ),
                   ),
                 ],

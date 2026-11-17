@@ -17,34 +17,91 @@ class BottomToTopTransition<T> extends PageRouteBuilder<T> {
       );
 }
 
-/// Owner 2026-11-17 ("like the example"): Where to? rises out of the Home
-/// bar in one slide, with no fade, and X slides it back into the bar.
-/// [startFraction] is where the bar's top sits, as a fraction of the
+/// Owner 2026-11-17 (CONFIRMED, two parts like the example): on Where to?
+/// the route header (X, From, Destination) slides down from above the top
+/// edge while the Home panel (its Where to? bar fading out) rises from where
+/// it is to meet it; X plays it backwards and the panel lands exactly where
+/// it was (down, middle or up). The route itself does not move: the page
+/// reads [WhereToSplit] and animates its header and list.
+/// [startFraction] is where the panel's top sits, as a fraction of the
 /// screen height (0 = top, 1 = bottom).
 class WhereToSlideTransition<T> extends PageRouteBuilder<T> {
   WhereToSlideTransition(
     Widget page, {
     required double startFraction,
+    double barInset = 0,
     super.settings,
   }) : super(
+         // Opaque: Home shows under it only while it moves (the route's
+         // overlay is see-through during the transition), and parks its map
+         // once the header and panel cover it.
          pageBuilder: (context, animation, secondary) => page,
-         transitionDuration: MoveraDurations.large,
-         reverseTransitionDuration: MoveraDurations.large,
+         transitionDuration: whereToSplitDuration,
+         reverseTransitionDuration: whereToSplitDuration,
          transitionsBuilder: (context, animation, secondary, child) {
-           if (MoveraMotion.reduced(context)) return child;
+           if (MoveraMotion.reduced(context)) {
+             return WhereToSplit(
+               animation: kAlwaysCompleteAnimation,
+               startFraction: startFraction.clamp(0.0, 1.0),
+               barInset: barInset,
+               child: child,
+             );
+           }
            return _Curved(
              animation: animation,
-             curve: MoveraCurves.open,
-             builder: (curved) => SlideTransition(
-               position: Tween<Offset>(
-                 begin: Offset(0, startFraction.clamp(0.0, 1.0)),
-                 end: Offset.zero,
-               ).animate(curved),
+             curve: Curves.easeOutCubic,
+             reverseCurve: Curves.easeInCubic,
+             builder: (curved) => WhereToSplit(
+               animation: curved,
+               startFraction: startFraction.clamp(0.0, 1.0),
+               barInset: barInset,
                child: child,
              ),
            );
          },
        );
+}
+
+/// ~300 ms, like the owner's example.
+const Duration whereToSplitDuration = Duration(milliseconds: 300);
+
+/// The two-part Where to? movement, read by the page it wraps.
+class WhereToSplit extends InheritedWidget {
+  const WhereToSplit({
+    super.key,
+    required this.animation,
+    required this.startFraction,
+    this.barInset = 0,
+    required super.child,
+  });
+
+  /// 0 = closed (header above the screen, panel at Home's spot), 1 = open.
+  final Animation<double> animation;
+  final double startFraction;
+
+  /// Where Home's Where to? bar sits below the panel's top, in pixels.
+  final double barInset;
+
+  static WhereToSplit? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<WhereToSplit>();
+
+  /// The header's offset as a fraction of its own height (-1 = just above
+  /// the top edge).
+  double get headerOffset => animation.value - 1;
+
+  /// How far the panel sits from its open place (up sheet: negative), in pixels, for a list
+  /// whose open top is [listTop] on a screen [screenHeight] tall.
+  double panelShift(double screenHeight, double listTop) =>
+      (1 - animation.value) * (startFraction * screenHeight - listTop);
+
+  /// The panel's Where to? bar: fully there at Home, gone half way up.
+  double get barOpacity => (1 - animation.value * 2).clamp(0.0, 1.0);
+
+  @override
+  bool updateShouldNotify(WhereToSplit old) =>
+      old.animation != animation ||
+      old.startFraction != startFraction ||
+      old.barInset != barInset;
 }
 
 class TopToBottomTransition<T> extends PageRouteBuilder<T> {
