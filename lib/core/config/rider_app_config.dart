@@ -115,6 +115,7 @@ class RiderAppConfig {
     this.minAheadMin = defaultMinAheadMin,
     this.freeChangeBeforeMin = defaultFreeChangeBeforeMin,
     this.reservationsOn = true,
+    this.pickupSpotsOn = true,
     this.maxPickupMoveMeters = defaultMaxPickupMoveAfterAcceptMeters,
     this.country = 'SE',
     this.languages = const AppLanguages(rider: 'sv', driver: 'sv', admin: 'sv'),
@@ -187,6 +188,13 @@ class RiderAppConfig {
   /// later switch. Off: Book later stays on screen and says "Not
   /// available in this area yet" when tapped.
   final bool reservationsOn;
+
+  /// Contract v0.18.115 `booking.pickupSpots.on` (BQ-V21; owner full-audit
+  /// Q6 "Keep as 'approximate'" => admin on/off per zone, default on): the
+  /// zone shows the approximate entrance chips (Main entrance / Side
+  /// entrance / Parking) on Set pickup. A document without it (an older
+  /// server) reads as on.
+  final bool pickupSpotsOn;
 
   /// `booking.maxPickupMoveMeters`: how far the pickup may move after
   /// accept (Q40).
@@ -441,6 +449,10 @@ class RiderAppConfig {
       reservationsOn: booking is Map && booking['reservationsOn'] is bool
           ? booking['reservationsOn'] as bool
           : fallback?.reservationsOn ?? true,
+      pickupSpotsOn: switch (booking) {
+        {'pickupSpots': {'on': final bool on}} => on,
+        _ => true,
+      },
       liveCancelFees: table('live', base?.liveCancelFees ?? const {}),
       reservationCancelFees: table(
         'reservation',

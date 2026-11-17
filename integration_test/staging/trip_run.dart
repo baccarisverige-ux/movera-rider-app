@@ -26,6 +26,7 @@ import 'rider_session.dart';
 import 'rider_steps.dart';
 import 'tap_ready.dart';
 import 'transition_watch.dart';
+import 'trip_rules.dart';
 import 'trip_steps.dart';
 
 part 'trip_book.dart';
@@ -123,6 +124,12 @@ class TripRun extends RiderSession {
   DateTime? onBoardAt;
   DateTime? rideCheckSeenAt;
 
+  /// FTL-H3: where the ride check card first showed: the request log
+  /// position (POSTs are counted from here), the step, the reason line.
+  int? rideCheckMark;
+  String? rideCheckSeenIn;
+  String? rideCheckReason;
+
   /// The drop-off the server booked (lat, lng), for the drive there.
   (double, double)? dropoff;
 
@@ -187,10 +194,22 @@ class TripRun extends RiderSession {
         );
 
   /// The rider's ride check card, answered "OK" the way a rider would,
-  /// whichever step is running.
+  /// whichever step is running (also from every [pumpUntil] through
+  /// [pumpGate], FTL-H2/H3). The first sight is recorded: time, request log
+  /// position, step and the card's reason line.
   Future<void> rideCheckGate() async {
     if (!shows(byKey('ride-check-card'))) return;
-    rideCheckSeenAt ??= DateTime.now();
+    if (rideCheckSeenAt == null) {
+      rideCheckSeenAt = DateTime.now();
+      rideCheckMark = rec.length;
+      rideCheckSeenIn = currentStep;
+      final reason = textOf('ride-check-reason')?.trim();
+      rideCheckReason = reason == null || reason.isEmpty ? null : reason;
+      CheckLog.say(
+        'STEP ride check card first shown in $currentStep '
+        '(reason: ${rideCheckReason ?? 'none shown'})',
+      );
+    }
     CheckLog.say('STEP ride check card shown: answered OK');
     final ok = byKey('ride-check-ok').hitTestable();
     if (tester.any(ok)) {
@@ -210,6 +229,10 @@ class TripRun extends RiderSession {
     required String peerPhone,
   }) async {
     stepsHardStop = hardDeadline;
+    secretValues
+      ..clear()
+      ..addAll([phone, code, peerPhone]);
+    pumpGate = rideCheckGate;
     final watchdog = Timer(
       startedAt.add(watchAfter).difference(DateTime.now()),
       () => unawaited(_hung()),
@@ -256,6 +279,7 @@ class TripRun extends RiderSession {
       stepsDone = true;
       watchdog.cancel();
       stepsHardStop = null;
+      pumpGate = null;
       if (stopped) {
         CheckLog.say(
           'STEP hard time limit (${TripRun.hardAfter.inMinutes} min) reached: '
@@ -361,8 +385,18 @@ class TripRun extends RiderSession {
 
   /// From "driver on the way" to History, the same for a live and a
   /// booked ride. [extras]: chat, calls, SOS, ride check.
+  ///
+  /// FTL-H2 (owner G22, Rules decisions/session-2026-11-06.md 2026-11-12
+  /// 10:42: "When rider inside the car ! Why should they call each other !"):
+  /// chat and calls run while the driver is ON THE WAY (stopped short of
+  /// the arrive distance), never with the rider on board.
   Future<void> _tripSteps({required bool extras}) async {
     await step('ARRIVING', 'driver on the way, map kept', _arriving);
+    if (extras) {
+      await step('CHAT', 'chat both ways, unread badge', _chat);
+      await step('CALL-OUT', 'rider calls: ring, answer, end', _callOut);
+      await step('CALL-IN', 'driver calls: answer, end', _callIn);
+    }
     await step(
       'SWITCH-1',
       'background/resume keeps the trip',
@@ -375,9 +409,6 @@ class TripRun extends RiderSession {
     if (extras) {
       // Stationary at the pickup with the rider on board: the server's
       // long-stop ride check clock runs while these go on.
-      await step('CHAT', 'chat both ways, unread badge', _chat);
-      await step('CALL-OUT', 'rider calls: ring, answer, end', _callOut);
-      await step('CALL-IN', 'driver calls: answer, end', _callIn);
       await step(
         'SWITCH-2',
         'background/resume keeps the trip',

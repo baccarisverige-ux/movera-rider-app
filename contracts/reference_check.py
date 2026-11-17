@@ -976,4 +976,97 @@ for _x in _aaf['nextStopAuto']:
 for _k, _t in _as['texts'].items():
     if set(_t) != {'sv', 'fr', 'en'} or any(not _t[l].strip() for l in _t): bad += 1; print('AUTO ARRIVE STOP TEXT', _k)
     if _k == 'driverStopPaused' and any('{leave}' not in _t[l] or '{arrive}' not in _t[l] for l in _t): bad += 1; print('AUTO ARRIVE STOP placeholders')
+# v0.18.110 (contract.json#bonusCampaigns, BQ-V44; owner decisions/driver-g10.md:9): bonus campaigns — validation,
+# counting (trips, online hours), the award once, payout lines + Driver gets / Movera gets, KPI day row.
+from datetime import date as _date, timedelta as _td
+from zoneinfo import ZoneInfo as _ZI
+_bc = c['bonusCampaigns']; _bcf = json.load(open('fixtures/bonus_campaigns.json'))
+def bonus_validate(zone, today, x):
+    lo, hi = _bc['limits']['target'][x['measure']]; t, a = x['target'], x['amount']
+    if not isinstance(t, int) or isinstance(t, bool) or not lo <= t <= hi: return 'bonus_target_invalid'
+    if a['currency'] != zone['currency'] or a['amountMinor'] <= 0: return 'bonus_amount_invalid'
+    if a['amountMinor'] > zone['max']['amountMinor']: return 'bonus_amount_above_max'
+    s, e = _date.fromisoformat(x['startDate']), _date.fromisoformat(x['endDate'])
+    if s > e or s < _date.fromisoformat(today) or (e - s).days + 1 > _bc['limits']['maxDays']: return 'bonus_dates_invalid'
+    pg = x['polygon']
+    if not 3 <= len(pg) <= 500 or pg[0] == pg[-1]: return 'bonus_area_invalid'
+    if not all(in_polygon(la, ln, zone['polygon']) for la, ln in pg): return 'bonus_area_invalid'  # MF6: inside the zone
+    return 'ok'
+def _bwin(cp):
+    tz = _ZI(cp['timeZone']); s = _date.fromisoformat(cp['startDate']); e = _date.fromisoformat(cp['endDate']) + _td(days=1)
+    return (datetime(s.year, s.month, s.day, tzinfo=tz).astimezone(timezone.utc), datetime(e.year, e.month, e.day, tzinfo=tz).astimezone(timezone.utc))
+def _bactive(cp, at):
+    ws, we = _bwin(cp)
+    if not ws <= at < we or ('endedAt' in cp and at >= _ts(cp['endedAt'])): return False
+    return not any(_ts(a) <= at < _ts(b) for a, b in cp['pauses'])
+def _bout(cp, prog, tgt, earned):
+    drv = {d: dict(done=v, target=tgt, earned=d in earned, **({'earnedAt': earned[d]} if d in earned else {})) for d, v in prog.items()}
+    ents = [dict(driverId=d, kind='bonus', tripId=None, amount=cp['amount'], at=at) for d, at in sorted(earned.items(), key=lambda x: x[1])]
+    return {'drivers': drv, 'entries': ents}
+def _bwho(cp, drivers, d): return cp['zoneId'] in drivers[d]['zoneIds']  # MF5: his zones include the campaign's zone
+def bonus_trips(cp, trips, drivers):
+    prog, seen, earned, rider_days = {}, set(), {}, set()
+    tz = _ZI(cp['timeZone'])
+    for t in sorted(trips, key=lambda t: t['paidEndAt']):
+        d = t['driverId']
+        if not _bwho(cp, drivers, d): continue
+        prog.setdefault(d, 0)
+        if d in earned or not t['paidEnd'] or t['tripId'] in seen or not _bactive(cp, _ts(t['paidEndAt'])) or not in_polygon(*t['pickup'], cp['polygon']): continue
+        # MF7 riderLimit: one rider once per driver, campaign and zone-local day; never the driver's own phone.
+        rd = (d, t['riderId'], _ts(t['paidEndAt']).astimezone(tz).date())
+        if t['riderPhone'] == drivers[d]['phone'] or rd in rider_days: continue
+        rider_days.add(rd); seen.add(t['tripId']); prog[d] += 1
+        if prog[d] >= cp['target']: earned[d] = t['paidEndAt']
+    return _bout(cp, prog, cp['target'], earned)
+def _km(a, b):
+    la1, lo1, la2, lo2 = map(math.radians, (a[0], a[1], b[0], b[1]))
+    return 6371.0 * 2 * math.asin(math.sqrt(math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2))
+def bonus_hours(cp, fixes, series, drivers):
+    oc = _bc['counting']; allf = list(fixes)
+    for sr in series:
+        for k in range(1, sr['count'] + 1):
+            allf.append(dict(driverId=sr['driverId'], at=(_ts(sr['from']) + _td(seconds=sr['everySeconds'] * (k - 1))).strftime('%Y-%m-%dT%H:%M:%SZ'), point=sr['point'], accuracyMeters=sr['accuracyMeters'], status=sr['status']))
+    secs, last, earned, need = {}, {}, {}, cp['target'] * 3600
+    for f in allf:  # in arrival order: a fix not later than the last counted one adds nothing
+        d, at = f['driverId'], _ts(f['at']); now = _ts(f.get('receivedAt', f['at']))
+        if not _bwho(cp, drivers, d): continue
+        secs.setdefault(d, 0)
+        if d in earned or f['status'] not in ('online', 'on_trip') or f['accuracyMeters'] > oc['accuracyMaxMeters'] or not in_polygon(*f['point'], cp['polygon']): continue
+        if not _bactive(cp, at) or not _bactive(cp, now) or at < _ts(drivers[d]['onlineSince']) or at > now: continue  # MF2 + MF3.1
+        if d in last:
+            lat, lnow, lpt = last[d]; gap = (at - lat).total_seconds()
+            if gap <= 0 or gap < oc['writeEverySeconds']: continue  # twice / out of order / waits (Rule 33)
+            if _km(lpt, f['point']) / (gap / 3600) > oc['maxSpeedKmh']: continue  # MF3.3 jump
+            if gap <= oc['gapMaxSeconds']: secs[d] += int(min(gap, (now - lnow).total_seconds()))  # MF3.2
+        last[d] = (at, now, f['point'])
+        if secs[d] >= need: earned[d] = now.strftime('%Y-%m-%dT%H:%M:%SZ')  # MF3.4 server time
+    return _bout(cp, {d: min(s, need) // 60 for d, s in secs.items()}, cp['target'] * 60, earned)
+def bonus_payout(x):
+    lines, trips, amount = payout(x['entries'])
+    ptm = sum(e['amountMinor'] for e in x['entries'] if e['kind'] == 'paid_to_movera')  # unlinked: in lines + amount only
+    if ptm: lines['paid_to_movera'] = ptm; amount += ptm
+    # MF4: only kind bonus WITH bonusId (campaign) is taken off, in both views; the lost-driver payment admin view only.
+    camp = sum(e['amountMinor'] for e in x['entries'] if e['kind'] == 'bonus' and e.get('campaign'))
+    lost = sum(e['amountMinor'] for e in x['entries'] if e['kind'] == 'bonus' and e.get('lostDriver'))
+    m = lambda n: {'amountMinor': n, 'currency': x['currency']}
+    gets = sum(e['amountMinor'] for e in x['entries'] if e['kind'] != 'paid_to_movera')
+    return dict(lines=lines, tripCount=trips, amountMinor=amount, driverGets=m(gets), moveraGets={'admin': m(x['moveraKeepsNowOfTrips'] - camp - lost), 'driver': m(x['moveraKeepsNowOfTrips'] - camp)})
+def bonus_kpi(x):
+    tz = _ZI(x['timeZone']); n = sum(e['amountMinor'] for e in x['campaignEntries'] if _ts(e['at']).astimezone(tz).date().isoformat() == x['day'])
+    return {'driverBonus': x['before']['driverBonus'] + n, 'moveraEarnings': x['before']['moveraEarnings'] - n}
+for _x in _bcf['validate']:
+    if bonus_validate(_x['zone'], _x['today'], _x['input']) != _x['expect']: bad += 1; print('BONUS VALIDATE', _x['id'], bonus_validate(_x['zone'], _x['today'], _x['input']))
+    if _x['zone']['max'] != c['configDefaults']['bonusCampaignMax'][{'SEK': 'SE', 'EUR': 'FR', 'TND': 'TN'}[_x['zone']['currency']]]: bad += 1; print('BONUS MAX default', _x['id'])
+for _x in _bcf['trips']:
+    if bonus_trips(_x['campaign'], _x['trips'], _x['drivers']) != _x['expect']: bad += 1; print('BONUS TRIPS', _x['id'], bonus_trips(_x['campaign'], _x['trips'], _x['drivers']))
+for _x in _bcf['hours']:
+    if bonus_hours(_x['campaign'], _x['fixes'], _x['series'], _x['drivers']) != _x['expect']: bad += 1; print('BONUS HOURS', _x['id'], bonus_hours(_x['campaign'], _x['fixes'], _x['series'], _x['drivers']))
+for _x in _bcf['payout']:
+    if bonus_payout(_x) != _x['expect']: bad += 1; print('BONUS PAYOUT', _x['id'], bonus_payout(_x))
+for _x in _bcf['kpi']:
+    if bonus_kpi(_x) != _x['expect']: bad += 1; print('BONUS KPI', _x['id'], bonus_kpi(_x))
+if not any(x['moveraGets']['admin'] != x['moveraGets']['driver'] for x in (y['expect'] for y in _bcf['payout'])): bad += 1; print('BONUS fixtures: one payout where the admin and driver views differ')
+if {x['zone']['currency'] for x in _bcf['validate']} != {'SEK', 'EUR', 'TND'} or not {'SEK', 'TND'} <= {x['currency'] for x in _bcf['payout']}: bad += 1; print('BONUS fixtures must cover SEK, EUR, TND')
+for _k, _t in _bc['texts'].items():
+    if set(_t) != {'sv', 'fr', 'en'} or any(not _t[l].strip() for l in _t): bad += 1; print('BONUS TEXT', _k)
 print('OK' if not bad else f'{bad} mismatches'); sys.exit(1 if bad else 0)

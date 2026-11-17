@@ -91,7 +91,12 @@ class _AccountHomePageState extends State<AccountHomePage> {
         : ride.name;
     final hasPhoto = ride.photoAsset.trim().isNotEmpty;
     final security = _security.available ? _security.state : null;
-    final email = security == null
+    // G21 follow-up: while the first read is on its way nothing has failed
+    // yet, so no error line and no finish card (they showed on every open).
+    final waiting = security == null && _security.loading;
+    final email = waiting
+        ? null
+        : security == null
         ? context.l10n.serverEmailUnavailable
         : security.email.trim().isEmpty
         ? context.l10n.emailNotAdded
@@ -104,6 +109,7 @@ class _AccountHomePageState extends State<AccountHomePage> {
     // G21: nothing to finish when the server offers neither 2-step nor a
     // recovery phone (live today); a failed read still says so.
     final checkupComplete =
+        waiting ||
         security?.checkupComplete == true ||
         (security != null && !security.offersCheckup);
 
@@ -147,11 +153,13 @@ class _AccountHomePageState extends State<AccountHomePage> {
                             name,
                             style: accountText(18, weight: FontWeight.w600),
                           ),
-                          const SizedBox(height: 3),
-                          Text(
-                            email,
-                            style: accountText(13, color: kAccountMuted),
-                          ),
+                          if (email != null) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              email,
+                              style: accountText(13, color: kAccountMuted),
+                            ),
+                          ],
                         ],
                       ),
                     ),

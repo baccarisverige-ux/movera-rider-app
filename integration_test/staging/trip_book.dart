@@ -403,14 +403,26 @@ extension _TripBook on TripRun {
     }
 
     final before = watch.mapStates()['trip'];
+    // FTL-H1 (Rules audits/impact/firebase-trip-run-2026-11-16.md row 1):
+    // stop OUTSIDE the server's arrive distance (terms.autoArriveMeters +
+    // 50 m, at least 150 m), on the line from the driver to the pickup, so
+    // the trip stays "on the way" through CHAT/CALL and SWITCH-1; the
+    // ARRIVED step drives the rest.
+    final short = stopShortMeters(lastRiderView ?? await riderView());
+    final away = DriverPeer.distanceMeters(peer.lat, peer.lng, to.$1, to.$2);
     await watch.run('arriving', () async {
-      // Stop ~40 m short: the arrive below sends the pickup point itself.
-      final near = DriverPeer.offset(to.$1, to.$2, north: -30, east: -25);
-      await peer.driveTo(near.$1, near.$2, (d) async {
-        sampleEta();
-        await rideCheckGate();
-        await wait(tester, d);
-      });
+      if (away > short) {
+        final f = short / away;
+        await peer.driveTo(
+          to.$1 + (peer.lat - to.$1) * f,
+          to.$2 + (peer.lng - to.$2) * f,
+          (d) async {
+            sampleEta();
+            await rideCheckGate();
+            await wait(tester, d);
+          },
+        );
+      }
       sampleEta();
     });
     final after = watch.mapStates()['trip'];
@@ -421,7 +433,9 @@ extension _TripBook on TripRun {
         after != null &&
         before.intersection(after).isNotEmpty;
     final detail =
-        'stage=$stage server=$status trip map kept=$kept ETA texts seen='
+        'stage=$stage server=$status driver stopped '
+        '${DriverPeer.distanceMeters(peer.lat, peer.lng, to.$1, to.$2).round()} m '
+        'short (outside ${short.round()} m) trip map kept=$kept ETA texts seen='
         '${etas.length} (${etas.length > 1 ? 'moved' : 'did not move: reported'}); '
         'fixes sent=${peer.fixesSent} failed=${peer.fixesFailed}';
     stageFor['driver_to_pickup']!.contains(stage) && kept && tripScreenShown()
@@ -429,20 +443,35 @@ extension _TripBook on TripRun {
         : log.fail('ARRIVING', title, detail);
   }
 
-  /// The driver taps Arrived (HTTP, at the pickup); the rider sees the
-  /// arrived stage and the PIN card.
+  /// The driver drives the rest to the pickup and taps Arrived (HTTP) —
+  /// only when the server has not auto-arrived the trip on the way
+  /// (FTL-H1); the rider sees the arrived stage and the PIN card.
   Future<void> _arrived() async {
     const title = 'arrived: the rider sees the PIN (UI-LAG)';
     final id = tripId!;
     final to = pickup ?? (lat, lng);
-    peer
-      ..lat = to.$1
-      ..lng = to.$2;
-    final answer = await peer.step(id, 'arrive', {
-      'location': geoFix(to.$1, to.$2),
+    await watch.run('to-pickup', () async {
+      await peer.driveTo(to.$1, to.$2, (d) async {
+        await rideCheckGate();
+        await wait(tester, d);
+      });
     });
-    if (!answer.ok) {
-      return log.fail('ARRIVED', title, 'driver arrive ${answer.short}');
+    final statusBefore = (await riderView())?['status'] as String?;
+    String sent;
+    if (arriveNeeded(statusBefore)) {
+      final answer = await peer.step(id, 'arrive', {
+        'location': geoFix(to.$1, to.$2),
+      });
+      sent = 'driver arrive ${answer.short}';
+      if (!answer.ok) {
+        final now = (await riderView())?['status'] as String?;
+        if (!arriveAnswerOk(answer.status, now)) {
+          return log.fail('ARRIVED', title, '$sent; server=$now');
+        }
+        sent = '$sent (server already arrived: auto-arrive)';
+      }
+    } else {
+      sent = 'server auto-arrived on the way: no arrive sent';
     }
     int? took;
     await watch.run('arrived', () async {
@@ -475,7 +504,7 @@ extension _TripBook on TripRun {
     }
     final (lagOk, lagText) = lag(took);
     final detail =
-        'driver arrive ${answer.short}; server=${view?['status']} '
+        '$sent; server=${view?['status']} '
         'pinRequired=$pinNeeded PIN card=$pinCard stage=${riderStage()}; $lagText';
     view?['status'] == 'arrived' && (!pinNeeded || pinCard) && lagOk
         ? log.pass('ARRIVED', title, detail)
@@ -559,16 +588,29 @@ extension _TripBook on TripRun {
       await wait(tester, const Duration(seconds: 3));
     });
     await rideCheckGate();
+    // What is on top is read BEFORE the server status, so an arrived sheet
+    // is always judged against a status read after it showed.
+    final tripTop = onTripTop();
+    final sheetTop = arrivedSheetOnTop();
     final after = (await riderView())?['status'];
     final mapAfter = watch.mapStates()['trip'];
     final sameMap =
         mapBefore != null &&
         mapAfter != null &&
         mapBefore.intersection(mapAfter).isNotEmpty;
+    // FTL-H1: the app's own "Driver arrived" sheet over the trip screen
+    // counts as the trip kept only while the server says `arrived` (it
+    // auto-arrived meanwhile); any other route on top stays a FAIL.
+    final kept = tripKept(
+      tripOnTop: tripTop,
+      arrivedSheetOnTop: sheetTop,
+      statusAfter: after as String?,
+    );
     final detail =
-        'trip screen on top=${onTripTop()} same map=$sameMap server '
+        'trip screen on top=$tripTop arrived sheet on top='
+        '$sheetTop same map=$sameMap server '
         'before=$before after=$after stage=${riderStage()}';
-    onTripTop() && sameMap && before == after
+    kept && sameMap && switchStatusKept(before as String?, after)
         ? log.pass(id, title, detail)
         : log.fail(id, title, detail);
   }

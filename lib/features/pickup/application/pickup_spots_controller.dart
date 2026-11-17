@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/core/config/rider_app_config.dart';
+import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/features/pickup/data/previous_pickups_store.dart';
 import 'package:movera_rider/features/pickup/domain/pickup_spot.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -49,10 +51,25 @@ String pickupSpotLabel(String address, PickupSpot spot) {
 /// the point; "Previously used" comes from the device's own confirmed
 /// pickups; "Near Home" only when Home is within [nearHomeM].
 class PickupSpotsController {
-  PickupSpotsController({PreviousPickupsStore? store})
-    : _store = store ?? SharedPreferencesPreviousPickupsStore();
+  PickupSpotsController({
+    PreviousPickupsStore? store,
+    Future<bool> Function(LatLng at)? entrancesOn,
+  }) : _store = store ?? SharedPreferencesPreviousPickupsStore(),
+       _entrancesOn = entrancesOn;
 
   final PreviousPickupsStore _store;
+
+  /// Contract v0.18.115 (BQ-V21): whether the zone of the point shows the
+  /// approximate entrance chips (`booking.pickupSpots.on`). Null, or an
+  /// answer that fails, = on (the owner's default).
+  final Future<bool> Function(LatLng at)? _entrancesOn;
+
+  /// The switch of the pickup zone's rider config ([RiderAppConfig.pickupSpotsOn]).
+  static Future<bool> Function(LatLng at) entrancesOnFrom(
+    RiderConfigRepository config,
+  ) =>
+      (at) async =>
+          (await config.forPickup(at.latitude, at.longitude)).pickupSpotsOn;
 
   static const maxSpots = 6;
   static const maxPrevious = 2;
@@ -76,27 +93,31 @@ class PickupSpotsController {
     // the invented spots stay, labelled approximate, so the driver sees it.
     final l10n = L10n.current;
     final generated = <PickupSpot>[
-      PickupSpot(
-        id: 'entrance-main',
-        title: l10n.pickupSpotApproximate(l10n.pickupSpotMainEntrance),
-        subtitle: l10n.pickupSpotFrontOfBuilding,
-        kind: PickupSpotKind.entrance,
-        position: pickupSpotOffset(at, northM: 25),
-      ),
-      PickupSpot(
-        id: 'entrance-side',
-        title: l10n.pickupSpotApproximate(l10n.pickupSpotSideEntrance),
-        subtitle: l10n.pickupSpotAroundCorner,
-        kind: PickupSpotKind.entrance,
-        position: pickupSpotOffset(at, northM: -30),
-      ),
-      PickupSpot(
-        id: 'parking',
-        title: l10n.pickupSpotApproximate(l10n.pickupSpotParking),
-        subtitle: l10n.pickupSpotShortWalk,
-        kind: PickupSpotKind.parking,
-        position: pickupSpotOffset(at, eastM: 60),
-      ),
+      // BQ-V21: the admin turns the approximate chips off per zone; the real
+      // places (Near Home, Previously used) stay.
+      if (await _showEntrances(at)) ...[
+        PickupSpot(
+          id: 'entrance-main',
+          title: l10n.pickupSpotApproximate(l10n.pickupSpotMainEntrance),
+          subtitle: l10n.pickupSpotFrontOfBuilding,
+          kind: PickupSpotKind.entrance,
+          position: pickupSpotOffset(at, northM: 25),
+        ),
+        PickupSpot(
+          id: 'entrance-side',
+          title: l10n.pickupSpotApproximate(l10n.pickupSpotSideEntrance),
+          subtitle: l10n.pickupSpotAroundCorner,
+          kind: PickupSpotKind.entrance,
+          position: pickupSpotOffset(at, northM: -30),
+        ),
+        PickupSpot(
+          id: 'parking',
+          title: l10n.pickupSpotApproximate(l10n.pickupSpotParking),
+          subtitle: l10n.pickupSpotShortWalk,
+          kind: PickupSpotKind.parking,
+          position: pickupSpotOffset(at, eastM: 60),
+        ),
+      ],
     ];
     if (home != null && pickupSpotDistanceM(at, home) <= nearHomeM) {
       generated.add(
@@ -132,6 +153,16 @@ class PickupSpotsController {
     }
 
     return [...previous, ...generated].take(maxSpots).toList(growable: false);
+  }
+
+  Future<bool> _showEntrances(LatLng at) async {
+    final read = _entrancesOn;
+    if (read == null) return true;
+    try {
+      return await read(at);
+    } catch (_) {
+      return true;
+    }
   }
 
   /// Saves a confirmed pickup; the newest [keepPrevious] are kept.
