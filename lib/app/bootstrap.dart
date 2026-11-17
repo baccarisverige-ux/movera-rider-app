@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:movera_rider/core/location/start_warmup.dart';
+import 'package:movera_rider/app/app_start.dart';
 import 'package:movera_rider/core/config/emergency_numbers.dart';
 import 'package:movera_rider/core/config/live_data_only.dart';
 import 'package:movera_rider/core/preview/preview_mode.dart';
@@ -112,23 +112,17 @@ Future<void> bootstrap() async {
   // L-a R1/R3 (owner Q5 A): a live build shows no sample zones or prices.
   LiveDataOnly.on = !AppEnv.current.allowsMockTransport;
   PreviewMode.readFromUrl();
-  // UI-15: bundled Poppins, when present, means no font download at start.
-  // Fast start (REMINDERS 144/145): the position search starts with the
-  // intro, in parallel with every boot step below. Only reads: no prompt.
-  unawaited(
-    StartWarmup.start(
-      location: AppScope.instance.location,
-      // As the start route decides: Home without sign-in (demo), else a
-      // stored session.
-      signedIn: () async {
-        final env = AppEnv.current;
-        if (!env.authRequired && !env.authPreview) return true;
-        final tokens = AppScope.instance.tokens;
-        return (await tokens.readAccess())?.isNotEmpty == true &&
-            (await tokens.readRefresh())?.isNotEmpty == true;
-      },
-    ),
+  // Fast start (REMINDERS 144/145): position search and map loading start
+  // with the intro, in parallel with every boot step (lib/app/app_start.dart).
+  await runAppStart(
+    early: startBehindIntro,
+    boot: _bootSteps,
+    firstScreen: _showFirstScreen,
   );
+}
+
+Future<void> _bootSteps() async {
+  // UI-15: bundled Poppins, when present, means no font download at start.
   await configureBundledFonts();
   // Before anything can call the API: a 401 during start-up still has a
   // Sign in screen to show.
@@ -278,7 +272,9 @@ Future<void> bootstrap() async {
   // re-accept is asked for.
   unawaited(AppScope.instance.legal.load(start: true));
   AppLog.info('app.start', extra: {'platform': kIsWeb ? 'web' : 'native'});
+}
 
+void _showFirstScreen() {
   runZonedGuarded(
     () {
       runApp(const MoveraApp());

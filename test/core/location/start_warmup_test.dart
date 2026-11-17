@@ -156,4 +156,22 @@ void main() {
     const trip = GeoPoint(48.85, 2.35);
     expect(StartWarmup.startPoint(trip: trip), trip);
   });
+
+  test('map load starts for a rider who will see Home, even with location '
+      'refused; never for the sign-in screen', () async {
+    var warmed = 0;
+    await StartWarmup.start(
+      location: _Loc(permission: LocationPermission.deniedForever),
+      signedIn: () async => true,
+      warmMap: () => warmed++,
+    );
+    expect(warmed, 1);
+    StartWarmup.debugReset();
+    await StartWarmup.start(
+      location: _Loc(),
+      signedIn: () async => false,
+      warmMap: () => warmed++,
+    );
+    expect(warmed, 1, reason: 'the sign-in screen has no map (LT-4)');
+  });
 }

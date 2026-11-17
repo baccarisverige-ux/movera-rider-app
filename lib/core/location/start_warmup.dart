@@ -39,11 +39,15 @@ class StartWarmup {
   static Future<void> start({
     required LocationRepository location,
     required Future<bool> Function() signedIn,
+    void Function()? warmMap,
   }) async {
     if (_startedAt != null) return;
     _startedAt = DateTime.now();
     try {
       if (!await signedIn()) return;
+      // Home comes next: its map starts loading now (also when location
+      // is refused: Home then shows the map at the zone city).
+      warmMap?.call();
       if (!await location.isLocationServiceEnabled()) return;
       final permission = await location.checkPermission();
       if (permission != LocationPermission.whileInUse &&
