@@ -9,6 +9,7 @@ import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/location/location_point.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
+import 'package:movera_rider/core/location/start_warmup.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/motion/bearing.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
@@ -508,7 +509,7 @@ class HomeLocationController extends ChangeNotifier {
   /// accurate fix is still coming. The OS's cached last position, else a
   /// quick low-accuracy fix within [quickFixTimeout]. Null when neither
   /// answers in time. Puck and camera only, never a pickup.
-  Future<LatLng?> _quickPosition() async {
+  Future<LatLng?> _quickPosition({bool network = true}) async {
     try {
       final cached = await location.lastKnownFix();
       if (cached != null && cached.isValid) {
@@ -517,6 +518,8 @@ class HomeLocationController extends ChangeNotifier {
     } catch (_) {
       // No cached fix: ask for a quick one below.
     }
+    // The warm request is already running: no second request.
+    if (!network) return null;
     try {
       // D-003: the Dart-side timeout bounds the web plugin as well.
       final position = await location
@@ -595,18 +598,23 @@ class HomeLocationController extends ChangeNotifier {
       // D-003: geolocator_web passes timeLimit in microseconds to a JS API
       // that expects milliseconds (15 s becomes ~4 h). The Dart-side
       // timeout guarantees the fallback path still runs.
-      final accurate = location
-          .getCurrentPosition(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.high,
-              timeLimit: Duration(seconds: 15),
-            ),
-          )
-          .timeout(detectFixTimeout);
+      // Fast start (REMINDERS 144/145): the request the intro started is
+      // used once instead of a second one.
+      final warm = StartWarmup.takePosition();
+      final accurate =
+          warm ??
+          location
+              .getCurrentPosition(
+                locationSettings: const LocationSettings(
+                  accuracy: LocationAccuracy.high,
+                  timeLimit: Duration(seconds: 15),
+                ),
+              )
+              .timeout(detectFixTimeout);
       var accurateSettled = false;
       if (onQuickFix != null) {
         unawaited(
-          _quickPosition().then((point) {
+          _quickPosition(network: warm == null).then((point) {
             if (point == null || accurateSettled || _disposed) return;
             onQuickFix(point);
           }),

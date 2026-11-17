@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:movera_rider/core/location/start_warmup.dart';
 import 'package:movera_rider/core/config/emergency_numbers.dart';
 import 'package:movera_rider/core/config/live_data_only.dart';
 import 'package:movera_rider/core/preview/preview_mode.dart';
@@ -112,6 +113,15 @@ Future<void> bootstrap() async {
   LiveDataOnly.on = !AppEnv.current.allowsMockTransport;
   PreviewMode.readFromUrl();
   // UI-15: bundled Poppins, when present, means no font download at start.
+  // Fast start (REMINDERS 144/145): the position search starts with the
+  // intro, in parallel with every boot step below. Only reads: no prompt.
+  unawaited(
+    StartWarmup.start(
+      location: AppScope.instance.location,
+      signedIn: () async =>
+          (await AppScope.instance.tokens.readAccess())?.isNotEmpty ?? false,
+    ),
+  );
   await configureBundledFonts();
   // Before anything can call the API: a 401 during start-up still has a
   // Sign in screen to show.

@@ -15,8 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Owner job "Fast start behind the intro" (REMINDERS 144/145): the
 /// position read starts with the intro, once, and Home reuses it.
 class _Loc extends LocationRepository {
-  _Loc({this.permission = LocationPermission.whileInUse})
-    : super(isWeb: false);
+  _Loc({this.permission = LocationPermission.whileInUse}) : super(isWeb: false);
 
   LocationPermission permission;
   final List<String> calls = [];

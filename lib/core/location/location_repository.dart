@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb, visibleForTesting;
 import 'package:geolocator/geolocator.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
+import 'package:movera_rider/core/location/start_warmup.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -197,6 +198,7 @@ class LocationRepository {
   /// keeps the previous rider recorded and wipes again).
   static Future<bool> clearLastGoodFix() async {
     _sessionFix = null;
+    StartWarmup.forget();
     try {
       final prefs = await SharedPreferences.getInstance();
       return await prefs.remove(lastGoodFixKey);
