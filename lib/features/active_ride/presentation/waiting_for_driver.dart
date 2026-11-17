@@ -69,6 +69,7 @@ import 'package:movera_rider/features/messages/presentation/trip_call.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
+import 'package:movera_rider/features/active_ride/presentation/trip_arrival.dart';
 import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_monitor.dart';
@@ -168,6 +169,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   late String _destinationAddress = widget.destinationAddress;
   late LatLng _destinationPosition = widget.destinationPosition;
   late List<RouteStop> _stops = List<RouteStop>.from(widget.stops);
+
+  /// G26 / G-S6: when this screen first saw the trip running; the planned
+  /// arrival is counted from it until the live ETA arrives.
+  DateTime? _tripStartedAt;
   bool _routeEditOpen = false;
 
   /// v0.18.9: a withdraw of the pending route change is on its way.
@@ -426,7 +431,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
           firstName: driver?.displayFirstName,
           status: _tracking.status,
         ) ??
-        (driver == null
+        (_tracking.status.isCompletedSurface
+            ? ''
+            : driver == null
             ? context.l10n.driverDetailsLater
             : context.l10n.etaLeaveNowName(driver.displayFirstName));
     final media = MediaQuery.of(context);

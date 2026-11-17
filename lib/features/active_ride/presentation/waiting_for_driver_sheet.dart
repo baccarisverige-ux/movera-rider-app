@@ -1,14 +1,25 @@
 part of 'waiting_for_driver.dart';
 
 extension _WaitingSheet on _WaitingForDriverState {
-  /// The live arrival time during the trip ("Arrive by 08:19"), or null
-  /// while no driver ETA has arrived yet.
+  /// The arrival time during the trip ("Arrive by 08:19"): the live ETA,
+  /// else (G26 / G-S6, owner 2026-11-17) the planned time from the trip
+  /// start, so the title does not jump when the first ETA arrives.
   String? _tripHeadline(DriverEta? eta, RideStatus status) {
-    final seconds = eta?.seconds;
-    if (!DriverEta.isInTrip(status) || seconds == null) return null;
-    return context.l10n.arriveBy(
-      clockTime(DateTime.now().add(Duration(seconds: seconds))),
+    if (!DriverEta.isInTrip(status)) return null;
+    final now = DateTime.now();
+    final at = tripArrivalAt(
+      status: status,
+      liveSeconds: eta?.seconds,
+      plannedFrom: _tripStartedAt ??= now,
+      pickup: GeoPoint(_pickupPosition.latitude, _pickupPosition.longitude),
+      stops: [for (final s in _stops) GeoPoint(s.latitude, s.longitude)],
+      destination: GeoPoint(
+        _destinationPosition.latitude,
+        _destinationPosition.longitude,
+      ),
+      now: now,
     );
+    return at == null ? null : context.l10n.arriveBy(clockTime(at));
   }
 
   /// Headline for the sheet: the arrival time during the trip, the stage
