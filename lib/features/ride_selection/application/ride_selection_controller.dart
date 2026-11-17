@@ -812,7 +812,10 @@ class RideSelectionController {
     String catalogCurrency = Money.defaultCurrency,
   }) {
     selectedRideId = id;
-    if (catalogCurrency == currency && !_expiredQuoteIds.contains(id)) {
+    // G26 (G-S2): a 0 list price means "not quoted yet", never a fare.
+    if (catalog > 0 &&
+        catalogCurrency == currency &&
+        !_expiredQuoteIds.contains(id)) {
       offeredPrices.putIfAbsent(id, () => catalog);
     }
   }
@@ -823,6 +826,7 @@ class RideSelectionController {
   bool hasPriceFor(
     String id, {
     required String catalogCurrency,
+    double? catalogPrice,
     DateTime? now,
   }) {
     _discardExpiredQuote(id, now: now);
@@ -833,8 +837,13 @@ class RideSelectionController {
             RideCatalogSource.builtIn) {
       return quoteIsAvailable(id, now: now);
     }
+    // G26 (G-S2): a zone row without a list price in its currency is 0
+    // until quoted (RideCatalogController._withConfig); that 0 is no price,
+    // so the tile shows its loader instead of "0.000 DT".
     return offeredPrices.containsKey(id) ||
-        (catalogCurrency == currency && !_expiredQuoteIds.contains(id));
+        (catalogCurrency == currency &&
+            !_expiredQuoteIds.contains(id) &&
+            (catalogPrice == null || catalogPrice > 0));
   }
 
   RidePaymentItem? selectedPaymentItem() {
