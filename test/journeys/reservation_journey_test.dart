@@ -166,7 +166,9 @@ void main() {
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 120));
-      expect(find.text('Ride in progress'), findsOneWidget);
+      // G26 / G-S6 (owner 2026-11-17): the planned arrival time, not
+      // the stage name, until the live ETA arrives.
+      expect(find.textContaining('Arrive by'), findsWidgets);
 
       await reservations.update(
         'journey-reservation-1',

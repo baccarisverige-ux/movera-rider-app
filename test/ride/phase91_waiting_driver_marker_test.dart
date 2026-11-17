@@ -258,9 +258,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
 
       expect(find.byType(DriverArrivedSheet), findsNothing);
-      // No driver fix has arrived in this test, so the stage name shows
-      // until the live "Arrive by" time is known.
-      expect(find.text('Ride in progress'), findsOneWidget);
+      // No live ETA has arrived in this test: G26 / G-S6 (owner
+      // 2026-11-17) shows the planned arrival time, not the stage name.
+      expect(find.textContaining('Arrive by'), findsWidgets);
+      expect(find.text('Ride in progress'), findsNothing);
     },
   );
 

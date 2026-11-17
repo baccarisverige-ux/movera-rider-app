@@ -299,7 +299,9 @@ void main() {
         () => c.byId(id)!.status == ReservationStatus.inProgress,
       );
       expect(c.byId(id)!.status, ReservationStatus.inProgress);
-      expect(find.text('Ride in progress'), findsOneWidget);
+      // G26 / G-S6 (owner 2026-11-17): the planned arrival time, not
+      // the stage name, until the live ETA arrives.
+      expect(find.textContaining('Arrive by'), findsWidgets);
       expect(liveRoutes.pushes, 1);
 
       await pumpUntil(
