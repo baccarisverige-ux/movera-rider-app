@@ -6,6 +6,7 @@ import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/maps/camera_tilt.dart';
 import 'package:movera_rider/core/maps/map_camera_motion.dart';
 import 'package:movera_rider/core/maps/map_camera_report.dart';
+import 'package:movera_rider/core/maps/map_pole_limit.dart';
 import 'package:movera_rider/core/maps/map_zoom_limit.dart';
 import 'package:movera_rider/core/web/map_touch.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
@@ -271,12 +272,43 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     if (view != null && !view.easing && !view.isLateEcho(position)) {
       view.pose = position;
     }
+    _lastCamera = position;
+    _keepInsideWorld(position);
     widget.onCameraMove?.call(position);
   }
 
   void _onIdle() {
+    final camera = _lastCamera;
+    if (camera != null) _keepInsideWorld(camera);
     _settleTilt();
     widget.onCameraIdle?.call();
+  }
+
+  /// The camera as Maps last reported it.
+  CameraPosition? _lastCamera;
+
+  /// The pole stop last sent, so the echo of it is not sent again.
+  CameraPosition? _poleStopSent;
+
+  /// Owner 2026-11-17 ("When slide map must stop with the arctic and
+  /// antarctic"): the view never goes past the top or bottom of the world
+  /// (no grey band). Phones: when a pan or zoom-out takes the view's top
+  /// edge above 85.05° N (or its bottom below 85.05° S), the camera is put
+  /// back on the edge at once, so the map stops there under the finger.
+  /// Web: Maps JavaScript stops it itself ([kMapWorldBounds]).
+  void _keepInsideWorld(CameraPosition camera) {
+    if (kIsWeb) return;
+    final controller = _mapController;
+    final size = context.size;
+    if (controller == null || size == null) return;
+    final stop = MapPoleLimit.clamp(camera, size, padding: widget.padding);
+    if (stop == null) {
+      _poleStopSent = null;
+      return;
+    }
+    if (stop == _poleStopSent) return;
+    _poleStopSent = stop;
+    unawaited(controller.moveCamera(CameraUpdate.newCameraPosition(stop)));
   }
 
   /// The camera stopped after the rider zoomed or panned it: tilt it to
@@ -381,6 +413,12 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
       // cloud Map ID is the only styling on every map.
       trafficEnabled: false,
       minMaxZoomPreference: kMapZoomPreference,
+      // Web: the view stays inside the world north-south (no grey above
+      // the Arctic); phones use [_keepInsideWorld], since there these
+      // bounds would hold the centre, not the view.
+      cameraTargetBounds: kIsWeb
+          ? CameraTargetBounds(kMapWorldBounds)
+          : CameraTargetBounds.unbounded,
       buildingsEnabled: widget.buildingsEnabled,
       indoorViewEnabled: widget.indoorViewEnabled,
       scrollGesturesEnabled: widget.scrollGesturesEnabled,
