@@ -93,6 +93,8 @@ import 'package:movera_rider/core/contracts/on_trip.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_pending_card.dart';
 import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/features/driver_arriving/presentation/driver_photo_avatar.dart';
+import 'package:movera_rider/features/profile/domain/rider_outstanding.dart';
+import 'package:movera_rider/features/wallet/domain/rider_debt.dart';
 
 part 'waiting_for_driver_camera.dart';
 part 'waiting_for_driver_cancel.dart';

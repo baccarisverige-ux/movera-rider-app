@@ -1957,6 +1957,41 @@
   "@refundDetailsInvalid": {"description": "BQ-V39 (contract.json#debtModel.refunds, owner Q-M4): 400 bank_details_invalid or invalid_request."},
   "refundSendFailed": "Couldn’t send your choice. Try again.",
   "@refundSendFailed": {"description": "BQ-V39 (contract.json#debtModel.refunds, owner Q-M4): Network, time-out, 429 or 5xx: nothing changed, the same request can be sent again."},
+  "quoteDebtLine": "+ {amount} unpaid from an earlier trip, added when you pay",
+  "@quoteDebtLine": {
+    "description": "J10 (contract v0.18.84 debtModel.texts.quoteDebtLine, owner Q-S5-5): Choose ride, under the price: the rider's debt from Quote.walletDebt, information only (not in the price, paid once at payment).",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "riderDebtAboveMax": "You owe {amount} from earlier trips. Trips paid in the car are paused until it is paid. Contact support to pay it.",
+  "@riderDebtAboveMax": {
+    "description": "J10 (contract v0.18.84 debtModel.texts.riderDebtAboveMax, owner Q-S5-4): the box when POST /trips pay in car is refused with 409 rider_debt_above_max; amount = the debt in the server's details.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "walletFee": "Unpaid fee",
+  "@walletFee": {
+    "description": "J10 (contract v0.18.84 debtModel.texts.walletFee): label of the wallet movement kind fee (an unpaid cancel or no-show fee)."
+  },
+  "walletDebtPaid": "Unpaid fee paid",
+  "@walletDebtPaid": {
+    "description": "J10 (contract v0.18.84 debtModel.texts.walletDebtPaid): label of the wallet movement kind debt_paid."
+  },
+  "walletYouOwe": "You owe {amount}",
+  "@walletYouOwe": {
+    "description": "J10 (contract v0.18.84 debtModel.riderWallet, owner Q-M1): a negative wallet balance shown as a debt (Wallet, Pay with). Proposal from the opening words of riderDebtAboveMax (Text batch, Rule 45.8).",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "scheduleForLater": "Schedule for later",
   "later": "Later",
   "scheduleARide": "Schedule a ride",

@@ -103,7 +103,10 @@ extension _WaitingStages on _WaitingForDriverState {
         paymentMethodLabel: widget.paymentMethod,
         notes: widget.notes,
         stops: trip.stops,
-        useWalletFirst: widget.walletAmountMinor > 0,
+        // J10 (v0.18.84 debtModel.walletSwitch): on while the rider owes.
+        useWalletFirst:
+            widget.walletAmountMinor > 0 ||
+            RiderOutstanding.current.value.inCurrency(quote.currency) != null,
         walletAmountMinor: widget.walletAmountMinor,
       );
       final finding = FindingDrivers(
@@ -147,9 +150,12 @@ extension _WaitingStages on _WaitingForDriverState {
       if (mounted) {
         MoveraToast.show(
           context,
-          BookingController.mayHaveBooked(error)
-              ? context.l10n.bookingUncertain
-              : context.l10n.rebookFailed,
+          // J10 (v0.18.84): pay in car paused while the rider owes at or
+          // above the max (409 rider_debt_above_max); nothing was booked.
+          RiderDebtRefusal.messageOf(error) ??
+              (BookingController.mayHaveBooked(error)
+                  ? context.l10n.bookingUncertain
+                  : context.l10n.rebookFailed),
         );
       }
       return false;

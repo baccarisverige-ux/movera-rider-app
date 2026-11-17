@@ -556,6 +556,8 @@ extension _SelectRideTiles on _SelectRideState {
                           _walletCurrencyNote(),
                         if (_outstandingFeeOf(ride) case final fee?)
                           _outstandingFeeLine(ride, fee),
+                        if (_selection.quoteDebtFor(ride.id) case final debt?)
+                          _quoteDebtLine(ride, debt),
                         // Description and badge come in as the sheet opens
                         // fully.
                         _SelectRideState._reveal(
@@ -625,8 +627,22 @@ extension _SelectRideTiles on _SelectRideState {
       !_selection.walletMatchesTrip &&
       _selection.walletEnabled;
 
+  /// J10 (contract v0.18.84 `debtModel.quoteInfo`, owner Q-S5-5): the
+  /// rider's debt from `Quote.walletDebt`, under the price and never in
+  /// it ("added when you pay"); the server's amount as it is.
+  Widget _quoteDebtLine(_RideOption ride, Money debt) => Padding(
+    key: ValueKey('select-ride-quote-debt-${ride.id}'),
+    padding: const EdgeInsets.only(top: 4),
+    child: Text(
+      context.l10n.quoteDebtLine(formatMoney(debt)),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: _text(12, color: _SelectRideState._muted),
+    ),
+  );
+
   /// Live sweep 2026-11-02 M-1: the old unpaid fee inside this price
-  /// (`fareLines.outstanding_fee`), or null.
+  /// (`fareLines.outstanding_fee`, a server before J8), or null.
   Money? _outstandingFeeOf(_RideOption ride) =>
       _selection.unpaidFeeFor(ride.id);
 

@@ -31,22 +31,23 @@ void main() {
     serverHeld: true,
   );
 
-  test(
-    'the list price already carries the unpaid fee: no jump at the quote',
-    () {
-      RiderOutstanding.current.value = const RiderOutstanding(
-        byCurrency: [Money(14900, 'SEK')],
-      );
-      final selection = RideSelectionController(currency: 'SEK');
-      addTearDown(selection.dispose);
-      final before = selection.priceFor('economy', 259);
-      selection.adoptQuote('economy', quote());
-      final after = selection.priceFor('economy', 259);
-      expect(before, 408, reason: 'first price $before, quote $after');
-      expect(after, 408);
-      expect(selection.unpaidFeeFor('economy'), const Money(14900, 'SEK'));
-    },
-  );
+  // J10 (contract v0.18.84 debtModel.readAtPayment, owner Q-M2 "read at
+  // payment"): the debt is never in a price any more, so the list price no
+  // longer carries it. Only a quote from a server before J8 still holds the
+  // outstanding_fee line in its own total; its line stays shown.
+  test('the list price never carries the debt; an old quote\'s line stays', () {
+    RiderOutstanding.current.value = const RiderOutstanding(
+      byCurrency: [Money(14900, 'SEK')],
+    );
+    final selection = RideSelectionController(currency: 'SEK');
+    addTearDown(selection.dispose);
+    final before = selection.priceFor('economy', 259);
+    expect(before, 259);
+    expect(selection.unpaidFeeFor('economy'), isNull);
+    selection.adoptQuote('economy', quote());
+    expect(selection.priceFor('economy', 259), 408);
+    expect(selection.unpaidFeeFor('economy'), const Money(14900, 'SEK'));
+  });
 
   test('a debt in another currency is not added', () {
     RiderOutstanding.current.value = const RiderOutstanding(

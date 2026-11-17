@@ -79,6 +79,8 @@ class LedgerWalletHistory implements WalletHistorySource {
             WalletEntryKind.ride => 'charge',
             WalletEntryKind.refund => 'refund',
             WalletEntryKind.voucher => 'adjustment',
+            WalletEntryKind.fee => 'fee',
+            WalletEntryKind.debtPaid => 'debt_paid',
           },
           amount: Money(e.amountMinor, e.currency),
           at: e.at,

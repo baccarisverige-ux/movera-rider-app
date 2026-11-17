@@ -1,11 +1,11 @@
-# Movera API v0.18.115 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.118 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.115
+  version: 0.18.118
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.115 in this folder; this file must agree with them.
+    v0.18.118 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.115
+  version: 0.18.118
   source: contract.json
 paths:
   /auth/otp/request:
@@ -2583,13 +2583,35 @@ paths:
       summary: Upload a batch of GPS fixes
       description: 'Fixes are fanned out as kind=location on the active trip''s stream; they never change the projection version.
         v0.18.52 (§74): a batch from a driver who is offline or suspended with no active trip is not stored: 200 with accepted
-        0 (contract.json#driverHome.offlineLocation).'
+        0 (contract.json#driverHome.offlineLocation). v0.18.117 (driverHome.locationSend): On a trip, a batch writes one location
+        event (kind=location, the batch''s newest fix) only when that fix is new: measured after the driver''s stored fix,
+        or the first one. The same fix sent again (same measuredAt) is still taken and refreshes the driver''s last-seen time
+        (lastFixAt), but writes no location event. A batch older than the stored fix only fills the trip trace: no location
+        event, the stored position is kept. On a trip, every batch with at least one fix taken books the server''s ride-check
+        scan (onTrip.rideCheck, at most once per scanEverySeconds), also the same fix sent again and an older batch, so standing
+        fixes that arrive late are looked at for a long stop. v0.18.118 (contract chain supervisor 2026-11-16 SF2, Rules audits/impact/contract-chain-supervisor-2026-11-16.md;
+        server src/safety/rideCheckServer.ts ONBOARD): "On a trip" = with the rider on board (rider_onboard, in_trip or approaching_dropoff,
+        onTrip.rideCheck.detection.when); in other statuses no scan is booked. The time the same fix keeps being sent counts
+        as standing time for long_stop, unless the fix said the car was moving (onTrip.rideCheck.detection.long_stop). The
+        Idempotency-Key header is checked as on every mutation (missing or not 16-128 characters: 400) but is never stored:
+        a repeat with the same key runs again; it is never replayed and never 409, also with another body. A resent batch
+        is safe: a fix that is not new writes no location event and the trip trace keeps one row per fix time.'
       tags:
       - Driver · Session
       x-actor:
       - driver
       parameters:
-      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: Idempotency-Key
+        in: header
+        required: true
+        description: 'v0.18.117 (driverHome.locationSend.idempotencyKey): The Idempotency-Key header is checked as on every
+          mutation (missing or not 16-128 characters: 400) but is never stored: a repeat with the same key runs again; it
+          is never replayed and never 409, also with another body. A resent batch is safe: a fix that is not new writes no
+          location event and the trip trace keeps one row per fix time.'
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
       requestBody:
@@ -2624,6 +2646,7 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+      x-idempotency: checked, not stored
   /driver/offers:
     get:
       operationId: listDriverOffers
@@ -5081,9 +5104,12 @@ paths:
         lists the oldest-waiting ticket first. Order: first the waiting tickets (waitingSince set), waitingSince oldest first,
         ties by ticketId; then every other ticket, updatedAt newest first, ties by ticketId (the order before v0.18.112).
         The filters (status, priority, assignedTo, q, zones, ...) and total work as before. GET /support/tickets (the rider''s
-        or driver''s own list) keeps newest change first. Cursor paging as before (limit, nextCursor; nextCursor null = the
-        last page). One cursor carries the place in both parts of the order; the panel sends it back unchanged with the same
-        filters. A cursor made before v0.18.112 continues in the second part (updatedAt newest first), never 400.'
+        or driver''s own list) keeps newest change first. v0.18.118 (A04 supervisor SF-A2, Rules audits/impact/a04-s13-v21-supervisor.md;
+        server branch claude/rules-email-key-browserstack-f5y0p3-a04s-r2 a961de3 src/support/tickets.ts:229, :234): the ticketId
+        tie-break follows each part''s direction: ascending in the first part (waitingSince oldest first), descending in the
+        second (updatedAt newest first). Cursor paging as before (limit, nextCursor; nextCursor null = the last page). One
+        cursor carries the place in both parts of the order; the panel sends it back unchanged with the same filters. A cursor
+        made before v0.18.112 continues in the second part (updatedAt newest first), never 400.'
       tags:
       - Admin · Lists
       x-actor:
@@ -6955,7 +6981,14 @@ paths:
         included). records holds the open ones and those done in the last 30 days. country: SE | FR | TN; an admin outside
         the country -> 403 zone_out_of_scope. v0.18.23: AlertBookState also carries alerts [LiveAlert] (serverDetection):
         the alerts the server found, open or solved by itself, of the admin''s zones in that country and the groups the admin
-        may see (same filter as records).'
+        may see (same filter as records). v0.18.117 (alertDesk.serverDetection.liveList): AlertBookState.alerts: Every open
+        alert of the admin''s zones and kind groups is sent: no limit, never cut. After the open ones, at most solvedCap (1000)
+        solved alerts: per kind the 1000 newest by solvedAt, then, over all kinds, the first 1000 with the safety kinds first
+        and then the newest solvedAt. Open before solved. Open: the safety kinds first (kindGroups group safety: sos, car_lost,
+        ride_check, sos_slow), then level critical, important, info, then the newest since, then alertId. Solved: the safety
+        kinds first, then the newest solvedAt (an alert without solvedAt last), then alertId. Not built yet: past solvedCap
+        the older solved alerts are left out and nothing in the answer says so (no ''more'' marker, no count). A marker and
+        a limit for open non-safety alerts are a later job (MF3).'
       tags:
       - Admin · Alerts
       x-actor:
@@ -11843,7 +11876,12 @@ paths:
       operationId: adminConfigHistory
       summary: Published versions of a config document, newest first
       description: 'v0.7.1. GET /admin/config/{doc}/history?zoneId&cursor&limit (settings.read): newest first, ConfigHistoryEntry
-        { version, publishedAt, publishedBy, note?, action: publish | restore, restoredFrom?, document }'
+        { version, publishedAt, publishedBy, note?, action: publish | restore, restoredFrom?, document } v0.18.118 (Rules
+        audits/impact/country-undo.md; server branch claude/rules-email-key-browserstack-f5y0p3-cfgundo fad59d5 src/config/scope.ts
+        scopeKey, src/pricing/routes.ts HistoryQuery / RestoreBody, src/config/service.ts configHistory): History names exactly
+        one of zoneId or country (ISO alpha-2: the country''s standard), as GET, PUT and publish (configDocs.scope: both or
+        neither → 400 invalid_request, reason scope_required; a country the admin has no zone in → 403 zone_out_of_scope;
+        a country with no zone → 404 country_not_found). An entry of a country''s standard carries country instead of zoneId.'
       tags:
       - Admin · Config
       x-actor:
@@ -11851,11 +11889,8 @@ paths:
       x-permission: settings.read
       parameters:
       - $ref: '#/components/parameters/ConfigDoc'
-      - name: zoneId
-        in: query
-        required: false
-        schema:
-          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/ConfigZoneId'
+      - $ref: '#/components/parameters/ConfigCountry'
       - $ref: '#/components/parameters/Cursor'
       - $ref: '#/components/parameters/Limit'
       - $ref: '#/components/parameters/RequestId'
@@ -11891,9 +11926,12 @@ paths:
       description: 'v0.7.1. POST /admin/config/{doc}/restore { zoneId, version, expectedVersion, note? } (the publish permission):
         publishes that version''s document again as the next version (action restore, restoredFrom), with every effect of
         a publish (§6.2 app documents for pricing). Undo last publish = restore the version before the live one. A version
-        not in the history: 404; the live version: 409 invalid_transition (already_live). one audit row per pricing publish
-        or restore: action config.publish, details { doc, zoneId, version, restoredFrom?, appDocuments: [{ doc, version }]
-        } (the app documents the publish rewrote)'
+        not in the history: 404; the live version: 409 invalid_transition (already_live). v0.18.118 (Rules audits/impact/country-undo.md;
+        server branch claude/rules-email-key-browserstack-f5y0p3-cfgundo fad59d5 src/config/scope.ts scopeKey, src/pricing/routes.ts
+        HistoryQuery / RestoreBody, src/config/service.ts configHistory): { zoneId | country, version, expectedVersion, note?
+        }: exactly one of zoneId or country (configDocs.scope, the same reasons as History), so a country''s standard is restored
+        (Undo last publish) like a zone''s own document. one audit row per pricing publish or restore: action config.publish,
+        details { doc, zoneId, version, restoredFrom?, appDocuments: [{ doc, version }] } (the app documents the publish rewrote)'
       tags:
       - Admin · Config
       x-actor:
@@ -18367,24 +18405,45 @@ paths:
       operationId: adminDriverPaidMovera
       summary: Driver paid Movera
       description: 'v0.18.84 (owner Q-S5-1a ''Both''): POST /admin/drivers/{driverId}/paid-movera { expectedOwed, amount,
-        reason } (finance.edit, Idempotency-Key, audit driver.paid_movera with amount, owedBefore, owedAfter and reason):
-        money the driver paid Movera another way (Swish, bank). amount > 0 in the currency of expectedOwed (= the owed the
-        admin saw); writes earnings entries kind paid_to_movera (+amount), never an edit of past entries. v0.18.97 (Rules
-        audits/impact/j8-rebase-money-fix-supervisor.md §6; server J8 supervisor round 1 must-fix 2; owner Q-M3 "Next payout"
-        + Q-S5-7 "Carry over") the money settles the carried rest first, under the driver row lock: the driver''s open payouts
-        below 0 in that currency (status pending or pending_approval, Payout.amount < 0), oldest first (period start, then
-        payoutId), each locked; for each, its rest = −Payout.amount − the paid_to_movera entries already linked to it; an
-        entry of min(money left, rest) is LINKED to that payout (so no later payout run takes it and pays it back to him);
-        a payout whose rest it covers in full is closed as paid (status paid, paid by the admin, note "Driver paid Movera",
-        audit payout.paid with the reason) and its Payout.summary is frozen in the same step (priceDisplay.payoutSummary.frozenWhenPaid);
-        one covered only in part stays open with less rest. Any amount left over becomes one UNLINKED entry, counted in the
-        next payout''s amount and lines (payout line paid_to_movera, +amount). A linked entry never changes the amount of
-        the payout it is linked to. No entry is ever in Payout.summary (priceDisplay.payoutSummary.paidToMovera). Stale expectedOwed
-        → 409 conflict, reason owed_changed with the fresh OwingDriver (a second click adds nothing, owner 106 rule); amount
-        above the owed now → 400 invalid_request, reason paid_above_owed; reason 1..300 characters (else 400 reason_required).
-        v0.18.106 (wording only, J8 supervisor W1, Rules audits/impact/j8-rebase-money-fix-supervisor.md; server src/admin/driversOwing.ts):
-        an amount ≤ 0 → 400 invalid_request, reason invalid_amount; an amount in another currency than expectedOwed → 400
-        invalid_request, reason currency_mismatch. Answer: the fresh OwingDriver. v0.18.97 (priceDisplay.payoutSummary.frozenWhenPaid,
+        reason } (finance.edit, Idempotency-Key, audit driver.paid_movera with amount, owedBefore, owedAfter, reason and entries
+        (entries [{ entryId, amountMinor, payoutId }]: the entries this payment wrote; payoutId null = unlinked)): money the
+        driver paid Movera another way (Swish, bank). amount > 0 in the currency of expectedOwed (= the owed the admin saw);
+        writes earnings entries kind paid_to_movera (+amount), never an edit of past entries. v0.18.97 (Rules audits/impact/j8-rebase-money-fix-supervisor.md
+        §6; server J8 supervisor round 1 must-fix 2; owner Q-M3 "Next payout" + Q-S5-7 "Carry over") the money settles the
+        carried rest first, under the driver row lock: the driver''s open payouts below 0 in that currency (status pending
+        or pending_approval, Payout.amount < 0), oldest first (period start, then payoutId), each locked; for each, its rest
+        = −Payout.amount − the paid_to_movera entries already linked to it; an entry of min(money left, rest) is LINKED to
+        that payout (so no later payout run takes it and pays it back to him); a payout whose rest it covers in full is closed
+        as paid (status paid, paid by the admin, note "Driver paid Movera", audit payout.paid with the reason) and its Payout.summary
+        is frozen in the same step (priceDisplay.payoutSummary.frozenWhenPaid); one covered only in part stays open with less
+        rest. Any amount left over becomes one UNLINKED entry, counted in the next payout''s amount and lines (payout line
+        paid_to_movera, +amount). A linked entry never changes the amount of the payout it is linked to. No entry is ever
+        in Payout.summary (priceDisplay.payoutSummary.paidToMovera). Stale expectedOwed → 409 conflict, reason owed_changed
+        with the fresh OwingDriver (a second click adds nothing, owner 106 rule); amount above the owed now → 400 invalid_request,
+        reason paid_above_owed; reason 1..300 characters (else 400 reason_required). v0.18.106 (wording only, J8 supervisor
+        W1, Rules audits/impact/j8-rebase-money-fix-supervisor.md; server src/admin/driversOwing.ts): an amount ≤ 0 → 400
+        invalid_request, reason invalid_amount; an amount in another currency than expectedOwed → 400 invalid_request, reason
+        currency_mismatch. v0.18.118 (wording only; J8b supervisor gate C1 and Round 2 R2.4, Rules audits/impact/j8b-supervisor.md
+        and j8b-paid-movera.md; server branch claude/rules-email-key-browserstack-f5y0p3-j8b 3591e8a (round 2; this reference
+        becomes the server merge commit at ship time) src/drivers/owes.ts PAID_AFTER_PAYOUT, src/admin/driversOwing.ts, src/admin/payouts.ts
+        makePayouts / paidAfterPeriod): (1) "the paid_to_movera entries already linked to it" = the money linked to that payout
+        AFTER it was made: its paid_to_movera entries less its own paid_to_movera line (that line is already inside Payout.amount,
+        so no payment counts twice); owed and the owing list use the same rest. (2) The unlinked entry is taken by the next
+        payout MADE for him (the hourly payout step, the first run after a payoutHold release, or Create payout by hand),
+        which can be the payout of the period that had already ended when he paid: a payout that comes out below 0 also takes
+        his unlinked paid_to_movera entries dated at or after its period end, oldest first (time, then entry id), up to what
+        brings it to 0 (its paid_to_movera line, +amount taken). So money paid between a period''s end and its payout row
+        (made up to an hour after the period ends, never while his payouts are held) settles that period and is never paid
+        back to him by a later payout. A payout of 0 or above takes none. (3) Such an entry may be split in two: the part
+        this payout takes becomes a new paid_to_movera entry linked to it, with the same time; the rest stays in the first
+        entry, unlinked, for a later payout (whole minor units, same total, same kind; no trip, tip, bonus or fee entry and
+        no entry already in a payout is touched). Each split is audited: driver.paid_movera_split, target the driver, actor
+        the admin for Create payout and the system for the scheduled run, detail { entryId (the payment''s entry, found in
+        one driver.paid_movera entries list), currency, amountBeforeMinor, amountTakenMinor, amountLeftMinor, partEntryId,
+        payoutId, source weekly | manual }; amountBefore = amountTaken + amountLeft. The payout step, Create payout, Mark
+        as paid (POST /admin/payouts/{payoutId}/paid) and this command take the driver''s row lock first (order driver → payouts),
+        so none of them runs at the same moment as this command for the same driver: a Mark as paid that lost gets invalid_transition
+        already_paid, a click that lost gets 409 owed_changed. Answer: the fresh OwingDriver. v0.18.97 (priceDisplay.payoutSummary.frozenWhenPaid,
         paidToMovera): a payout below 0 whose carried rest this money covers in full is closed as paid (note "Driver paid
         Movera", audit payout.paid) and its Payout.summary is frozen in the same step; the paid_to_movera entry is never in
         driverGets or moveraGets.'
@@ -18900,6 +18959,306 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /rider/trips/{tripId}/share:
+    post:
+      operationId: riderShareTrip
+      summary: Make a live trip link
+      description: 'v0.18.116 (contract.json#shareTrip): POST /rider/trips/{tripId}/share {} + Idempotency-Key → 201 TripShareLink
+        { shareId, tripId, url, createdAt, expiresAt, endsAtDropoff: true }. The signed-in rider''s own trip only; another
+        rider''s trip is 404 trip_not_found. 409 invalid_transition, reason trip_not_live (notLive) or too_many_shares (limits.maxActivePerTrip
+        live links already); 403 forbidden, reason share_trip_off (the zone''s switch is off). Counted by the general write
+        limit. A link can be made only while the trip has a driver: the statuses above (the same list as safety.sos.riderStatuses).
+        Before a driver, after the end, and for a booked (scheduled) ride still in accepted whose driver the rider is not
+        shown yet: 409 invalid_transition, reason trip_not_live. A link stops, whichever comes first: (a) when the trip reaches
+        any tripStatus.terminal status (drop-off = completed; also every cancelled status, no_show, expired, failed), checked
+        every time the link is read, so no timer is needed; (b) when the rider stops sharing; (c) when the zone''s switch
+        is off, read on every view; (d) maxHours hours after the link was made. An ended link never shows trip data again:
+        410 with { state: ''ended'', reason: ''share_ended'' }. (c) is kept: a link seen while the switch is off stays ended
+        when the switch is turned on again. Not an end: a trip that has no driver again (public.searching). (c) is seen when
+        the link is read: a switch turned off and on again with no read in between leaves the link working, and a server copy
+        may serve its cached switch for some seconds after a publish.'
+      tags:
+      - Rider · Safety
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '201':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripShareLink'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    get:
+      operationId: riderTripShares
+      summary: The trip's live links
+      description: 'v0.18.116 (contract.json#shareTrip): GET /rider/trips/{tripId}/share → TripShareList { items: [TripShareItem
+        { shareId, tripId, createdAt, expiresAt, endsAtDropoff }] }: the trip''s live links, oldest first, without url (the
+        app keeps the URL it got). An ended trip answers an empty list.'
+      tags:
+      - Rider · Safety
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripShareList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    delete:
+      operationId: riderStopShareTrip
+      summary: Stop sharing the trip
+      description: 'v0.18.116 (contract.json#shareTrip): DELETE /rider/trips/{tripId}/share + Idempotency-Key → 204. ''Stop
+        sharing'': every live link of the trip ends at once; no live link is still 204.'
+      tags:
+      - Rider · Safety
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '204':
+          description: No content
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /share/{token}:
+    get:
+      operationId: publicTripShare
+      summary: A shared trip (no sign-in)
+      description: 'v0.18.116 (contract.json#shareTrip): GET /api/v1/share/{token} (no sign-in, no standard headers needed)
+        → 200 PublicTripShare, or 200 PublicTripShareSearching while the trip has no driver (public.searching); an ended link
+        → 410 PublicTripShareEnded { state: ''ended'', reason: ''share_ended'' }; a bad or unknown token → 404 not_found,
+        reason share_not_found, the same body for every miss so tokens cannot be probed. Both public routes answer with Cache-Control:
+        no-store, Referrer-Policy: no-referrer, X-Robots-Tag: noindex, nofollow and X-Content-Type-Options: nosniff. The HTML
+        page also carries Content-Security-Policy: default-src ''none''; style-src ''unsafe-inline''; img-src ''self''; base-uri
+        ''none''; form-action ''none''; frame-ancestors ''none'', and <meta name="robots" content="noindex, nofollow">. The
+        same four headers are on every answer of the two share paths, also the load-shed 503 and the 404 of a path that matches
+        no route (an over-long token). The public reads (both routes together) have their own budget, outside the general
+        write limit (rateLimit): perAddressPerMinute per client address and perTokenPerMinute per link, a fixed 60 s window
+        in each server copy''s memory, like telemetry.limits. Over it: 429 rate_limited, reason share_too_many, Retry-After.
+        Under load the public reads are shed first (503 unavailable, Retry-After), before any signed-in route; they are never
+        in the safety set: a contact''s page may fail under load, SOS must not.'
+      tags:
+      - Public · Share trip
+      x-actor: []
+      parameters:
+      - name: token
+        in: path
+        required: true
+        description: '128 bits as base64url, 22 characters, that cannot be guessed: the server makes them from the new link''s
+          id with a key of its own that the server derives from its secret with a fixed label (HMAC-SHA256, cut to 128 bits).
+          The server stores only the SHA-256 of the token, never the token and never the URL: a copy of the database cannot
+          open a link. A token is never written to a log, an audit row, an error message or the idempotency store.'
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{22}$
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+            Referrer-Policy:
+              schema:
+                type: string
+            X-Robots-Tag:
+              schema:
+                type: string
+            X-Content-Type-Options:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/PublicTripShare'
+                - $ref: '#/components/schemas/PublicTripShareSearching'
+        '404':
+          description: 'not_found, reason share_not_found: the same answer for every miss.'
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: 'The link has ended (share_ended): no trip data.'
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicTripShareEnded'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security: []
+      x-public: true
+  /s/{token}:
+    get:
+      operationId: publicTripSharePage
+      summary: The shared trip page (HTML, no sign-in)
+      description: 'v0.18.116 (contract.json#shareTrip): GET /s/{token} (outside /api/v1; no sign-in): the same answer as
+        an HTML page, 200 / 410 / 404, rendered by the server from the same allow-list. 429 is a short HTML page too; 503
+        is the standard error body. No script; the page reloads itself every public.refreshSeconds seconds while live. Both
+        public routes answer with Cache-Control: no-store, Referrer-Policy: no-referrer, X-Robots-Tag: noindex, nofollow and
+        X-Content-Type-Options: nosniff. The HTML page also carries Content-Security-Policy: default-src ''none''; style-src
+        ''unsafe-inline''; img-src ''self''; base-uri ''none''; form-action ''none''; frame-ancestors ''none'', and <meta
+        name="robots" content="noindex, nofollow">. The same four headers are on every answer of the two share paths, also
+        the load-shed 503 and the 404 of a path that matches no route (an over-long token). Messaging apps fetch a link to
+        build a preview. The page has no Open Graph / preview tags and its <title> is only ''Movera'' + texts.title, so a
+        preview never carries trip data. The page''s language: the viewer''s Accept-Language (sv / fr / en, first match),
+        else the trip zone''s country language (configDefaults.countries.<country>.defaultLanguage: SE sv, FR fr, TN fr),
+        else en.'
+      tags:
+      - Public · Share trip
+      x-actor: []
+      parameters:
+      - name: token
+        in: path
+        required: true
+        description: '128 bits as base64url, 22 characters, that cannot be guessed: the server makes them from the new link''s
+          id with a key of its own that the server derives from its secret with a fixed label (HMAC-SHA256, cut to 128 bits).
+          The server stores only the SHA-256 of the token, never the token and never the URL: a copy of the database cannot
+          open a link. A token is never written to a log, an audit row, an error message or the idempotency store.'
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{22}$
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+            Referrer-Policy:
+              schema:
+                type: string
+            X-Robots-Tag:
+              schema:
+                type: string
+            X-Content-Type-Options:
+              schema:
+                type: string
+          content:
+            text/html:
+              schema:
+                type: string
+                description: The share page. No script, no preview tags with trip data.
+        '404':
+          description: 'Link not found: the same page for every miss.'
+          content:
+            text/html:
+              schema:
+                type: string
+                description: The share page. No script, no preview tags with trip data.
+        '410':
+          description: 'The link has ended: the page says so and shows no trip data.'
+          content:
+            text/html:
+              schema:
+                type: string
+                description: The share page. No script, no preview tags with trip data.
+        '429':
+          description: 'rate_limited: a short HTML page; obey Retry-After.'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                minimum: 0
+          content:
+            text/html:
+              schema:
+                type: string
+                description: The share page. No script, no preview tags with trip data.
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      security: []
+      x-public: true
+      servers:
+      - url: https://api.dev.movera.invalid
+        description: The server's origin, outside /api/v1.
 components:
   securitySchemes:
     bearerAuth:
@@ -20647,7 +21006,11 @@ components:
             past ride in History) the ''Call rider'' / ''Call driver'' button shows while now ≤ callOpenUntil and hides by
             itself when it passes; absent → no call button. The call itself is unchanged (in-app, never a phone number). Chat
             stays closed after the drop-off (no change). Admin: no new setting — Pricing › Tips & limits › Calls › Call window
-            after the trip (min), 0–240, default 60, per country standard or zone. X-Api-Version stays 0.5; additive; no migration.'
+            after the trip (min), 0–240, default 60, per country standard or zone. X-Api-Version stays 0.5; additive; no migration.
+            v0.18.118 (S13 supervisor SF-S1, Rules audits/impact/a04-s13-v21-supervisor.md; server branch claude/rules-email-key-browserstack-f5y0p3-s13s-r2
+            64e7ad1 src/calls/openUntil.ts:10-13, :21-22): "an early end" above is the rider''s early end (POST /trips/{tripId}/end-early,
+            status cancelled_by_rider): no callOpenUntil. A driver''s end before the drop-off is a completed trip (finish.endedEarly
+            true) and carries callOpenUntil like any completed trip.'
     DriverSilentAlert:
       type: object
       description: 'v0.7.0: documents the server''s alert of 2026-10-26: no position for 30 min with the rider on board; the
@@ -22728,7 +23091,14 @@ components:
         included). records holds the open ones and those done in the last 30 days. country: SE | FR | TN; an admin outside
         the country -> 403 zone_out_of_scope. v0.18.23: AlertBookState also carries alerts [LiveAlert] (serverDetection):
         the alerts the server found, open or solved by itself, of the admin''s zones in that country and the groups the admin
-        may see (same filter as records).'
+        may see (same filter as records). v0.18.117 (alertDesk.serverDetection.liveList): AlertBookState.alerts: Every open
+        alert of the admin''s zones and kind groups is sent: no limit, never cut. After the open ones, at most solvedCap (1000)
+        solved alerts: per kind the 1000 newest by solvedAt, then, over all kinds, the first 1000 with the safety kinds first
+        and then the newest solvedAt. Open before solved. Open: the safety kinds first (kindGroups group safety: sos, car_lost,
+        ride_check, sos_slow), then level critical, important, info, then the newest since, then alertId. Solved: the safety
+        kinds first, then the newest solvedAt (an alert without solvedAt last), then alertId. Not built yet: past solvedCap
+        the older solved alerts are left out and nothing in the answer says so (no ''more'' marker, no count). A marker and
+        a limit for open non-safety alerts are a later job (MF3).'
       required:
       - country
       - rev
@@ -24532,7 +24902,9 @@ components:
           type: number
           minimum: 0
           description: 'v0.18.9: Long stop: the car stood still (every fix within 50 m) this many minutes with the rider on
-            board (default 2; 1–30).'
+            board (default 2; 1–30). v0.18.118 (owner 2026-11-16 "Keep, note at setting (Rec.)"): A stop seen only as one
+            repeated fix is found only when stopMinutes is below about 10 (a fix can be sent again for at most 10 minutes
+            after it was measured; detection.long_stop).'
           default: 2
         offRouteKm:
           type: number
@@ -25851,6 +26223,7 @@ components:
               type: boolean
             shareTrip:
               type: boolean
+              description: 'v0.18.116 (contract.json#shareTrip): the same value as shareTrip.on (served by the server).'
           additionalProperties:
             type: boolean
         paymentMethods:
@@ -26049,6 +26422,21 @@ components:
             extra call buttons on the "SOS sent" screen; (3) ride check "Need help" — the same call buttons; (4) the driver''s
             emergency contacts screen — the built-in number shown is the country list, not 112. Labels in the app language
             (sv / fr / en).'
+        shareTrip:
+          type: object
+          description: 'v0.18.116 (contract.json#shareTrip): Per zone: the zone''s rider document (rider_app_config; its own,
+            else its country standard) carries shareTrip { on } (boolean), saved and published with PUT /admin/config/rider_app_config
+            + POST /admin/config/rider_app_config/publish (settings.edit / settings.publish). Admin: Dispatch › Safety, card
+            ''Share trip link'', switch ''Riders can share a live trip link''. Never saved = the document''s older features.shareTrip
+            when that is true / false, else configDefaults.shareTripOn (true). A shareTrip that is not an object, or an on
+            that is not true / false, is 400 invalid_request, reason invalid_document. GET /rider/config always serves shareTrip
+            { on } and the same value as features.shareTrip, so a rider app built before v0.18.116 reads the switch with no
+            change. The driver document gets nothing.'
+          properties:
+            'on':
+              type: boolean
+              description: The zone's switch.
+              default: true
     DriverAppConfig:
       type: object
       description: Per-zone driver document built by Admin exporters. Unknown keys are ignored; missing keys fall back to
@@ -32113,10 +32501,10 @@ components:
             projection): the app takes it as done.'
     ConfigHistoryEntry:
       type: object
-      description: 'v0.7.1: one published version (contract.json#pricingHistory).'
+      description: 'v0.7.1: one published version (contract.json#pricingHistory). v0.18.118 (pricingHistory.list): zoneId
+        for a zone''s document, country for a country''s standard; exactly one of the two.'
       required:
       - doc
-      - zoneId
       - version
       - publishedAt
       - action
@@ -32145,6 +32533,8 @@ components:
           minimum: 1
         document:
           type: object
+        country:
+          $ref: '#/components/schemas/CountryCode'
     ConfigHistoryEntryPage:
       allOf:
       - $ref: '#/components/schemas/Page'
@@ -32158,7 +32548,6 @@ components:
       type: object
       required:
       - expectedVersion
-      - zoneId
       - version
       properties:
         expectedVersion:
@@ -32174,6 +32563,9 @@ components:
         note:
           type: string
           maxLength: 1000
+        country:
+          $ref: '#/components/schemas/CountryCode'
+      description: 'v0.18.118 (pricingHistory.restore, configDocs.scope): exactly one of zoneId or country.'
     CategoryDef:
       type: object
       description: 'v0.7.1: CategoryDef { id, label, line: { sv, fr, en } (the sub-line under the name, e.g. ''Up to 6 seats''),
@@ -36248,6 +36640,14 @@ components:
         relation:
           type: string
           maxLength: 40
+        shareTrips:
+          type: boolean
+          description: 'v0.18.116 (contract.json#shareTrip): Trusted contacts are the rider''s emergency contacts on the server
+            (phoneDataToServer.riderEmergencyContacts, GET | PUT /rider/emergency-contacts): no second list. v0.18.116: EmergencyContact
+            gains the optional shareTrips (boolean): ''Share trips with this contact''. The server keeps it on the rider''s
+            list and returns it; a value that is not true / false is 400 invalid_request; a driver PUT that carries it is
+            accepted and the field is not kept. The server sends nothing to a contact: the rider''s phone sends the message
+            (texts.<lang>.message with {url}).'
     EmergencyContactList:
       type: object
       required:
@@ -37253,7 +37653,12 @@ components:
             trips, Q-M3) minus his earnings Movera holds for him, plus anything still owed from earlier weeks — owed = −min(0,
             his next payout worked out now (payouts.lines of his unpaid entries) + the rest carried from earlier payouts below
             0 (Q-M3, Q-S5-7a)). A ''Driver paid Movera'' entry raises that sum. Driver.country''s currency is the one compared
-            with the limit; 0 when nothing is owed.'
+            with the limit; 0 when nothing is owed. v0.18.118 (J8b, Rules audits/impact/j8b-supervisor.md gate C1; server
+            branch claude/rules-email-key-browserstack-f5y0p3-j8b 3591e8a (becomes the server merge commit at ship time) src/drivers/owes.ts:34,
+            :72-80): the rest carried from an open payout below 0 (status pending or pending_approval) = Payout.amount + the
+            paid_to_movera entries linked to it after it was made (its paid_to_movera entries less its own paid_to_movera
+            line, which is already inside Payout.amount). The owing list (GET /admin/drivers-owing) and the paid-movera click
+            use the same expression.'
         limit:
           oneOf:
           - $ref: '#/components/schemas/Money'
@@ -37936,3 +38341,269 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Money'
+    TripShareItem:
+      type: object
+      description: 'v0.18.116 (contract.json#shareTrip): GET /rider/trips/{tripId}/share → TripShareList { items: [TripShareItem
+        { shareId, tripId, createdAt, expiresAt, endsAtDropoff }] }: the trip''s live links, oldest first, without url (the
+        app keeps the URL it got). An ended trip answers an empty list.'
+      required:
+      - shareId
+      - tripId
+      - createdAt
+      - expiresAt
+      - endsAtDropoff
+      properties:
+        shareId:
+          $ref: '#/components/schemas/Id'
+        tripId:
+          $ref: '#/components/schemas/Id'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        expiresAt:
+          allOf:
+          - $ref: '#/components/schemas/Timestamp'
+          description: createdAt + 6 h (shareTrip.maxHours); the link ends earlier at drop-off.
+        endsAtDropoff:
+          type: boolean
+          enum:
+          - true
+      additionalProperties: false
+    TripShareLink:
+      type: object
+      description: 'v0.18.116 (contract.json#shareTrip): POST /rider/trips/{tripId}/share {} + Idempotency-Key → 201 TripShareLink
+        { shareId, tripId, url, createdAt, expiresAt, endsAtDropoff: true }. The signed-in rider''s own trip only; another
+        rider''s trip is 404 trip_not_found. 409 invalid_transition, reason trip_not_live (notLive) or too_many_shares (limits.maxActivePerTrip
+        live links already); 403 forbidden, reason share_trip_off (the zone''s switch is off). Counted by the general write
+        limit.'
+      required:
+      - shareId
+      - tripId
+      - url
+      - createdAt
+      - expiresAt
+      - endsAtDropoff
+      properties:
+        shareId:
+          $ref: '#/components/schemas/Id'
+        tripId:
+          $ref: '#/components/schemas/Id'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        expiresAt:
+          allOf:
+          - $ref: '#/components/schemas/Timestamp'
+          description: createdAt + 6 h (shareTrip.maxHours); the link ends earlier at drop-off.
+        endsAtDropoff:
+          type: boolean
+          enum:
+          - true
+        url:
+          type: string
+          format: uri
+          description: '<share base>/s/<token>: the server''s own public origin (server env SHARE_LINK_BASE, not a secret,
+            so the host can change with no app release). 128 bits as base64url, 22 characters, that cannot be guessed: the
+            server makes them from the new link''s id with a key of its own that the server derives from its secret with a
+            fixed label (HMAC-SHA256, cut to 128 bits). The server stores only the SHA-256 of the token, never the token and
+            never the URL: a copy of the database cannot open a link. A token is never written to a log, an audit row, an
+            error message or the idempotency store.'
+      additionalProperties: false
+    TripShareList:
+      type: object
+      description: 'v0.18.116 (contract.json#shareTrip): GET /rider/trips/{tripId}/share → TripShareList { items: [TripShareItem
+        { shareId, tripId, createdAt, expiresAt, endsAtDropoff }] }: the trip''s live links, oldest first, without url (the
+        app keeps the URL it got). An ended trip answers an empty list.'
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TripShareItem'
+          maxItems: 3
+      additionalProperties: false
+    PublicTripShare:
+      type: object
+      description: 'v0.18.116 (contract.json#shareTrip): PublicTripShare { state: ''live'', phase (phases, or queuedPhase),
+        car: { make, model, color, plate }, eta: { minutes, target: pickup | dropoff, arriveAround } | null, position: { lat,
+        lng, at } | null, updatedAt, refreshSeconds }. A FIXED ALLOW-LIST: the answer is built field by field from this list
+        and never from TripProjection; a field not listed here is never sent. Never: any phone number (rider, driver, contacts);
+        any name (rider, driver first name or surname, contacts); the pickup, stop and drop-off addresses and coordinates;
+        the destination, its city or area; saved places; fare, price, payment, tip; rating; driver photo; any id other than
+        the token in the address (no tripId, riderId, driverId, shareId, zoneId).'
+      required:
+      - state
+      - phase
+      - car
+      - eta
+      - position
+      - updatedAt
+      - refreshSeconds
+      properties:
+        state:
+          type: string
+          enum:
+          - live
+        phase:
+          type: string
+          enum:
+          - to_pickup
+          - at_pickup
+          - on_trip
+          - queued
+          x-statuses:
+            to_pickup:
+            - accepted
+            - driver_to_pickup
+            at_pickup:
+            - arrived
+            on_trip:
+            - rider_onboard
+            - in_trip
+            - approaching_dropoff
+        car:
+          type: object
+          description: The car as on the trip. No driver name, photo or rating.
+          required:
+          - make
+          - model
+          - color
+          - plate
+          properties:
+            make:
+              type: string
+              maxLength: 80
+            model:
+              type: string
+              maxLength: 80
+            color:
+              type: string
+              maxLength: 80
+            plate:
+              type: string
+              maxLength: 80
+          additionalProperties: false
+        eta:
+          oneOf:
+          - type: object
+            description: 'eta comes from the trip''s stored ETA (TripEta): minutes = the seconds still left at the time of
+              the read, rounded up to whole minutes, at least 1; target = pickup before the rider is in the car, dropoff after;
+              arriveAround = that arrival instant as HH:MM in the trip zone''s time zone. null when the server has no ETA,
+              and in phase at_pickup.'
+            required:
+            - minutes
+            - target
+            - arriveAround
+            properties:
+              minutes:
+                type: integer
+                minimum: 1
+              target:
+                type: string
+                enum:
+                - pickup
+                - dropoff
+              arriveAround:
+                type: string
+                pattern: ^[0-2][0-9]:[0-5][0-9]$
+                description: HH:MM in the trip zone's time zone.
+            additionalProperties: false
+          - type: 'null'
+        position:
+          oneOf:
+          - type: object
+            description: 'position is the car''s latest GPS fix the server has (from POST /driver/location), lat / lng with
+              5 decimals, at = when it was measured. It is sent ONLY when all of these hold, else null: (1) owner Q-A 2026-11-15
+              ''Hide until rider is in'': the rider is in the car (status in tripStatus.riderOnboard: phase on_trip). On the
+              way to the pickup and waiting at it (to_pickup, at_pickup, queued) there is never a position and no Maps link,
+              only the phase text. (2) owner Q-B 2026-11-15 ''Hide last 500 m'': the car is farther than hideWithinMetersOfDropoff
+              metres (straight line) from the trip''s drop-off AND from every middle stop of the trip (the same 500 m around
+              each stop: owner 2026-11-16 05:24 UTC ''Keep 500 m at stops'', confirming the session decision of 2026-11-15).
+              The same distance applies around the trip''s PICKUP (Q-D: owner 2026-11-16 05:24 UTC ''Keep 500 m at pickup'',
+              confirming the session decision of 2026-11-15; the status says the rider is in the car while the car still stands
+              at the pickup, often the rider''s home, which owner Q-A means to hide). Inside it the position and the Maps
+              link are hidden and the page shows only ''Arriving in about N min''. A pickup, drop-off or stop the server has
+              no finite coordinates for hides the position. The server works the distances out itself; the pickup, the drop-off,
+              the stops and the distances are never sent. (3) the fix is not older than positionMaxAgeSeconds. The page shows
+              a position only as the link positionLink (''Open in Maps''): no map tiles, no map key; with no position it shows
+              no position line at all. Queued trip (supervisor MF-1): while the trip waits behind the driver''s current trip
+              (accepted with the server''s next_after_trip_id set) the car still carries ANOTHER rider: position is null by
+              rule (1), eta is null and phase is queuedPhase, never to_pickup.'
+            required:
+            - lat
+            - lng
+            - at
+            properties:
+              lat:
+                type: number
+                minimum: -90
+                maximum: 90
+              lng:
+                type: number
+                minimum: -180
+                maximum: 180
+              at:
+                $ref: '#/components/schemas/Timestamp'
+            additionalProperties: false
+          - type: 'null'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        refreshSeconds:
+          type: integer
+          enum:
+          - 20
+      additionalProperties: false
+      x-never:
+      - any phone number (rider, driver, contacts)
+      - any name (rider, driver first name or surname, contacts)
+      - the pickup, stop and drop-off addresses and coordinates
+      - the destination, its city or area
+      - saved places
+      - fare, price, payment, tip
+      - rating
+      - driver photo
+      - any id other than the token in the address (no tripId, riderId, driverId, shareId, zoneId)
+    PublicTripShareEnded:
+      type: object
+      description: 'v0.18.116 (contract.json#shareTrip): A link stops, whichever comes first: (a) when the trip reaches any
+        tripStatus.terminal status (drop-off = completed; also every cancelled status, no_show, expired, failed), checked
+        every time the link is read, so no timer is needed; (b) when the rider stops sharing; (c) when the zone''s switch
+        is off, read on every view; (d) maxHours hours after the link was made. An ended link never shows trip data again:
+        410 with { state: ''ended'', reason: ''share_ended'' }. (c) is kept: a link seen while the switch is off stays ended
+        when the switch is turned on again. Not an end: a trip that has no driver again (public.searching). (c) is seen when
+        the link is read: a switch turned off and on again with no read in between leaves the link working, and a server copy
+        may serve its cached switch for some seconds after a publish.'
+      required:
+      - state
+      - reason
+      properties:
+        state:
+          type: string
+          enum:
+          - ended
+        reason:
+          type: string
+          enum:
+          - share_ended
+      additionalProperties: false
+    PublicTripShareSearching:
+      type: object
+      description: 'v0.18.116 (contract.json#shareTrip): While the trip has no driver (the driver cancelled and a new search
+        runs; also a held booked ride whose driver the rider is not shown yet) the link is NOT ended: both public routes answer
+        200 with PublicTripShareSearching { state: ''searching'', updatedAt, refreshSeconds } and the page says texts.searching
+        and keeps reloading. No car, plate, time or position is sent. When a driver is assigned the link shows the new car.'
+      required:
+      - state
+      - updatedAt
+      - refreshSeconds
+      properties:
+        state:
+          type: string
+          enum:
+          - searching
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        refreshSeconds:
+          type: integer
+          enum:
+          - 20
+      additionalProperties: false

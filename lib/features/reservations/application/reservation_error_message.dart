@@ -1,5 +1,6 @@
 import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_errors.dart';
+import 'package:movera_rider/features/wallet/domain/rider_debt.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// What the rider was doing to a scheduled ride when it failed.
@@ -32,6 +33,9 @@ String reservationErrorMessage(Object error, ReservationAction action) {
   if (error is ReservationsUnavailableException) {
     return L10n.current.resErrUnavailable;
   }
+  // J10 (contract v0.18.84 `debtModel.maxRiderDebt`): a booked ride paid
+  // in the car while the rider owes at or above the max; nothing booked.
+  if (RiderDebtRefusal.messageOf(error) case final text?) return text;
   final kind = riderErrorKind(error);
   final l = L10n.current;
   return switch (action) {

@@ -44,6 +44,7 @@ class PayWithPage extends StatefulWidget {
     this.useWalletFirst = true,
     this.onWalletFirstChanged,
     this.savedCards,
+    this.walletOwed,
   });
 
   final List<PayWithMethod> methods;
@@ -63,6 +64,12 @@ class PayWithPage extends StatefulWidget {
   /// Shown only when the wallet has money in it.
   final double walletBalance;
 
+  /// J10 (contract v0.18.84 `debtModel.walletSwitch`, owner Q-M1): what the
+  /// rider owes in the trip's currency (a negative balance), or null. While
+  /// set, the wallet reads "You owe X" and "Use wallet balance first" is
+  /// on and locked: the server adds the debt at payment anyway.
+  final Money? walletOwed;
+
   /// Q8: the currency of [walletBalance] (the trip's).
   final String walletCurrency;
   final RiderPromotion? promotion;
@@ -80,6 +87,7 @@ class PayWithPage extends StatefulWidget {
     bool useWalletFirst = true,
     ValueChanged<bool>? onWalletFirstChanged,
     SavedCardsController? savedCards,
+    Money? walletOwed,
   }) {
     return Navigator.of(context).push<String>(
       MaterialPageRoute<String>(
@@ -94,6 +102,7 @@ class PayWithPage extends StatefulWidget {
           useWalletFirst: useWalletFirst,
           onWalletFirstChanged: onWalletFirstChanged,
           savedCards: savedCards,
+          walletOwed: walletOwed,
         ),
       ),
     );
@@ -110,6 +119,8 @@ class PayWithPage extends StatefulWidget {
 
 class _PayWithPageState extends State<PayWithPage> {
   late bool _walletFirst = widget.useWalletFirst;
+
+  bool get _locked => widget.walletOwed != null;
 
   List<PayWithMethod> get methods => widget.methods;
   String? get selectedBrand => widget.selectedBrand;
@@ -193,6 +204,7 @@ class _PayWithPageState extends State<PayWithPage> {
         );
 
   void _toggleWalletFirst(bool value) {
+    if (_locked) return;
     setState(() => _walletFirst = value);
     widget.onWalletFirstChanged?.call(value);
   }
@@ -215,6 +227,7 @@ class _PayWithPageState extends State<PayWithPage> {
         .toList();
     final hasWallet =
         walletBalance > 0 && methods.any((m) => m.brand == 'wallet');
+    final owed = widget.walletOwed;
     final promo = promotion;
     return Scaffold(
       backgroundColor: Colors.white,
@@ -258,8 +271,32 @@ class _PayWithPageState extends State<PayWithPage> {
               SwitchListTile.adaptive(
                 key: const ValueKey('pay-with-wallet-first'),
                 contentPadding: EdgeInsets.zero,
-                value: _walletFirst,
-                onChanged: _toggleWalletFirst,
+                value: _walletFirst || _locked,
+                onChanged: _locked ? null : _toggleWalletFirst,
+                activeTrackColor: const Color(0xFF11181D),
+                title: Text(
+                  context.l10n.walletFirst,
+                  style: _t(15, w: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  context.l10n.walletFirstBody,
+                  style: _t(12.5, c: _muted),
+                ),
+              ),
+            ] else if (owed != null) ...[
+              // J10: a negative balance is a debt: "You owe X", no tap; the
+              // switch stays on and cannot be turned off.
+              _section(context.l10n.moveraWallet),
+              _row(
+                key: const ValueKey('pay-with-wallet-owed'),
+                leading: brandMark('wallet'),
+                title: context.l10n.walletYouOwe(formatMoney(owed)),
+              ),
+              SwitchListTile.adaptive(
+                key: const ValueKey('pay-with-wallet-first'),
+                contentPadding: EdgeInsets.zero,
+                value: true,
+                onChanged: null,
                 activeTrackColor: const Color(0xFF11181D),
                 title: Text(
                   context.l10n.walletFirst,

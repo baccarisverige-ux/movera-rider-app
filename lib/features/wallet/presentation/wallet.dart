@@ -639,8 +639,19 @@ class _WalletHomeState extends State<WalletHome> {
                       Text(
                         // rider-r5-14: exact, as Pay With shows it and as
                         // Select Ride compares it; rounding up claimed öre
-                        // the wallet does not have.
-                        formatMoney(Money.fromLegacyMajor(_balance, _currency)),
+                        // the wallet does not have. J10 (contract v0.18.84
+                        // debtModel.riderWallet): below 0 it is a debt and
+                        // reads "You owe X" (the server's balance).
+                        _balance < 0
+                            ? context.l10n.walletYouOwe(
+                                formatMoney(
+                                  Money.fromLegacyMajor(-_balance, _currency),
+                                ),
+                              )
+                            : formatMoney(
+                                Money.fromLegacyMajor(_balance, _currency),
+                              ),
+                        key: const ValueKey('wallet-balance'),
                         style: _style(
                           34,
                           weight: FontWeight.w700,

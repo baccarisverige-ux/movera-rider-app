@@ -875,6 +875,11 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'refundChoiceUnavailable': l.refundChoiceUnavailable,
   'refundDetailsInvalid': l.refundDetailsInvalid,
   'refundSendFailed': l.refundSendFailed,
+  'quoteDebtLine': l.quoteDebtLine('<amount>'),
+  'riderDebtAboveMax': l.riderDebtAboveMax('<amount>'),
+  'walletFee': l.walletFee,
+  'walletDebtPaid': l.walletDebtPaid,
+  'walletYouOwe': l.walletYouOwe('<amount>'),
   'scheduleForLater': l.scheduleForLater,
   'later': l.later,
   'scheduleARide': l.scheduleARide,
@@ -1890,6 +1895,9 @@ const messagePlaceholders = <String, List<String>>{
   'refundWaitingBody': ['amount'],
   'refundSentToWallet': ['amount'],
   'refundPayoutPending': ['amount'],
+  'quoteDebtLine': ['amount'],
+  'riderDebtAboveMax': ['amount'],
+  'walletYouOwe': ['amount'],
   'bookForPrice': ['price'],
   'resCancelledFee': ['amount'],
   'resReservedFor': ['date', 'time'],
@@ -3756,6 +3764,16 @@ class _Exhaustive implements AppLocalizations {
   String get refundDetailsInvalid => '';
   @override
   String get refundSendFailed => '';
+  @override
+  String quoteDebtLine(String amount) => '';
+  @override
+  String riderDebtAboveMax(String amount) => '';
+  @override
+  String get walletFee => '';
+  @override
+  String get walletDebtPaid => '';
+  @override
+  String walletYouOwe(String amount) => '';
   @override
   String get scheduleForLater => '';
   @override

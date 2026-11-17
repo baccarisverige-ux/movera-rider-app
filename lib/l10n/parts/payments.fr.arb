@@ -123,5 +123,10 @@
   "refundNotWaiting": "Ce remboursement n’est plus en attente.",
   "refundChoiceUnavailable": "Ce choix n’est pas disponible pour ce remboursement. Choisissez-en un autre.",
   "refundDetailsInvalid": "Vérifiez vos coordonnées bancaires et réessayez.",
-  "refundSendFailed": "Impossible d’envoyer votre choix. Réessayez."
+  "refundSendFailed": "Impossible d’envoyer votre choix. Réessayez.",
+  "quoteDebtLine": "+ {amount} impayé d’un trajet précédent, ajouté au paiement",
+  "riderDebtAboveMax": "Vous devez {amount} pour des trajets précédents. Les trajets payés à bord sont suspendus jusqu’au paiement. Contactez le support pour payer.",
+  "walletFee": "Frais impayés",
+  "walletDebtPaid": "Frais impayés réglés",
+  "walletYouOwe": "Vous devez {amount}"
 }

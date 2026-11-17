@@ -208,6 +208,13 @@ extension _SelectRideBookNow on _SelectRideState {
         await _paymentMethodRefused(error.detail);
         return;
       }
+      // J10 (v0.18.84 debtModel.maxRiderDebt): pay in car is paused while
+      // the rider owes at or above the max; said plainly, then the
+      // payment choice (card, Apple Pay and wallet stay allowed).
+      if (RiderDebtRefusal.messageOf(error) case final text?) {
+        await _riderDebtAboveMax(text);
+        return;
+      }
       // RC-09: a booking that may exist on the server is not "refused".
       final uncertain = BookingController.mayHaveBooked(error);
       ScaffoldMessenger.of(context).showSnackBar(

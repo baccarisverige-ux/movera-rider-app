@@ -14,6 +14,7 @@ import 'package:movera_rider/features/ride_selection/presentation/checking_area_
 import 'package:movera_rider/core/config/trip_zone_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/payments/presentation/pay_with_page.dart';
+import 'package:movera_rider/features/wallet/domain/rider_debt.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/features/promotions/presentation/promotion_details_sheet.dart';
 import 'package:flutter/material.dart';
@@ -973,6 +974,8 @@ class _SelectRideState extends State<SelectRide>
         if (!mounted) return;
         setState(() => _selection.useWalletFirst = value);
       },
+      // J10 (v0.18.84 debtModel.walletSwitch): on and locked while owing.
+      walletOwed: _selection.walletOwed,
     );
     if (brand == null || !mounted) return;
     final index = _selection.payments().indexWhere((p) => p.brand == brand);
@@ -1006,6 +1009,29 @@ class _SelectRideState extends State<SelectRide>
     );
     if (!mounted) return;
     setState(() => _selection.selectPaymentByBrand('cash'));
+    await _showPaymentPicker();
+  }
+
+  /// J10 (contract v0.18.84 `debtModel.maxRiderDebt`): a cash booking
+  /// refused with `rider_debt_above_max`. Nothing was booked; the box says
+  /// what is owed (the server's amount), then the payment choice opens.
+  Future<void> _riderDebtAboveMax(String text) async {
+    final l10n = context.l10n;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const ValueKey('rider-debt-above-max'),
+        semanticLabel: text,
+        content: Text(text),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.gotIt),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
     await _showPaymentPicker();
   }
 

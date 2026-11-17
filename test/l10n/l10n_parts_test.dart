@@ -86,18 +86,20 @@ void main() {
     // v0.18.108 (job C9b): + stopWaitingPausedDriverAway
     // (autoArrive.stops.texts.riderStopPaused).
     // BQ-V16: + historyPlannedRoute (past ride on the server's planned route).
+    // J10 (debt model): + quoteDebtLine, riderDebtAboveMax, walletFee,
+    // walletDebtPaid, walletYouOwe (payments area, contract debtModel.texts).
     const before = {
       'en': (
-        '8be2333a13a9abf0f529332990a44fe0388b18f936c9b04e31ec9d6a46120a8e',
-        2189,
+        'ca2c220b02a4124b50d577282df6c915d4713e52272d8c9b6c1e404a21a3c7c7',
+        2199,
       ),
       'fr': (
-        '8aa9486b467210aa55f21f1c8f0a0eaa2a97eef1da3da1acbe9d2da27b5926e4',
-        1748,
+        '3a67864f94eab0f752d8fb747a5bb8bf0b79de2fa307c723dd75374f29c37c5f',
+        1753,
       ),
       'sv': (
-        'a475e13b1fa23a294520a97888f99425c4394f82b09956f4b4f899e022199a40',
-        1748,
+        'a15b2103f05c08de8646707d990fb7b8e086322eae7ed2e0304c6f5e5159c92c',
+        1753,
       ),
     };
     for (final lang in _langs) {
