@@ -155,6 +155,27 @@ void main() {
     await tearDownHome(tester);
   });
 
+  testWidgets('from a half-open sheet: X returns it to the same middle snap', (
+    tester,
+  ) async {
+    await pumpHome(tester);
+    final low = sheetTop(tester);
+    // A short drag up from the bar settles on the middle snap.
+    await tester.drag(find.byType(WhereToCard), const Offset(0, -60));
+    await frames(tester, 10);
+    final middle = sheetTop(tester);
+    expect(homeSheetOpen(tester), isFalse, reason: 'not fully open');
+    expect(middle, lessThan(low - 2), reason: 'not collapsed');
+    await tester.tap(find.text('Where to?'));
+    await frames(tester, 8);
+    expect(find.byType(RoutePickerPage), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.close_rounded).last);
+    await frames(tester, 12);
+    expect(find.byType(RoutePickerPage), findsNothing);
+    expect(sheetTop(tester), closeTo(middle, 2));
+    await tearDownHome(tester);
+  });
+
   testWidgets('from a collapsed sheet: X returns it to the same spot', (
     tester,
   ) async {
