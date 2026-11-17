@@ -11,14 +11,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 /// East-west panning stays free (the world wraps).
 const double kMapMaxLatitude = 85.05112877980659;
 
-/// The world bounds the web map is restricted to (Maps JavaScript keeps the
-/// whole view inside them while panning). The full longitude range leaves
-/// east-west panning free.
-final LatLngBounds kMapWorldBounds = LatLngBounds(
-  southwest: const LatLng(-kMapMaxLatitude, -180),
-  northeast: const LatLng(kMapMaxLatitude, 180),
-);
-
 /// The vertical pan stop for one camera on one map size. The centre may go
 /// further north the closer the map is zoomed in and the shorter the map
 /// is, so the stop is computed from the view, not a fixed latitude.

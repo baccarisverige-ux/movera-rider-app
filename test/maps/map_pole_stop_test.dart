@@ -54,7 +54,7 @@ void main() {
   });
 
   testWidgets('phones: a drag past the Arctic puts the camera back on the '
-      'edge; web keeps the view inside the world bounds', (tester) async {
+      'edge', (tester) async {
     final maps = GoogleMapsFlutterPlatform.instance;
     final fake = FakeMapsPlatform();
     GoogleMapsFlutterPlatform.instance = fake;
@@ -82,8 +82,6 @@ void main() {
     final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
     // Phones: no centre lock (it would not stop the view, only the centre).
     expect(map.cameraTargetBounds, CameraTargetBounds.unbounded);
-    expect(kMapWorldBounds.northeast.latitude, kMapMaxLatitude);
-    expect(kMapWorldBounds.southwest.latitude, -kMapMaxLatitude);
 
     for (final zoom in [kMapMinZoom, 10.0]) {
       fake.cameraUpdates.clear();

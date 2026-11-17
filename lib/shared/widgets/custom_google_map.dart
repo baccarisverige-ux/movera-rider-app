@@ -295,7 +295,8 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
   /// (no grey band). Phones: when a pan or zoom-out takes the view's top
   /// edge above 85.05° N (or its bottom below 85.05° S), the camera is put
   /// back on the edge at once, so the map stops there under the finger.
-  /// Web: Maps JavaScript stops it itself ([kMapWorldBounds]).
+  /// Web: Maps JavaScript stops it itself (the world restriction set in
+  /// the web map camera script).
   void _keepInsideWorld(CameraPosition camera) {
     if (kIsWeb) return;
     final controller = _mapController;
@@ -413,12 +414,6 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
       // cloud Map ID is the only styling on every map.
       trafficEnabled: false,
       minMaxZoomPreference: kMapZoomPreference,
-      // Web: the view stays inside the world north-south (no grey above
-      // the Arctic); phones use [_keepInsideWorld], since there these
-      // bounds would hold the centre, not the view.
-      cameraTargetBounds: kIsWeb
-          ? CameraTargetBounds(kMapWorldBounds)
-          : CameraTargetBounds.unbounded,
       buildingsEnabled: widget.buildingsEnabled,
       indoorViewEnabled: widget.indoorViewEnabled,
       scrollGesturesEnabled: widget.scrollGesturesEnabled,

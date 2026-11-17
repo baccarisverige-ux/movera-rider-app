@@ -673,7 +673,8 @@
     // mapId cannot change after the first render (every rider map uses the
     // same one); the rest of the options are applied afresh.
     const {mapId, ...rest} = options || {};
-    map.setOptions({...rest, isFractionalZoomEnabled: true});
+    map.setOptions({...rest, isFractionalZoomEnabled: true,
+      restriction: WORLD_RESTRICTION});
     if (rest.center) map.setCenter(rest.center);
     if (rest.zoom != null) map.setZoom(rest.zoom);
     map.setHeading(rest.heading || 0);
@@ -814,6 +815,13 @@
       return context;
     };
   } catch (_) { /* best effort: the release then only drops the DOM */ }
+  // Owner 2026-11-17 ("When slide map must stop with the arctic and
+  // antarctic"): the view never pans past the world's top or bottom edge
+  // (85.05 N/S, Web Mercator), so no grey band shows above the Arctic or
+  // below the Antarctic. The full longitude range keeps east-west free.
+  // Phones do the same in Dart (MapPoleLimit).
+  const WORLD_RESTRICTION = {latLngBounds:
+    {north: 85.05112878, south: -85.05112878, west: -180, east: 180}};
   function installSdk() {
     sdk = globalThis.google.maps;
     trackOverlays();
@@ -836,7 +844,8 @@
         }
         // Fractional zoom: pinch and app eases move in small steps (raster
         // tiles default to whole levels, so 11.7 would snap to 12).
-        const map = Reflect.construct(target, [div, {...options, isFractionalZoomEnabled: true}]);
+        const map = Reflect.construct(target, [div, {...options, isFractionalZoomEnabled: true,
+          restriction: WORLD_RESTRICTION}]);
         created += 1;
         install(map, div, id);
         logMapSize(states.get(id), false);
