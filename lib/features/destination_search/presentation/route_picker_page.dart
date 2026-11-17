@@ -1307,6 +1307,78 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   Widget build(BuildContext context) {
     final typing = _query.trim().isNotEmpty;
     final split = WhereToSplit.maybeOf(context);
+    final Widget header = _splitHeader(
+      split,
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (split != null)
+            SizedBox(height: MediaQuery.paddingOf(context).top),
+          // Swipe down on the header to close, like a sheet.
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onVerticalDragEnd: (details) {
+              if ((details.primaryVelocity ?? 0) > 300) {
+                Navigator.of(context).maybePop();
+              }
+            },
+            child: SizedBox(
+              height: 56,
+              child: Row(
+                children: [
+                  const SizedBox(width: 4),
+                  IconButton(
+                    tooltip: context.l10n.close,
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.close_rounded, size: 26),
+                    color: _ink,
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        widget.pageTitle ?? context.l10n.planYourRide,
+                        style: _t(18, weight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 52),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
+            child: _fields(),
+          ),
+          // v0.18.9 (G7 decision 5): the zone's max stops, shown
+          // once the route has a stop (the server checks it too).
+          if (widget.stopsSupported && _stops.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 20, 4),
+              child: Text(
+                _stops.length >= _maxStops
+                    ? context.l10n.g7TooManyStops('$_maxStops')
+                    : context.l10n.g7MaxStopsShown('$_maxStops'),
+                key: const ValueKey('route-picker-max-stops'),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: Color(0xFF5C656C),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+    final Widget panel = Expanded(
+      child: _splitPanel(
+        split,
+        ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          children: typing ? _whileTyping() : _beforeTyping(),
+        ),
+      ),
+    );
     // rider-u88: while the next step runs (geocoding, the time picker, the
     // route-change price) back must not close the picker under it; that
     // step would then open its sheet over the screen the rider went back to.
@@ -1320,89 +1392,13 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
           child: Stack(
             children: [
               Column(
-                // The header comes last so it paints over the rising panel
-                // (owner 2026-11-17: from an UP sheet they overlap briefly).
-                verticalDirection: VerticalDirection.up,
-                children: [
-                  Expanded(
-                    child: _splitPanel(
-                      split,
-                      ListView(
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
-                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                        children: typing ? _whileTyping() : _beforeTyping(),
-                      ),
-                    ),
-                  ),
-                  _splitHeader(
-                    split,
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (split != null)
-                          SizedBox(height: MediaQuery.paddingOf(context).top),
-                        // Swipe down on the header to close, like a sheet.
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onVerticalDragEnd: (details) {
-                            if ((details.primaryVelocity ?? 0) > 300) {
-                              Navigator.of(context).maybePop();
-                            }
-                          },
-                          child: SizedBox(
-                            height: 56,
-                            child: Row(
-                              children: [
-                                const SizedBox(width: 4),
-                                IconButton(
-                                  tooltip: context.l10n.close,
-                                  onPressed: () =>
-                                      Navigator.of(context).maybePop(),
-                                  icon: const Icon(
-                                    Icons.close_rounded,
-                                    size: 26,
-                                  ),
-                                  color: _ink,
-                                ),
-                                Expanded(
-                                  child: Center(
-                                    child: Text(
-                                      widget.pageTitle ??
-                                          context.l10n.planYourRide,
-                                      style: _t(18, weight: FontWeight.w700),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 52),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
-                          child: _fields(),
-                        ),
-                        // v0.18.9 (G7 decision 5): the zone's max stops, shown
-                        // once the route has a stop (the server checks it too).
-                        if (widget.stopsSupported && _stops.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(24, 0, 20, 4),
-                            child: Text(
-                              _stops.length >= _maxStops
-                                  ? context.l10n.g7TooManyStops('$_maxStops')
-                                  : context.l10n.g7MaxStopsShown('$_maxStops'),
-                              key: const ValueKey('route-picker-max-stops'),
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                color: Color(0xFF5C656C),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
+                // Opening, the header comes last so it paints over the rising
+                // panel (owner 2026-11-17: from an UP sheet they overlap
+                // briefly); otherwise the usual top-down order.
+                verticalDirection: split == null
+                    ? VerticalDirection.down
+                    : VerticalDirection.up,
+                children: split == null ? [header, panel] : [panel, header],
               ),
               if ((widget.finishLabel != null || _rerouted) &&
                   !typing &&
