@@ -17,6 +17,12 @@ typedef PlaceCategoryChoice = ({String id, String name});
 /// the field). The ✕, a swipe down or a tap anywhere outside the sheet
 /// closes it (= ignore). It never blocks booking: nothing is shown under
 /// it until it appears, and it goes away for good once closed.
+///
+/// Owner 2026-11-18 (phone test of #651): it slides up BY DEFAULT on top
+/// of everything, whatever the car sheet's position; the screen behind is
+/// dimmed 20 % (black at 0.20); with no action for [idle] it closes by
+/// itself (nothing saved). A chip tap stops that timer; after "Sparad som
+/// ..." the category question closes the same way after [idle].
 class PlaceSaveSheet extends StatefulWidget {
   const PlaceSaveSheet({
     super.key,
@@ -24,7 +30,11 @@ class PlaceSaveSheet extends StatefulWidget {
     required this.categories,
     this.quickSave,
     this.delay = const Duration(seconds: 2),
+    this.idle = const Duration(seconds: 5),
   });
+
+  /// The black dim over the screen behind the sheet (owner: 20 %).
+  static const double dimOpacity = 0.20;
 
   final String address;
 
@@ -32,6 +42,9 @@ class PlaceSaveSheet extends StatefulWidget {
   final List<PlaceCategoryChoice> Function() categories;
   final PlaceQuickSave? quickSave;
   final Duration delay;
+
+  /// No action for this long closes the sheet (nothing saved).
+  final Duration idle;
 
   @override
   State<PlaceSaveSheet> createState() => _PlaceSaveSheetState();
@@ -49,6 +62,7 @@ class _PlaceSaveSheetState extends State<PlaceSaveSheet>
     duration: const Duration(milliseconds: 320),
   );
   Timer? _timer;
+  Timer? _idle;
   bool _closed = false;
   String? _savedType;
   Object? _before;
@@ -57,13 +71,17 @@ class _PlaceSaveSheetState extends State<PlaceSaveSheet>
   void initState() {
     super.initState();
     _timer = Timer(widget.delay, () {
-      if (mounted && !_closed) _slide.forward();
+      if (mounted && !_closed) {
+        _slide.forward();
+        _startIdle();
+      }
     });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _idle?.cancel();
     _slide.dispose();
     super.dispose();
   }
@@ -71,33 +89,42 @@ class _PlaceSaveSheetState extends State<PlaceSaveSheet>
   Future<void> _close() async {
     if (_closed) return;
     _timer?.cancel();
+    _idle?.cancel();
     await _slide.reverse();
     if (mounted) setState(() => _closed = true);
   }
 
+  /// Owner: 5 s with no action closes the sheet; any action restarts it
+  /// or (a chip tap) stops it.
+  void _startIdle() {
+    _idle?.cancel();
+    _idle = Timer(widget.idle, () {
+      if (mounted) unawaited(_close());
+    });
+  }
+
   Future<void> _pickType(String type) async {
+    _idle?.cancel();
     final before = await _save.save(widget.address, type);
     if (!mounted) return;
     setState(() {
       _savedType = type;
       _before = before;
     });
-    if (!_save.categorySupported || widget.categories().isEmpty) {
-      // An older server: no category question; the confirmation stays a
-      // moment with its undo, then the sheet goes.
-      Timer(const Duration(seconds: 4), () {
-        if (mounted) unawaited(_close());
-      });
-    }
+    // "Sparad som ..." (with the category question, or on an older server
+    // only the undo) closes by itself after [idle] with no action.
+    _startIdle();
   }
 
   Future<void> _undo() async {
+    _idle?.cancel();
     final before = _before;
     if (before != null) await _save.undo(before);
     if (mounted) unawaited(_close());
   }
 
   Future<void> _fix(String categoryId) async {
+    _idle?.cancel();
     final type = _savedType;
     if (type != null) {
       await _save.fixCategory(widget.address, type, categoryId);
@@ -116,12 +143,19 @@ class _PlaceSaveSheetState extends State<PlaceSaveSheet>
         return PointerInterceptor(
           child: Stack(
             children: [
-              // Step 4b: a tap anywhere outside the sheet closes it.
+              // Step 4b: a tap anywhere outside the sheet closes it; the
+              // screen behind is dimmed 20 % (owner 2026-11-18).
               Positioned.fill(
                 child: GestureDetector(
                   key: const ValueKey('place-save-outside'),
                   behavior: HitTestBehavior.opaque,
                   onTap: _close,
+                  child: ColoredBox(
+                    key: const ValueKey('place-save-dim'),
+                    color: Colors.black.withValues(
+                      alpha: PlaceSaveSheet.dimOpacity * _slide.value,
+                    ),
+                  ),
                 ),
               ),
               Align(
