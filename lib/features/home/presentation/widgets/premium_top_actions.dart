@@ -1,5 +1,3 @@
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:movera_rider/shared/accessibility/a11y.dart';
 import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
@@ -47,45 +45,43 @@ class PremiumTopActions extends StatelessWidget {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(28),
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 11, sigmaY: 11),
-              child: Container(
-                key: const ValueKey('home-top-capsule'),
-                height: 56,
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.8),
+            // No BackdropFilter: the map under it is a platform view that a
+            // blur cannot sample, and Home bans BackdropFilter over the map
+            // (audit_fix_home_sheet_wash_test); 85 % white stays.
+            child: Container(
+              key: const ValueKey('home-top-capsule'),
+              height: 56,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _Tap(
+                    key: const ValueKey('home-menu'),
+                    onTap: onMenuTap,
+                    child: const SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Icon(Icons.menu_rounded, size: 24, color: ink),
+                    ),
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _Tap(
-                      key: const ValueKey('home-menu'),
-                      onTap: onMenuTap,
-                      child: const SizedBox(
-                        width: 48,
-                        height: 48,
-                        child: Icon(Icons.menu_rounded, size: 24, color: ink),
+                  _Tap(
+                    key: const ValueKey('home-places'),
+                    onTap: onPlacesTap,
+                    // 48 x 48 or more to tap; the chip drawn is 44 high.
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minWidth: 48),
+                        child: _PlacesChip(open: placesOpen),
                       ),
                     ),
-                    _Tap(
-                      key: const ValueKey('home-places'),
-                      onTap: onPlacesTap,
-                      // 48 x 48 or more to tap; the chip drawn is 44 high.
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(minWidth: 48),
-                          child: _PlacesChip(open: placesOpen),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

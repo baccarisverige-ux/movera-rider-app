@@ -165,7 +165,8 @@ void main() {
       'other brand\'s account wording', (tester) async {
     await _pumpHome(tester);
     expect(find.byType(HomeReservationChrono), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('Account').first);
+    // Saved-places design step 8: the profile is only under the Konto tab.
+    await tester.tap(find.bySemanticsLabel(RegExp(r'^Account')).first);
     await _settle(tester, 10);
     expect(find.byType(AccountHomePage), findsOneWidget);
     expect(find.textContaining('Uber account'), findsNothing);

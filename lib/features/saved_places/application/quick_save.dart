@@ -43,7 +43,7 @@ class PlaceQuickSave {
   };
 
   /// Saves [address] as [type]; answers the phone copy from before, for
-  /// [undo]. Home and Work replace the slot's address.
+  /// [undo] (an opaque token). Home and Work replace the slot's address.
   Future<HomeAddressSnapshot> save(String address, String type) async {
     final before = await _store.load();
     final clean = address.trim();
@@ -75,7 +75,9 @@ class PlaceQuickSave {
   }
 
   /// "Ångra": puts the phone copy back as it was before [save].
-  Future<void> undo(HomeAddressSnapshot before) async {
+  Future<void> undo(Object token) async {
+    if (token is! HomeAddressSnapshot) return;
+    final before = token;
     final now = await _store.load();
     await _store.save(
       HomeAddressSnapshot(
