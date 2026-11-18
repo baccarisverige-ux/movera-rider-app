@@ -12,6 +12,7 @@ import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
+import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Owner 2026-11-17 ("Yes, like the example"): Where to? opens with one
@@ -276,6 +277,37 @@ void main() {
     await tester.drag(find.byType(WhereToCard), const Offset(0, 600));
     await frames(tester, 10);
     expect(homeSheetOpen(tester), isFalse, reason: 'drag down collapses');
+    expect(find.byType(RoutePickerPage), findsNothing);
+    await tearDownHome(tester);
+  });
+
+  // Owner 2026-11-18: Later opens the search screen with exactly the same
+  // two-part slide as Where to? (header down, panel up out of the bar).
+  testWidgets('Later opens with the same two-part slide as Where to?', (
+    tester,
+  ) async {
+    expect(AppScope.instance.bookLaterAvailable, isTrue);
+    await pumpHome(tester);
+    final home = tester.getTopLeft(find.byType(WhereToCard)).dy;
+    await tester.tap(find.byKey(const ValueKey('home-schedule-later')));
+    await tester.pump();
+    await tester.pump();
+    final page = find.byType(RoutePickerPage, skipOffstage: false);
+    expect(page, findsOneWidget);
+    expect(
+      ModalRoute.of(tester.element(page)),
+      isA<WhereToSlideTransition<dynamic>>(),
+      reason: 'Later uses the Where to? route, not a bottom-to-top slide',
+    );
+    expect(headerTop(tester), lessThan(-40), reason: 'header above the top');
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('where-to-split-bar'))).dy,
+      closeTo(home, 2),
+      reason: 'the panel rises from the Where to? bar',
+    );
+    await frames(tester, 8);
+    await tester.tap(find.byIcon(Icons.close_rounded).last);
+    await frames(tester, 12);
     expect(find.byType(RoutePickerPage), findsNothing);
     await tearDownHome(tester);
   });
