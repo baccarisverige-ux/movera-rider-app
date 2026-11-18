@@ -1524,6 +1524,13 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'spLocationUnavailable': l.spLocationUnavailable,
   'spNoLocationSuggestions': l.spNoLocationSuggestions,
   'spSuggestionsNotConnected': l.spSuggestionsNotConnected,
+  'placesSaveAddress': l.placesSaveAddress,
+  'placesSavedAs': l.placesSavedAs('<type>'),
+  'placesUndo': l.placesUndo,
+  'placesAskFixCategory': l.placesAskFixCategory,
+  'placesNoThanks': l.placesNoThanks,
+  'placesChangeCategory': l.placesChangeCategory,
+  'placesCategoryNotHere': l.placesCategoryNotHere('<category>'),
   'whereTo': l.whereTo,
   'currentLocation': l.currentLocation,
   'homeSearchInterrupted': l.homeSearchInterrupted,
@@ -1989,6 +1996,8 @@ const messagePlaceholders = <String, List<String>>{
   'spRemoveFailed': ['place'],
   'spEditPlace': ['place'],
   'spDeletePlace': ['place'],
+  'placesSavedAs': ['type'],
+  'placesCategoryNotHere': ['category'],
   'homeRideCount': [],
   'homeYourMonth': ['month'],
   'homeCo2Kg': ['kg'],
@@ -5062,6 +5071,20 @@ class _Exhaustive implements AppLocalizations {
   String get spNoLocationSuggestions => '';
   @override
   String get spSuggestionsNotConnected => '';
+  @override
+  String get placesSaveAddress => '';
+  @override
+  String placesSavedAs(String type) => '';
+  @override
+  String get placesUndo => '';
+  @override
+  String get placesAskFixCategory => '';
+  @override
+  String get placesNoThanks => '';
+  @override
+  String get placesChangeCategory => '';
+  @override
+  String placesCategoryNotHere(String category) => '';
   @override
   String get whereTo => '';
   @override

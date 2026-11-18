@@ -89,6 +89,17 @@ extension _SetPickupSheet on _SetPickupPageState {
               ],
             ),
           ),
+          if (widget.showChangeCategory)
+            TextButton(
+              key: const ValueKey('set-pickup-change-category'),
+              onPressed: () {
+                if (!_held) Navigator.pop(context);
+              },
+              child: Text(
+                context.l10n.placesChangeCategory,
+                style: _text(13.5, weight: FontWeight.w600),
+              ),
+            ),
         ],
       ),
     );

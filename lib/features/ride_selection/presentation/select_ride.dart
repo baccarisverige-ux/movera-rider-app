@@ -80,6 +80,7 @@ import 'package:movera_rider/features/payments/presentation/payment_labels.dart'
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/features/ride_selection/presentation/not_here_view.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/features/saved_places/presentation/place_save_sheet.dart';
 import 'package:movera_rider/shared/widgets/approximate_route_badge.dart';
 import 'package:movera_rider/core/contracts/server_clock.dart';
 
@@ -91,6 +92,7 @@ part 'select_ride_book_scheduled.dart';
 part 'select_ride_footer.dart';
 part 'select_ride_list.dart';
 part 'select_ride_options.dart';
+part 'select_ride_preferred.dart';
 part 'select_ride_quotes.dart';
 part 'select_ride_reveal.dart';
 part 'select_ride_sheet_control.dart';
@@ -125,6 +127,8 @@ class SelectRide extends StatefulWidget {
     this.geocoding,
     this.nearbyCars,
     this.activeTrips,
+    this.preferredCategoryId,
+    this.offerSaveAddress,
   });
 
   /// Whether [origin] has the exact points a return ride needs (CODE-5).
@@ -188,6 +192,13 @@ class SelectRide extends StatefulWidget {
   final bool lockBookingMode;
   final DateTime? initialScheduledFor;
   final String? initialRideId;
+
+  /// Saved-places design (owner 2026-11-18): the saved place's fixed
+  /// category; when offered here it is chosen and Set pickup opens at once.
+  final String? preferredCategoryId;
+
+  /// A recent address that is not saved: the S3 save sheet offers it.
+  final String? offerSaveAddress;
   final String? initialPaymentMethod;
   final String? parentReservationId;
   final String? editingReservationId;
@@ -284,6 +295,8 @@ class _SelectRideState extends State<SelectRide>
   bool _overlayOn = false;
   bool _pickupConfirmed = false;
   bool _bookingInFlight = false;
+  bool _preferredTried = false;
+  bool _preferredOpened = false;
   // The driver-notes block was removed (owner request); bags are asked
   // on Set pickup instead.
   RideNotes _notes = RideNotes.empty;
@@ -552,6 +565,7 @@ class _SelectRideState extends State<SelectRide>
     setState(() {});
     _scheduleExpiryRequote();
     _scheduleBusyRequote();
+    _openPreferredOnce();
   }
 
   /// rider-u185: prices the rides again when their quotes run out, so the
@@ -1444,6 +1458,7 @@ class _SelectRideState extends State<SelectRide>
                 ),
               ),
             ),
+            if (widget.offerSaveAddress != null) _saveSheetLayer(),
           ],
         ),
       ),
@@ -1470,17 +1485,4 @@ class _SelectRideState extends State<SelectRide>
 
   /// The promotion's text colour: teal dark enough to read on white.
   static const Color _tealText = Color(0xFF117C74);
-
-  /// Add card for the generic Card row (no saved card yet): the new card
-  /// becomes the chosen method. Null: no card was added.
-  Future<SavedCard?> _addCardFirst() async {
-    final card = await AddCardPage.open(context);
-    if (card == null || !mounted) return null;
-    final index = _selection.payments().indexWhere(
-      (p) => p.brand == card.methodBrand,
-    );
-    if (index < 0) return null;
-    setState(() => _selection.selectPayment(index));
-    return card;
-  }
 }

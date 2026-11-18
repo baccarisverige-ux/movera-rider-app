@@ -76,10 +76,65 @@ extension _HomeRouteFlow on _HomeState {
     placeId: place.id,
   );
 
+  /// Saved-places design (owner 2026-11-18) steps 1-3: the places pop-up
+  /// from the capsule's pin. A saved place or a recent address goes
+  /// straight to the categories (pickup = where the rider is); a saved
+  /// place's fixed category skips them (step 5); a recent address gets the
+  /// S3 save sheet. The bar opens the usual Where to / Senare flows.
+  Future<void> _openPlaces() async {
+    final saved = popupPlaces(
+      home: _placeOrNull(_homeAddress),
+      work: _placeOrNull(_workAddress),
+      others: [
+        for (final p in _savedPlaces)
+          (title: p.title, type: p.type, address: p.address),
+      ],
+    );
+    final savedAddresses = {
+      for (final p in saved) p.address.trim().toLowerCase(),
+    };
+    final choice = await PlacesPopup.open(
+      context,
+      places: saved,
+      recent: [
+        for (final a in _recentAddresses)
+          if (!savedAddresses.contains(a.trim().toLowerCase())) a,
+      ],
+      onMenuTap: _openMenu,
+    );
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case PickSavedPlace(:final place):
+        final kind = place.kind == 'custom' ? 'other' : place.kind;
+        final fixed = await PlaceQuickSave().categoryFor(kind, place.address);
+        if (!mounted) return;
+        await _useSavedPlaceAsDestination(
+          place.address,
+          target: place.kind,
+          customType: place.type,
+          preferredCategoryId: fixed,
+        );
+      case PickRecent(:final address):
+        await _useSavedPlaceAsDestination(
+          address,
+          target: 'destination',
+          offerSave: true,
+        );
+      case PickAddPlace():
+        await _openAddPlacePicker();
+      case PickWhereTo():
+        await _handleDestinationTap();
+      case PickLater():
+        await _openSchedule();
+    }
+  }
+
   Future<void> _useSavedPlaceAsDestination(
     String? savedAddress, {
     required String target,
     String? customType,
+    String? preferredCategoryId,
+    bool offerSave = false,
   }) => _runRouteFlow(() async {
     final address = _placeOrNull(savedAddress) ?? '';
     if (address.isEmpty) {
@@ -151,6 +206,8 @@ extension _HomeRouteFlow on _HomeState {
           destinationPosition: confirmedDestinationPosition,
           stops: const <String>[],
           bookingMode: BookingMode.now,
+          preferredCategoryId: preferredCategoryId,
+          offerSaveAddress: offerSave ? resolvedDestination : null,
           onScheduled: (context, id) {
             _scheduledInFlow = true;
             return RideScheduledPage.open(

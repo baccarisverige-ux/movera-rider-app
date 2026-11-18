@@ -51,5 +51,12 @@
   "spNoAddressHere": "Impossible de trouver une adresse là où vous êtes. Recherchez-la plutôt.",
   "spLocationUnavailable": "Position indisponible",
   "spNoLocationSuggestions": "Aucune suggestion de lieu",
-  "spSuggestionsNotConnected": "Les suggestions de lieux ne sont pas encore connectées dans cette version."
+  "spSuggestionsNotConnected": "Les suggestions de lieux ne sont pas encore connectées dans cette version.",
+  "placesSaveAddress": "Enregistrer l’adresse ?",
+  "placesSavedAs": "Enregistrée comme {type}",
+  "placesUndo": "Annuler",
+  "placesAskFixCategory": "Toujours choisir une catégorie pour ce lieu ?",
+  "placesNoThanks": "Non merci",
+  "placesChangeCategory": "Changer de catégorie",
+  "placesCategoryNotHere": "{category} n’est pas disponible ici pour le moment"
 }

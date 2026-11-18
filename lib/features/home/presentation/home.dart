@@ -58,6 +58,8 @@ import 'package:movera_rider/shared/widgets/horizontal_swipe.dart';
 import 'package:movera_rider/features/home/presentation/widgets/advance_booking_card.dart';
 import 'package:movera_rider/features/home/presentation/widgets/liquid_glass_nav.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_top_actions.dart';
+import 'package:movera_rider/features/home/presentation/widgets/places_popup.dart';
+import 'package:movera_rider/features/saved_places/application/quick_save.dart';
 import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
 import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
 import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
@@ -1013,7 +1015,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             child: Builder(
                               builder: (drawerContext) => PremiumTopActions(
                                 onMenuTap: _openMenu,
-                                onAccountTap: _openAccount,
+                                onPlacesTap: _openPlaces,
                               ),
                             ),
                           ),

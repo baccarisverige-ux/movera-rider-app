@@ -103,5 +103,43 @@
   "spNoAddressHere": "We couldn’t find an address for where you are. Search for it instead.",
   "spLocationUnavailable": "Location unavailable",
   "spNoLocationSuggestions": "No location suggestions",
-  "spSuggestionsNotConnected": "Location suggestions aren’t connected in this build yet."
+  "spSuggestionsNotConnected": "Location suggestions aren’t connected in this build yet.",
+  "placesSaveAddress": "Save this address?",
+  "@placesSaveAddress": {
+    "description": "Title of the sheet that offers to save a recent address (saved-places design S3)."
+  },
+  "placesSavedAs": "Saved as {type}",
+  "@placesSavedAs": {
+    "description": "Confirmation after a type was chosen in the save sheet.",
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "placesUndo": "Undo",
+  "@placesUndo": {
+    "description": "Undo the save just made in the save sheet."
+  },
+  "placesAskFixCategory": "Always choose a category for this place?",
+  "@placesAskFixCategory": {
+    "description": "Question after saving: fix one ride category for this place."
+  },
+  "placesNoThanks": "No thanks",
+  "@placesNoThanks": {
+    "description": "Declines fixing a category for the place."
+  },
+  "placesChangeCategory": "Change category",
+  "@placesChangeCategory": {
+    "description": "Link on Set pickup that goes back to the categories screen."
+  },
+  "placesCategoryNotHere": "{category} is not available here right now",
+  "@placesCategoryNotHere": {
+    "description": "The place’s fixed category is not offered here right now.",
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  }
 }

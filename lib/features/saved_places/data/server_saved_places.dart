@@ -34,6 +34,12 @@ class ServerSavedPlaces {
 
   /// What the server holds, by placeId; null until the first read.
   Map<String, ServerPlace>? _known;
+
+  /// Contract v0.18.129: whether this server answers
+  /// `SavedPlace.preferredCategoryId`. An older server never sends it, so
+  /// the rider app neither asks nor sends a fixed category there.
+  bool get supportsPreferredCategory =>
+      _known?.values.any((p) => p.hasCategoryField) ?? false;
   StreamSubscription<void>? _watch;
   Future<void> _queue = Future<void>.value();
 
@@ -88,7 +94,11 @@ class ServerSavedPlaces {
     final known = _known;
     if (known == null) return;
     final local = await _store.load();
-    final plan = planChanges(known.values.toList(), local);
+    final plan = planChanges(
+      known.values.toList(),
+      local,
+      sendCategory: supportsPreferredCategory,
+    );
     if (plan.isEmpty) return;
     for (final id in plan.deletes) {
       await _api.delete('$_path/${Uri.encodeComponent(id)}');
@@ -129,9 +139,18 @@ class ServerPlace {
     required this.label,
     required this.address,
     this.type,
+    this.preferredCategoryId,
+    this.hasCategoryField = false,
   });
 
   final String placeId;
+
+  /// v0.18.129: the place's fixed ride category (null = none).
+  final String? preferredCategoryId;
+
+  /// Whether the server sent `preferredCategoryId` at all (an older server
+  /// does not).
+  final bool hasCategoryField;
 
   /// home | work | other.
   final String kind;
@@ -148,12 +167,17 @@ class ServerPlace {
     if (id is! String || kind is! String || label is! String) return null;
     if (address is! String || address.trim().isEmpty) return null;
     final type = json['type'];
+    final category = json['preferredCategoryId'];
     return ServerPlace(
       placeId: id,
       kind: kind,
       label: label,
       address: address,
       type: type is String ? type : null,
+      preferredCategoryId: category is String && category.isNotEmpty
+          ? category
+          : null,
+      hasCategoryField: json.containsKey('preferredCategoryId'),
     );
   }
 
@@ -216,7 +240,12 @@ HomeAddressSnapshot snapshotFor(
   String? home;
   String? work;
   final others = <Map<String, String>>[];
+  final categories = <String, String>{};
   for (final p in places) {
+    final category = p.preferredCategoryId;
+    if (category != null) {
+      categories[placeCategoryKey(p.kind, p.address)] = category;
+    }
     if (p.kind == 'home') {
       home = p.address;
     } else if (p.kind == 'work') {
@@ -235,6 +264,8 @@ HomeAddressSnapshot snapshotFor(
     work: work,
     recent: recent,
     places: others,
+    // An older server knows no categories: the phone keeps its own.
+    categories: places.any((p) => p.hasCategoryField) ? categories : null,
   );
 }
 
@@ -264,26 +295,48 @@ class PlacePlan {
 
 /// What to send so the server matches the phone copy [local], given what the
 /// server last said ([known]).
-PlacePlan planChanges(List<ServerPlace> known, HomeAddressSnapshot local) {
+///
+/// [sendCategory] (contract v0.18.129, the server answers the field): a
+/// place whose fixed category on the phone differs from the server's is
+/// sent with `preferredCategoryId`; otherwise the field is never sent.
+PlacePlan planChanges(
+  List<ServerPlace> known,
+  HomeAddressSnapshot local, {
+  bool sendCategory = false,
+}) {
+  final categories = local.categories ?? const <String, String>{};
+  String? wanted(String kind, String address) =>
+      categories[placeCategoryKey(kind, address)];
   final creates = <PlaceCreate>[];
   final updates = <PlaceUpdate>[];
   final deletes = <String>[];
   for (final slot in const ['home', 'work']) {
     final address = (slot == 'home' ? local.home : local.work)?.trim() ?? '';
     final server = known.where((p) => p.kind == slot).firstOrNull;
+    final category = wanted(slot, address);
+    final categoryChanged =
+        sendCategory &&
+        server != null &&
+        server.preferredCategoryId != category;
     if (address.isEmpty) {
       if (server != null) deletes.add(server.placeId);
-    } else if (server == null || server.address.trim() != address) {
+    } else if (server == null ||
+        server.address.trim() != address ||
+        categoryChanged) {
       creates.add(
-        PlaceCreate(
-          _body(
+        PlaceCreate({
+          ..._body(
             label: slot == 'home'
                 ? L10n.current.placeHome
                 : L10n.current.placeWork,
             kind: slot,
             address: address,
           ),
-        ),
+          // v0.18.129: a POST that replaces home / work keeps the stored
+          // category when the field is left out.
+          if (sendCategory && (categoryChanged || category != null))
+            'preferredCategoryId': category,
+        }),
       );
     }
   }
@@ -303,15 +356,29 @@ PlacePlan planChanges(List<ServerPlace> known, HomeAddressSnapshot local) {
       address: address,
     );
     final server = others[id];
+    final category = wanted('other', address);
     if (server == null) {
-      creates.add(PlaceCreate(body, localId: id.isEmpty ? null : id));
+      creates.add(
+        PlaceCreate({
+          ...body,
+          if (sendCategory && category != null) 'preferredCategoryId': category,
+        }, localId: id.isEmpty ? null : id),
+      );
       continue;
     }
     kept.add(id);
+    final categoryChanged =
+        sendCategory && server.preferredCategoryId != category;
     if (server.address.trim() != address ||
         server.label != body['label'] ||
-        server.type != body['type']) {
-      updates.add(PlaceUpdate(id, body));
+        server.type != body['type'] ||
+        categoryChanged) {
+      updates.add(
+        PlaceUpdate(id, {
+          ...body,
+          if (categoryChanged) 'preferredCategoryId': category,
+        }),
+      );
     }
   }
   for (final id in others.keys) {

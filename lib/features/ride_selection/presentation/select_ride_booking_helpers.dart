@@ -116,6 +116,8 @@ extension _SelectRideBookingHelpers on _SelectRideState {
       confirmLabel: confirmLabel,
       scheduledPickup: scheduledPickup,
       holdOnConfirm: holdOnConfirm,
+      showChangeCategory:
+          _preferredOpened && ride.id == widget.preferredCategoryId,
     );
   }
 
@@ -169,5 +171,19 @@ extension _SelectRideBookingHelpers on _SelectRideState {
     } finally {
       if (finding) SheetCoordinator.instance.close(RideSheet.finding);
     }
+  }
+
+  /// Add card for the generic Card row (no saved card yet): the new card
+  /// becomes the chosen method. Null: no card was added.
+  Future<SavedCard?> _addCardFirst() async {
+    final card = await AddCardPage.open(context);
+    if (card == null || !mounted) return null;
+    final index = _selection.payments().indexWhere(
+      (p) => p.brand == card.methodBrand,
+    );
+    if (index < 0) return null;
+    // ignore: invalid_use_of_protected_member
+    setState(() => _selection.selectPayment(index));
+    return card;
   }
 }

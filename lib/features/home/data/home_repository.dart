@@ -12,6 +12,7 @@ class HomeAddressSnapshot {
     this.recent = const [],
     this.recentPoints = const {},
     this.places = const [],
+    this.categories,
   });
 
   final String? home;
@@ -22,6 +23,36 @@ class HomeAddressSnapshot {
   /// Where to?). Recents saved before this have none.
   final Map<String, GeoPoint> recentPoints;
   final List<Map<String, String>> places;
+
+  /// Saved-places design (owner 2026-11-18, contract v0.18.129): each
+  /// place's fixed ride category, by [placeCategoryKey]. Null on a write =
+  /// keep what the phone has (writers that do not know about categories).
+  final Map<String, String>? categories;
+}
+
+const placeCategoriesKey = 'movera_place_categories_v1';
+
+/// The key of a place's fixed category: `home`, `work`, or the address of a
+/// custom place (its id changes when the server answers; the address not).
+String placeCategoryKey(String kind, String address) => switch (kind) {
+  'home' => 'home',
+  'work' || 'office' => 'work',
+  _ => 'addr:${address.trim().toLowerCase()}',
+};
+
+Map<String, String> decodePlaceCategories(String? raw) {
+  if (raw == null || raw.isEmpty) return {};
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return {};
+    return {
+      for (final e in decoded.entries)
+        if (e.key is String && e.value is String)
+          e.key as String: e.value as String,
+    };
+  } catch (_) {
+    return {};
+  }
 }
 
 const recentPointsKey = 'movera_recent_points_v1';
@@ -122,6 +153,7 @@ class HomeAddressRepository {
       recent: prefs.getStringList('movera_recent_addresses') ?? <String>[],
       recentPoints: decodeRecentPoints(prefs.getString(recentPointsKey)),
       places: places,
+      categories: decodePlaceCategories(prefs.getString(placeCategoriesKey)),
     );
   }
 
@@ -148,6 +180,9 @@ class HomeAddressRepository {
         }),
       );
       await prefs.setString('movera_saved_places', jsonEncode(data.places));
+      if (data.categories != null) {
+        await prefs.setString(placeCategoriesKey, jsonEncode(data.categories));
+      }
     } catch (error) {
       // uat-r1: Home awaits this write right after a destination is
       // chosen. A refused write (iOS Safari: quota, Private Browsing on

@@ -51,5 +51,12 @@
   "spNoAddressHere": "Vi hittade ingen adress där du är. Sök efter den i stället.",
   "spLocationUnavailable": "Platsen är inte tillgänglig",
   "spNoLocationSuggestions": "Inga platsförslag",
-  "spSuggestionsNotConnected": "Platsförslag är inte anslutna i den här versionen än."
+  "spSuggestionsNotConnected": "Platsförslag är inte anslutna i den här versionen än.",
+  "placesSaveAddress": "Spara adressen?",
+  "placesSavedAs": "Sparad som {type}",
+  "placesUndo": "Ångra",
+  "placesAskFixCategory": "Alltid välja kategori för den här platsen?",
+  "placesNoThanks": "Nej tack",
+  "placesChangeCategory": "Byt kategori",
+  "placesCategoryNotHere": "{category} finns inte här just nu"
 }

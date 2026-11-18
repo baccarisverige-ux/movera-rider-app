@@ -69,7 +69,7 @@ void main() {
     'Home chips': () => Scaffold(
       body: Column(
         children: [
-          PremiumTopActions(onMenuTap: () {}, onAccountTap: () {}),
+          PremiumTopActions(onMenuTap: () {}, onPlacesTap: () {}),
           WhereToCard(
             destinationAddress: null,
             onDestinationTap: () {},

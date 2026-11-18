@@ -155,21 +155,23 @@ void main() {
     expectMinTap(tester, find.byType(IconButton), reason: 'plain icon');
   });
 
-  testWidgets('home menu and account hits are 48x48', (tester) async {
+  testWidgets('home menu and places hits are 48x48', (tester) async {
     await pumpApp(
       tester,
       Scaffold(
-        body: PremiumTopActions(onMenuTap: () {}, onAccountTap: () {}),
+        body: PremiumTopActions(onMenuTap: () {}, onPlacesTap: () {}),
       ),
     );
     expect(find.bySemanticsLabel('Menu'), findsOneWidget);
-    expect(find.bySemanticsLabel('Account'), findsOneWidget);
+    expect(find.bySemanticsLabel('Saved Places'), findsOneWidget);
+    // Saved-places design step 8: no profile button on the map.
+    expect(find.bySemanticsLabel('Account'), findsNothing);
     final hits = find.descendant(
       of: find.byType(PremiumTopActions),
       matching: find.byType(InkWell),
     );
     expectMinTap(tester, hits.at(0), reason: 'Menu');
-    expectMinTap(tester, hits.at(1), reason: 'Account');
+    expectMinTap(tester, hits.at(1), reason: 'Saved Places');
   });
 
   testWidgets('completion back hit is 48x48', (tester) async {
