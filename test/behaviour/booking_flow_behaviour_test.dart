@@ -104,6 +104,8 @@ void main() {
     await tester.tap(find.text('Where to?'));
     await _route(tester);
     await _waitFor(tester, find.byType(SelectRide));
+    // Owner 2026-11-18: let the two-part categories open finish (300 ms).
+    await tester.pump(const Duration(milliseconds: 350));
     final select = find.text('Select Movera');
     await _waitFor(tester, select);
     await tester.ensureVisible(select);
@@ -152,6 +154,8 @@ void main() {
     );
     await tester.tap(find.text('Continue'));
     await _waitFor(tester, find.byType(SelectRide), never: finding);
+    // Owner 2026-11-18: let the two-part categories open finish (300 ms).
+    await tester.pump(const Duration(milliseconds: 350));
     final schedule = find.text('Schedule Movera');
     await _waitFor(tester, schedule, never: finding);
     expect(find.text('Select Movera'), findsNothing);

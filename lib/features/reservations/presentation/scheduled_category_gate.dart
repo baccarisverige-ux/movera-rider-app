@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/location/app_geocoding.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
@@ -52,32 +53,31 @@ Future<void> openScheduledCategorySelector(
 
   AppScope.instance.maps.detach(owner: MapOwners.schedule);
 
-  final created = await Navigator.of(context).push<Reservation>(
-    MaterialPageRoute(
-      builder: (_) => SelectRide(
-        pickupAddress: pickupLabel,
-        destinationAddress: destinationLabel,
-        pickupPosition: pickupPosition,
-        destinationPosition: destinationPosition,
-        stops: List<String>.from(session.stops),
-        bookingMode: BookingMode.scheduled,
-        lockBookingMode: true,
-        initialScheduledFor: session.scheduledAt,
-        initialRideId: initialRideId ?? session.rideType,
-        initialPaymentMethod:
-            initialPaymentMethod ??
-            (editingReservationId == null ? null : session.paymentMethod),
-        note: session.note.trim().isEmpty ? null : session.note.trim(),
-        editingReservationId: editingReservationId,
-        pickupAlreadyConfirmed: true,
-        onScheduled: editingReservationId == null
-            ? (context, id) => RideScheduledPage.open(
-                context,
-                reservationId: id,
-                untilHome: true,
-              )
-            : null,
-      ),
+  final created = await pushCategories<Reservation>(
+    context,
+    SelectRide(
+      pickupAddress: pickupLabel,
+      destinationAddress: destinationLabel,
+      pickupPosition: pickupPosition,
+      destinationPosition: destinationPosition,
+      stops: List<String>.from(session.stops),
+      bookingMode: BookingMode.scheduled,
+      lockBookingMode: true,
+      initialScheduledFor: session.scheduledAt,
+      initialRideId: initialRideId ?? session.rideType,
+      initialPaymentMethod:
+          initialPaymentMethod ??
+          (editingReservationId == null ? null : session.paymentMethod),
+      note: session.note.trim().isEmpty ? null : session.note.trim(),
+      editingReservationId: editingReservationId,
+      pickupAlreadyConfirmed: true,
+      onScheduled: editingReservationId == null
+          ? (context, id) => RideScheduledPage.open(
+              context,
+              reservationId: id,
+              untilHome: true,
+            )
+          : null,
     ),
   );
   if (editingReservationId != null && created != null && context.mounted) {

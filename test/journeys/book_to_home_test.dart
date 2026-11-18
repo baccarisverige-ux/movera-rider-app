@@ -140,6 +140,8 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(find.byType(SelectRide), findsOneWidget);
+      // Owner 2026-11-18: let the two-part categories open finish (300 ms).
+      await tester.pump(const Duration(milliseconds: 350));
 
       // Quotes are backend-authored even in demo/test composition. Wait for
       // the category CTA to become actionable instead of bypassing selection.

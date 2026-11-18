@@ -1221,6 +1221,8 @@ class _SelectRideState extends State<SelectRide>
     // G25: the map exists (mounted, maybe parked) once the route settled.
     final mapMounted = _mapReady;
     final minSheet = _minSheet(media);
+    // Owner 2026-11-18: the two-part open (header down, sheet up).
+    final split = CategoriesSplit.maybeOf(context);
     return PopScope(
       onPopInvokedWithResult: _onRoutePop,
       child: Scaffold(
@@ -1377,35 +1379,43 @@ class _SelectRideState extends State<SelectRide>
                   ),
                 );
               },
-              child: PointerInterceptor(child: _searchBar()),
+              child: _splitHeader(
+                split,
+                media,
+                PointerInterceptor(child: _searchBar()),
+              ),
             ),
             Positioned.fill(
-              child: DraggableScrollableSheet(
-                key: const ValueKey('select-ride-sheet'),
-                controller: _sheetController,
-                initialChildSize: _fractionOf(_midSheet(media), media),
-                minChildSize: _fractionOf(minSheet, media),
-                maxChildSize: _fractionOf(_maxSheet(media), media),
-                snap: true,
-                snapSizes: [_fractionOf(_midSheet(media), media)],
-                snapAnimationDuration: MoveraMotion.of(
-                  context,
-                  MoveraDurations.large,
-                ),
-                builder: (context, scroll) => PointerInterceptor(
-                  child: Material(
-                    color: Colors.white,
-                    elevation: 18,
-                    shadowColor: const Color(
-                      0xFF162C36,
-                    ).withValues(alpha: 0.16),
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(28),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: NotificationListener<ScrollNotification>(
-                      onNotification: (n) => _onSheetScroll(n, media),
-                      child: _sheetBody(media, scroll),
+              child: _splitSheet(
+                split,
+                media,
+                const ValueKey('categories-split-sheet'),
+                DraggableScrollableSheet(
+                  key: const ValueKey('select-ride-sheet'),
+                  controller: _sheetController,
+                  initialChildSize: _fractionOf(_midSheet(media), media),
+                  minChildSize: _fractionOf(minSheet, media),
+                  maxChildSize: _fractionOf(_maxSheet(media), media),
+                  snap: true,
+                  snapSizes: [_fractionOf(_midSheet(media), media)],
+                  snapAnimationDuration: MoveraMotion.of(
+                    context,
+                    MoveraDurations.large,
+                  ),
+                  builder: (context, scroll) => PointerInterceptor(
+                    child: Material(
+                      color: Colors.white,
+                      elevation: 18,
+                      shadowColor: const Color(0xFF162C36)
+                          .withValues(alpha: 0.16),
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(28),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (n) => _onSheetScroll(n, media),
+                        child: _sheetBody(media, scroll),
+                      ),
                     ),
                   ),
                 ),
@@ -1418,17 +1428,63 @@ class _SelectRideState extends State<SelectRide>
               bottom: 0,
               // Owner round 3: the payment block moves the sheet too.
               child: PointerInterceptor(
-                child: GestureDetector(
-                  key: const ValueKey('select-ride-footer-drag'),
-                  onVerticalDragUpdate: (d) => _onHeaderDragUpdate(d, media),
-                  onVerticalDragEnd: (d) => _onHeaderDragEnd(d, media),
-                  child: _footer(media.padding.bottom),
+                child: _splitSheet(
+                  split,
+                  media,
+                  const ValueKey('categories-split-footer'),
+                  GestureDetector(
+                    key: const ValueKey('select-ride-footer-drag'),
+                    onVerticalDragUpdate: (d) => _onHeaderDragUpdate(d, media),
+                    onVerticalDragEnd: (d) => _onHeaderDragEnd(d, media),
+                    child: _footer(media.padding.bottom),
+                  ),
                 ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  /// Owner 2026-11-18: the back + route header slides down from above the
+  /// screen while the categories route opens (and back up on Back).
+  static Widget _splitHeader(
+    CategoriesSplit? split,
+    MediaQueryData media,
+    Widget header,
+  ) {
+    if (split == null) return header;
+    // Its bottom, with its shadow, sits this far below the top edge.
+    final headerBottom = media.padding.top + 8 + _searchBarObstruction + 24;
+    return AnimatedBuilder(
+      animation: split.animation,
+      builder: (context, child) => Transform.translate(
+        key: const ValueKey('categories-split-header'),
+        offset: Offset(0, split.headerShift(headerBottom)),
+        child: child,
+      ),
+      child: header,
+    );
+  }
+
+  /// Owner 2026-11-18: the car sheet (and its payment + Book footer) rises
+  /// from below the screen to meet the header; Back sends it down again.
+  static Widget _splitSheet(
+    CategoriesSplit? split,
+    MediaQueryData media,
+    Key key,
+    Widget sheet,
+  ) {
+    if (split == null) return sheet;
+    return AnimatedBuilder(
+      animation: split.animation,
+      builder: (context, child) => Transform.translate(
+        key: key,
+        offset: Offset(0, split.sheetShift(media.size.height)),
+        child: child,
+      ),
+      child: sheet,
     );
   }
 

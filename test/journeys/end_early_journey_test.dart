@@ -80,6 +80,8 @@ void main() {
     await _waitFor(tester, pick, tries: 30);
     await tester.tap(pick.first);
     await _waitFor(tester, find.byType(SelectRide), tries: 40);
+    // Owner 2026-11-18: let the two-part categories open finish (300 ms).
+    await tester.pump(const Duration(milliseconds: 350));
     final select = find.text('Select Movera');
     await _waitFor(tester, select, tries: 40);
     await tester.ensureVisible(select);

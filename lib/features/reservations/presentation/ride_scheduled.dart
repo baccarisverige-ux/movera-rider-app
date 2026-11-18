@@ -90,18 +90,16 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
   }
 
   Future<void> _planReturn(Reservation ride) async {
-    await Navigator.push(
+    await pushCategories(
       context,
-      RightToLeftTransition(
-        PlanReturnRidePage(
-          origin: ride,
+      PlanReturnRidePage(
+        origin: ride,
+        controller: _reservations,
+        onScheduled: (context, id) => RideScheduledPage.open(
+          context,
+          reservationId: id,
           controller: _reservations,
-          onScheduled: (context, id) => RideScheduledPage.open(
-            context,
-            reservationId: id,
-            controller: _reservations,
-            replace: true,
-          ),
+          replace: true,
         ),
       ),
     );
