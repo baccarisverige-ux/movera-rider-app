@@ -9,7 +9,6 @@ import 'package:http/testing.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
-import 'package:movera_rider/core/config/live_data_only.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
@@ -54,14 +53,8 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     AppScope.instance.promotion.value = null;
-    // A live build shows only server prices: with no quote the tile
-    // shows its loader, as a zone row without a list price does (#641).
-    LiveDataOnly.on = true;
   });
-  tearDown(() {
-    LiveDataOnly.on = false;
-    AppScope.instance.promotion.value = null;
-  });
+  tearDown(() => AppScope.instance.promotion.value = null);
 
   testWidgets('a failed price hides the loader and offers Try again', (
     tester,
@@ -82,6 +75,10 @@ void main() {
       ),
       quotes: quotes,
       flags: FeatureFlags(),
+      // A pickup priced in dinars: the built-in kronor list price is no
+      // price, so before a quote each tile shows its '…' loader, as a zone
+      // row without a list price does (#641).
+      currency: 'TND',
     );
     addTearDown(selection.dispose);
     await tester.pumpWidget(
@@ -100,6 +97,7 @@ void main() {
     }
 
     expect(quotes.calls, greaterThan(0));
+    expect(find.byKey(const ValueKey('select-ride-list')), findsOneWidget);
     expect(find.text('…'), findsNothing);
     final retry = find.byKey(const ValueKey('select-ride-quotes-retry'));
     expect(retry, findsOneWidget);
