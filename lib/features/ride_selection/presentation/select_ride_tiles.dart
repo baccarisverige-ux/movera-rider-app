@@ -505,7 +505,12 @@ extension _SelectRideTiles on _SelectRideState {
                               Text(
                                 // No quote yet for a pickup outside the
                                 // list's currency: no price, not a wrong one.
-                                _hasPrice(ride) ? _kr(price) : '…',
+                                // A failed price: no loader (follow-up #641).
+                                _hasPrice(ride)
+                                    ? _kr(price)
+                                    : _selection.quoteFailed(ride.id)
+                                    ? ''
+                                    : '…',
                                 style: _text(16, weight: FontWeight.w600),
                               ),
                             ),
