@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/features/home/data/home_repository.dart';
 import 'package:movera_rider/features/saved_places/application/quick_save.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
@@ -105,7 +106,15 @@ class _PlaceSaveSheetState extends State<PlaceSaveSheet>
 
   Future<void> _pickType(String type) async {
     _idle?.cancel();
-    final before = await _save.save(widget.address, type);
+    final HomeAddressSnapshot before;
+    try {
+      before = await _save.save(widget.address, type);
+    } catch (_) {
+      // The save failed: nothing was saved and the question stays as it
+      // was, so the 5 s idle close starts again (it never stays open).
+      if (mounted && !_closed) _startIdle();
+      return;
+    }
     if (!mounted) return;
     setState(() {
       _savedType = type;
