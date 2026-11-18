@@ -297,6 +297,7 @@ class _SelectRideState extends State<SelectRide>
   bool _bookingInFlight = false;
   bool _preferredTried = false;
   bool _preferredOpened = false;
+  late bool _preferredHidden = widget.preferredCategoryId != null;
   // The driver-notes block was removed (owner request); bags are asked
   // on Set pickup instead.
   RideNotes _notes = RideNotes.empty;
@@ -1074,6 +1075,7 @@ class _SelectRideState extends State<SelectRide>
 
   void _releaseBookingLock() {
     _bookingInFlight = false;
+    _preferredHidden = false;
     if (!mounted) return;
     setState(() {});
     if (_catalogRequoteDeferred) {
@@ -1224,6 +1226,7 @@ class _SelectRideState extends State<SelectRide>
     // server's quote answer is final; a pickup outside the kept list is
     // checked against a fresh read first (owner 2026-11-10).
     if (_selection.notServed) return const NotHereView();
+    if (_preferredHidden) return _preferredHolding();
     if (!_pickupServedHere) {
       return _zoneRecheckGate() ?? const NotHereView();
     }

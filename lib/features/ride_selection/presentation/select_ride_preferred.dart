@@ -14,6 +14,7 @@ extension _SelectRidePreferred on _SelectRideState {
     _preferredTried = true;
     final ride = _selection.rideByIdOrNull(id);
     if (ride == null || !_selection.quoteIsAvailable(id)) {
+      _showCategories();
       if (ride != null) {
         MoveraToast.show(
           context,
@@ -32,7 +33,24 @@ extension _SelectRidePreferred on _SelectRideState {
     });
     _preferredOpened = true;
     _book();
+    // Nothing opened (no price, no payment...): the categories, as usual.
+    if (!_bookingInFlight) _showCategories();
   }
+
+  void _showCategories() {
+    if (!_preferredHidden || !mounted) return;
+    // ignore: invalid_use_of_protected_member
+    setState(() => _preferredHidden = false);
+  }
+
+  /// Step 5 "skip": while a fixed category is being opened the categories
+  /// are never drawn; this plain screen (prices loading) is all there is
+  /// under Set pickup. "Byt kategori" (Set pickup's back) shows them.
+  Widget _preferredHolding() => const Scaffold(
+    key: ValueKey('select-ride-preferred-holding'),
+    backgroundColor: Colors.white,
+    body: Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
+  );
 
   /// Step 3b / 4 / 4b: the S3 save sheet over the screen.
   Widget _saveSheetLayer() => Positioned.fill(

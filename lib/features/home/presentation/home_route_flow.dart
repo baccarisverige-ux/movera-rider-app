@@ -696,6 +696,12 @@ extension _HomeRouteFlow on _HomeState {
       final rideBefore = AppScope.instance.ride.rideId;
       final statusBefore = AppScope.instance.ride.status;
       var scheduledHere = false;
+      // Saved-places design step 7 (owner 2026-11-18): a saved place picked
+      // here, now or Senare, opens with its fixed category like the pop-up.
+      final fixedCategory = initialRideId == null && stops.isEmpty
+          ? await PlaceQuickSave().categoryForAddress(destination)
+          : null;
+      if (!mounted) return;
       // Park the Home map before opening categories. Two Google Maps at once
       // crashes the browser tab on Flutter web.
       final result = await _withParkedHomeMap(() {
@@ -718,6 +724,7 @@ extension _HomeRouteFlow on _HomeState {
             initialScheduledFor: scheduledAt,
             // NAV-11: a Home card asked for this category.
             initialRideId: initialRideId,
+            preferredCategoryId: fixedCategory,
             onScheduled: (context, id) {
               scheduledHere = true;
               _scheduledInFlow = true;

@@ -20,6 +20,7 @@ import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_catalog_cache.dart';
+import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/features/saved_places/application/quick_save.dart';
 import 'package:movera_rider/features/saved_places/data/server_saved_places.dart';
@@ -83,6 +84,7 @@ SelectRide _categories(
   RideSelectionController selection, {
   String? preferred,
   String? offer,
+  bool later = false,
 }) => SelectRide(
   pickupAddress: 'Storgatan 12, Södertälje',
   destinationAddress: 'Viksbergsvägen 9, Södertälje',
@@ -91,6 +93,17 @@ SelectRide _categories(
   selection: selection,
   preferredCategoryId: preferred,
   offerSaveAddress: offer,
+  bookingMode: later ? BookingMode.scheduled : BookingMode.now,
+  lockBookingMode: later,
+  initialScheduledFor: later
+      ? DateTime.now().add(const Duration(days: 1))
+      : null,
+);
+
+/// The categories list (the sheet of cars) is on screen.
+final _categorySheet = find.byKey(
+  const ValueKey('select-ride-sheet'),
+  skipOffstage: false,
 );
 
 void main() {
@@ -206,7 +219,11 @@ void main() {
         await tester.pumpWidget(
           _app(_categories(selection, preferred: 'comfort')),
         );
-        await _settle(tester, 20);
+        // Step 5 "skip": the categories are never drawn on this path.
+        for (var i = 0; i < 20; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+          expect(_categorySheet, findsNothing, reason: 'frame $i');
+        }
         expect(find.byType(SetPickupPage), findsOneWidget);
         expect(selection.selectedRideId, 'comfort');
         final link = find.byKey(const ValueKey('set-pickup-change-category'));
@@ -216,9 +233,43 @@ void main() {
         tester.widget<TextButton>(link).onPressed!();
         await _settle(tester, 20);
         expect(find.byType(SetPickupPage), findsNothing);
-        expect(find.byType(SelectRide), findsOneWidget);
+        // "Byt kategori": now the categories show.
+        expect(_categorySheet, findsOneWidget);
         await tester.pumpWidget(const SizedBox());
         await tester.pump(const Duration(seconds: 10));
+      },
+    );
+
+    testWidgets('step 7: a Senare ride skips the categories the same way', (
+      tester,
+    ) async {
+      await _phone(tester);
+      final selection = _selection();
+      addTearDown(selection.dispose);
+      await tester.pumpWidget(
+        _app(_categories(selection, preferred: 'comfort', later: true)),
+      );
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(_categorySheet, findsNothing, reason: 'frame $i');
+      }
+      expect(selection.selectedRideId, 'comfort');
+      expect(find.byType(SetPickupPage), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 10));
+    });
+
+    test(
+      'step 7: Where to / Senare find a saved place\'s fixed category',
+      () async {
+        final save = PlaceQuickSave(supported: () => true);
+        await save.save('Genetaleden 7', 'gym');
+        await save.fixCategory('Genetaleden 7', 'gym', 'premium');
+        await save.save('Storgatan 12', 'home');
+        await save.fixCategory('Storgatan 12', 'home', 'comfort');
+        expect(await save.categoryForAddress('genetaleden 7 '), 'premium');
+        expect(await save.categoryForAddress('Storgatan 12'), 'comfort');
+        expect(await save.categoryForAddress('Elsewhere 1'), isNull);
       },
     );
 
@@ -231,6 +282,7 @@ void main() {
       await tester.pumpWidget(_app(_categories(selection, preferred: 'gone')));
       await _settle(tester, 20);
       expect(find.byType(SetPickupPage), findsNothing);
+      expect(_categorySheet, findsOneWidget);
       expect(find.byType(SelectRide), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 10));

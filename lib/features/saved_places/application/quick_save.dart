@@ -113,6 +113,26 @@ class PlaceQuickSave {
     );
   }
 
+  /// Step 7: the fixed category of the saved place at [address] (Home,
+  /// Work or a custom place), whichever flow picked it (Where to, Senare).
+  Future<String?> categoryForAddress(String address) async {
+    final now = await _store.load();
+    final clean = address.trim().toLowerCase();
+    if (clean.isEmpty) return null;
+    String? kind;
+    if ((now.home ?? '').trim().toLowerCase() == clean) {
+      kind = 'home';
+    } else if ((now.work ?? '').trim().toLowerCase() == clean) {
+      kind = 'work';
+    } else if (now.places.any(
+      (p) => (p['address'] ?? '').trim().toLowerCase() == clean,
+    )) {
+      kind = 'other';
+    }
+    if (kind == null) return null;
+    return now.categories?[placeCategoryKey(kind, address)];
+  }
+
   /// The fixed category of the place [address] of kind [kind], if any.
   Future<String?> categoryFor(String kind, String address) async {
     final now = await _store.load();
