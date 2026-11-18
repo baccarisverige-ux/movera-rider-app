@@ -161,6 +161,7 @@ extension _HomeRouteFlow on _HomeState {
           },
         ),
         settings: const RouteSettings(name: AppRoutes.selectRide),
+        waitForClose: true,
       );
     });
   });
@@ -672,6 +673,8 @@ extension _HomeRouteFlow on _HomeState {
             },
           ),
           settings: const RouteSettings(name: AppRoutes.selectRide),
+          // Back reopens the address screen after the reverse played out.
+          waitForClose: true,
         );
       });
       // Owner round 1: Back (the arrow or the system back) on the

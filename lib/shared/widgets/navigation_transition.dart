@@ -463,14 +463,19 @@ const Duration categoriesSplitDuration = Duration(milliseconds: 300);
 
 /// The one way to open the categories screen (SelectRide, or the return-ride
 /// page that wraps it). Never push it with any other route.
+/// [waitForClose]: the result arrives only once the reverse has played out,
+/// so a caller that opens another screen on Back (Home reopens the address
+/// screen) or resumes its own map does it after the header and sheet left.
 Future<T?> pushCategories<T>(
   BuildContext context,
   Widget page, {
   RouteSettings? settings,
-}) {
-  return Navigator.of(
-    context,
-  ).push<T>(CategoriesSplitTransition<T>(page, settings: settings));
+  bool waitForClose = false,
+}) async {
+  final route = CategoriesSplitTransition<T>(page, settings: settings);
+  final result = await Navigator.of(context).push<T>(route);
+  if (waitForClose) await route.completed;
+  return result;
 }
 
 /// The two-part categories movement, read by the page it wraps.

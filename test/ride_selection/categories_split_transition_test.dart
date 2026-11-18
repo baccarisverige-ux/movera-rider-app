@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
+import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/features/reservations/presentation/scheduled_category_gate.dart';
@@ -121,6 +122,12 @@ void main() {
       shiftOf(tester, 'categories-split-sheet'),
       greaterThan(50),
       reason: 'sheet going back down',
+    );
+    // Nothing (the address screen Home reopens on Back) covers the reverse.
+    expect(
+      find.byType(RoutePickerPage),
+      findsNothing,
+      reason: 'the reverse is seen, not hidden under the next screen',
     );
     await frames(tester, 6);
     expect(find.byType(SelectRide), findsNothing);
