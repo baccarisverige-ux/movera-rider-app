@@ -438,11 +438,12 @@ def auto_offline(limit, offers):
         if o == 'on': run = 0; continue
         kind, outcome = o[0], o[1]
         if outcome == 'a': run = 0; continue          # any accepted offer starts the run again
-        if kind not in ('x', 'a'): continue           # v0.18.6 (G4-E3): Exclusive and hand-sent (assigned) misses count; radar, scheduled and on-trip ('t') never
+        if outcome == 'd': continue                   # v0.18.120 (owner 2026-11-16): a decline never counts and does not reset the run
+        if kind not in ('x', 'a'): continue           # v0.18.6 (G4-E3): Exclusive and hand-sent (assigned) ignored offers count; radar, scheduled and on-trip ('t') never
         run += 1
         if run >= limit: return idx
     return None
-if c['autoOffline']['counts'] != ['exclusive', 'assigned'] or 'assigned' in c['autoOffline']['neverCounts'] or c['autoOffline']['resets'][0] != 'any offer accepted' or c['configDefaults']['missedExclusiveBeforeOffline'] != 10: bad += 1; print('AUTO OFFLINE rule')
+if c['autoOffline']['counts'] != ['exclusive', 'assigned'] or c['autoOffline']['countsStatuses'] != ['expired'] or 'assigned' in c['autoOffline']['neverCounts'] or c['autoOffline']['resets'][0] != 'any offer accepted' or c['configDefaults']['missedExclusiveBeforeOffline'] != 10: bad += 1; print('AUTO OFFLINE rule')
 for case in sf['autoOffline']:
     got = auto_offline(case['limit'], case['offers'])
     if got != case['expectOfflineAt']: bad += 1; print('AUTO OFFLINE', case['id'], 'expected', case['expectOfflineAt'], 'got', got)

@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.119",
+  "version": "0.18.121",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -794,7 +794,8 @@
       "drivers": 1,
       "exclusive": true,
       "timer": "driver.offers.exclusiveSeconds",
-      "note": "Exclusive offer to one chosen driver: accept or decline. Counts as an exclusive offer for acceptance rate and auto-offline (v0.18.6, owner G4-E3 'Count them': a declined or missed hand-sent offer counts toward the in-a-row limit like an Exclusive one; contract.json#autoOffline)."
+      "note": "Exclusive offer to one chosen driver: accept or decline. Counts as an exclusive offer for acceptance rate and auto-offline (v0.18.6, owner G4-E3 'Count them'; v0.18.120, owner 2026-11-16: a hand-sent offer the driver let expire counts toward the in-a-row limit like an Exclusive one, a declined one never counts and does not reset it; contract.json#autoOffline).",
+      "noteBefore0_18_120": "Exclusive offer to one chosen driver: accept or decline. Counts as an exclusive offer for acceptance rate and auto-offline (v0.18.6, owner G4-E3 'Count them': a declined or missed hand-sent offer counts toward the in-a-row limit like an Exclusive one; contract.json#autoOffline)."
     },
     "radarGroup": {
       "offerKind": "radar",
@@ -4084,6 +4085,7 @@
       "v0.18.38 §62: call_ringing, call_answered, call_signal, call_ended and call_missed carry no projection and no version change; they pass the gate also after a terminal status (the call window runs callWindowAfterTripMin after drop-off)."
     ],
     "streamClose": "v0.18.68 (server B1.9, owner W1 Q73): the server may close any stream (trip events, offer feed, settings, admin live events, admin dispatch, incidents) after its reads fail STREAM_READ_RETRIES (default 3) times in a row (retries after 1, 2, 4 s), each close after a random 0–STREAM_CLOSE_SPREAD_MS (default 30 s) delay and held while the server's database pool is busy; before closing it sends the SSE comment ': stream read failed; reconnect to catch up'. The app reconnects with its cursor (Last-Event-ID / after) and backoff; the settings streams re-read as on every reconnect (v0.18.63). Apps should reset their reconnect backoff only after real data arrives or the stream stayed up ≥ 30 s. v0.18.83: what counts as connected and the reconnect waits are realtime.connectedRule.",
+    "reconnectClose": "v0.18.120 (S4 B1.18, owner W1 Q80 = Q-B1 'Yes', 2026-11-11; server #249): after the server's LISTEN connection reconnects, each rider and driver settings stream (GET /rider/config/stream, GET /driver/config/stream) closes after its own random 0–STREAM_CLOSE_SPREAD_MS delay (default 30 s; 0 = at once), held while the database pool is busy but at most 2 min, with the SSE comment ': realtime reconnected; reconnect to catch up' just before. Hints sent while the link was down are not replayed: the app re-reads on that reconnect (rider: GET /rider/trips/active and its Upcoming list; driver: its reservations). Hints sent after the link is back still arrive on the open stream.",
     "connectedRule": "v0.18.83 (G34 fix plan R3 + driver D2/D3; owner 2026-11-13 12:23 UTC \"Yes, update rule (Rec.)\"; it replaces the 2026-11-10 reading of 'a successful connect'): one rule for the driver and rider apps' event streams (the settings streams GET /driver/config/stream and GET /rider/config/stream, the trip event streams, the driver offer feed GET /driver/offers/stream). A stream counts as connected only after it delivered an event or stayed up 30 s; a 200 alone is not connected. Only a connected stream resets the reconnect backoff. A normal close of a connected stream reconnects in 5 s on the settings streams and the rider trip stream (settings steps 5 → 10 → 20 → 40 → 60 s, owner 2026-11-10); the other streams start at their own first step, unchanged. Quick repeated closes (closed before it was connected) back off to the next step. A 429 or 503 with Retry-After is honoured: the next try is never sooner than Retry-After (at most 60 s). The admin panel's stream keeps adminLiveEvents.reconnectBackoff.",
     "sessionEnd": "v0.18.73 (server B1.15, owner W1 Q76): every open stream (trip events, offer feed, rider/driver settings, admin live events, admin dispatch, incidents) ends within 60 s after its session ends: sign-out, a sign-in on another phone, an account change, any revoke of the session row, the session's own expiry; for admins also a role change or deactivation. Each server copy re-checks the sessions of all its open streams every STREAM_SESSION_CHECK_MS (default 30 s, at most 60 s) with one batched read by primary key (one more per 500 sessions; none while no stream is open), so a sign-out on one copy closes the stream held by another. Before closing it sends the SSE comment ': session ended; sign in again'. Only the session row counts: a token refresh or an access token's own 15-minute end never closes a stream; a preview token (no session row) closes its stream at the token's own end. A failed check closes nothing (the next interval tries again). The app needs nothing new: its reconnect gets 401 with reason session_ended or signed_in_elsewhere and follows auth.signedOut (renew once, never retried in a loop); comment lines are ignored by the parsers. No new event kind."
   },
@@ -4218,15 +4220,20 @@
     ]
   },
   "autoOffline": {
-    "note": "v0.8.0 (owner 2026-10-27), v0.18.6 (owner G4-E3 2026-10-30 'Count them', decision 6 'Both count'): a driver goes offline after offers.autoOffline.missedExclusive (default 10, owner G4-E2 'Set 10 everywhere') Exclusive or hand-sent (assigned, admin Dispatch › send offer) offers of live trips in a row that were declined or expired (missed). Only kind=exclusive and kind=assigned offers of live trips sent while the driver was free count; an offer sent while the driver is on a trip never counts; Radar offers (automatic or an admin radar group) and reservation (scheduled) offers declined or expired never count. ANY accepted offer (any kind) and going online set the count back to 0. Both the server (it sets onlineStatus offline and marks the offer event driverOffline: true) and the driver app enforce it; no warning before (decision 7), the island shows a short line when it happens. Works the same in SE and FR. fixtures/settings_flow.json#autoOffline.",
+    "note": "v0.18.120 (owner 2026-11-16 \"It's not when driver decline ! It count when driver ignore\" + \"Yes, only ignored count\" + \"And only exclusive / And it's about exclusive ride not radar\"; corrects v0.18.6 decision 6 'Both count'; first rule v0.8.0, owner 2026-10-27): a driver goes offline after offers.autoOffline.missedExclusive (default 10, owner G4-E2 'Set 10 everywhere') Exclusive offers of live trips in a row that the driver let expire (ignored). Exclusive = kind=exclusive, and kind=assigned (admin Dispatch › send offer: an Exclusive offer hand-sent to one chosen driver, G4-E3). Only such offers sent while the driver was free count. A declined offer never counts and does not reset the count: it is skipped (autoOffline.declined). An offer sent while the driver is on a trip never counts; Radar offers (several drivers see them; automatic or an admin radar group) and reservation (scheduled) offers, ignored or declined, never count and never reset the count. ANY accepted offer (any kind) and going online set the count back to 0. Both the server (it sets onlineStatus offline and marks the offer event driverOffline: true) and the driver app enforce it; no warning before (decision 7), the island shows a short line when it happens. Works the same in SE and FR. fixtures/settings_flow.json#autoOffline.",
+    "noteBefore0_18_120": "v0.8.0 (owner 2026-10-27), v0.18.6 (owner G4-E3 2026-10-30 'Count them', decision 6 'Both count'): a driver goes offline after offers.autoOffline.missedExclusive (default 10, owner G4-E2 'Set 10 everywhere') Exclusive or hand-sent (assigned, admin Dispatch › send offer) offers of live trips in a row that were declined or expired (missed). Only kind=exclusive and kind=assigned offers of live trips sent while the driver was free count; an offer sent while the driver is on a trip never counts; Radar offers (automatic or an admin radar group) and reservation (scheduled) offers declined or expired never count. ANY accepted offer (any kind) and going online set the count back to 0. Both the server (it sets onlineStatus offline and marks the offer event driverOffline: true) and the driver app enforce it; no warning before (decision 7), the island shows a short line when it happens. Works the same in SE and FR. fixtures/settings_flow.json#autoOffline.",
     "counts": [
       "exclusive",
       "assigned"
     ],
     "countsStatuses": [
+      "expired"
+    ],
+    "countsStatusesBefore0_18_120": [
       "declined",
       "expired"
     ],
+    "declined": "v0.18.120 (owner 2026-11-16 \"It's not when driver decline ! It count when driver ignore\" + \"Yes, only ignored count\" + \"And only exclusive / And it's about exclusive ride not radar\"): a declined offer (any kind) is skipped by the in-a-row count: it neither counts nor ends the run, and it never sets the driver offline. Example with a limit of 3: expired, declined, expired = 2 in a row (not 3, and not back to 1); with a limit of 2 the second expired one sets the driver offline. The same holds for a hand-sent (assigned) offer: an ignored one counts, a declined one does not. The same rule gives DispatchDriverFacts.missedInRow (the admin 'Missed in a row'). Not changed: the acceptance rate (a decline still lowers it, Driver.performance) and DispatchDocument.reaskLimit. No setting.",
     "resets": [
       "any offer accepted",
       "driver goes online"
@@ -4234,12 +4241,20 @@
     "neverCounts": [
       "radar",
       "reservation",
-      "any offer sent while on a trip"
+      "any offer sent while on a trip",
+      "any declined offer"
     ],
+    "outage": "v0.18.120 (S4 B1.16 Q-B13, owner W1 Q78 'Do not count it', 2026-11-11): an Exclusive or hand-sent (assigned) offer that EXPIRED while the live link (LISTEN) of a server copy was down does not count toward the in-a-row limit: it is skipped (it neither counts nor ends the run). While down = the offer's time from sent to expiry overlaps an outage window that any server copy recorded, from the copy's last proof that its link worked (connect, ping or notification) to its reconnect; a window still open counts until 60 s after the copy last reported it still down. A declined offer never counts either (autoOffline.declined). The same rule gives DispatchDriverFacts.missedInRow. Driver app: no change (a live app counts nothing itself; it follows the server's driverOffline). No setting.",
     "changes": {
-      "v0.18.6": "assigned (hand-sent) offers now count (G4-E3); every zone whose published driver_app_config had another limit than 10 (Z001, FR-PC were at 3 since 25 Oct) is set to 10 by server migration 0039 (G4-E2); the admin can still change it per zone."
+      "v0.18.6": "assigned (hand-sent) offers now count (G4-E3); every zone whose published driver_app_config had another limit than 10 (Z001, FR-PC were at 3 since 25 Oct) is set to 10 by server migration 0039 (G4-E2); the admin can still change it per zone.",
+      "v0.18.120": "Q-B13: an offer that expired while a server copy's live link was down never counts (autoOffline.outage). Owner 2026-11-16: only Exclusive (also hand-sent to one driver) offers the driver let expire count; a decline never counts and does not reset the count (autoOffline.declined); Radar never counts nor resets; the texts of the admin and of the set_offline notice say it. Replaced texts kept under ...Before0_18_120."
     },
     "adminText": {
+      "sv": "Föraren går offline efter att ha låtit {n} Exklusiva erbjudanden i rad gå ut (även manuellt skickade). Ett nekat erbjudande räknas aldrig och nollställer inte räkningen. Radar räknas aldrig.",
+      "fr": "Le chauffeur passe hors ligne après avoir laissé expirer {n} offres Exclusives d’affilée (aussi celles envoyées à la main). Un refus ne compte jamais et ne remet pas le compteur à zéro. Le Radar ne compte jamais.",
+      "en": "The driver goes offline after letting {n} Exclusive offers in a row run out (hand-sent ones too). A decline never counts and does not reset the count. Radar never counts."
+    },
+    "adminTextBefore0_18_120": {
       "sv": "Föraren går offline efter {n} missade eller nekade Exklusiva eller manuellt skickade erbjudanden i rad (Radar räknas inte).",
       "fr": "Le chauffeur passe hors ligne après {n} offres Exclusives ou envoyées à la main manquées ou refusées d’affilée (le Radar ne compte pas).",
       "en": "The driver goes offline after {n} missed or declined Exclusive or hand-sent offers in a row (Radar does not count)."
@@ -4824,7 +4839,8 @@
         },
         "system_health": {
           "level": "important",
-          "rule": "Server background jobs that failed and were parked (timers at the attempt limit): one alert per parked job kind, its detail naming the kind and its first refs. Critical for trip and safety kinds (incident_escalate, ride_check_scan, ride_check_no_answer, near_dropoff, waiting_paid, waiting_no_show, driver_silence, search_step, search_end, withdraw_driver_offers, dispatch_round), otherwise critical from 10. Raised by the server when the job is parked, even if the alert sweep itself is parked. A parked trip or safety job whose handler re-checks the trip (all listed kinds except ride_check_no_answer and withdraw_driver_offers) runs once more 60 s after it is parked, and a job parked before a deploy once at start — once in all (server B1.6b; dispatch_round since 0.18.73, server B1.14, owner W1 Q75: a stopped dispatch round restarts once after 1 min; its handler locks the trip and does nothing unless the trip is still searching or offered with a search, and an offer already out only makes it wait). Failing again parks it for good (no loop) and its alert stays open; a job that works on its restart is gone and its alert turns solved at the next sweep. ride_check_no_answer and withdraw_driver_offers are never restarted (their handlers do not re-check the trip or the driver; a planned admin Retry job, B1.6c, not built yet)."
+          "rule": "Server background jobs that failed and were parked (timers at the attempt limit): one alert per parked job kind, its detail naming the kind and its first refs. Critical for trip and safety kinds (incident_escalate, ride_check_scan, ride_check_no_answer, near_dropoff, waiting_paid, waiting_no_show, driver_silence, search_step, search_end, withdraw_driver_offers, dispatch_round, pickup_geofence, trip_eta), otherwise critical from 10. Raised by the server when the job is parked, even if the alert sweep itself is parked. A parked trip or safety job whose handler re-checks the trip (all listed kinds except ride_check_no_answer and withdraw_driver_offers) runs once more 60 s after it is parked, and a job parked before a deploy once at start — once in all (server B1.6b; dispatch_round since 0.18.73, server B1.14, owner W1 Q75: a stopped dispatch round restarts once after 1 min; its handler locks the trip and does nothing unless the trip is still searching or offered with a search, and an offer already out only makes it wait; pickup_geofence since 0.18.121, S4 B1.1 SF-1, owner 2026-11-16 'Yes, same as drop-off (Rec.)': the one job that runs the automatic arrival at the pickup, the waiting clock's away / back from GPS (paid waiting) and the automatic arrival at the middle stops (autoArrive), which since B1.1 round 2 a GPS position never wakes once it failed; its handler locks the trip and re-checks its status, the driver's latest fix (accuracy, positionMaxAgeSeconds) and the 2-fix confirm before it acts, so a restart never arrives twice; trip_eta since 0.18.121 too, S4 B1.1 SF-2, a session decision under the owner's night rule, 2026-11-16 'Yes, restart once + urgent alert (Rec.)', which the owner reviews: the live ETA tick of a trip (pickupWaiting.eta), which also sends the rider's 'almost there' push (riderTripPush, driver_arriving) and runs the heading check that may take a late booked ride back (bookedTakeBack), and which since B1.1 nothing wakes once it failed; its handler locks the trip and re-reads where the car is going first, the push is sent once per driver, a ride taken back has no driver so the next run ends, a failed run leaves nothing behind and a trip has one tick, so a restart never pushes twice, never takes a ride back twice and never doubles the tick; while it is stopped the apps show the straight-line estimate). Failing again parks it for good (no loop) and its alert stays open; a job that works on its restart is gone and its alert turns solved at the next sweep. ride_check_no_answer and withdraw_driver_offers are never restarted (their handlers do not re-check the trip or the driver; a planned admin Retry job, B1.6c, not built yet).",
+          "ruleBefore0_18_121": "Server background jobs that failed and were parked (timers at the attempt limit): one alert per parked job kind, its detail naming the kind and its first refs. Critical for trip and safety kinds (incident_escalate, ride_check_scan, ride_check_no_answer, near_dropoff, waiting_paid, waiting_no_show, driver_silence, search_step, search_end, withdraw_driver_offers, dispatch_round), otherwise critical from 10. Raised by the server when the job is parked, even if the alert sweep itself is parked. A parked trip or safety job whose handler re-checks the trip (all listed kinds except ride_check_no_answer and withdraw_driver_offers) runs once more 60 s after it is parked, and a job parked before a deploy once at start — once in all (server B1.6b; dispatch_round since 0.18.73, server B1.14, owner W1 Q75: a stopped dispatch round restarts once after 1 min; its handler locks the trip and does nothing unless the trip is still searching or offered with a search, and an offer already out only makes it wait). Failing again parks it for good (no loop) and its alert stays open; a job that works on its restart is gone and its alert turns solved at the next sweep. ride_check_no_answer and withdraw_driver_offers are never restarted (their handlers do not re-check the trip or the driver; a planned admin Retry job, B1.6c, not built yet)."
         },
         "rule": {
           "rule": "Owner A3: every custom rule (PUT /admin/alerts/rules: { id, name, on, metric free_drivers | riders_waiting | longest_wait | failed_payments | open_sos | open_tickets, op above | below, value, forMin, zoneId | all, level }) is checked by the server on each sweep, per zone; it alerts once the condition held forMin minutes. Solved when it no longer holds."
@@ -5799,10 +5815,14 @@
           "en": "Your phone sent no position for {minutes} min"
         },
         "missed_offers": {
-          "note": "offers.autoOffline.missedExclusive misses or declines in a row (contract.json#autoOffline); data.count",
-          "sv": "Du missade eller nekade {count} erbjudanden i rad",
-          "fr": "Vous avez manqué ou refusé {count} offres d’affilée",
-          "en": "You missed or declined {count} offers in a row"
+          "note": "v0.18.120 (owner 2026-11-16): offers.autoOffline.missedExclusive Exclusive offers in a row the driver let expire; declines do not count (contract.json#autoOffline); data.count",
+          "noteBefore0_18_120": "offers.autoOffline.missedExclusive misses or declines in a row (contract.json#autoOffline); data.count",
+          "sv": "Du lät {count} Exklusiva erbjudanden gå ut i rad",
+          "svBefore0_18_120": "Du missade eller nekade {count} erbjudanden i rad",
+          "fr": "Vous avez laissé expirer {count} offres Exclusives d’affilée",
+          "frBefore0_18_120": "Vous avez manqué ou refusé {count} offres d’affilée",
+          "en": "You let {count} Exclusive offers run out in a row",
+          "enBefore0_18_120": "You missed or declined {count} offers in a row"
         },
         "app_restart": {
           "note": "the app was restarted while online (driver app only, decision 3; the server never sets it)",
@@ -8086,7 +8106,8 @@
       "cancelPct": "Driver.performance.cancellationPct (null below minTrips).",
       "idleMin": "Whole minutes since the driver was last free (drivers.last_free_at, the §3.6 idle factor); null on a trip or when unknown.",
       "categoryIds": "The categories the driver may take (Driver.categoryIds).",
-      "missedInRow": "Exclusive or assigned offers of live trips missed in a row since going online, counted exactly as contract.json#autoOffline (an accept resets it).",
+      "missedInRow": "Exclusive (also hand-sent, assigned) offers of live trips the driver let expire in a row since going online, counted exactly as contract.json#autoOffline (an accept resets it; v0.18.120: declined ones are skipped, they neither count nor reset it; Radar never counts).",
+      "missedInRowBefore0_18_120": "Exclusive or assigned offers of live trips missed in a row since going online, counted exactly as contract.json#autoOffline (an accept resets it).",
       "ridesThisHour": "Trips of this driver that ended completed in the last 60 minutes.",
       "restNeeded": "true when the driving-time limit is reached (contract.json#drivingLimits)."
     },

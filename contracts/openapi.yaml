@@ -1,11 +1,11 @@
-# Movera API v0.18.119 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.121 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.119
+  version: 0.18.121
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.119 in this folder; this file must agree with them.
+    v0.18.121 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.119
+  version: 0.18.121
   source: contract.json
 paths:
   /auth/otp/request:
@@ -26673,17 +26673,21 @@ components:
                 missedExclusive:
                   type: integer
                   minimum: 0
-                  description: 'Missed or declined exclusive offers in a row before the driver is set offline (default 10,
-                    owner decision 35; 3 before v0.5.6). v0.8.0 (owner 2026-10-27), v0.18.6 (owner G4-E3 2026-10-30 ''Count
-                    them'', decision 6 ''Both count''): a driver goes offline after offers.autoOffline.missedExclusive (default
-                    10, owner G4-E2 ''Set 10 everywhere'') Exclusive or hand-sent (assigned, admin Dispatch › send offer)
-                    offers of live trips in a row that were declined or expired (missed). Only kind=exclusive and kind=assigned
-                    offers of live trips sent while the driver was free count; an offer sent while the driver is on a trip
-                    never counts; Radar offers (automatic or an admin radar group) and reservation (scheduled) offers declined
-                    or expired never count. ANY accepted offer (any kind) and going online set the count back to 0. Both the
-                    server (it sets onlineStatus offline and marks the offer event driverOffline: true) and the driver app
-                    enforce it; no warning before (decision 7), the island shows a short line when it happens. Works the same
-                    in SE and FR. fixtures/settings_flow.json#autoOffline.'
+                  description: 'Exclusive offers the driver let expire in a row before he is set offline (default 10, owner
+                    decision 35; 3 before v0.5.6; v0.18.120: a decline never counts and does not reset the count). v0.18.120
+                    (owner 2026-11-16 "It''s not when driver decline ! It count when driver ignore" + "Yes, only ignored count"
+                    + "And only exclusive / And it''s about exclusive ride not radar"; corrects v0.18.6 decision 6 ''Both
+                    count''; first rule v0.8.0, owner 2026-10-27): a driver goes offline after offers.autoOffline.missedExclusive
+                    (default 10, owner G4-E2 ''Set 10 everywhere'') Exclusive offers of live trips in a row that the driver
+                    let expire (ignored). Exclusive = kind=exclusive, and kind=assigned (admin Dispatch › send offer: an Exclusive
+                    offer hand-sent to one chosen driver, G4-E3). Only such offers sent while the driver was free count. A
+                    declined offer never counts and does not reset the count: it is skipped (autoOffline.declined). An offer
+                    sent while the driver is on a trip never counts; Radar offers (several drivers see them; automatic or
+                    an admin radar group) and reservation (scheduled) offers, ignored or declined, never count and never reset
+                    the count. ANY accepted offer (any kind) and going online set the count back to 0. Both the server (it
+                    sets onlineStatus offline and marks the offer event driverOffline: true) and the driver app enforce it;
+                    no warning before (decision 7), the island shows a short line when it happens. Works the same in SE and
+                    FR. fixtures/settings_flow.json#autoOffline.'
                 noFixMinutes:
                   type: integer
                   minimum: 0
@@ -29056,8 +29060,9 @@ components:
           description: For offer_withdrawn, offer.status is claimed_elsewhere | expired | withdrawn.
         driverOffline:
           type: boolean
-          description: 'v0.8.0: this declined or expired Exclusive offer was the last of the run that set the driver offline
-            (contract.json#autoOffline). v0.18.6 (G4-E3): also a hand-sent (assigned) one.'
+          description: 'v0.8.0: this expired Exclusive offer was the last of the run that set the driver offline (contract.json#autoOffline).
+            v0.18.6 (G4-E3): also a hand-sent (assigned) one. v0.18.120 (owner 2026-11-16): never on a declined offer (a decline
+            does not count).'
     ConfigEvent:
       type: object
       description: Apps re-fetch the config document on this event.
@@ -31242,8 +31247,9 @@ components:
         missedInRow:
           type: integer
           minimum: 0
-          description: Exclusive or assigned offers of live trips missed in a row since going online, counted exactly as contract.json#autoOffline
-            (an accept resets it).
+          description: 'Exclusive (also hand-sent, assigned) offers of live trips the driver let expire in a row since going
+            online, counted exactly as contract.json#autoOffline (an accept resets it; v0.18.120: declined ones are skipped,
+            they neither count nor reset it; Radar never counts).'
         ridesThisHour:
           type: integer
           minimum: 0
