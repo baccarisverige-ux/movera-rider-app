@@ -80,19 +80,21 @@ void main() {
       ),
       quotes: quotes,
       flags: FeatureFlags(),
-      // A pickup priced in dinars: the built-in kronor list price is no
-      // price, so before a quote each tile shows its '…' loader, as a zone
-      // row without a list price does (#641).
+      // The screen sets the currency from the pickup's zone (Greater
+      // Tunis: dinars, select_ride.dart initState). The list here is in
+      // kronor, so it is no price in dinars (hasPriceFor), and before a
+      // quote each tile shows its '…' loader, as a zone row with a 0 list
+      // price does (#641, _withConfig).
       currency: 'TND',
     );
     addTearDown(selection.dispose);
     await tester.pumpWidget(
       MaterialApp(
         home: SelectRide(
-          pickupAddress: 'Klockarvägen 37',
-          destinationAddress: 'Arlanda Airport',
-          pickupPosition: const LatLng(59.3293, 18.0686),
-          destinationPosition: const LatLng(59.6519, 17.9186),
+          pickupAddress: 'Avenue Habib Bourguiba',
+          destinationAddress: 'Tunis-Carthage Airport',
+          pickupPosition: const LatLng(36.8008, 10.1800),
+          destinationPosition: const LatLng(36.8510, 10.2272),
           selection: selection,
         ),
       ),
