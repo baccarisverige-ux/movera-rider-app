@@ -167,8 +167,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// address is found after it opened.
   final ValueNotifier<String?> _livePickup = ValueNotifier<String?>(null);
 
-  /// Where the bar's top sits (fraction of the screen height): Where to?
-  /// slides up from there and back into it.
   /// Owner 2026-11-17: the Where to? bar, so the rising panel can start
   /// with its bar exactly where Home shows it.
   final GlobalKey _whereToCardKey = GlobalKey();
@@ -182,6 +180,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     return (top - _barTopFraction() * screen).clamp(0.0, screen);
   }
 
+  /// Where the bar's top sits (fraction of the screen height): Where to?
+  /// slides up from there and back into it.
   double _barTopFraction() {
     final screen = MediaQuery.sizeOf(context).height;
     if (screen <= 0) return 1;
@@ -822,8 +822,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       return;
     }
     await _runRouteFlow(
-      () =>
-          _showRouteAddressPicker(initialField: 'destination', scheduled: true),
+      // Owner 2026-11-18: Later opens with the same two-part slide as
+      // Where to? (out of the bar), from Home's chip and the menu.
+      () => _showRouteAddressPicker(
+        fromBar: true,
+        initialField: 'destination',
+        scheduled: true,
+      ),
     );
   }
 
