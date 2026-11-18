@@ -86,8 +86,7 @@
   "paymentMethods": [
     "cash",
     "card",
-    "apple_pay",
-    "google_pay"
+    "apple_pay"
   ],
   "wallet": {
     "usedFirst": true
