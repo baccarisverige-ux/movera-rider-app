@@ -28,6 +28,20 @@ class CategoriesEntryGuard(unittest.TestCase):
         code = 'push(RightToLeftTransition(\n  PlanReturnRidePage(o: 1)));\n'
         self.assertEqual(self._scan(code), ['lib/a.dart:2'])
 
+    def test_flags_select_ride_new_tear_off(self):
+        self.assertEqual(self._scan('final b = SelectRide.new;\n'), ['lib/a.dart:1'])
+
+    def test_flags_for_return_ride_tear_off(self):
+        self.assertEqual(
+            self._scan('builder(SelectRide.forReturnRide);\n'), ['lib/a.dart:1'])
+
+    def test_flags_plan_return_page_new_tear_off(self):
+        self.assertEqual(
+            self._scan('x\nf(PlanReturnRidePage.new);\n'), ['lib/a.dart:2'])
+
+    def test_allows_tear_off_in_comment(self):
+        self.assertEqual(self._scan('// SelectRide.new and PlanReturnRidePage.new\n'), [])
+
     def test_allows_helper_and_comments(self):
         code = ('// SelectRide(stops:)\n'
                 'pushCategories<Object?>(\n  context,\n  SelectRide(a: 1),\n);\n')
