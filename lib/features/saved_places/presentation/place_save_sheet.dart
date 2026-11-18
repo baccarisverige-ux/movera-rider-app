@@ -10,7 +10,8 @@ typedef PlaceCategoryChoice = ({String id, String name});
 
 /// Saved-places design S3 (owner 2026-11-18, steps 3b, 4, 4b): on the
 /// categories screen opened from a recent address that is not saved, a
-/// small sheet slides up about [delay] after the screen opens: "Spara
+/// small sheet slides up as soon as the screen's open animation is done
+/// (owner 2026-11-18: also on the first opening, no 2 s wait): "Spara
 /// adressen?" with the address and the type chips. A type tap saves the
 /// place ("Sparad som {type}" + "Ångra"), then asks for a fixed category
 /// (the available categories + "Nej tack"; only on a server that knows
@@ -20,8 +21,8 @@ typedef PlaceCategoryChoice = ({String id, String name});
 ///
 /// Owner 2026-11-18 (phone test of #651): it slides up BY DEFAULT on top
 /// of everything, whatever the car sheet's position; the screen behind is
-/// dimmed 20 % (black at 0.20); with no action for [idle] it closes by
-/// itself (nothing saved). A chip tap stops that timer; after "Sparad som
+/// dimmed 20 % (black at 0.20); with no action for [idle] after it is up
+/// it closes by itself (nothing saved). A chip tap stops that timer; after "Sparad som
 /// ..." the category question closes the same way after [idle].
 class PlaceSaveSheet extends StatefulWidget {
   const PlaceSaveSheet({
@@ -29,7 +30,7 @@ class PlaceSaveSheet extends StatefulWidget {
     required this.address,
     required this.categories,
     this.quickSave,
-    this.delay = const Duration(seconds: 2),
+    this.delay = Duration.zero,
     this.idle = const Duration(seconds: 5),
   });
 
@@ -41,7 +42,13 @@ class PlaceSaveSheet extends StatefulWidget {
   /// The categories available here now (read when the question shows).
   final List<PlaceCategoryChoice> Function() categories;
   final PlaceQuickSave? quickSave;
+
+  /// Extra wait after the screen's open animation (none by default).
   final Duration delay;
+
+  /// Tests: an extra wait for every sheet (to move the car sheet first).
+  @visibleForTesting
+  static Duration? debugExtraDelay;
 
   /// No action for this long closes the sheet (nothing saved).
   final Duration idle;
@@ -67,21 +74,56 @@ class _PlaceSaveSheetState extends State<PlaceSaveSheet>
   String? _savedType;
   Object? _before;
 
+  /// The route's open animation this sheet waits for (null once shown).
+  Animation<double>? _routeOpen;
+  bool _shown = false;
+
   @override
-  void initState() {
-    super.initState();
-    _timer = Timer(widget.delay, () {
-      if (mounted && !_closed) {
-        _slide.forward();
-        _startIdle();
-      }
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_shown || _routeOpen != null) return;
+    final open = ModalRoute.of(context)?.animation;
+    if (open == null || open.isCompleted) {
+      _scheduleShow();
+    } else {
+      _routeOpen = open..addStatusListener(_onRouteOpen);
+    }
+  }
+
+  void _onRouteOpen(AnimationStatus status) {
+    if (status != AnimationStatus.completed) return;
+    _routeOpen?.removeStatusListener(_onRouteOpen);
+    _routeOpen = null;
+    _scheduleShow();
+  }
+
+  /// Owner 2026-11-18: it comes up as soon as the categories screen's
+  /// two-part open has finished (no 2 s wait), the first opening included.
+  void _scheduleShow() {
+    final extra = PlaceSaveSheet.debugExtraDelay ?? widget.delay;
+    if (extra == Duration.zero) {
+      _show();
+    } else {
+      _timer = Timer(extra, _show);
+    }
+  }
+
+  /// The 5 s idle close starts only once the sheet is fully up (frame
+  /// driven): a slow first frame (the web map loading on the first
+  /// opening) can no longer run the clock out before it was ever seen.
+  void _show() {
+    if (!mounted || _closed || _shown) return;
+    _shown = true;
+    _slide.forward().then((_) {
+      if (mounted && !_closed && _savedType == null) _startIdle();
+    }, onError: (_) {});
   }
 
   @override
   void dispose() {
     _timer?.cancel();
     _idle?.cancel();
+    _routeOpen?.removeStatusListener(_onRouteOpen);
     _slide.dispose();
     super.dispose();
   }
@@ -105,7 +147,15 @@ class _PlaceSaveSheetState extends State<PlaceSaveSheet>
 
   Future<void> _pickType(String type) async {
     _idle?.cancel();
-    final before = await _save.save(widget.address, type);
+    final Object before;
+    try {
+      before = await _save.save(widget.address, type);
+    } catch (_) {
+      // The save failed: nothing was saved and the question stays as it
+      // was, so the 5 s idle close starts again (it never stays open).
+      if (mounted && !_closed) _startIdle();
+      return;
+    }
     if (!mounted) return;
     setState(() {
       _savedType = type;
