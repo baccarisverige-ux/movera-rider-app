@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
-import 'package:movera_rider/features/home/data/home_repository.dart';
 import 'package:movera_rider/features/saved_places/application/quick_save.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
@@ -106,7 +105,7 @@ class _PlaceSaveSheetState extends State<PlaceSaveSheet>
 
   Future<void> _pickType(String type) async {
     _idle?.cancel();
-    final HomeAddressSnapshot before;
+    final Object before;
     try {
       before = await _save.save(widget.address, type);
     } catch (_) {
