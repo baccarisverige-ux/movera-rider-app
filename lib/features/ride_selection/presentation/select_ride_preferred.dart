@@ -52,8 +52,12 @@ extension _SelectRidePreferred on _SelectRideState {
     body: Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
   );
 
-  /// Step 3b / 4 / 4b: the S3 save sheet over the screen.
+  /// Step 3b / 4 / 4b: the S3 save sheet over the screen. It is the last
+  /// layer of the screen's stack, so it is on top of the car sheet, the
+  /// footer and the map in every car-sheet position (owner 2026-11-18);
+  /// the key keeps its timers when other layers come and go.
   Widget _saveSheetLayer() => Positioned.fill(
+    key: const ValueKey('select-ride-save-sheet-layer'),
     child: PlaceSaveSheet(
       address: widget.offerSaveAddress!,
       categories: () => [

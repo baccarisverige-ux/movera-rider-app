@@ -320,6 +320,49 @@ void main() {
       await tester.pump(const Duration(seconds: 10));
     });
 
+    // Owner 2026-11-18 (phone test of #651): by default ~2 s after the
+    // screen opens, on top, in every car-sheet position, screen dimmed 20 %.
+    for (final (pos, drag) in <(String, Offset?)>[
+      ('down', const Offset(0, 500)),
+      ('middle', null),
+      ('up', const Offset(0, -600)),
+    ]) {
+      testWidgets('by default at ~2 s on top with the car sheet $pos', (
+        tester,
+      ) async {
+        await _phone(tester);
+        final selection = _selection();
+        addTearDown(selection.dispose);
+        await tester.pumpWidget(
+          _app(_categories(selection, offer: 'Viksbergsvägen 9, Södertälje')),
+        );
+        await _settle(tester, 3);
+        if (drag != null) {
+          await tester.dragFrom(const Offset(195, 600), drag);
+        }
+        await _settle(tester, 6);
+        expect(find.text('Save this address?'), findsNothing);
+        await _settle(tester, 16); // ~2.5 s after open + slide
+        expect(find.text('Save this address?'), findsOneWidget);
+        // On top: a tap on its title reaches the S3 sheet, not the cars.
+        final hit = tester.hitTestOnBinding(
+          tester.getCenter(find.text('Save this address?')),
+        );
+        final sheetBox = tester.renderObject(
+          find.byKey(const ValueKey('place-save-sheet')),
+        );
+        expect(hit.path.any((e) => e.target == sheetBox), isTrue);
+        final dim = tester.widget<ColoredBox>(
+          find.byKey(const ValueKey('place-save-dim')),
+        );
+        expect(dim.color.a, closeTo(0.20, 0.001));
+        expect(dim.color.r + dim.color.g + dim.color.b, 0);
+        await tester.binding.setSurfaceSize(null);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(seconds: 10));
+      });
+    }
+
     Future<void> pumpSheet(WidgetTester tester, {bool supported = true}) async {
       await _phone(tester);
       await tester.pumpWidget(
@@ -346,6 +389,37 @@ void main() {
       );
       await tester.pumpAndSettle();
     }
+
+    testWidgets('5 s with no action closes it, nothing saved', (tester) async {
+      await pumpSheet(tester);
+      expect(find.text('Save this address?'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 4));
+      expect(find.text('Save this address?'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 1100));
+      await tester.pumpAndSettle();
+      expect(find.text('Save this address?'), findsNothing);
+      final snap = await HomeAddressRepository().load();
+      expect(snap.places, isEmpty);
+      expect(snap.home, isNull);
+    });
+
+    testWidgets('a chip tap stops the timer; the question closes after 5 s', (
+      tester,
+    ) async {
+      await pumpSheet(tester);
+      await tester.pump(const Duration(seconds: 4));
+      await tester.tap(find.byKey(const ValueKey('place-save-type-gym')));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(seconds: 3));
+      // The first timer would have closed it by now.
+      expect(find.text('Saved as Gym'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(find.text('Saved as Gym'), findsNothing);
+      // Saved as Gym stays saved; no category was fixed.
+      final snap = await HomeAddressRepository().load();
+      expect(snap.places.single['type'], 'gym');
+    });
 
     testWidgets(
       'type chips; a tap saves, then asks a category, which is kept',
