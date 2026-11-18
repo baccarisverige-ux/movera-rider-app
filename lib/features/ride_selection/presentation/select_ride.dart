@@ -67,6 +67,7 @@ import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/formatters/place_format.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
+import 'package:movera_rider/features/ride_selection/presentation/categories_split_parts.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/parkable_map.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
@@ -1221,6 +1222,8 @@ class _SelectRideState extends State<SelectRide>
     // G25: the map exists (mounted, maybe parked) once the route settled.
     final mapMounted = _mapReady;
     final minSheet = _minSheet(media);
+    // Owner 2026-11-18: the two-part open (header down, sheet up).
+    final split = CategoriesSplit.maybeOf(context);
     return PopScope(
       onPopInvokedWithResult: _onRoutePop,
       child: Scaffold(
@@ -1377,35 +1380,45 @@ class _SelectRideState extends State<SelectRide>
                   ),
                 );
               },
-              child: PointerInterceptor(child: _searchBar()),
+              child: categoriesSplitHeader(
+                split,
+                media,
+                PointerInterceptor(child: _searchBar()),
+                barHeight: _searchBarObstruction,
+              ),
             ),
             Positioned.fill(
-              child: DraggableScrollableSheet(
-                key: const ValueKey('select-ride-sheet'),
-                controller: _sheetController,
-                initialChildSize: _fractionOf(_midSheet(media), media),
-                minChildSize: _fractionOf(minSheet, media),
-                maxChildSize: _fractionOf(_maxSheet(media), media),
-                snap: true,
-                snapSizes: [_fractionOf(_midSheet(media), media)],
-                snapAnimationDuration: MoveraMotion.of(
-                  context,
-                  MoveraDurations.large,
-                ),
-                builder: (context, scroll) => PointerInterceptor(
-                  child: Material(
-                    color: Colors.white,
-                    elevation: 18,
-                    shadowColor: const Color(
-                      0xFF162C36,
-                    ).withValues(alpha: 0.16),
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(28),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: NotificationListener<ScrollNotification>(
-                      onNotification: (n) => _onSheetScroll(n, media),
-                      child: _sheetBody(media, scroll),
+              child: categoriesSplitSheet(
+                split,
+                media,
+                const ValueKey('categories-split-sheet'),
+                DraggableScrollableSheet(
+                  key: const ValueKey('select-ride-sheet'),
+                  controller: _sheetController,
+                  initialChildSize: _fractionOf(_midSheet(media), media),
+                  minChildSize: _fractionOf(minSheet, media),
+                  maxChildSize: _fractionOf(_maxSheet(media), media),
+                  snap: true,
+                  snapSizes: [_fractionOf(_midSheet(media), media)],
+                  snapAnimationDuration: MoveraMotion.of(
+                    context,
+                    MoveraDurations.large,
+                  ),
+                  builder: (context, scroll) => PointerInterceptor(
+                    child: Material(
+                      color: Colors.white,
+                      elevation: 18,
+                      shadowColor: const Color(
+                        0xFF162C36,
+                      ).withValues(alpha: 0.16),
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(28),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (n) => _onSheetScroll(n, media),
+                        child: _sheetBody(media, scroll),
+                      ),
                     ),
                   ),
                 ),
@@ -1418,11 +1431,16 @@ class _SelectRideState extends State<SelectRide>
               bottom: 0,
               // Owner round 3: the payment block moves the sheet too.
               child: PointerInterceptor(
-                child: GestureDetector(
-                  key: const ValueKey('select-ride-footer-drag'),
-                  onVerticalDragUpdate: (d) => _onHeaderDragUpdate(d, media),
-                  onVerticalDragEnd: (d) => _onHeaderDragEnd(d, media),
-                  child: _footer(media.padding.bottom),
+                child: categoriesSplitSheet(
+                  split,
+                  media,
+                  const ValueKey('categories-split-footer'),
+                  GestureDetector(
+                    key: const ValueKey('select-ride-footer-drag'),
+                    onVerticalDragUpdate: (d) => _onHeaderDragUpdate(d, media),
+                    onVerticalDragEnd: (d) => _onHeaderDragEnd(d, media),
+                    child: _footer(media.padding.bottom),
+                  ),
                 ),
               ),
             ),

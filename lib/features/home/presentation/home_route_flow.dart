@@ -141,27 +141,27 @@ extension _HomeRouteFlow on _HomeState {
       }
       final confirmedDestinationPosition = destinationPosition;
       if (!mounted) return null;
-      return Navigator.of(context).push(
-        RideStageTransition(
-          SelectRide(
-            pickupAddress: bookingAddress,
-            destinationAddress: resolvedDestination,
-            pickupPosition: confirmedPickupPosition,
-            pickupIsFallback: pickupResult.isFallback,
-            destinationPosition: confirmedDestinationPosition,
-            stops: const <String>[],
-            bookingMode: BookingMode.now,
-            onScheduled: (context, id) {
-              _scheduledInFlow = true;
-              return RideScheduledPage.open(
-                context,
-                reservationId: id,
-                replace: true,
-              );
-            },
-          ),
-          settings: const RouteSettings(name: AppRoutes.selectRide),
+      return pushCategories(
+        context,
+        SelectRide(
+          pickupAddress: bookingAddress,
+          destinationAddress: resolvedDestination,
+          pickupPosition: confirmedPickupPosition,
+          pickupIsFallback: pickupResult.isFallback,
+          destinationPosition: confirmedDestinationPosition,
+          stops: const <String>[],
+          bookingMode: BookingMode.now,
+          onScheduled: (context, id) {
+            _scheduledInFlow = true;
+            return RideScheduledPage.open(
+              context,
+              reservationId: id,
+              replace: true,
+            );
+          },
         ),
+        settings: const RouteSettings(name: AppRoutes.selectRide),
+        waitForClose: true,
       );
     });
   });
@@ -642,38 +642,39 @@ extension _HomeRouteFlow on _HomeState {
       // Park the Home map before opening categories. Two Google Maps at once
       // crashes the browser tab on Flutter web.
       final result = await _withParkedHomeMap(() {
-        return Navigator.of(context).push<Object?>(
-          RideStageTransition(
-            SelectRide(
-              pickupAddress: pickup.isNotEmpty
-                  ? pickup
-                  : (_pickupAddress ?? 'Current location'),
-              destinationAddress: destination,
-              pickupPosition: pickupPosition,
-              pickupIsFallback: pickupIsFallback,
-              destinationPosition: destinationPosition,
-              stops: List<String>.from(stops),
-              stopPoints: List<GeoPoint?>.from(stopPoints),
-              bookingMode: scheduledAt == null
-                  ? BookingMode.now
-                  : BookingMode.scheduled,
-              lockBookingMode: scheduledAt != null,
-              initialScheduledFor: scheduledAt,
-              // NAV-11: a Home card asked for this category.
-              initialRideId: initialRideId,
-              onScheduled: (context, id) {
-                scheduledHere = true;
-                _scheduledInFlow = true;
-                return RideScheduledPage.open(
-                  context,
-                  reservationId: id,
-                  replace: scheduledAt == null,
-                  untilHome: scheduledAt != null,
-                );
-              },
-            ),
-            settings: const RouteSettings(name: AppRoutes.selectRide),
+        return pushCategories<Object?>(
+          context,
+          SelectRide(
+            pickupAddress: pickup.isNotEmpty
+                ? pickup
+                : (_pickupAddress ?? 'Current location'),
+            destinationAddress: destination,
+            pickupPosition: pickupPosition,
+            pickupIsFallback: pickupIsFallback,
+            destinationPosition: destinationPosition,
+            stops: List<String>.from(stops),
+            stopPoints: List<GeoPoint?>.from(stopPoints),
+            bookingMode: scheduledAt == null
+                ? BookingMode.now
+                : BookingMode.scheduled,
+            lockBookingMode: scheduledAt != null,
+            initialScheduledFor: scheduledAt,
+            // NAV-11: a Home card asked for this category.
+            initialRideId: initialRideId,
+            onScheduled: (context, id) {
+              scheduledHere = true;
+              _scheduledInFlow = true;
+              return RideScheduledPage.open(
+                context,
+                reservationId: id,
+                replace: scheduledAt == null,
+                untilHome: scheduledAt != null,
+              );
+            },
           ),
+          settings: const RouteSettings(name: AppRoutes.selectRide),
+          // Back reopens the address screen after the reverse played out.
+          waitForClose: true,
         );
       });
       // Owner round 1: Back (the arrow or the system back) on the

@@ -404,3 +404,104 @@ Future<T?> guardedPush<T>(BuildContext context, Route<T> route) {
   }
   return Navigator.push<T>(context, route);
 }
+
+/// Owner 2026-11-18 (saved-places design, step 9): the categories screen
+/// opens in two parts, like Where to?: its top part (back + route header)
+/// slides down from above the screen while the car sheet rises from the
+/// bottom; they meet with the map and route between. Back plays it in
+/// reverse. ~300 ms; reduced motion: no movement. The page reads
+/// [CategoriesSplit] and moves its header and sheet; the map stays put.
+///
+/// EVERY way into the categories screen goes through [pushCategories]
+/// (guarded by tool/check_categories_entry.py).
+class CategoriesSplitTransition<T> extends PageRouteBuilder<T> {
+  CategoriesSplitTransition(Widget page, {super.settings})
+    : super(
+        pageBuilder: (context, animation, secondary) => page,
+        transitionDuration: categoriesSplitDuration,
+        reverseTransitionDuration: categoriesSplitDuration,
+        transitionsBuilder: (context, animation, secondary, child) {
+          if (MoveraMotion.reduced(context)) {
+            return CategoriesSplit(
+              animation: kAlwaysCompleteAnimation,
+              child: child,
+            );
+          }
+          return _Curved(
+            animation: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+            builder: (curved) =>
+                CategoriesSplit(animation: curved, child: child),
+          );
+        },
+      );
+
+  /// Back on the categories screen plays the split in reverse; when a later
+  /// stage unwinds the ride stack to Home (the categories screen is not on
+  /// top), it goes at once so it never flashes over Home.
+  /// True for the rest of the synchronous call in which the route above
+  /// was popped: a popUntil to Home is unwinding through this route.
+  bool _unwinding = false;
+
+  @override
+  void didPopNext(Route<dynamic> nextRoute) {
+    _unwinding = true;
+    scheduleMicrotask(() => _unwinding = false);
+    super.didPopNext(nextRoute);
+  }
+
+  @override
+  bool didPop(T? result) {
+    if (_unwinding) controller?.reverseDuration = Duration.zero;
+    return super.didPop(result);
+  }
+}
+
+/// ~300 ms, the same as Where to?.
+const Duration categoriesSplitDuration = Duration(milliseconds: 300);
+
+/// The one way to open the categories screen (SelectRide, or the return-ride
+/// page that wraps it). Never push it with any other route.
+/// [waitForClose]: the result arrives only once the reverse has played out,
+/// so a caller that opens another screen on Back (Home reopens the address
+/// screen) or resumes its own map does it after the header and sheet left.
+Future<T?> pushCategories<T>(
+  BuildContext context,
+  Widget page, {
+  RouteSettings? settings,
+  bool waitForClose = false,
+}) async {
+  final route = CategoriesSplitTransition<T>(page, settings: settings);
+  final result = await Navigator.of(context).push<T>(route);
+  if (waitForClose) await route.completed;
+  return result;
+}
+
+/// The two-part categories movement, read by the page it wraps.
+class CategoriesSplit extends InheritedWidget {
+  const CategoriesSplit({
+    super.key,
+    required this.animation,
+    required super.child,
+  });
+
+  /// 0 = closed (header above the screen, sheet below it), 1 = open.
+  final Animation<double> animation;
+
+  static CategoriesSplit? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<CategoriesSplit>();
+
+  /// How far the header sits above its open place, for a header whose
+  /// bottom is [headerBottom] pixels below the top of the screen.
+  double headerShift(double headerBottom) =>
+      -(1 - animation.value) * headerBottom;
+
+  /// How far the sheet sits below its open place on a screen
+  /// [screenHeight] tall.
+  double sheetShift(double screenHeight) =>
+      (1 - animation.value) * screenHeight;
+
+  @override
+  bool updateShouldNotify(CategoriesSplit old) => old.animation != animation;
+}

@@ -90,6 +90,8 @@ void main() {
 
       // Categories in scheduled mode: pickup time in the rows, Schedule CTA.
       await waitFor(tester, find.byType(SelectRide));
+      // Owner 2026-11-18: let the two-part categories open finish (300 ms).
+      await tester.pump(const Duration(milliseconds: 350));
       final schedule = find.text('Schedule Movera');
       await waitFor(tester, schedule);
       expect(find.textContaining('Pickup ', findRichText: true), findsWidgets);
