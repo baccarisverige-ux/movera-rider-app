@@ -413,7 +413,7 @@ Future<T?> guardedPush<T>(BuildContext context, Route<T> route) {
 /// [CategoriesSplit] and moves its header and sheet; the map stays put.
 ///
 /// EVERY way into the categories screen goes through [pushCategories]
-/// (guarded by test/ride_selection/categories_split_transition_test.dart).
+/// (guarded by tool/check_categories_entry.py).
 class CategoriesSplitTransition<T> extends PageRouteBuilder<T> {
   CategoriesSplitTransition(Widget page, {super.settings})
     : super(

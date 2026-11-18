@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +12,10 @@ import 'package:movera_rider/features/destination_search/presentation/route_pick
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/features/reservations/presentation/scheduled_category_gate.dart';
+import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
+import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
@@ -211,6 +214,49 @@ void main() {
     await tearDownApp(tester);
   });
 
+  testWidgets('Plan a return ride (Your ride is scheduled): same split', (
+    tester,
+  ) async {
+    final c = ReservationController(
+      store: LocalReservationRepository(
+        storage: MemoryReservationStorage(),
+        nextId: () => 'rsv_split',
+      ),
+    );
+    final at = DateTime.now().add(const Duration(days: 2));
+    await c.create(
+      ReservationDraft(
+        scheduledPickupAt: at,
+        estimatedDropoffAt: at.add(const Duration(minutes: 30)),
+        pickup: const ReservationPlace(
+          label: 'Stockholm Central',
+          lat: 59.3303,
+          lng: 18.0586,
+        ),
+        destination: const ReservationPlace(
+          label: 'Stockholm Arlanda Airport',
+          lat: 59.6498,
+          lng: 17.9238,
+        ),
+        categoryId: 'economy',
+        categoryName: 'Movera',
+        categoryImage: 'assets/images/rides/movera.webp',
+        price: 522,
+        paymentMethod: 'Cash',
+      ),
+    );
+    await pumpApp(
+      tester,
+      RideScheduledPage(reservationId: 'rsv_split', controller: c),
+    );
+    final row = find.text('Plan a return ride');
+    await tester.scrollUntilVisible(row, 400);
+    await tester.tap(row);
+    await waitForCategories(tester);
+    await expectSplitOpenAndBack(tester);
+    await tearDownApp(tester);
+  });
+
   testWidgets('reduced motion: no movement', (tester) async {
     await pumpApp(
       tester,
@@ -268,49 +314,6 @@ void main() {
     expect(find.text('categories'), findsNothing, reason: 'no flash');
     expect(find.text('home'), findsOneWidget);
   });
-
-  test('guard: nothing in lib/ opens the categories screen without '
-      'pushCategories', () {
-    // Files that define the screen (and the return page that wraps it).
-    const defining = {
-      'lib/features/ride_selection/presentation/select_ride.dart',
-      'lib/features/reservations/presentation/plan_return_ride.dart',
-    };
-    final opener = RegExp(
-      r'\b(SelectRide(\.forReturnRide)?|PlanReturnRidePage)\(',
-    );
-    final offenders = <String>[];
-    for (final file in Directory('lib').listSync(recursive: true)) {
-      if (file is! File || !file.path.endsWith('.dart')) continue;
-      final path = file.path.replaceAll(r'\', '/');
-      if (defining.contains(path)) continue;
-      final src = file.readAsStringSync();
-      for (final m in opener.allMatches(src)) {
-        final lineStart = src.lastIndexOf('\n', m.start) + 1;
-        if (src.substring(lineStart, m.start).trimLeft().startsWith('//')) {
-          continue; // a comment, not code
-        }
-        final before = src.substring(
-          (m.start - 80).clamp(0, src.length),
-          m.start,
-        );
-        // The page must be the direct argument of pushCategories(context, …).
-        final ok = RegExp(
-          r'pushCategories(<[^>]*>)?\(\s*context,\s*$',
-        ).hasMatch(before);
-        if (!ok) {
-          final line = '\n'.allMatches(src.substring(0, m.start)).length + 1;
-          offenders.add('$path:$line');
-        }
-      }
-    }
-    expect(
-      offenders,
-      isEmpty,
-      reason:
-          'open the categories screen only with pushCategories() '
-          '(CategoriesSplitTransition), never MaterialPageRoute or '
-          'RideStageTransition',
-    );
-  });
+  // The guard that every way in uses pushCategories lives in
+  // tool/check_categories_entry.py (run by tool/tests in CI).
 }
