@@ -65,6 +65,13 @@ class QuoteRetry {
     _next = jittered < floor ? floor : jittered;
   }
 
+  /// A round failed in a way that is not retryable: no automatic retry
+  /// helps, so "Try again" shows now (follow-up #641, owner option A).
+  void giveUp() {
+    _failures = maxTries + 1;
+    _next = null;
+  }
+
   void reset() {
     _failures = 0;
     _next = null;

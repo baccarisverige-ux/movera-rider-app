@@ -217,6 +217,16 @@ class RideSelectionController {
   /// after a busy round (503 / 429 / timeout), and whether it gave up.
   final QuoteRetry busyRetry = QuoteRetry();
   bool _busyRound = false;
+
+  /// Follow-up #641 (owner option A): rides whose price failed in the
+  /// last round, and whether a failure in it was not retryable.
+  final Set<String> _failedQuoteIds = <String>{};
+  bool _failedRound = false;
+
+  /// [id]'s price failed and no automatic retry is waiting: the tile shows
+  /// no price (not the '…' loader) and the screen offers "Try again".
+  bool quoteFailed(String id) =>
+      _failedQuoteIds.contains(id) && busyRetry.nextWait == null;
   Duration? _busyRetryAfter;
   bool _disposed = false;
   bool usedFallback = false;
@@ -583,6 +593,8 @@ class RideSelectionController {
     final width = parallelism.clamp(1, catalog.length).toInt();
     _busyRound = false;
     _busyRetryAfter = null;
+    _failedRound = false;
+    _failedQuoteIds.clear();
 
     for (var start = 0; start < catalog.length; start += width) {
       if (generation != _quoteGeneration) return;
@@ -606,6 +618,7 @@ class RideSelectionController {
     }
     if (generation != _quoteGeneration) return;
     busyRetry.record(busy: _busyRound, retryAfter: _busyRetryAfter);
+    if (_failedRound && !_busyRound) busyRetry.giveUp();
   }
 
   Future<void> _loadQuote({
@@ -647,7 +660,12 @@ class RideSelectionController {
         if (wait != null && (kept == null || wait > kept)) {
           _busyRetryAfter = wait;
         }
+      } else if (error is! QuoteCategoryNotOffered &&
+          !isNotServedError(error) &&
+          !isDropoffTooCloseError(error)) {
+        _failedRound = true;
       }
+      _failedQuoteIds.add(rideId);
       offeredPrices.remove(rideId);
       quoteIds.remove(rideId);
       quoteExpiresAt.remove(rideId);
@@ -714,6 +732,7 @@ class RideSelectionController {
     }
     unavailableQuoteIds.remove(rideId);
     _expiredQuoteIds.remove(rideId);
+    _failedQuoteIds.remove(rideId);
   }
 
   /// The pickup point each held quote was priced at, when known.
