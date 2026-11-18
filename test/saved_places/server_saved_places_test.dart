@@ -21,6 +21,8 @@ void main() {
   late List<String> calls;
   late List<Map<String, dynamic>> server;
   late bool imported;
+  late List<Map<String, dynamic>> bodies;
+  String? healthContract;
   var next = 0;
 
   Map<String, dynamic> stored(Map<String, dynamic> body, [String? id]) => {
@@ -29,6 +31,8 @@ void main() {
     'kind': body['kind'],
     if (body['type'] != null) 'type': body['type'],
     'place': body['place'],
+    if (contractAtLeast(healthContract, '0.18.129'))
+      'preferredCategoryId': body['preferredCategoryId'],
     'createdAt': '2026-11-04T12:00:00Z',
     'updatedAt': '2026-11-04T12:00:00Z',
   };
@@ -47,10 +51,21 @@ void main() {
 
   ServerSavedPlaces sync() {
     final client = MockClient((request) async {
+      if (request.url.path == '/healthz') {
+        return http.Response(
+          jsonEncode({
+            'status': 'ok',
+            if (healthContract != null) 'contract': healthContract,
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
       calls.add('${request.method} ${request.url.path}');
       final body = request.body.isEmpty
           ? <String, dynamic>{}
           : jsonDecode(request.body) as Map<String, dynamic>;
+      if (request.method != 'GET') bodies.add(body);
       Object answer = {'items': server, 'nextCursor': null};
       var code = 200;
       final path = request.url.path;
@@ -87,7 +102,66 @@ void main() {
     calls = [];
     server = [];
     imported = false;
+    bodies = [];
+    healthContract = null;
     next = 0;
+  });
+
+  Future<Map<String, dynamic>> firstSave(String? contract) async {
+    healthContract = contract;
+    SharedPreferences.setMockInitialValues({
+      'movera_saved_places_uploaded': '1',
+    });
+    final s = sync();
+    await s.sync();
+    await Future<void>.delayed(Duration.zero);
+    await s.idle;
+    final supported = s.supportsPreferredCategory;
+    final store = HomeAddressRepository();
+    final local = await store.load();
+    await store.save(
+      HomeAddressSnapshot(
+        home: 'Sveavägen 1',
+        work: null,
+        recent: local.recent,
+        places: const [],
+        categories: {placeCategoryKey('home', 'Sveavägen 1'): 'comfort'},
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    await s.idle;
+    s.reset();
+    return {'supported': supported, 'post': bodies.single};
+  }
+
+  test(
+    'v0.18.129 server, no places yet: the category is asked and sent',
+    () async {
+      final result = await firstSave('0.18.129');
+      expect(result['supported'], isTrue);
+      expect((result['post'] as Map)['preferredCategoryId'], 'comfort');
+    },
+  );
+
+  test('an older server, no places yet: the category is never sent', () async {
+    final result = await firstSave('0.18.128');
+    expect(result['supported'], isFalse);
+    expect(result['post'] as Map, isNot(contains('preferredCategoryId')));
+    final unknown = await (() async {
+      bodies = [];
+      server = [];
+      return firstSave(null);
+    })();
+    expect(unknown['supported'], isFalse);
+    expect(unknown['post'] as Map, isNot(contains('preferredCategoryId')));
+  });
+
+  test('contractAtLeast compares dotted versions', () {
+    expect(contractAtLeast('0.18.129', '0.18.129'), isTrue);
+    expect(contractAtLeast('0.19.0', '0.18.129'), isTrue);
+    expect(contractAtLeast('0.18.99', '0.18.129'), isFalse);
+    expect(contractAtLeast(null, '0.18.129'), isFalse);
+    expect(contractAtLeast('x', '0.18.129'), isFalse);
   });
 
   test('uploads the phone places once, then shows the server list', () async {

@@ -35,11 +35,23 @@ class ServerSavedPlaces {
   /// What the server holds, by placeId; null until the first read.
   Map<String, ServerPlace>? _known;
 
+  /// The first contract version whose server answers
+  /// `SavedPlace.preferredCategoryId`.
+  static const categorySince = '0.18.129';
+
+  /// The server's contract version (`GET /healthz` `contract`), read once
+  /// per sign-in; null until read or when it could not be read.
+  String? _serverContract;
+
   /// Contract v0.18.129: whether this server answers
-  /// `SavedPlace.preferredCategoryId`. An older server never sends it, so
-  /// the rider app neither asks nor sends a fixed category there.
+  /// `SavedPlace.preferredCategoryId`. Decided by the server's contract
+  /// version, so a rider with no places yet (the first save) is asked too;
+  /// a stored place that carries the field also proves it. An older server
+  /// never sends it, so the rider app neither asks nor sends a fixed
+  /// category there.
   bool get supportsPreferredCategory =>
-      _known?.values.any((p) => p.hasCategoryField) ?? false;
+      contractAtLeast(_serverContract, categorySince) ||
+      (_known?.values.any((p) => p.hasCategoryField) ?? false);
   StreamSubscription<void>? _watch;
   Future<void> _queue = Future<void>.value();
 
@@ -55,6 +67,7 @@ class ServerSavedPlaces {
   /// Sign-out: forget what the server said and stop sending.
   void reset() {
     _known = null;
+    _serverContract = null;
     unawaited(_watch?.cancel());
     _watch = null;
   }
@@ -71,7 +84,19 @@ class ServerSavedPlaces {
     return next;
   }
 
+  Future<void> _readServerContract() async {
+    if (_serverContract != null) return;
+    try {
+      final health = await _api.get('/healthz');
+      final contract = health['contract'];
+      if (contract is String) _serverContract = contract;
+    } catch (_) {
+      // Unknown: treated as an older server until a place shows the field.
+    }
+  }
+
   Future<void> _pull() async {
+    await _readServerContract();
     final prefs = await PreferencesStore.load();
     Map<String, dynamic> answer;
     if (prefs.getString(uploadedKey) != '1') {
@@ -129,6 +154,24 @@ class ServerSavedPlaces {
       );
     }
   }
+}
+
+/// Whether the dotted version [version] is at least [min] (missing or
+/// malformed: false).
+bool contractAtLeast(String? version, String min) {
+  List<int>? parts(String? v) {
+    final match = RegExp(r'^(\d+)\.(\d+)\.(\d+)').firstMatch(v ?? '');
+    if (match == null) return null;
+    return [for (var i = 1; i <= 3; i++) int.parse(match.group(i)!)];
+  }
+
+  final have = parts(version);
+  final need = parts(min);
+  if (have == null || need == null) return false;
+  for (var i = 0; i < 3; i++) {
+    if (have[i] != need[i]) return have[i] > need[i];
+  }
+  return true;
 }
 
 /// One saved place as the server sends it.
