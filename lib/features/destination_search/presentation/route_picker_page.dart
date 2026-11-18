@@ -19,6 +19,7 @@ import 'package:movera_rider/features/home/presentation/widgets/premium_route_lo
 import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 /// What the rider picked on [RoutePickerPage].
 /// Thrown by the page's `onFinish` when the route could not be prepared
@@ -1223,22 +1224,80 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     return rows;
   }
 
+  final GlobalKey _listKey = GlobalKey();
+
+  /// Owner 2026-11-17: the header slides down from above the screen top.
+  Widget _splitHeader(WhereToSplit? split, Widget header) {
+    final box = ColoredBox(color: Colors.white, child: header);
+    if (split == null) return box;
+    return AnimatedBuilder(
+      animation: split.animation,
+      builder: (context, child) => FractionalTranslation(
+        key: const ValueKey('where-to-split-header'),
+        translation: Offset(0, split.headerOffset()),
+        child: child,
+      ),
+      child: box,
+    );
+  }
+
+  /// Owner 2026-11-17: the list rises out of the Where to? bar and sinks
+  /// back into it on X, briefly fading next to the bar.
+  Widget _splitList(WhereToSplit? split, Widget list) {
+    final box = ColoredBox(
+      key: _listKey,
+      color: Colors.white,
+      child: list,
+    );
+    if (split == null) return box;
+    return AnimatedBuilder(
+      animation: split.animation,
+      builder: (context, child) {
+        final screen = MediaQuery.sizeOf(context).height;
+        final render = _listKey.currentContext?.findRenderObject();
+        // First frame: the list is not laid out yet; start from the header
+        // bottom estimate so it still begins at the bar.
+        final top = render is RenderBox && render.hasSize
+            ? render.localToGlobal(Offset.zero).dy -
+                  _lastListShift
+            : 180.0;
+        _lastListShift = split.listShift(screen, top);
+        return Transform.translate(
+          key: const ValueKey('where-to-split-list'),
+          offset: Offset(0, _lastListShift),
+          child: Opacity(opacity: split.listOpacity(), child: child),
+        );
+      },
+      child: box,
+    );
+  }
+
+  double _lastListShift = 0;
+
   @override
   Widget build(BuildContext context) {
     final typing = _query.trim().isNotEmpty;
+    final split = WhereToSplit.maybeOf(context);
     // rider-u88: while the next step runs (geocoding, the time picker, the
     // route-change price) back must not close the picker under it; that
     // step would then open its sheet over the screen the rider went back to.
     return PopScope(
       canPop: !_finishing,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: split == null ? Colors.white : Colors.transparent,
         body: SafeArea(
+          top: false,
           bottom: false,
           child: Stack(
             children: [
               Column(
                 children: [
+                  _splitHeader(
+                    split,
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                  SizedBox(height: MediaQuery.paddingOf(context).top),
                   // Swipe down on the header to close, like a sheet.
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
@@ -1291,12 +1350,18 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                         ),
                       ),
                     ),
+                      ],
+                    ),
+                  ),
                   Expanded(
-                    child: ListView(
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                      children: typing ? _whileTyping() : _beforeTyping(),
+                    child: _splitList(
+                      split,
+                      ListView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                        children: typing ? _whileTyping() : _beforeTyping(),
+                      ),
                     ),
                   ),
                 ],

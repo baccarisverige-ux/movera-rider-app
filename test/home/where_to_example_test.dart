@@ -82,28 +82,54 @@ void main() {
         ),
       );
 
-  testWidgets('Where to? slides up out of the bar in one movement, no fade', (
+  double headerTop(WidgetTester tester) =>
+      tester.getTopLeft(find.text('Your route').first).dy;
+  double listTop(WidgetTester tester) =>
+      tester.getTopLeft(find.byKey(const ValueKey('where-to-split-list'))).dy;
+
+  testWidgets('owner 2026-11-17 two parts: the header slides down from above '
+      'the screen top while the list rises out of the bar; X reverses it', (
     tester,
   ) async {
     await pumpHome(tester);
+    final bar = tester.getTopLeft(find.text('Where to?')).dy;
     await tester.tap(find.text('Where to?'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 16));
-    // No waiting for the Home sheet: the picker is pushed at the tap.
     expect(find.byType(RoutePickerPage, skipOffstage: false), findsOneWidget);
-    expect(homeSheetOpen(tester), isFalse, reason: 'Home sheet expanded');
-    // It starts at the bar (lower part of the screen), not 8% below the top.
-    final slides = above<SlideTransition>(tester).toList();
+    expect(homeSheetOpen(tester), isFalse, reason: 'Home sheet unchanged');
+    // The route itself does not slide as one block.
     expect(
-      slides.any((s) => s.position.value.dy > 0.5),
-      isTrue,
-      reason: 'starts at the bar',
+      above<SlideTransition>(tester).where((s) => s.position.value.dy != 0),
+      isEmpty,
     );
+    expect(headerTop(tester), lessThan(0), reason: 'header above the top');
+    expect(listTop(tester), greaterThan(bar - 120), reason: 'list at the bar');
     await tester.pump(const Duration(milliseconds: 120));
-    for (final fade in above<FadeTransition>(tester)) {
-      expect(fade.opacity.value, 1.0, reason: 'no fade in');
-    }
-    await frames(tester, 6);
+    final midHeader = headerTop(tester);
+    expect(midHeader, greaterThan(-60));
+    await frames(tester, 4);
+    final openHeader = headerTop(tester);
+    final openList = listTop(tester);
+    expect(openHeader, greaterThan(0));
+    expect(openList, lessThan(260), reason: 'list under the header');
+    // Close: header back up off the top, list back down into the bar.
+    await tester.tap(find.byIcon(Icons.close_rounded).last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(headerTop(tester), lessThan(openHeader));
+    expect(listTop(tester), greaterThan(openList + 100));
+    await tester.pump(const Duration(milliseconds: 140));
+    expect(headerTop(tester), lessThan(0), reason: 'header gone up');
+    final opacity = tester.widget<Opacity>(
+      find.descendant(
+        of: find.byKey(const ValueKey('where-to-split-list')),
+        matching: find.byType(Opacity),
+      ).first,
+    );
+    expect(opacity.opacity, lessThan(1), reason: 'list fades into the bar');
+    await frames(tester, 4);
+    expect(find.byType(RoutePickerPage), findsNothing);
     expect(homeSheetOpen(tester), isFalse);
     await tearDownHome(tester);
   });

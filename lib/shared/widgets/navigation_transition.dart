@@ -17,34 +17,69 @@ class BottomToTopTransition<T> extends PageRouteBuilder<T> {
       );
 }
 
-/// Owner 2026-11-17 ("like the example"): Where to? rises out of the Home
-/// bar in one slide, with no fade, and X slides it back into the bar.
-/// [startFraction] is where the bar's top sits, as a fraction of the
-/// screen height (0 = top, 1 = bottom).
+/// Owner 2026-11-17 ("like the example", two parts): Where to? opens in
+/// two pieces. The route header ("Your route" + From/Destination) slides
+/// down from above the top edge while the list of places rises out of the
+/// Home bar; X plays it backwards (the list briefly fades as it sinks into
+/// the bar). The route itself does not move: the page reads [WhereToSplit]
+/// and animates its own header and list. [startFraction] is where the
+/// bar's top sits, as a fraction of the screen height (0 = top, 1 = bottom).
 class WhereToSlideTransition<T> extends PageRouteBuilder<T> {
   WhereToSlideTransition(
     Widget page, {
     required double startFraction,
     super.settings,
   }) : super(
+         opaque: false,
          pageBuilder: (context, animation, secondary) => page,
-         transitionDuration: MoveraDurations.large,
-         reverseTransitionDuration: MoveraDurations.large,
+         transitionDuration: const Duration(milliseconds: 300),
+         reverseTransitionDuration: const Duration(milliseconds: 300),
          transitionsBuilder: (context, animation, secondary, child) {
            if (MoveraMotion.reduced(context)) return child;
            return _Curved(
              animation: animation,
              curve: MoveraCurves.open,
-             builder: (curved) => SlideTransition(
-               position: Tween<Offset>(
-                 begin: Offset(0, startFraction.clamp(0.0, 1.0)),
-                 end: Offset.zero,
-               ).animate(curved),
+             builder: (curved) => WhereToSplit(
+               animation: curved,
+               startFraction: startFraction.clamp(0.0, 1.0),
                child: child,
              ),
            );
          },
        );
+}
+
+/// The two-part Where to? animation, read by the page it wraps.
+class WhereToSplit extends InheritedWidget {
+  const WhereToSplit({
+    super.key,
+    required this.animation,
+    required this.startFraction,
+    required super.child,
+  });
+
+  /// 0 = closed (header above the screen, list at the bar), 1 = open.
+  final Animation<double> animation;
+  final double startFraction;
+
+  static WhereToSplit? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<WhereToSplit>();
+
+  /// The header's offset as a fraction of its own height (-1 = just above
+  /// the top edge).
+  double headerOffset() => animation.value - 1;
+
+  /// The list's vertical shift in pixels for a list whose top is at
+  /// [listTop] on a screen [screenHeight] tall.
+  double listShift(double screenHeight, double listTop) =>
+      (1 - animation.value) * (startFraction * screenHeight - listTop);
+
+  /// The list fades only in the last stretch next to the bar.
+  double listOpacity() => (animation.value / 0.35).clamp(0.0, 1.0);
+
+  @override
+  bool updateShouldNotify(WhereToSplit old) =>
+      old.animation != animation || old.startFraction != startFraction;
 }
 
 class TopToBottomTransition<T> extends PageRouteBuilder<T> {
