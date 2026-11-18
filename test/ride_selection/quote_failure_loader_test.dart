@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -27,6 +28,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 class _RefusedQuotes implements QuoteRepository {
   int calls = 0;
 
+  /// Every answer waits for this, so the pending loader can be seen.
+  Completer<void> gate = Completer<void>();
+
   @override
   Future<RideQuote> quote({
     required String rideType,
@@ -39,6 +43,7 @@ class _RefusedQuotes implements QuoteRepository {
     List<RouteStop> stops = const <RouteStop>[],
   }) async {
     calls++;
+    await gate.future;
     throw const ApiError(
       code: 'invalid_request',
       message: 'Refused.',
@@ -96,14 +101,23 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
 
+    // Pending: the tiles show their loader.
     expect(quotes.calls, greaterThan(0));
     expect(find.byKey(const ValueKey('select-ride-list')), findsOneWidget);
+    expect(find.text('…'), findsWidgets);
+
+    // The server refuses (400): no loader is left, "Try again" shows.
+    quotes.gate.complete();
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
     expect(find.text('…'), findsNothing);
     final retry = find.byKey(const ValueKey('select-ride-quotes-retry'));
     expect(retry, findsOneWidget);
 
     // Try again asks for the prices again.
     final before = quotes.calls;
+    quotes.gate = Completer<void>()..complete();
     await tester.tap(retry);
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 100));
