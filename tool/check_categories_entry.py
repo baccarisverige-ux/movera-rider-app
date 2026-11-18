@@ -1,7 +1,8 @@
 """Owner 2026-11-18 (saved-places design, step 9): the categories screen
 opens with ONE transition on every way in. Fails when lib/ builds
 SelectRide(, SelectRide.forReturnRide( or PlanReturnRidePage( anywhere but
-as the page argument of pushCategories(context, ...).
+as the page argument of pushCategories(context, ...). Constructor tear-offs
+(SelectRide.new, SelectRide.forReturnRide, PlanReturnRidePage.new) count too.
 
 Usage: python3 tool/check_categories_entry.py [lib]
 """
@@ -13,7 +14,10 @@ DEFINING = {
     'lib/features/ride_selection/presentation/select_ride.dart',
     'lib/features/reservations/presentation/plan_return_ride.dart',
 }
-OPENER = re.compile(r'\b(SelectRide(\.forReturnRide)?|PlanReturnRidePage)\(')
+OPENER = re.compile(
+    r'\b(?:(?:SelectRide|PlanReturnRidePage)(?:\.new)?\('
+    r'|(?:SelectRide|PlanReturnRidePage)\.new\b'
+    r'|SelectRide\.forReturnRide\b)')
 HELPER = re.compile(r'pushCategories(<[^>]*>)?\(\s*context,\s*$')
 
 
