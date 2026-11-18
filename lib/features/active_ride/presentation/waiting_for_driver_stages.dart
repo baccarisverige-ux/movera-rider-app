@@ -236,10 +236,7 @@ extension _WaitingStages on _WaitingForDriverState {
       // UI-01: end-early. The amount is the server's (the trip's `fare`
       // once it ends); the receipt that follows shows it.
       return context.l10n.bookedPriceWholeTrip(
-        formatMoney(
-          Money.fromLegacyMajor(_price, widget.currency),
-          whole: true,
-        ),
+        formatMoney(Money.fromLegacyMajor(_price, widget.currency)),
       );
     }
     // Live 5+5 run 2: the check changes on the server's ETA tick with no

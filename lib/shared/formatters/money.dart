@@ -22,10 +22,8 @@ String formatKr(num amount) => formatMoney(Money.fromLegacyMajor(amount));
 /// Price format (owner 2026-11-14: "make sure rider and driver app show
 /// correct prices every where", "Check all apps"): every amount uses its
 /// currency's decimals, whole amounts keep them, and nothing is rounded to
-/// whole kronor any more. [whole] no longer rounds: it is kept, and
-/// ignored, only so callers in files other open jobs are changing (J10)
-/// still build; drop it from them once those jobs merge.
-String formatMoney(Money money, {bool whole = false}) {
+/// whole kronor any more.
+String formatMoney(Money money) {
   switch (money.currency) {
     case 'SEK':
       // rider-r4-16: öre with a comma, like euros and dinars ("35,50 kr").
