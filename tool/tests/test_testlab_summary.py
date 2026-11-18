@@ -771,5 +771,158 @@ class TestlabSummaryTest(unittest.TestCase):
             self.assertNotIn(digits, body, digits)
 
 
+    # FTL MF-1 (post-merge read 2026-11-16): the shape masking let values
+    # through and masked what a diagnosis needs. One table for this tool and
+    # the rider harness's mask_text.dart: tool/tests/mask_probes.json (the 76
+    # probe lines, the builder's own extra lines, the lines that must stay).
+    PROBES = json.loads(
+        (pathlib.Path(__file__).resolve().parent / 'mask_probes.json').read_text(encoding='utf-8'))
+
+    # The rider harness's test reads the same table as Dart constants (its
+    # repo gate counts a test that reads a file as a source-reading test):
+    # test/device_suite/mask_probes.g.dart is generated from the JSON and
+    # this test fails when the two differ. To write it again:
+    #   MF1_WRITE_DART=1 python3 -m unittest discover -s tool/tests
+    DART_TABLE = pathlib.Path(__file__).resolve().parents[2] / 'test' / 'device_suite' / 'mask_probes.g.dart'
+
+    @staticmethod
+    def _dart_string(text):
+        out = []
+        for ch in text:
+            if ch in ('\\', "'", '$'):
+                out.append('\\' + ch)
+            elif ch == '\n':
+                out.append('\\n')
+            elif ord(ch) < 0x20 or ord(ch) > 0x7e:
+                out.append('\\u{%x}' % ord(ch))
+            else:
+                out.append(ch)
+        return "'%s'" % ''.join(out)
+
+    def _dart_table(self):
+        q = self._dart_string
+        lines = [
+            '// GENERATED from tool/tests/mask_probes.json. Do not edit by hand:',
+            '// MF1_WRITE_DART=1 python3 -m unittest discover -s tool/tests',
+            '// (tool/tests/test_testlab_summary.py fails when the two differ).',
+            '// Made-up values only.',
+            '',
+            '/// The 76 probe lines, then the builder\'s extra lines: input, what must',
+            '/// be gone, the exact output.',
+            'const int probeLines = %d;' % len(self.PROBES['mask']),
+            'const List<(String, List<String>, String)> maskProbes = [',
+        ]
+        for row in self.PROBES['mask'] + self.PROBES['more']:
+            lines.append('  (%s, [%s], %s),' % (q(row['in']), ', '.join(q(g) for g in row['gone']), q(row['out'])))
+        lines += ['];', '', '/// Lines that must come out unchanged.', 'const List<String> keepProbes = [']
+        lines += ['  %s,' % q(text) for text in self.PROBES['keep']]
+        lines += ['];', '']
+        return '\n'.join(lines)
+
+    def test_mf1_dart_table_is_the_json_table(self):
+        if not self.DART_TABLE.parent.is_dir():
+            self.skipTest('no Dart harness in this repo (the rider repo has it)')
+        if os.environ.get('MF1_WRITE_DART') == '1':
+            self.DART_TABLE.write_text(self._dart_table(), encoding='utf-8')
+        self.assertEqual(self.DART_TABLE.read_text(encoding='utf-8'), self._dart_table())
+
+    def test_mf1_probe_table_is_whole(self):
+        self.assertEqual(len(self.PROBES['mask']), 76)
+        self.assertGreaterEqual(len(self.PROBES['keep']), 19)
+        for row in self.PROBES['mask'] + self.PROBES['more']:
+            self.assertTrue(row['gone'] and row['out'], row['in'])
+            for leak in row['gone']:
+                self.assertIn(leak, row['in'], row['in'])
+
+    def test_mf1_every_probe_line_is_masked(self):
+        for row in self.PROBES['mask'] + self.PROBES['more']:
+            out = testlab_summary.mask_generic(row['in'])
+            for leak in row['gone']:
+                self.assertNotIn(leak, out, row['in'])
+            self.assertEqual(out, row['out'], row['in'])
+
+    def test_mf1_what_a_diagnosis_needs_stays(self):
+        for text in self.PROBES['keep']:
+            self.assertEqual(testlab_summary.mask_generic(text), text)
+
+    def test_mf1_summary_masks_every_probe_line_from_logcat(self):
+        head = '11-16 07:58:01.000 12345 12345 '
+        rows = self.PROBES['mask'] + self.PROBES['more']
+        lines = []
+        for i, row in enumerate(rows):
+            lines += [
+                head + 'I flutter : MOVERA-TL STEP app exception StateError (widgets library): ' + row['in'],
+                head + 'I flutter : ══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞════',
+                head + 'I flutter : The following StateError was thrown building X(%d):' % i,
+                head + 'I flutter : ' + row['in'],
+                head + 'I flutter : ════════',
+                head + 'E flutter : [ERROR:flutter/runtime/dart_vm_initializer.cc(41)] Unhandled Exception: ' + row['in'],
+            ]
+        self.logcat.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+        with unittest.mock.patch.object(testlab_summary, 'MAX_FLUTTER_BLOCKS', 200), \
+                unittest.mock.patch.object(testlab_summary, 'MAX_CRASH_LINES', 400):
+            text = testlab_summary.summary_text(str(self.root))
+        self.assertIn('Flutter errors in logcat (EXCEPTION CAUGHT BY): %d' % len(rows), text)
+        for row in rows:
+            for leak in row['gone']:
+                if len(leak) >= 4:  # a 2-3 letter piece is also in the fixed text
+                    self.assertNotIn(leak, text, row['in'])
+
+    def test_mf1_bare_code_on_its_own_line_of_a_sign_in_error(self):
+        head = '11-16 07:58:01.000 12345 12345 I flutter : '
+        self.logcat.write_text('\n'.join([
+            head + '══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞════',
+            head + 'The following StateError was thrown building EnterCode:',
+            head + 'Bad state: wrong value',
+            head + '482913',
+            head + '════════',
+            head + '══╡ EXCEPTION CAUGHT BY RENDERING LIBRARY ╞════',
+            head + 'A RenderFlex overflowed on the bottom',
+            head + '5108',
+            head + '════════',
+        ]) + '\n', encoding='utf-8')
+        text = testlab_summary.summary_text(str(self.root))
+        self.assertNotIn('482913', text)
+        self.assertIn('building EnterCode:', text)
+        self.assertIn('  5108', text)  # not a sign-in error: the number stays
+
+    def test_mf1_check_detail_skip_and_failed_calls_are_masked(self):
+        # SF-2: harness-written text goes through mask_generic too.
+        (self.root / 'summary.json').write_text(json.dumps([
+            {'id': 'SIGN-IN', 'title': 'Sign in as 070-123 45 67', 'outcome': 'fail',
+             'detail': 'sessionId=abc123def; tel:070-123 45 67; {"code":"invalid_body"} at enter_otp.dart:55:7'},
+        ]))
+        (self.root / 'transitions.json').write_text(json.dumps([
+            {'name': 'home -> trip otp_code=482913', 'frames': 12, 'missed': 0, 'worstMs': 20, 'gets': 1,
+             'recreatedMaps': ['map pin=4829'], 'loaderSamples': 0, 'blankSamples': 0,
+             'failedCalls': ['POST /v1/auth/otp/verify 401 {"password":"hun ter2"}', 'GET /x?sid=s1a2b3c 500'],
+             'exceptions': ['StateError: verificationCode: 482913'], 'smooth': True, 'reload': False,
+             'errors': True, 'build': 'profile for 070/123 45 67'},
+        ]))
+        self.logcat.write_text(
+            'I flutter : MOVERA-TL SKIP all checks: no answer for :20 123 456, passcode=482913\n')
+        text = testlab_summary.summary_text(str(self.root))
+        for leak in ('123 45 67', 'abc123def', '482913', '4829', 'hun ter2', 'ter2', 's1a2b3c', '20 123 456'):
+            self.assertNotIn(leak, text, leak)
+        self.assertIn('{"code":"invalid_body"} at enter_otp.dart:55:7', text)
+        self.assertIn('POST /v1/auth/otp/verify 401', text)
+        self.assertIn('NOT CHECKED: SKIP all checks: no answer for', text)
+
+    def test_mf1_verdict_reasons_are_masked_and_stay_readable(self):
+        self.logcat.write_text('I flutter : MOVERA-TL CHECK pin=4829 FAIL x\n')
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = testlab_summary.verdict(str(self.root), '10')
+        self.assertEqual(rc, 1)
+        self.assertNotIn('4829', out.getvalue())
+        self.assertIn('Test Lab exit code 10 (0 = passed, 10 = a test failed, 15 = inconclusive)', out.getvalue())
+        self.assertIn('1 check(s) FAIL', out.getvalue())
+
+    def test_mf1_scrub_masks_a_known_number_written_with_slashes(self):
+        pattern = testlab_summary.number_pattern(FAKE_SPELLED)
+        for spelling in ('000/009 75 31', '000 / 009 / 75 / 31', '000 - 009 - 75 - 31', '+46 000/097531'):
+            self.assertEqual(pattern.sub('X', 'n %s.' % spelling), 'n X.', spelling)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -95,45 +95,324 @@ _LOGCAT_HEAD = re.compile(
     r"^(?:\d\d-\d\d\s+\d\d:\d\d:\d\d\.\d+\s+\d+\s+\d+\s+)?[VDIWEF][ /]\s*flutter\s*(?:\(\s*\d+\))?\s*:\s?")
 
 
-# FTL-H4 (supervisor review 2026-11-16): the summary prints app text from
-# logcat into the job log (Flutter error blocks, "STEP app exception"
-# lines, crash lines). `scrub` has already removed the run's own numbers
-# and code; mask_generic also removes anything SHAPED like a secret, so a
-# value nobody listed (another number, a session token, a password in an
-# error text) is never printed. The same rules as the rider harness's
-# integration_test/staging/mask_text.dart.
-_S = "[ \u00a0\u202f\u2009.\\-]"  # one space (also no-break / thin), dot or dash
-_DIGIT_SEP = "(?:%s?\\(|\\)%s?|%s)?" % (_S, _S, _S)
-# 8-15 digits with single separators, with or without a lead: "+46 70 123
-# 45 67", "070-123 45 67", "+33 (0)6 12 34 56 78", "20 123 456" (Tunisian).
-# No colon or comma between digits: times, source positions, sizes stay.
-_PHONE_SHAPE = re.compile("(?<![\\d.:])\\+?\\(?\\d(?:%s\\d){7,14}(?!\\d)" % _DIGIT_SEP)
-_LONG_DIGITS = re.compile(r"\d{8,}")
-_BEARER = re.compile(r"\b(Bearer|Basic)\s+[A-Za-z0-9\-._~+/=]+", re.I)
+# FTL-H4 (supervisor review 2026-11-16) + FTL MF-1 (post-merge read, same
+# day): the summary prints app text from logcat into a PUBLIC job log
+# (Flutter error blocks, "STEP app exception" lines, crash lines) next to
+# the harness's own text (check details, SKIP, failed calls). `scrub` has
+# already removed the run's own numbers and code; mask_generic also removes
+# anything SHAPED like a secret, so a value nobody listed (another number,
+# a session id, a password in an error text) is never printed. The same
+# rules as the rider harness's integration_test/staging/mask_text.dart, and
+# one table for both: tool/tests/mask_probes.json.
+#
+# Between a phone number's digits: up to 3 of space (also no-break / thin),
+# dot, dash, slash, bracket: "070-123 45 67", "070 - 123", "070/123",
+# "+33 (0)6 12", "06.12.34.56.78".
+_DIGIT_SEP = "[ \u00a0\u202f\u2009.\\-/()]{0,3}"
+# A digit: also the Arabic and the full-width ones (the same set in
+# mask_text.dart, where \d is 0-9 only).
+_D = "[0-9\u0660-\u0669\u06f0-\u06f9\uff10-\uff19]"
+# 8 or more digits, with or without a lead, also right after ":" or "."
+# ("tel:070", ":20 123 456", "12:070-123"); two numbers side by side go as
+# one. No colon or comma between the digits, so a time ("07:58:01"), a
+# source position ("x.dart:1080:33") and a size ("1080.0, 2400.0") stay.
+_PHONE_SHAPE = re.compile("(?<!%s)\\+?\\(?%s(?:%s%s){7,40}(?!%s)" % (_D, _D, _DIGIT_SEP, _D, _D))
+_LONG_DIGITS = re.compile("%s{8,}" % _D)
+# MF-1 round 2: a phone number written with "_", "," or ":" between its
+# digit groups ("070_123_45_67", "+46:70:123:45:67"): it starts with + or 0,
+# the same separator each time, 4+ groups, 8+ digits. A time ("07:58:01"),
+# a size and a source position have fewer groups or no lead 0.
+_PHONE_JOINED = re.compile(
+    "(?<!%s)(?<![.:,_])(?:\\+|0)%s{0,3}([,:_])%s{2,4}(?:\\1%s{2,4}){2,}(?!%s|[.:,_]%s)" % (_D, _D, _D, _D, _D, _D))
+# MF-1 round 2: a code written in digit groups ("482 913", "48 29 13",
+# "4 8 2 9 1 3", "48.29"), masked whole on a line about a code or a
+# sign-in: 4-8 digits in all. Not a date, not a decimal like "1080.0".
+_SPACED_CODE = re.compile(
+    "(?<![A-Za-z0-9_#+])(?<!%s)(?<!%s[.:,])%s{1,4}(?:[ \u00a0.\\-]{1,3}%s{1,4})+(?!%s|[A-Za-z0-9_]|[.:,]%s)"
+    % (_D, _D, _D, _D, _D, _D))
+_DATE = re.compile(r"^\d{4}-\d\d-\d\d$")
+# MF-1 round 2: a code glued to its name: "PIN4829", "OTP482913", "code482913".
+_GLUED_CODE = re.compile(r"(?<![A-Za-z])((?:pin|otp|code|kod|sms)[_\-]?)(%s{4,8})(?!%s)" % (_D, _D), re.I)
+# MF-1 round 2: a secret type's text, "OtpSession(id: ...)", "Session(...)".
+_CALL = re.compile(r"(?<![A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_]*)\(")
+_CAMEL = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])")
+_CALL_WORDS = frozenset((
+    "session", "token", "tokens", "otp", "pin", "credential", "credentials", "secret", "password"))
+# MF-1 round 2: the secret words of the three markets that are not one
+# Latin name: French, Arabic, Russian. A password to the end of the line,
+# a code one value.
+_NOT_LETTER = r"(?<![A-Za-z\u00c0-\u024f\u0400-\u04ff\u0600-\u06ff])"
+_PHRASE_SEP = r"(\s*[:=]\s*|\s+(?:est|\u00e4r|is|\u0647\u0648|\u0647\u064a)\s*[:=]?\s*)"
+_PHRASE_LINE = re.compile(
+    _NOT_LETTER + r"(mot\s+de\s+passe|mdp|\u0643\u0644\u0645\u0629\s+(?:\u0627\u0644\u0645\u0631\u0648\u0631|\u0627\u0644\u0633\u0631)"
+    r"|[\u041f\u043f]\u0430\u0440\u043e\u043b[\u044c\u044f])(?![A-Za-z\u0400-\u04ff\u0600-\u06ff])" + _PHRASE_SEP + r"([^\n]+)")
+_PHRASE_CODE = re.compile(
+    _NOT_LETTER + r"(code\s+de\s+(?:v[\u00e9e]rification|confirmation|validation)"
+    r"|\u0631\u0645\u0632(?:\s+(?:\u0627\u0644\u062a\u062d\u0642\u0642|\u0627\u0644\u062a\u0623\u0643\u064a\u062f|\u0627\u0644\u062f\u062e\u0648\u0644|\u0627\u0644\u062a\u0641\u0639\u064a\u0644))?"
+    r"|\u0627\u0644\u0631\u0645\u0632|[\u041a\u043a]\u043e\u0434(?:\s+\u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0438\u044f)?)"
+    r"(?![A-Za-z\u0400-\u04ff\u0600-\u06ff])" + _PHRASE_SEP + r"""([^\s"',;}&)]+)""")
+# "Bearer abc", "bearer:abc", "Basic = abc".
+_BEARER = re.compile(r"\b(Bearer|Basic)(?:\s*[:=]\s*|\s+)[A-Za-z0-9\-._~+/=]+", re.I)
 _JWT = re.compile(r"eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+(?:\.[A-Za-z0-9_\-]+)?")
-_EMAIL = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
-_NAMED = re.compile(
-    r"""((?:[A-Za-z0-9_\-]*(?:token|password|passwd|pwd|secret|api[_\-]?key|authorization|otp)|\b(?:code|pin))\b["']?\s*[:=]?\s*["']?)([^\s"',;}&)]+)""",
-    re.I)
-_CODE_NEAR = re.compile(r"(\b(?:code|otp|pin|kod)\b[^\d\n]{0,24})\d{4,8}(?!\d)", re.I)
+# MF-1 round 2: also a URL-coded "@" (%40).
+_EMAIL = re.compile(r"[A-Za-z0-9._%+\-]+(?:@|%40)[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+# A name and what follows it: `name: value`, `"name":"value"`, `name=value`,
+# `name => value`, `name -> value` (also inside an escaped JSON text:
+# \"name\":\"value\").
+_KEY = re.compile(r"""(?<![A-Za-z0-9_\-\u00c0-\u024f])([A-Za-z\u00c0-\u024f][A-Za-z0-9_\-\u00c0-\u024f]*)(\\?["']?\s*(?:=>|->|[:=])\s*)""")
+# name + "is" / "was" + value, and name + space + value.
+_KEY_IS = re.compile(
+    r"(?<![A-Za-z0-9_\-\u00c0-\u024f])([A-Za-z\u00c0-\u024f][A-Za-z0-9_\-\u00c0-\u024f]*)(\s+(?:is|was|are|were|\u00e4r|var|est|ist)(?:\s*[:=]\s*|\s+))", re.I)
+_KEY_SPACE = re.compile(
+    r"""(?<![A-Za-z0-9_\-\u00c0-\u024f])([A-Za-z\u00c0-\u024f][A-Za-z0-9_\-\u00c0-\u024f]*)(\s+)([^\s"',;}&)]*%s[^\s"',;}&)]*)""" % _D)
+_HAS_DIGIT = re.compile(_D)
+# Names whose value is masked to the end of the value: the closing quote,
+# or the end of the line (a password may hold spaces and & , ; ) ).
+_NAME_LINE = re.compile(
+    r"passw(?:or)?d|passphrase|pwd|secret|authorization|cookie|l[o\u00f6]senord|^(?:pass|pw|psw|auth)$|[_\-]auth$", re.I)
+# Names whose value is one token (or a quoted text).
+_NAME_SECRET = re.compile(
+    r"token|api[_\-]?key|private[_\-]?key|access[_\-]?key|session|credential|signature|code|jwt|nonce|^key$|[_\-]key$", re.I)
+# Short words that count only as a word of their own inside a name
+# ("pickupPin", "ride_pin", "otpCode", "sid", "PIN"), not as letters of a
+# longer word ("mapping", "inside", "spinner").
+_WORD_PART = (
+    r"(?:(?<![A-Za-z])(?:pin|Pin|PIN|otp|Otp|OTP|sid|Sid|SID|kod|Kod|KOD|sms|Sms|SMS)"
+    r"|(?<=[a-z])(?:Pin|PIN|Otp|OTP|Sid|SID|Sms|SMS))(?![a-z])")
+_NAME_PART = re.compile(_WORD_PART)
+# Names that carry an error / status / country code: a readable value stays.
+_PLAIN_NAMES = frozenset((
+    "code", "errorcode", "errcode", "statuscode", "httpcode", "responsecode", "exitcode",
+    "resultcode", "reasoncode", "countrycode", "languagecode", "currencycode", "localecode",
+    "keycode"))
+# One-word error codes; a snake_case word ("invalid_body") is readable too.
+_CODE_WORDS = frozenset((
+    "ok", "error", "unauthorized", "unauthenticated", "forbidden", "conflict", "invalid",
+    "expired", "timeout", "unavailable", "internal", "unknown", "cancelled", "canceled",
+    "failed", "denied", "blocked", "missing", "duplicate", "null", "none"))
+_SNAKE = re.compile(r"^[a-z]+(?:_[a-z]+)+$")
+_SHORT_PLAIN = re.compile(r"^(?:[0-9]{1,3}|[A-Za-z]{2,3})$")
+_VALUE_QUOTED = re.compile(r'''\\"((?:[^\\\n]|\\(?!"))*)\\"|"((?:[^"\\\n]|\\.)*)"|'((?:[^'\\\n]|\\.)*)\'''')
+_VALUE_TOKEN = re.compile(r"""[^\s"',;}&)]+""")
+# A quote that opens a value and is never closed (a cut line).
+_OPEN_QUOTE = re.compile(r"""\\?["']""")
+_VALUE_LINE = re.compile(r"[^\n]*")
+# A source position is no secret: "EnterCode:file:///b/lib/x.dart:120:14".
+_SOURCE_REF = re.compile(r"^(?:file:|package:|dart:)|\.dart(?::\d+){0,2}\)?$")
+# "password is required": not a value.
+_NOT_A_VALUE = re.compile(
+    r"(?:required|missing|invalid|incorrect|wrong|too|empty|not|null|weak|short|long|"
+    r"expired|blank|the|a|an|no|set|needed|mandatory)\b", re.I)
+# A long opaque value (32+ letters and digits, at least one digit), and
+# base64 with + or / (24+, with a digit, a capital and a small letter) or
+# with = padding.
 _OPAQUE = re.compile(r"(?=[A-Za-z_\-]*\d)[A-Za-z0-9_\-]{32,}")
+_BASE64 = re.compile(
+    r"(?<![A-Za-z0-9+/])(?:(?=[A-Za-z0-9+/]*\d)(?=[A-Za-z0-9+/]*[A-Z])(?=[A-Za-z0-9+/]*[a-z])"
+    r"(?:(?=[A-Za-z0-9]*[+/])[A-Za-z0-9+/]{24,}={0,2}|[A-Za-z0-9+/]{16,}={1,2})(?![A-Za-z0-9+/=]))")
+# A line that talks about a code, a sign-in or a secret: every 4-8 digit
+# number standing alone on it is masked ("482913 is your code", "PIN 4829").
+_AUTH_LINE = re.compile(
+    r"code|kod|verif|passw|passphrase|l[o\u00f6]senord|token|secret|api[_\-]?key|sign[ _\-]?in|log[ _\-]?in|auth|"
+    r"credential|mot de passe|\u0631\u0645\u0632|\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631|\u0627\u0644\u062a\u062d\u0642\u0642|\u043f\u0430\u0440\u043e\u043b|\u043a\u043e\u0434",
+    re.I)
+# ... alone = not part of a word, a decimal, a time, a date, a source
+# position ("x.dart:1080:33", "line 5108 pos 12") or a measure ("3000 ms").
+_BARE_CODE = re.compile(
+    r"(?<![A-Za-z0-9_#])(?<!%s)(?<!\d[.:,])(?<!\.dart:)(?<!line )(?<!pos )%s{4,8}"
+    r"(?!%s|[A-Za-z0-9_]|[.:,]\d|-\d\d-\d\d| ?(?:ms|px|dp|s|m|km|kB|KB|MB|bytes)\b)" % (_D, _D, _D))
 # A logcat line's own head (date, time, pid, tid, level) is kept as it is.
 _LOGCAT_STAMP = re.compile(r"^\s*\d\d-\d\d\s+\d\d:\d\d:\d\d\.\d+\s+\d+\s+\d+\s+[VDIWEF]\s")
+
+
+def _name_kind(name):
+    """'line', 'secret', 'plain' or None for a name before a value."""
+    if _NAME_LINE.search(name):
+        return "line"
+    if re.sub(r"[_\-]", "", name).lower() in _PLAIN_NAMES:
+        return "plain"
+    if _NAME_SECRET.search(name) or _NAME_PART.search(name):
+        return "secret"
+    return None
+
+
+def _readable(value):
+    """A value a 'plain' name may show: an error-code word, a status."""
+    return bool(_SNAKE.match(value) or _SHORT_PLAIN.match(value) or value in _CODE_WORDS)
+
+
+def _mask_joined(m):
+    return REDACTED if len(_HAS_DIGIT.findall(m.group(0))) >= 8 else m.group(0)
+
+
+def _mask_spaced_code(m):
+    value = m.group(0)
+    digits = len(_HAS_DIGIT.findall(value))
+    if not 4 <= digits <= 8 or _DATE.match(value) or ("." in value and re.search(r"\d{4}", value)):
+        return value
+    return REDACTED
+
+
+def _close(text, pos):
+    """The end of the bracket that opens at pos: its matching close, or
+    the end of the line."""
+    depth = 0
+    for i in range(pos, len(text)):
+        c = text[i]
+        if c == "\n":
+            return i
+        if c in "{[(":
+            depth += 1
+        elif c in "}])":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+    return len(text)
+
+
+def _mask_calls(text):
+    """"OtpSession(id: ...)": the text of a secret type masked."""
+    out, pos = [], 0
+    while True:
+        m = _CALL.search(text, pos)
+        if not m:
+            break
+        words = _CAMEL.findall(m.group(1))
+        end = _close(text, m.end() - 1)
+        inner = text[m.end():end - 1] if text[end - 1:end] == ")" else text[m.end():end]
+        if not words or words[-1].lower() not in _CALL_WORDS or not inner or _readable(inner):
+            out.append(text[pos:m.end()])
+            pos = m.end()
+            continue
+        out.append(text[pos:m.end()] + REDACTED)
+        pos = m.end() + len(inner)
+    out.append(text[pos:])
+    return "".join(out)
+
+
+def _mask_phrase(m):
+    if _NOT_A_VALUE.match(m.group(3)) or m.group(3).startswith("["):
+        return m.group(0)
+    return m.group(1) + m.group(2) + REDACTED
+
+
+def _mask_phrases(text):
+    """French / Arabic / Russian secret words and their value."""
+    return _PHRASE_CODE.sub(_mask_phrase, _PHRASE_LINE.sub(_mask_phrase, text))
+
+
+def _mask_named(text):
+    """`name: value` pairs: the value of a secret name masked."""
+    out, pos = [], 0
+    while True:
+        m = _KEY.search(text, pos)
+        if not m:
+            break
+        kind = _name_kind(m.group(1))
+        if kind is None:
+            out.append(text[pos:m.end(1)])
+            pos = m.end(1)
+            continue
+        out.append(text[pos:m.end()])
+        pos = m.end()
+        if kind != "plain" and text[pos:pos + 1] in ("{", "["):
+            # MF-1 round 2: an object or a list goes whole.
+            out.append(REDACTED)
+            pos = _close(text, pos)
+            continue
+        q = _VALUE_QUOTED.match(text, pos)
+        if q:
+            inner = next(i for i in (1, 2, 3) if q.group(i) is not None)
+            keep = kind == "plain" and _readable(q.group(inner))
+            out.append(text[pos:q.start(inner)] + (q.group(inner) if keep else REDACTED) + text[q.end(inner):q.end()])
+            pos = q.end()
+            continue
+        q = _OPEN_QUOTE.match(text, pos)
+        if q:
+            out.append(q.group(0))
+            pos = q.end()
+        v = (_VALUE_LINE if kind == "line" or q else _VALUE_TOKEN).match(text, pos)
+        if v and v.group(0):
+            value = v.group(0)
+            keep = not q and kind != "line" and (_SOURCE_REF.search(value) or (kind == "plain" and _readable(value)))
+            out.append(value if keep else REDACTED)
+            pos = v.end()
+    out.append(text[pos:])
+    return "".join(out)
+
+
+def _mask_is(text):
+    """"password is hunter2" (to the end of the line), "token is abc123"."""
+    out, pos = [], 0
+    while True:
+        m = _KEY_IS.search(text, pos)
+        if not m:
+            break
+        kind = _name_kind(m.group(1))
+        out.append(text[pos:m.end()])
+        pos = m.end()
+        if kind is None or _NOT_A_VALUE.match(text, pos):
+            continue
+        v = (_VALUE_LINE if kind == "line" else _VALUE_TOKEN).match(text, pos)
+        if not v or not v.group(0):
+            continue
+        value = v.group(0)
+        if kind != "line" and (not _HAS_DIGIT.search(value) or _SHORT_PLAIN.match(value)
+                               or _SOURCE_REF.search(value)):
+            continue
+        out.append(REDACTED)
+        pos = v.end()
+    out.append(text[pos:])
+    return "".join(out)
+
+
+def _mask_spaced(m):
+    kind = _name_kind(m.group(1))
+    value = m.group(3)
+    if kind is None or _SHORT_PLAIN.match(value) or value.startswith("[") or _SOURCE_REF.search(value):
+        return m.group(0)
+    return m.group(1) + m.group(2) + REDACTED
+
+
+def is_auth_text(text):
+    """True when text talks about a code, a sign-in or a secret."""
+    return bool(_AUTH_LINE.search(text) or _NAME_PART.search(text))
+
+
+def mask_bare_codes(text):
+    """Every 4-8 digit number standing alone in text masked."""
+    return _BARE_CODE.sub(REDACTED, text)
+
+
+def _mask_auth_line(line):
+    return mask_bare_codes(line) if is_auth_text(line) else line
 
 
 def mask_generic(text):
     """text with everything shaped like a phone number, a code, a token, a
     password or an e-mail address replaced by [REDACTED]."""
+    text = str(text)
     m = _LOGCAT_STAMP.match(text)
     head, out = (text[:m.end()], text[m.end():]) if m else ("", text)
     out = _BEARER.sub(lambda b: "%s %s" % (b.group(1), REDACTED), out)
     out = _JWT.sub(REDACTED, out)
     out = _EMAIL.sub(REDACTED, out)
-    out = _NAMED.sub(lambda n: n.group(1) + REDACTED, out)
-    out = _CODE_NEAR.sub(lambda c: c.group(1) + REDACTED, out)
     out = _OPAQUE.sub(REDACTED, out)
+    out = _BASE64.sub(REDACTED, out)
+    # Numbers before names: "code=070/123 45 67" goes as one number, not as
+    # a value "070/123" with the rest left behind.
     out = _PHONE_SHAPE.sub(REDACTED, out)
     out = _LONG_DIGITS.sub(REDACTED, out)
+    out = _PHONE_JOINED.sub(_mask_joined, out)
+    out = "\n".join(_SPACED_CODE.sub(_mask_spaced_code, line) if is_auth_text(line) else line
+                     for line in out.split("\n"))
+    out = _GLUED_CODE.sub(lambda g: g.group(1) + REDACTED, out)
+    out = _mask_calls(out)
+    out = _mask_phrases(out)
+    out = _mask_named(out)
+    out = _mask_is(out)
+    out = _KEY_SPACE.sub(_mask_spaced, out)
+    out = "\n".join(_mask_auth_line(line) for line in out.split("\n"))
     return head + out
 
 
@@ -141,7 +420,7 @@ def mask_generic(text):
 # others fall back to the whole number.
 _COUNTRY_CODES = ("216", "33", "46")
 # Separators the app, Android and people put between digits.
-_SEP = r"[\s\-().]*"
+_SEP = r"[\s\-()./]*"
 NUMBER_RE = re.compile(r"^\+\d{8,15}$")
 CODE_RE = re.compile(r"^\d{4,8}$")
 # Where the driver is looked up in the MOVERA_TEST_NUMBERS JSON. se.d38 is
@@ -495,7 +774,7 @@ def skipped_from(root):
         for line in _lines(path):
             at = line.find(PREFIX + "SKIP ")
             if at >= 0:
-                return line[at + len(PREFIX):].strip()
+                return mask_generic(line[at + len(PREFIX):].strip())
     return None
 
 
@@ -560,7 +839,7 @@ def flutter_error_blocks(root):
                     continue
             if FLUTTER_BLOCK_START.search(text):
                 if len(blocks) >= MAX_FLUTTER_BLOCKS:
-                    return blocks
+                    return _mask_block_codes(blocks)
                 current = {"head": mask_generic(text)[:300], "message": [], "frames": [], "stack": False}
                 blocks.append(current)
                 continue
@@ -582,6 +861,16 @@ def flutter_error_blocks(root):
                 continue
             if not current["stack"] and len(current["message"]) < BLOCK_MESSAGE_LINES:
                 current["message"].append(mask_generic(body)[:300])
+    return _mask_block_codes(blocks)
+
+
+def _mask_block_codes(blocks):
+    """FTL MF-1: in a block that talks about a code or a sign-in, a 4-8
+    digit number standing alone is masked on every line of the block."""
+    for b in blocks:
+        if any(is_auth_text(line) for line in [b["head"]] + b["message"]):
+            b["head"] = mask_bare_codes(b["head"])
+            b["message"] = [mask_bare_codes(line) for line in b["message"]]
     return blocks
 
 
@@ -636,15 +925,16 @@ def transitions_text(rows):
             continue
         bad = [k for k, v in (("FREEZE", not r.get("smooth", True)), ("RELOAD", r.get("reload")),
                               ("ERRORS", r.get("errors"))) if v]
-        errors = list(r.get("failedCalls") or []) + [mask_generic(str(e)) for e in (r.get("exceptions") or [])]
+        errors = [mask_generic(str(e)) for e in list(r.get("failedCalls") or []) + list(r.get("exceptions") or [])]
         out.append("| %s | %s | %s | %s | %s | %s | %s/%s | %s | %s |" % (
-            str(r.get("name", "?")).replace("|", "/"), r.get("frames"), r.get("missed"), r.get("worstMs"),
-            r.get("gets"), ", ".join(r.get("recreatedMaps") or []) or "-", r.get("loaderSamples"),
+            mask_generic(str(r.get("name", "?"))).replace("|", "/"), r.get("frames"), r.get("missed"), r.get("worstMs"),
+            r.get("gets"), mask_generic(", ".join(str(m) for m in r.get("recreatedMaps") or [])) or "-",
+            r.get("loaderSamples"),
             r.get("blankSamples"), "; ".join(str(e) for e in errors).replace("|", "/")[:200] or "-",
             "FAIL " + " ".join(bad) if bad else "PASS"))
     build = next((r.get("build") for r in rows if isinstance(r, dict) and r.get("build")), None)
     if build:
-        out += ["", "Frame numbers: %s." % build]
+        out += ["", "Frame numbers: %s." % mask_generic(str(build))]
     return out
 
 
@@ -672,16 +962,19 @@ def summary_text(root):
             # A FAIL keeps more: its line starts with what the test missed
             # (key / route), which the next diagnosis needs first.
             limit = 800 if str(c.get("outcome", "")).lower() == "fail" else 400
-            detail = str(c.get("detail", "")).replace("|", "/")[:limit]
-            title = c.get("title") or ""
-            out.append("| %s %s | %s | %s |" % (c.get("id"), title, str(c.get("outcome", "")).upper(), detail))
+            # FTL MF-1 (SF-2): the summary is the last gate for all it prints.
+            detail = mask_generic(str(c.get("detail", ""))).replace("|", "/")[:limit]
+            title = mask_generic(str(c.get("title") or "")).replace("|", "/")
+            out.append("| %s %s | %s | %s |" % (
+                mask_generic(str(c.get("id"))).replace("|", "/"), title,
+                mask_generic(str(c.get("outcome", "")).upper()), detail))
         out += ["", "(from %s)" % source]
     elif not skipped:
         out.append("NOT CHECKED: no check results found (the test did not start or its output was not pulled).")
     out += transitions_text(transitions_from(root))
     out += ["", "JUnit: tests=%(tests)d failures=%(failures)d errors=%(errors)d skipped=%(skipped)d" % totals]
     if failed_cases:
-        out.append("Failed JUnit cases: " + ", ".join(failed_cases))
+        out.append("Failed JUnit cases: " + mask_generic(", ".join(failed_cases)))
     out += ["", SHARED_ACCOUNTS_NOTE]
     exceptions = app_exception_lines(root)
     if exceptions:
@@ -766,7 +1059,7 @@ def verdict(root, rc):
     """The `verdict` command; returns an exit code."""
     reasons = verdict_reasons(root, rc)
     for reason in reasons:
-        print("::error::Device checks did not pass: " + reason)
+        print("::error::Device checks did not pass: " + mask_generic(reason))
     if reasons:
         print("Device checks FAILED (%d reason(s)); see the summary above and the "
               "testlab-results artifact." % len(reasons))

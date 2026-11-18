@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../integration_test/staging/mask_text.dart';
 import '../../integration_test/staging/trip_rules.dart';
+import 'mask_probes.g.dart';
 
 /// FTL-H1, FTL-H3, FTL-H4 (Rules audits/impact/firebase-trip-run-2026-11-16.md
 /// rows 1, 4 and 5): the plain rules of the rider device run's trip steps
@@ -238,4 +239,63 @@ void main() {
       expect(text, endsWith('...'));
     });
   });
+
+  // FTL MF-1 (post-merge read 2026-11-16): one table for maskText and
+  // tool/testlab_summary.py mask_generic: tool/tests/mask_probes.json (the
+  // 76 probe lines, the builder's own extra lines, the lines that must
+  // stay readable), here as mask_probes.g.dart; the tool's unit test
+  // fails when the two differ. Made-up values only.
+  group('FTL MF-1 shared probe table', () {
+    test('the table is whole', () {
+      expect(probeLines, 76);
+      expect(maskProbes.length, greaterThanOrEqualTo(probeLines));
+      expect(keepProbes.length, greaterThanOrEqualTo(19));
+      for (final (text, gone, out) in maskProbes) {
+        expect(gone, isNotEmpty, reason: text);
+        expect(out, isNotEmpty, reason: text);
+      }
+    });
+
+    test('every probe line is masked, with the same output as the tool', () {
+      for (final (text, gone, expected) in maskProbes) {
+        final out = maskText(text);
+        for (final leak in gone) {
+          expect(out, isNot(contains(leak)), reason: text);
+        }
+        expect(out, expected, reason: text);
+      }
+    });
+
+    test('what a diagnosis needs stays', () {
+      for (final text in keepProbes) {
+        expect(maskText(text), text);
+      }
+    });
+
+    test('a known number with slashes or spaced dashes', () {
+      for (final spelling in [
+        '000/097 531',
+        '000 / 097 / 531',
+        '000 - 097 - 531',
+      ]) {
+        final out = maskText('x $spelling y', known: const ['+46000097531']);
+        expect(out.replaceAll(RegExp(r'\D'), ''), isEmpty, reason: spelling);
+      }
+    });
+
+    test('exceptionText: a bare code in a sign-in error is masked', () {
+      final text = exceptionText(_OtpProblem('482913'), library: 'x');
+      expect(text, isNot(contains('482913')));
+      expect(text, startsWith('_OtpProblem (x): '));
+      // Not a sign-in error: a plain number stays.
+      expect(exceptionText(StateError('line 5108')), contains('5108'));
+    });
+  });
+}
+
+class _OtpProblem implements Exception {
+  _OtpProblem(this.value);
+  final String value;
+  @override
+  String toString() => value;
 }
