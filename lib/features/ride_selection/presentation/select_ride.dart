@@ -67,6 +67,7 @@ import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/formatters/place_format.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
+import 'package:movera_rider/features/ride_selection/presentation/categories_split_parts.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/parkable_map.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
@@ -1379,14 +1380,15 @@ class _SelectRideState extends State<SelectRide>
                   ),
                 );
               },
-              child: _splitHeader(
+              child: categoriesSplitHeader(
                 split,
                 media,
                 PointerInterceptor(child: _searchBar()),
+                barHeight: _searchBarObstruction,
               ),
             ),
             Positioned.fill(
-              child: _splitSheet(
+              child: categoriesSplitSheet(
                 split,
                 media,
                 const ValueKey('categories-split-sheet'),
@@ -1406,8 +1408,9 @@ class _SelectRideState extends State<SelectRide>
                     child: Material(
                       color: Colors.white,
                       elevation: 18,
-                      shadowColor: const Color(0xFF162C36)
-                          .withValues(alpha: 0.16),
+                      shadowColor: const Color(
+                        0xFF162C36,
+                      ).withValues(alpha: 0.16),
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(28),
                       ),
@@ -1428,7 +1431,7 @@ class _SelectRideState extends State<SelectRide>
               bottom: 0,
               // Owner round 3: the payment block moves the sheet too.
               child: PointerInterceptor(
-                child: _splitSheet(
+                child: categoriesSplitSheet(
                   split,
                   media,
                   const ValueKey('categories-split-footer'),
@@ -1444,47 +1447,6 @@ class _SelectRideState extends State<SelectRide>
           ],
         ),
       ),
-    );
-  }
-
-  /// Owner 2026-11-18: the back + route header slides down from above the
-  /// screen while the categories route opens (and back up on Back).
-  static Widget _splitHeader(
-    CategoriesSplit? split,
-    MediaQueryData media,
-    Widget header,
-  ) {
-    if (split == null) return header;
-    // Its bottom, with its shadow, sits this far below the top edge.
-    final headerBottom = media.padding.top + 8 + _searchBarObstruction + 24;
-    return AnimatedBuilder(
-      animation: split.animation,
-      builder: (context, child) => Transform.translate(
-        key: const ValueKey('categories-split-header'),
-        offset: Offset(0, split.headerShift(headerBottom)),
-        child: child,
-      ),
-      child: header,
-    );
-  }
-
-  /// Owner 2026-11-18: the car sheet (and its payment + Book footer) rises
-  /// from below the screen to meet the header; Back sends it down again.
-  static Widget _splitSheet(
-    CategoriesSplit? split,
-    MediaQueryData media,
-    Key key,
-    Widget sheet,
-  ) {
-    if (split == null) return sheet;
-    return AnimatedBuilder(
-      animation: split.animation,
-      builder: (context, child) => Transform.translate(
-        key: key,
-        offset: Offset(0, split.sheetShift(media.size.height)),
-        child: child,
-      ),
-      child: sheet,
     );
   }
 
