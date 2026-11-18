@@ -213,7 +213,7 @@ void main() {
     await pumpHome(tester);
     // The rider moves on before the fix lands: Home parks under a page and
     // that page's map takes the camera.
-    await tester.tap(find.byIcon(Icons.menu_open_rounded));
+    await tester.tap(find.byKey(const ValueKey('home-menu')));
     await frames(tester, 10);
     expect(find.byType(RiderMenuPage), findsOneWidget);
     maps.debugAttach(MapOwners.pickup);

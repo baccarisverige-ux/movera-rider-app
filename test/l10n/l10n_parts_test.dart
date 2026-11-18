@@ -88,18 +88,19 @@ void main() {
     // BQ-V16: + historyPlannedRoute (past ride on the server's planned route).
     // J10 (debt model): + quoteDebtLine, riderDebtAboveMax, walletFee,
     // walletDebtPaid, walletYouOwe (payments area, contract debtModel.texts).
+    // Saved-places design (contract v0.18.129): + 7 places* texts.
     const before = {
       'en': (
-        'ca2c220b02a4124b50d577282df6c915d4713e52272d8c9b6c1e404a21a3c7c7',
-        2199,
+        'a7b6f0945e2e6b1843a663698ab0a6556f7e926ab464927c4b845d1ed8d64eb3',
+        2213,
       ),
       'fr': (
-        '3a67864f94eab0f752d8fb747a5bb8bf0b79de2fa307c723dd75374f29c37c5f',
-        1753,
+        '458540f7acef5a8d47f22abafd59c3cf8436516eab57d5aacac5033dfb649fc0',
+        1760,
       ),
       'sv': (
-        'a15b2103f05c08de8646707d990fb7b8e086322eae7ed2e0304c6f5e5159c92c',
-        1753,
+        '5e6f5908e11061cf01fc6672d885c7693424a7542a038aa410d7c789db951980',
+        1760,
       ),
     };
     for (final lang in _langs) {

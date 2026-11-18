@@ -204,7 +204,7 @@ void main() {
         Scaffold(
           body: Column(
             children: [
-              PremiumTopActions(onMenuTap: () => menu++, onAccountTap: () {}),
+              PremiumTopActions(onMenuTap: () => menu++, onPlacesTap: () {}),
               WhereToCard(
                 destinationAddress: null,
                 onDestinationTap: () => where++,

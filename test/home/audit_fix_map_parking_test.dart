@@ -156,7 +156,7 @@ void main() {
 
     // A parked flow page (the menu here; SelectRide in Book for later) is
     // replaced by the next page, as RideScheduledPage replaces SelectRide.
-    await tester.tap(find.byIcon(Icons.menu_open_rounded));
+    await tester.tap(find.byKey(const ValueKey('home-menu')));
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }

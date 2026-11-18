@@ -167,7 +167,7 @@ void main() {
     tester,
   ) async {
     await pumpHome(tester);
-    await tester.tap(find.byIcon(Icons.menu_open_rounded));
+    await tester.tap(find.byKey(const ValueKey('home-menu')));
     await frames(tester, 10);
     expect(find.byType(RiderMenuPage), findsOneWidget);
     await tester.tap(
@@ -258,7 +258,7 @@ void main() {
       await waitForLiveTracking(tester, gps);
       await frames(tester, 10);
       // Park Home under a full-screen page.
-      await tester.tap(find.byIcon(Icons.menu_open_rounded));
+      await tester.tap(find.byKey(const ValueKey('home-menu')));
       await frames(tester, 10);
       expect(find.byType(RiderMenuPage), findsOneWidget);
       final before = gps.currentPositionCalls;

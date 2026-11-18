@@ -209,6 +209,7 @@ class SetPickupPage extends StatefulWidget {
     this.geocoding,
     this.stops = const <String>[],
     this.onHeldConfirm,
+    this.showChangeCategory = false,
   });
 
   static Future<SetPickupResult?> open(
@@ -233,6 +234,7 @@ class SetPickupPage extends StatefulWidget {
     DateTime? scheduledPickup,
     List<String> stops = const <String>[],
     bool holdOnConfirm = false,
+    bool showChangeCategory = false,
   }) async {
     // Owner decision "Confirm and search": with [holdOnConfirm], Confirm
     // answers at once and Set pickup stays, its button spinning, until the
@@ -260,6 +262,7 @@ class SetPickupPage extends StatefulWidget {
         confirmLabel: confirmLabel,
         scheduledPickup: scheduledPickup,
         stops: stops,
+        showChangeCategory: showChangeCategory,
         onHeldConfirm: confirmed == null
             ? null
             : (result) {
@@ -343,6 +346,10 @@ class SetPickupPage extends StatefulWidget {
   /// Set by [open] with `holdOnConfirm`: Confirm hands the pickup over here
   /// and the page stays, its button spinning, instead of closing.
   final ValueChanged<SetPickupResult>? onHeldConfirm;
+
+  /// Saved-places design step 5: opened straight from a saved place's
+  /// fixed category; a "Byt kategori" link goes back to the categories.
+  final bool showChangeCategory;
 
   /// Where the pin's tip sits, as a share of the screen height.
   static const pinFraction = 0.34;

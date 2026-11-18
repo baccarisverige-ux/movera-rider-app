@@ -153,7 +153,7 @@ void main() {
       for (var i = 0; i < 10; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
-      for (final label in ['Menu', 'Account']) {
+      for (final label in ['Menu', 'Saved Places']) {
         final node = tester.getSemantics(find.bySemanticsLabel(label).first);
         final rect = _globalRect(node);
         expect(rect.width, greaterThanOrEqualTo(48), reason: label);
