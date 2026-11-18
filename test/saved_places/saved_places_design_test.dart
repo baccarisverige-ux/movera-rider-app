@@ -303,18 +303,17 @@ void main() {
   });
 
   group('step 3b / 4 / 4b: the S3 save sheet', () {
-    testWidgets('on the categories screen from a recent address after ~2 s', (
+    testWidgets('on the categories screen from a recent address at once', (
       tester,
     ) async {
+      // Owner 2026-11-18: no 2 s wait; as soon as the screen is open.
       await _phone(tester);
       final selection = _selection();
       addTearDown(selection.dispose);
       await tester.pumpWidget(
         _app(_categories(selection, offer: 'Viksbergsvägen 9, Södertälje')),
       );
-      await _settle(tester, 10);
-      expect(find.text('Save this address?'), findsNothing);
-      await _settle(tester, 15);
+      await _settle(tester, 5);
       expect(find.text('Save this address?'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 10));
@@ -327,9 +326,10 @@ void main() {
       ('middle', null),
       ('up', const Offset(0, -600)),
     ]) {
-      testWidgets('by default at ~2 s on top with the car sheet $pos', (
-        tester,
-      ) async {
+      testWidgets('by default on top with the car sheet $pos', (tester) async {
+        // The car sheet is moved first; the S3 sheet waits 2 s for it here.
+        PlaceSaveSheet.debugExtraDelay = const Duration(seconds: 2);
+        addTearDown(() => PlaceSaveSheet.debugExtraDelay = null);
         await _phone(tester);
         final selection = _selection();
         addTearDown(selection.dispose);
