@@ -82,30 +82,105 @@ void main() {
         ),
       );
 
-  testWidgets('Where to? slides up out of the bar in one movement, no fade', (
-    tester,
-  ) async {
+  // Painted positions: layout top plus the animated translation.
+  double headerTop(WidgetTester tester) {
+    final f = find.byKey(const ValueKey('where-to-split-header'));
+    final t = tester.widget<FractionalTranslation>(f).translation.dy;
+    return tester.getTopLeft(f).dy + t * tester.getSize(f).height;
+  }
+
+  double panelTop(WidgetTester tester) {
+    final f = find.byKey(const ValueKey('where-to-split-panel'));
+    final t = tester.widget<Transform>(f).transform.getTranslation().y;
+    return tester.getTopLeft(f).dy + t;
+  }
+
+  double barOpacity(WidgetTester tester) {
+    final bar = find.byKey(const ValueKey('where-to-split-bar'));
+    if (bar.evaluate().isEmpty) return 0;
+    return tester.widget<Opacity>(bar).opacity;
+  }
+
+  /// Owner 2026-11-17 CONFIRMED: the header slides down from above the top
+  /// while the Home panel rises from where it is (its bar fading out); X
+  /// reverses it and the panel lands where it was.
+  Future<void> twoParts(
+    WidgetTester tester, {
+    required double drag,
+    required bool open,
+  }) async {
     await pumpHome(tester);
+    if (drag != 0) {
+      await tester.drag(find.byType(WhereToCard), Offset(0, drag));
+      await frames(tester, 10);
+    }
+    final home = tester.getTopLeft(find.byType(WhereToCard)).dy;
     await tester.tap(find.text('Where to?'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 16));
-    // No waiting for the Home sheet: the picker is pushed at the tap.
+    await tester.pump();
     expect(find.byType(RoutePickerPage, skipOffstage: false), findsOneWidget);
-    expect(homeSheetOpen(tester), isFalse, reason: 'Home sheet expanded');
-    // It starts at the bar (lower part of the screen), not 8% below the top.
-    final slides = above<SlideTransition>(tester).toList();
+    // The route itself does not slide as one block.
     expect(
-      slides.any((s) => s.position.value.dy > 0.5),
-      isTrue,
-      reason: 'starts at the bar',
+      above<SlideTransition>(tester).where((s) => s.position.value.dy != 0),
+      isEmpty,
+    );
+    expect(headerTop(tester), lessThan(-40), reason: 'header above the top');
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('where-to-split-bar'))).dy,
+      closeTo(home, 2),
+      reason:
+          'painted (the panel translation included): the panel starts with its bar exactly at Home\'s bar',
+    );
+    expect(barOpacity(tester), greaterThan(0.8), reason: 'bar still there');
+    final startPanel = panelTop(tester);
+    final startHeader = headerTop(tester);
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(headerTop(tester), greaterThan(startHeader), reason: 'header down');
+    expect(
+      (panelTop(tester) - startPanel).abs(),
+      greaterThan(0),
+      reason: 'panel moving to meet the header',
+    );
+    expect(barOpacity(tester), lessThan(0.8), reason: 'bar fading');
+    await frames(tester, 4);
+    final openHeader = headerTop(tester);
+    final openPanel = panelTop(tester);
+    expect(openHeader, closeTo(0, 0.5), reason: 'header at the top');
+    expect(openPanel, lessThan(260), reason: 'panel meets the header');
+    expect(barOpacity(tester), 0, reason: 'bar gone');
+    // Close.
+    await tester.tap(find.byIcon(Icons.close_rounded).last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(headerTop(tester), lessThan(openHeader - 10), reason: 'header up');
+    expect(
+      (panelTop(tester) - openPanel).abs(),
+      greaterThan(0),
+      reason: 'panel going back',
     );
     await tester.pump(const Duration(milliseconds: 120));
-    for (final fade in above<FadeTransition>(tester)) {
-      expect(fade.opacity.value, 1.0, reason: 'no fade in');
-    }
-    await frames(tester, 6);
-    expect(homeSheetOpen(tester), isFalse);
+    expect(barOpacity(tester), greaterThan(0.3), reason: 'bar fading back');
+    await frames(tester, 4);
+    expect(find.byType(RoutePickerPage), findsNothing);
+    expect(
+      tester.getTopLeft(find.byType(WhereToCard)).dy,
+      closeTo(home, 2),
+      reason: 'panel back at exactly its spot',
+    );
+    expect(homeSheetOpen(tester), open, reason: 'same snap as before');
     await tearDownHome(tester);
+  }
+
+  testWidgets('two parts from the sheet DOWN', (tester) async {
+    await twoParts(tester, drag: 0, open: false);
+  });
+
+  testWidgets('two parts from the sheet in the MIDDLE', (tester) async {
+    await twoParts(tester, drag: -60, open: false);
+  });
+
+  testWidgets('two parts from the sheet UP', (tester) async {
+    await twoParts(tester, drag: -400, open: true);
   });
 
   testWidgets('X slides back into the bar and Home stays collapsed', (
