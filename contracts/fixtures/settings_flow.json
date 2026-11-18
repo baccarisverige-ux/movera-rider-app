@@ -177,6 +177,278 @@
       "id": "ten-exclusive-in-a-row",
       "limit": 10,
       "offers": [
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe"
+      ],
+      "expectOfflineAt": 9
+    },
+    {
+      "id": "radar-miss-never-counts",
+      "limit": 10,
+      "offers": [
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "rd",
+        "re",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe"
+      ],
+      "expectOfflineAt": 11
+    },
+    {
+      "id": "scheduled-never-counts",
+      "limit": 10,
+      "offers": [
+        "sd",
+        "sd",
+        "sd",
+        "sd",
+        "sd",
+        "sd",
+        "sd",
+        "sd",
+        "sd",
+        "sd",
+        "sd",
+        "sd"
+      ],
+      "expectOfflineAt": null
+    },
+    {
+      "id": "exclusive-accept-resets",
+      "limit": 10,
+      "offers": [
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xa",
+        "xe",
+        "xe",
+        "xe"
+      ],
+      "expectOfflineAt": null
+    },
+    {
+      "id": "going-online-resets",
+      "limit": 10,
+      "offers": [
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "on",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe"
+      ],
+      "expectOfflineAt": 15
+    },
+    {
+      "id": "assigned-counts",
+      "limit": 3,
+      "offers": [
+        "ae",
+        "ae",
+        "ae",
+        "xe",
+        "xe",
+        "xe"
+      ],
+      "expectOfflineAt": 2,
+      "note": "v0.18.6 (owner G4-E3 \"Count them\"), v0.18.120: hand-sent (assigned) offers the driver let expire count like Exclusive ones."
+    },
+    {
+      "id": "radar-accept-resets",
+      "limit": 10,
+      "offers": [
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "xe",
+        "ra",
+        "xe",
+        "xe"
+      ],
+      "expectOfflineAt": null
+    },
+    {
+      "id": "on-trip-exclusive-never-counts",
+      "limit": 3,
+      "offers": [
+        "xe",
+        "td",
+        "te",
+        "te",
+        "xe",
+        "xe"
+      ],
+      "expectOfflineAt": 5
+    },
+    {
+      "id": "assigned-and-exclusive-mixed",
+      "note": "v0.18.6, v0.18.120: 10 ignored offers mixing Exclusive and hand-sent ones set the driver offline (G4-E2 limit 10, G4-E3); the ignored Radar one in between is skipped.",
+      "limit": 10,
+      "offers": [
+        "xe",
+        "ae",
+        "xe",
+        "ae",
+        "re",
+        "xe",
+        "ae",
+        "xe",
+        "ae",
+        "xe",
+        "ae"
+      ],
+      "expectOfflineAt": 10
+    },
+    {
+      "id": "admin-radar-group-never-counts",
+      "note": "v0.18.6: an admin radar group is a Radar offer and never counts.",
+      "limit": 3,
+      "offers": [
+        "rd",
+        "re",
+        "re",
+        "xe",
+        "ae"
+      ],
+      "expectOfflineAt": null
+    },
+    {
+      "id": "ignore-decline-ignore-is-2",
+      "note": "v0.18.120 (owner 2026-11-16 \"It's not when driver decline ! It count when driver ignore\"): ignored, declined, ignored = 2 in a row: the decline neither counts nor resets.",
+      "limit": 2,
+      "offers": [
+        "xe",
+        "xd",
+        "xe"
+      ],
+      "expectOfflineAt": 2
+    },
+    {
+      "id": "ignore-decline-ignore-is-not-3",
+      "note": "v0.18.120 (owner 2026-11-16 \"It's not when driver decline ! It count when driver ignore\"): the same run with a limit of 3 does not set him offline (the decline does not count).",
+      "limit": 3,
+      "offers": [
+        "xe",
+        "xd",
+        "xe"
+      ],
+      "expectOfflineAt": null
+    },
+    {
+      "id": "declines-never-set-offline",
+      "note": "v0.18.120 (owner 2026-11-16 \"It's not when driver decline ! It count when driver ignore\"): declines alone, Exclusive or hand-sent, never set the driver offline.",
+      "limit": 3,
+      "offers": [
+        "xd",
+        "ad",
+        "xd",
+        "ad",
+        "xd",
+        "ad",
+        "xd",
+        "ad",
+        "xd",
+        "ad",
+        "xd",
+        "ad"
+      ],
+      "expectOfflineAt": null
+    },
+    {
+      "id": "decline-hand-sent-skipped",
+      "note": "v0.18.120 (owner 2026-11-16 \"It's not when driver decline ! It count when driver ignore\"): a declined hand-sent offer is skipped; the ignored ones around it count.",
+      "limit": 3,
+      "offers": [
+        "ae",
+        "ad",
+        "xe",
+        "ad",
+        "ae"
+      ],
+      "expectOfflineAt": 4
+    },
+    {
+      "id": "decline-is-not-an-accept",
+      "note": "v0.18.120 (owner 2026-11-16 \"It's not when driver decline ! It count when driver ignore\"): only an accept (or going online) resets: ignored, ignored, declined, accepted, ignored, ignored stays under 3.",
+      "limit": 3,
+      "offers": [
+        "xe",
+        "xe",
+        "xd",
+        "xa",
+        "xe",
+        "xe"
+      ],
+      "expectOfflineAt": null
+    },
+    {
+      "id": "exclusive-radar-exclusive-ignored-is-2",
+      "note": "v0.18.120 (owner 2026-11-16 \"And only exclusive / And it's about exclusive ride not radar\"): Exclusive ignored, Radar ignored, Exclusive ignored = 2: a Radar offer never counts and never resets.",
+      "limit": 2,
+      "offers": [
+        "xe",
+        "re",
+        "xe"
+      ],
+      "expectOfflineAt": 2
+    },
+    {
+      "id": "radar-ignored-or-declined-never-offline",
+      "note": "v0.18.120: Radar offers alone, ignored or declined, never set the driver offline.",
+      "limit": 2,
+      "offers": [
+        "re",
+        "rd",
+        "re",
+        "re",
+        "rd",
+        "re"
+      ],
+      "expectOfflineAt": null
+    }
+  ],
+  "autoOfflineBefore0_18_120": [
+    {
+      "id": "ten-exclusive-in-a-row",
+      "limit": 10,
+      "offers": [
         "xd",
         "xe",
         "xd",

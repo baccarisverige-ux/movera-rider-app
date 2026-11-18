@@ -816,7 +816,7 @@ S["DriverAppConfig"] = obj(OrderedDict(list(CONFIG_HEAD.items()) + [
                                   "additionalProperties": {"type": "boolean"}},
                     "exclusiveReasons": {**arr(obj({"id": s(pattern="^[a-z][a-z0-9_-]{0,63}$"), "text": s(), "on": b()}, ["id", "text", "on"]),
                                                description="Deprecated in v0.18.6 and ignored (owner G4-E7): no 'why you got this trip' line on offers. " + C["driverOffers"]["whyYouRemoved"]), "deprecated": True},
-                    "autoOffline": obj({"missedExclusive": i("Missed or declined exclusive offers in a row before the driver is set offline (default 10, owner decision 35; 3 before v0.5.6). " + C["autoOffline"]["note"], minimum=0),
+                    "autoOffline": obj({"missedExclusive": i("Exclusive offers the driver let expire in a row before he is set offline (default 10, owner decision 35; 3 before v0.5.6; v0.18.120: a decline never counts and does not reset the count). " + C["autoOffline"]["note"], minimum=0),
                                         "noFixMinutes": i("v0.18.4 (G3-R1): no position for this many minutes while online (not on a trip) → the server sets the driver offline (default 5; 0 = never). " + C["driverHome"]["setOffline"]["note"], minimum=0),
                                         "hiddenComesBackMin": n(minimum=0)})})),
     ("pickupPay", ref("DriverPickupPay")),
@@ -1085,8 +1085,8 @@ S["OfferEvent"] = obj({"eventId": ref("Id"), "sequence": i("Per-driver feed curs
                        "occurredAt": ref("Timestamp"), "serverTime": ref("Timestamp"),
                        "offer": {"allOf": [ref("Offer")],
                                  "description": "For offer_withdrawn, offer.status is claimed_elsewhere | expired | withdrawn."},
-                       "driverOffline": b("v0.8.0: this declined or expired Exclusive offer was the last of the run that set the driver offline (contract.json#autoOffline). "
-                                          "v0.18.6 (G4-E3): also a hand-sent (assigned) one.")},
+                       "driverOffline": b("v0.8.0: this expired Exclusive offer was the last of the run that set the driver offline (contract.json#autoOffline). "
+                                          "v0.18.6 (G4-E3): also a hand-sent (assigned) one. v0.18.120 (owner 2026-11-16): never on a declined offer (a decline does not count).")},
                       ["eventId", "sequence", "kind", "occurredAt", "serverTime", "offer"], "Driver offer feed event.")
 S["ConfigEvent"] = obj({"eventId": ref("Id"), "kind": s(const="config_published"), "doc": ref("ConfigDocName"),
                         "zoneId": ref("Id"), "version": i(minimum=1), "publishedAt": ref("Timestamp"),
