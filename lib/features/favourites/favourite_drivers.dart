@@ -74,12 +74,29 @@ class _FavouriteDriverToggleState extends State<FavouriteDriverToggle> {
 
   @override
   Widget build(BuildContext context) {
-    return SwitchListTile(
-      key: const ValueKey('favourite-driver'),
-      value: _on,
-      onChanged: _busy ? null : _toggle,
-      title: Text(context.l10n.favouriteDriverTitle),
-      subtitle: Text(_error ?? context.l10n.favouriteDriverHelp),
+    // FTL-E1: the tile sits on the white summary card (a coloured
+    // DecoratedBox), so it needs its own Material or the framework reports
+    // "ListTile background color or ink splashes may be invisible" on every
+    // build. Transparent Material plus no splash keeps the look exactly as
+    // before (the splash used to paint under the card, so it never showed).
+    final theme = Theme.of(context);
+    return Material(
+      type: MaterialType.transparency,
+      child: Theme(
+        data: theme.copyWith(
+          splashFactory: NoSplash.splashFactory,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          focusColor: Colors.transparent,
+        ),
+        child: SwitchListTile(
+          key: const ValueKey('favourite-driver'),
+          value: _on,
+          onChanged: _busy ? null : _toggle,
+          title: Text(context.l10n.favouriteDriverTitle),
+          subtitle: Text(_error ?? context.l10n.favouriteDriverHelp),
+        ),
+      ),
     );
   }
 }
