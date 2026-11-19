@@ -121,6 +121,33 @@ extension _SelectRideFooter on _SelectRideState {
     );
   }
 
+  /// The pay-in-car picture of the payment row (owner 2026-11-19, mock-up
+  /// S2: banknote, card and phone with two arrows), straight on the white
+  /// row. It takes the place of the 42 x 38 tile in the layout, so the row's
+  /// height and its texts stay where they were; the picture itself is drawn
+  /// 50 x 50 around that place. Like the icon before it, it says nothing to
+  /// a screen reader: the row is still read by its two texts.
+  Widget _payInCarPicture() {
+    return const SizedBox(
+      width: 42,
+      height: 38,
+      child: OverflowBox(
+        minWidth: 50,
+        maxWidth: 50,
+        minHeight: 50,
+        maxHeight: 50,
+        child: Image(
+          key: ValueKey('select-ride-pay-in-car-picture'),
+          image: AssetImage(AppAssets.payInCarS2),
+          width: 50,
+          height: 50,
+          fit: BoxFit.contain,
+          excludeFromSemantics: true,
+        ),
+      ),
+    );
+  }
+
   Widget _brandMark(String brand) {
     Widget logo;
     Color background = Colors.white;

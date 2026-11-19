@@ -11,6 +11,10 @@ class AppAssets {
   static const String send = 'assets/icons/send.png';
   static const String phoneOutl = 'assets/icons/phone_outl.png';
   static const String payment = 'assets/icons/payment.png';
+  // Pay in car on the Choose your ride payment row (owner 2026-11-19, S2).
+  // Drawn from Rules audits/screens/pay-on-board/pay-on-board-S2.svg at
+  // 50 pt (1x) with 2x, 3x and 4x copies beside it.
+  static const String payInCarS2 = 'assets/images/pay_in_car_s2.png';
   static const String scheduleCalendar =
       'assets/icons/schedule_calendar_v3.webp';
   // Solar Icons (Linear), CC BY 4.0 — see assets/icons/SOLAR_LICENSE.txt.
