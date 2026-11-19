@@ -2,6 +2,13 @@ name: Android release signing check
 
 on:
   workflow_dispatch:
+    inputs:
+      app_bundle:
+        # Store prep (Rules plan/stores/STORE-READINESS.md 2a): Google Play needs an App Bundle (.aab), not an APK.
+        # Off by default: a run without ticking it does exactly what it did before (APK check only, no upload).
+        description: 'Also build a signed App Bundle (.aab) for Google Play with the same release key, and keep it as a run artifact'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -72,3 +79,39 @@ jobs:
             echo '::error::Release keystore contains an Android debug certificate'
             exit 1
           fi
+      # Only when the app_bundle box is ticked. Same entry file, dart-defines and release key (Gradle reads the same
+      # MOVERA_RELEASE_* values) as the APK above; nothing is uploaded to any store.
+      - name: Build and inspect signed production App Bundle (only when asked)
+        if: ${{ inputs.app_bundle }}
+        env:
+          MOVERA_RELEASE_STORE_PASSWORD: ${{ secrets.MOVERA_RELEASE_STORE_PASSWORD }}
+          MOVERA_RELEASE_KEY_ALIAS: ${{ secrets.MOVERA_RELEASE_KEY_ALIAS }}
+          MOVERA_RELEASE_KEY_PASSWORD: ${{ secrets.MOVERA_RELEASE_KEY_PASSWORD }}
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
+        run: |
+          set -euo pipefail
+          app_version="$(sed -n 's/^version: *//p' pubspec.yaml)"
+          test -n "$app_version"
+          flutter build appbundle --release \
+            -t lib/main_production.dart \
+            --dart-define=MOVERA_FLAVOR=production \
+            --dart-define=MOVERA_API_BASE_URL=https://api.movera.example \
+            --dart-define=MOVERA_APP_VERSION="$app_version"
+          aab=build/app/outputs/bundle/release/app-release.aab
+          test -f "$aab"
+          jarsigner -verify -certs "$aab" > "$RUNNER_TEMP/aab-verify.txt" || { echo '::error::App Bundle signature check failed'; exit 1; }
+          grep -q 'jar verified' "$RUNNER_TEMP/aab-verify.txt" || { echo '::error::App Bundle is not signed'; exit 1; }
+          if grep -qi 'CN=Android Debug' "$RUNNER_TEMP/aab-verify.txt"; then
+            echo '::error::App Bundle is debug-signed'
+            exit 1
+          fi
+          mkdir -p out-aab
+          cp "$aab" "out-aab/movera-rider-${app_version}.aab"
+          ls -la out-aab
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.app_bundle }}
+        with:
+          name: rider-app-bundle
+          path: out-aab/*.aab
+          retention-days: 7
+          if-no-files-found: error
