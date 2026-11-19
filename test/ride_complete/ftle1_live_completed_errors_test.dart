@@ -72,6 +72,31 @@ void main() {
     expect(find.byKey(const ValueKey('favourite-driver')), findsOneWidget);
   });
 
+  testWidgets('FTL-E1 the Switch keeps its normal hover/focus/overlay colours',
+      (tester) async {
+    final base = ThemeData();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: base,
+        home: const Scaffold(
+          body: FavouriteDriverToggle(rideId: 'trp_ftle1_overlay'),
+        ),
+      ),
+    );
+    await tester.pump();
+    final ctx = tester.element(find.byType(Switch));
+    final t = Theme.of(ctx);
+    // Same values the Switch sees on main (no override at all).
+    expect(t.hoverColor, base.hoverColor);
+    expect(t.focusColor, base.focusColor);
+    expect(t.switchTheme, base.switchTheme);
+    expect(t.colorScheme, base.colorScheme);
+    final sw = tester.widget<Switch>(find.byType(Switch));
+    expect(sw.overlayColor, isNull);
+    expect(sw.hoverColor, isNull);
+    expect(sw.focusColor, isNull);
+  });
+
   // The whole summary as the staging build shows it (contract wire on):
   // run with --dart-define=MOVERA_FLAVOR=staging
   // --dart-define=MOVERA_API_BASE_URL=https://api.staging.example.com.

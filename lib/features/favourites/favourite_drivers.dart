@@ -79,6 +79,8 @@ class _FavouriteDriverToggleState extends State<FavouriteDriverToggle> {
     // "ListTile background color or ink splashes may be invisible" on every
     // build. Transparent Material plus no splash keeps the look exactly as
     // before (the splash used to paint under the card, so it never showed).
+    // Only splash/highlight are touched: hover/focus colours stay as they
+    // are so the Switch keeps its normal hover/focus halo.
     final theme = Theme.of(context);
     return Material(
       type: MaterialType.transparency,
@@ -86,8 +88,6 @@ class _FavouriteDriverToggleState extends State<FavouriteDriverToggle> {
         data: theme.copyWith(
           splashFactory: NoSplash.splashFactory,
           highlightColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-          focusColor: Colors.transparent,
         ),
         child: SwitchListTile(
           key: const ValueKey('favourite-driver'),
