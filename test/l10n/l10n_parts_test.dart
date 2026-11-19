@@ -89,18 +89,20 @@ void main() {
     // J10 (debt model): + quoteDebtLine, riderDebtAboveMax, walletFee,
     // walletDebtPaid, walletYouOwe (payments area, contract debtModel.texts).
     // Saved-places design (contract v0.18.129): + 7 places* texts.
+    // Real SMS sign-in codes (contract v0.18.135 smsSignIn.texts):
+    // + errSmsNotSent, errSmsDailyLimit.
     const before = {
       'en': (
-        'a7b6f0945e2e6b1843a663698ab0a6556f7e926ab464927c4b845d1ed8d64eb3',
-        2213,
+        '832f278a4c477bd1da3c9aa5e48f7f2ac45666908618d856fdaf34d72e424952',
+        2217,
       ),
       'fr': (
-        '458540f7acef5a8d47f22abafd59c3cf8436516eab57d5aacac5033dfb649fc0',
-        1760,
+        '2dc8b48547dd3c251c653f3aa1cc2e3f20e003bd7a4f3cd8c9b54ae5d3713f83',
+        1762,
       ),
       'sv': (
-        '5e6f5908e11061cf01fc6672d885c7693424a7542a038aa410d7c789db951980',
-        1760,
+        'd5d40bbcdbfec4fbdbfd7d3c700bf7fadb103f116970033fa937a5c2da4a324f',
+        1762,
       ),
     };
     for (final lang in _langs) {

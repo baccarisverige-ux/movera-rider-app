@@ -84,7 +84,8 @@ void main() {
 
       await auth.requestOtp(phone: '+46 70 123 45 67');
 
-      expect(sent, {'phone': '+46701234567', 'app': 'rider'});
+      // v0.18.135 smsSignIn.language: the app language rides along (en here).
+      expect(sent, {'phone': '+46701234567', 'app': 'rider', 'locale': 'en'});
     },
   );
 
