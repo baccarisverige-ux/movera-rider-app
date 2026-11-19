@@ -105,6 +105,8 @@
   "errServer": "Movera har problem just nu. Försök igen om en stund.",
   "errWrongCode": "Koden stämmer inte. Kontrollera den och försök igen.",
   "errSendCode": "Kunde inte skicka koden. Försök igen.",
+  "errSmsNotSent": "Vi kunde inte skicka sms:et. Kontrollera numret och försök igen.",
+  "errSmsDailyLimit": "Vi kan inte skicka fler sms-koder just nu. Försök igen senare.",
   "errCheckCode": "Kunde inte kontrollera koden. Försök igen.",
   "errProvider": "Kunde inte logga in med {provider}. Försök igen.",
   "notification": "Avisering",

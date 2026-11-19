@@ -105,6 +105,8 @@
   "errServer": "Movera rencontre un problème en ce moment. Réessayez dans un instant.",
   "errWrongCode": "Ce code n’est pas correct. Vérifiez-le et réessayez.",
   "errSendCode": "Impossible d’envoyer le code. Réessayez.",
+  "errSmsNotSent": "Nous n’avons pas pu envoyer le SMS. Vérifiez le numéro et réessayez.",
+  "errSmsDailyLimit": "Nous ne pouvons plus envoyer de codes par SMS pour le moment. Réessayez plus tard.",
   "errCheckCode": "Impossible de vérifier le code. Réessayez.",
   "errProvider": "Connexion impossible avec {provider}. Réessayez.",
   "notification": "Notification",
