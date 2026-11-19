@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -98,8 +99,55 @@ void main() {
     };
   });
 
-  test('no Firebase defines: the server settings start Firebase, the token '
-      'registers against the real server answer', () async {
+  test('Android (M5): asks platform=android and starts Firebase with the '
+      'Android app settings, not the web ones', () async {
+    config = {
+      'provider': 'fcm',
+      'enabled': true,
+      'projectId': 'movera-test',
+      'androidConfig': {
+        'apiKey': 'public-android-key',
+        'appId': '1:42:android:rider',
+        'messagingSenderId': '42',
+        'projectId': 'movera-test',
+      },
+    };
+    final gateway = _Gateway();
+    final service = FirebasePushService(
+      api: api(),
+      environment: _live,
+      gateway: gateway,
+    );
+    addTearDown(service.dispose);
+    await service.register();
+    expect(
+      seen.first.url.toString(),
+      endsWith('/api/v1/push/config?app=rider&platform=android'),
+    );
+    expect(gateway.initializedWith?.firebaseApiKey, 'public-android-key');
+    expect(gateway.initializedWith?.firebaseAppId, '1:42:android:rider');
+    expect(gateway.tokenCalls, 1);
+  });
+
+  test('Android: a server with only web settings leaves push off', () async {
+    final gateway = _Gateway();
+    final service = FirebasePushService(
+      api: api(),
+      environment: _live,
+      gateway: gateway,
+    );
+    addTearDown(service.dispose);
+    await expectLater(
+      service.register(),
+      throwsA(isA<PushConfigurationException>()),
+    );
+    expect(gateway.initializedWith, isNull);
+  });
+
+  test('no Firebase defines (iOS/web path): the server web settings start '
+      'Firebase, the token registers against the real server answer', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
     final gateway = _Gateway();
     final service = FirebasePushService(
       api: api(),
@@ -122,7 +170,7 @@ void main() {
     expect(jsonDecode(register.body), {
       'token': 'fcm-rider-1',
       'provider': 'fcm',
-      'platform': 'android',
+      'platform': 'ios',
     });
     await service.unregister();
     expect(seen.last.url.path, '/api/v1/push/devices/unregister');

@@ -203,17 +203,26 @@ class FirebasePushService implements PushService {
 
   /// The build's own Firebase settings (MOVERA_FIREBASE_* defines), else
   /// the server's `GET /push/config?app=rider` (contract v0.18.3, R7).
+  ///
+  /// M5 (pilot minimum, 2026-11-19): on Android the server's Android app
+  /// settings (`&platform=android` → `androidConfig`, contract v0.18.105,
+  /// as the driver app does). The web settings carry a web app id, with
+  /// which Firebase on an Android phone gives no usable token, so rider
+  /// phone push stayed off. No key in the repository or in GitHub.
   Future<AppEnv> _firebaseEnvironment() async {
     if (_environment.hasFirebaseConfig) return _environment;
+    final android = _platformName == 'android';
     final Map<String, dynamic> answer;
     try {
-      answer = await _api.get(configPath);
+      answer = await _api.get(
+        android ? '$configPath&platform=android' : configPath,
+      );
     } catch (error) {
       throw PushConfigurationException(
         'Push settings could not be read (${error.runtimeType}).',
       );
     }
-    final web = answer['webConfig'];
+    final web = answer[android ? 'androidConfig' : 'webConfig'];
     String text(String key) =>
         web is Map && web[key] is String ? web[key] as String : '';
     final runtime = AppEnv(
