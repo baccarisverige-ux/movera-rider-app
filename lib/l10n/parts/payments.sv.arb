@@ -128,5 +128,7 @@
   "riderDebtAboveMax": "Du är skyldig {amount} från tidigare resor. Resor som betalas i bilen är pausade tills det är betalt. Kontakta supporten för att betala.",
   "walletFee": "Obetald avgift",
   "walletDebtPaid": "Obetald avgift betald",
-  "walletYouOwe": "Du är skyldig {amount}"
+  "walletYouOwe": "Du är skyldig {amount}",
+  "tripDebtLine": "+ {amount} obetald avgift från tidigare resa",
+  "tripDebtToPay": "Att betala"
 }

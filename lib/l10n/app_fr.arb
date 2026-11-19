@@ -874,6 +874,8 @@
   "walletFee": "Frais impayés",
   "walletDebtPaid": "Frais impayés réglés",
   "walletYouOwe": "Vous devez {amount}",
+  "tripDebtLine": "+ {amount} de frais impayés d’un trajet précédent",
+  "tripDebtToPay": "À payer",
   "scheduleForLater": "Programmer pour plus tard",
   "later": "Plus tard",
   "scheduleARide": "Programmer une course",

@@ -89,18 +89,20 @@ void main() {
     // J10 (debt model): + quoteDebtLine, riderDebtAboveMax, walletFee,
     // walletDebtPaid, walletYouOwe (payments area, contract debtModel.texts).
     // Saved-places design (contract v0.18.129): + 7 places* texts.
+    // Debt line M2 (owner 2026-11-19): + tripDebtLine, tripDebtToPay
+    // (payments area).
     const before = {
       'en': (
-        'a7b6f0945e2e6b1843a663698ab0a6556f7e926ab464927c4b845d1ed8d64eb3',
-        2213,
+        'dfeccc65c28b16c094e8fa775d4e4c12b4f2a59a086daa10ef94ba194c91c592',
+        2217,
       ),
       'fr': (
-        '458540f7acef5a8d47f22abafd59c3cf8436516eab57d5aacac5033dfb649fc0',
-        1760,
+        '5b952ccc3b102df534da8089bf4a156f95705c998c4e2b35bbd1d1c364e6ad30',
+        1762,
       ),
       'sv': (
-        '5e6f5908e11061cf01fc6672d885c7693424a7542a038aa410d7c789db951980',
-        1760,
+        '85110c2461e173aa9d4f815970a9bed95704bb64245391d5b858e5aff3c65acd',
+        1762,
       ),
     };
     for (final lang in _langs) {

@@ -874,6 +874,8 @@
   "walletFee": "Obetald avgift",
   "walletDebtPaid": "Obetald avgift betald",
   "walletYouOwe": "Du är skyldig {amount}",
+  "tripDebtLine": "+ {amount} obetald avgift från tidigare resa",
+  "tripDebtToPay": "Att betala",
   "scheduleForLater": "Boka till senare",
   "later": "Senare",
   "scheduleARide": "Boka en resa i förväg",

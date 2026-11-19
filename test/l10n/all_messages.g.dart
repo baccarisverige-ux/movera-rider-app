@@ -880,6 +880,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'walletFee': l.walletFee,
   'walletDebtPaid': l.walletDebtPaid,
   'walletYouOwe': l.walletYouOwe('<amount>'),
+  'tripDebtLine': l.tripDebtLine('<amount>'),
+  'tripDebtToPay': l.tripDebtToPay,
   'scheduleForLater': l.scheduleForLater,
   'later': l.later,
   'scheduleARide': l.scheduleARide,
@@ -1905,6 +1907,7 @@ const messagePlaceholders = <String, List<String>>{
   'quoteDebtLine': ['amount'],
   'riderDebtAboveMax': ['amount'],
   'walletYouOwe': ['amount'],
+  'tripDebtLine': ['amount'],
   'bookForPrice': ['price'],
   'resCancelledFee': ['amount'],
   'resReservedFor': ['date', 'time'],
@@ -3783,6 +3786,10 @@ class _Exhaustive implements AppLocalizations {
   String get walletDebtPaid => '';
   @override
   String walletYouOwe(String amount) => '';
+  @override
+  String tripDebtLine(String amount) => '';
+  @override
+  String get tripDebtToPay => '';
   @override
   String get scheduleForLater => '';
   @override

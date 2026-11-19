@@ -128,5 +128,7 @@
   "riderDebtAboveMax": "Vous devez {amount} pour des trajets précédents. Les trajets payés à bord sont suspendus jusqu’au paiement. Contactez le support pour payer.",
   "walletFee": "Frais impayés",
   "walletDebtPaid": "Frais impayés réglés",
-  "walletYouOwe": "Vous devez {amount}"
+  "walletYouOwe": "Vous devez {amount}",
+  "tripDebtLine": "+ {amount} de frais impayés d’un trajet précédent",
+  "tripDebtToPay": "À payer"
 }
