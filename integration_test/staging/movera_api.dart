@@ -115,6 +115,18 @@ class MoveraApi {
     timeout,
   );
 
+  Future<ApiAnswer> delete(
+    String path, [
+    Duration timeout = const Duration(seconds: 30),
+  ]) => _send(
+    () => _client.delete(
+      base.replace(path: path),
+      headers: _headers(write: true),
+      body: '{}',
+    ),
+    timeout,
+  );
+
   Future<ApiAnswer> _send(
     Future<http.Response> Function() call,
     Duration timeout,
@@ -214,6 +226,13 @@ class RiderApi extends MoveraApi {
 
   /// GET /rider/config (booking.minAheadMin and the cancel rules).
   Future<ApiAnswer> config() => get('/api/v1/rider/config');
+
+  /// The rider's saved places (contract §47; `items[].placeId`).
+  Future<ApiAnswer> places() => get('/api/v1/rider/places');
+
+  /// Deletes one saved place of the rider's own (the device run's clean-up).
+  Future<ApiAnswer> deletePlace(String placeId) =>
+      delete('/api/v1/rider/places/${Uri.encodeComponent(placeId)}');
 
   Future<ApiAnswer> book(
     Map<String, dynamic> quote, {

@@ -4,6 +4,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:movera_rider/app/config/env.dart';
 
 import 'staging/check_log.dart';
+import 'staging/places_run.dart';
 import 'staging/rider_session.dart';
 import 'staging/trip_run.dart';
 
@@ -39,9 +40,14 @@ void main() {
   final code = tlEnv('MOVERA_TL_CODE');
   final peerPhone = tlEnv('MOVERA_TL_PEER_PHONE');
   final scheduled = tlEnv('MOVERA_TL_SCENARIO') == 'scheduled';
+  // testlab_test `saved-places`: the saved-places fixed category proof
+  // (staging/places_run.dart; no trip, no driver).
+  final places = tlEnv('MOVERA_TL_SCENARIO') == 'places';
   final live =
       AppEnv.current.authRequired && AppEnv.current.flavor == AppFlavor.staging;
-  final name = scheduled
+  final name = places
+      ? 'rider saved places fixed category'
+      : scheduled
       ? 'rider booked ride lifecycle'
       : 'rider trip lifecycle';
 
@@ -73,6 +79,34 @@ void main() {
     testWidgets('trip lifecycle SKIPPED: $skipReason', (tester) async {
       CheckLog.say('SKIP all checks: $skipReason');
     });
+    return;
+  }
+
+  if (places) {
+    testWidgets(name, (tester) async {
+      bodyStarted = true;
+      final log = CheckLog(
+        binding: binding,
+        outDir: tlEnv('MOVERA_TL_OUT'),
+        shots: tlEnv('MOVERA_TL_SHOTS') != '0',
+      );
+      final run = PlacesRun(tester, log);
+      try {
+        await run.all(phone: phone!, code: code!);
+      } finally {
+        await run.writeResults();
+        run.restoreHandlers();
+      }
+      final failed = log.failures;
+      expect(
+        failed,
+        isEmpty,
+        reason: [
+          for (final f in failed) '${f.id} (${f.title}): ${f.detail}',
+        ].join('\n'),
+      );
+      bodyDone = true;
+    }, timeout: const Timeout(PlacesRun.testLimit));
     return;
   }
 
