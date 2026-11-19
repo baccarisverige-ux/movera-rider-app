@@ -4,6 +4,7 @@ import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/features/auth/application/pending_rider_name.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
 import 'package:movera_rider/features/safety/domain/ride_pin.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class AuthRepository {
   AuthRepository({ApiClient? api, TokenStore? tokens})
@@ -30,6 +31,9 @@ class AuthRepository {
         // Contract §8 OtpRequest: which app signs in decides the tokens' actor.
         'app': 'rider',
         if (link != null) 'linkToken': link.linkToken,
+        // Contract §8 OtpRequest.locale (v0.18.135 smsSignIn.language): the
+        // SMS with the code is written in the app's language.
+        if (L10n.codes.contains(L10n.code)) 'locale': L10n.code,
       },
     );
     final requestId = response['requestId'];
