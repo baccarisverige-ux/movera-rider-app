@@ -193,8 +193,9 @@ class PlacesRun extends RiderSession {
       () => shows(find.byType(RoutePickerPage)) && shows(field),
       timeout: const Duration(seconds: 15),
     );
-    if (!shows(field))
+    if (!shows(field)) {
       return log.fail('RECENT', title, 'Where to did not open');
+    }
     await tester.enterText(field.first, dropoffQuery);
     final row = byKeyPrefix('route-picker-row-');
     if (!await pumpUntil(tester, () => tester.any(row.hitTestable()))) {
