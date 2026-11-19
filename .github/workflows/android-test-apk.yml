@@ -16,12 +16,13 @@ on:
         description: 'Firebase Test Lab: run a test of the newest APK on this real phone (empty = no Test Lab run). Example: model=oriole,version=33'
         default: ''
       testlab_test:
-        description: 'Test Lab kind: robo (taps around APK 2, no sign-in); trip-lifecycle (rider app on the phone + the test driver over HTTP: one whole live cash trip, chat, calls, SOS, ride check, pay in car, receipt, history, every screen change); trip-scheduled (the same with booked-for-later rides and the cancel case)'
+        description: 'Test Lab kind: robo (taps around APK 2, no sign-in); trip-lifecycle (rider app on the phone + the test driver over HTTP: one whole live cash trip, chat, calls, SOS, ride check, pay in car, receipt, history, every screen change); trip-scheduled (the same with booked-for-later rides and the cancel case); saved-places (save a recent address from the categories screen, fix its category, the saved place skips the categories)'
         type: choice
         options:
           - robo
           - trip-lifecycle
           - trip-scheduled
+          - saved-places
         default: robo
 
 permissions:
@@ -229,6 +230,7 @@ jobs:
           case "$TL_TEST" in
             trip-lifecycle) scenario=live ;;
             trip-scheduled) scenario=scheduled ;;
+            saved-places) scenario=places ;;
             *) echo "::error::unknown testlab_test"; exit 1 ;;
           esac
           # ONE rider for the app on the phone (se.r35, else se.r36) and ONE
