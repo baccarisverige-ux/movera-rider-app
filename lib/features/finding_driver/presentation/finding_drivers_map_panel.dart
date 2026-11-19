@@ -308,6 +308,14 @@ extension _FindingDriversMapPanel on _FindingDriversState {
                           color: const Color(0xFF2D5878),
                         ),
                       ),
+                      // Debt line M2 (owner 2026-11-19): same row as on
+                      // board, from the search on.
+                      TripDebtBox(
+                        priceKr: _match.currentPrice,
+                        currency: _match.currency,
+                        walletMinor: widget.walletAmountMinor,
+                        topGap: 8,
+                      ),
                     ],
                   ),
                 ),

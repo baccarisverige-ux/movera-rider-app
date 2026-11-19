@@ -235,6 +235,28 @@ class SyncedProfileRepository
     return _reading = read;
   }
 
+  /// Debt line M2 (owner 2026-11-19): reads only what the rider owes
+  /// (`Rider.outstandingByCurrency`) again, for the unpaid-fee row on the
+  /// trip screens. The profile cache and its version are not touched. True
+  /// when the server answered for the rider still signed in.
+  Future<bool> refreshOutstanding() async {
+    final session = _session;
+    final Map<String, dynamic> response;
+    try {
+      response = await _api.get(path);
+    } catch (error) {
+      AppLog.warning('profile.debt_read_failed', extra: {'error': '$error'});
+      return false;
+    }
+    if (session != _session) return false;
+    final server = response.containsKey('riderId')
+        ? response
+        : response['profile'];
+    if (server is! Map) return false;
+    RiderOutstanding.current.value = RiderOutstanding.fromRider(server);
+    return true;
+  }
+
   Future<void> _fetch() async {
     final session = _session;
     final Map<String, dynamic> response;

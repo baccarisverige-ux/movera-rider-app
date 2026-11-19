@@ -14,6 +14,7 @@ import 'package:movera_rider/shared/accessibility/a11y.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
+import 'package:movera_rider/features/wallet/presentation/trip_debt_box.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -181,6 +182,14 @@ class WaitingRideDetailsCard extends StatelessWidget {
                     weight: FontWeight.w500,
                     color: MoveraTokens.accent,
                   ),
+                ),
+                // Debt line M2 (owner 2026-11-19): same row as on board.
+                TripDebtBox(
+                  priceKr: price,
+                  currency: currency,
+                  walletMinor: walletAmountMinor,
+                  stage: inTrip,
+                  topGap: 8,
                 ),
               ],
             ),

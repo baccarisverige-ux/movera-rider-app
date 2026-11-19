@@ -75,6 +75,7 @@ import 'package:movera_rider/features/profile/application/app_language_controlle
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
 import 'package:movera_rider/features/profile/data/synced_profile_repository.dart';
+import 'package:movera_rider/features/profile/domain/rider_outstanding.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/api_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/data/api_scheduled_ride_rules_source.dart';
@@ -266,7 +267,10 @@ class AppScope {
     // FLOW-7: the name, language and consents go to the server; the device
     // copy is the cache. With the mock transport the in-process mock
     // answers, so a demo rider sees no difference.
-    profile = ProfileController(store: SyncedProfileRepository(api: api));
+    final profileStore = SyncedProfileRepository(api: api);
+    profile = ProfileController(store: profileStore);
+    // Debt line M2: the trip screens read the rider's debt again.
+    RiderOutstanding.refresher = profileStore.refreshOutstanding;
 
     accountSecurity = AccountSecurityController(
       repository: AccountSecurityRepository(api: api),

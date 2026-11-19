@@ -5,6 +5,7 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
+import 'package:movera_rider/features/wallet/presentation/trip_debt_box.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
@@ -181,6 +182,14 @@ class RiderInTripPanel extends StatelessWidget {
               weight: FontWeight.w500,
               color: MoveraTokens.muted,
             ),
+          ),
+          // Debt line M2 (owner 2026-11-19): the line above stays as it
+          // is; an unpaid earlier fee is its own row under it.
+          TripDebtBox(
+            priceKr: price,
+            currency: currency,
+            walletMinor: walletAmountMinor,
+            stage: status,
           ),
           const SizedBox(height: 14),
           WaitingDriverCard(

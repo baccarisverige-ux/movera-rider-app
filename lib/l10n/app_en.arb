@@ -1992,6 +1992,17 @@
       }
     }
   },
+  "tripDebtLine": "+ {amount} unpaid fee from an earlier trip",
+  "@tripDebtLine": {
+    "description": "Debt line M2 (owner 2026-11-19, Q-M1 own line): finding, waiting and in-trip screens, in a box under the booked payment line: the rider's unpaid fee in the trip's currency, added when the trip is paid (contract debtModel.readAtPayment). Display only.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "tripDebtToPay": "To pay",
+  "@tripDebtToPay": {"description": "Debt line M2 (owner 2026-11-19): label of the amount to pay = the booked price plus the unpaid fee, beside the amount."},
   "scheduleForLater": "Schedule for later",
   "later": "Later",
   "scheduleARide": "Schedule a ride",

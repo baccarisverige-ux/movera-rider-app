@@ -1,4 +1,5 @@
 import 'package:movera_rider/core/contracts/search_step.dart';
+
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -59,6 +60,7 @@ import 'package:movera_rider/shared/widgets/ride_stage_map.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
+import 'package:movera_rider/features/wallet/presentation/trip_debt_box.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
 import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/features/profile/domain/rider_outstanding.dart';

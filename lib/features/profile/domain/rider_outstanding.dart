@@ -52,4 +52,22 @@ class RiderOutstanding {
   );
 
   static void reset() => current.value = const RiderOutstanding();
+
+  /// Debt line M2 (owner 2026-11-19): reads the debt again from the server
+  /// and puts it in [current]; true only when the server answered. Set by
+  /// the signed-in profile store, null where there is none. A trip screen
+  /// shows the unpaid-fee row only from a read that answered, because
+  /// [current] is otherwise read once per sign-in and may be old.
+  static Future<bool> Function()? refresher;
+
+  /// [refresher] when set; false (nothing known) otherwise or on an error.
+  static Future<bool> refresh() async {
+    final read = refresher;
+    if (read == null) return false;
+    try {
+      return await read();
+    } catch (_) {
+      return false;
+    }
+  }
 }
