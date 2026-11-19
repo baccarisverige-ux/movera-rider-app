@@ -750,7 +750,11 @@ extension _SelectRideTiles on _SelectRideState {
           child: Row(
             children: [
               const SizedBox(width: 4),
-              _brandMark(method.brand),
+              // Owner 2026-11-19: on this row only, pay in car shows the
+              // picture S2 (banknote, card and phone), with no tile behind it.
+              method.brand == 'cash'
+                  ? _payInCarPicture()
+                  : _brandMark(method.brand),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
