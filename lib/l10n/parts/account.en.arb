@@ -262,5 +262,7 @@
   "@appVersionOnly": {
     "description": "Owner 2026-11-11 (v0.18.66 §87): the Account version line when the build has no build number (a local build says Version dev).",
     "placeholders": {"version": {"type": "String"}}
-  }
+  },
+  "authErrDeviceCheckFailed": "This phone could not be checked. Install the app from the official store and try again.",
+  "@authErrDeviceCheckFailed": {"description": "Contract v0.18.138 deviceCheck.texts.deviceCheckFailed (403 forbidden, reason device_check_failed)."}
 }

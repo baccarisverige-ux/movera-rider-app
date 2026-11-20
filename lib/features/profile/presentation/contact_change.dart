@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/features/auth/domain/phone_country.dart';
+import 'package:movera_rider/features/auth/application/phone_country_default.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -31,10 +33,23 @@ class ContactChangePage extends StatefulWidget {
     required this.post,
     this.onSaved,
     this.verifyCurrent,
+    this.deviceFields,
+    this.startCountry = defaultPhoneCountry,
   });
+
+  /// Contract v0.18.138: how a typed number without "+" is read — the SAME
+  /// start country as the sign-in field (saved fix, last zone, then the
+  /// device region; PhoneCountries.defaultFor). Read once when the page opens.
+  final Future<PhoneCountry> Function() startCountry;
 
   final ContactKind kind;
   final ContactPost post;
+
+  /// Contract v0.18.138 `deviceCheck.phoneChange`: the install id and the
+  /// real-phone check for a new number (the app passes
+  /// DeviceIdentity.app.requestFields); null sends neither.
+  final Future<Map<String, Object>> Function(String app, String phone)?
+  deviceFields;
 
   /// G30 `emailVerified.verifyCurrent`: the rider's current, Not verified
   /// e-mail. The field is filled with it and read-only; "Change e-mail"
@@ -49,6 +64,9 @@ class ContactChangePage extends StatefulWidget {
 }
 
 class _ContactChangePageState extends State<ContactChangePage> {
+  /// The sign-in start country; the device region until the saved one is read.
+  PhoneCountry _country = initialPhoneCountry();
+
   final _value = TextEditingController();
   final _code = TextEditingController();
   String? _challenge;
@@ -66,6 +84,12 @@ class _ContactChangePageState extends State<ContactChangePage> {
   @override
   void initState() {
     super.initState();
+    widget
+        .startCountry()
+        .then((country) {
+          if (mounted) _country = country;
+        })
+        .catchError((Object _) {});
     final current = widget.verifyCurrent?.trim() ?? '';
     _verifyCurrent = !_phone && current.isNotEmpty;
     if (_verifyCurrent) _value.text = current;
@@ -103,6 +127,9 @@ class _ContactChangePageState extends State<ContactChangePage> {
           return l10n.contactReauthRequired;
         case 'change_too_many':
           return l10n.contactChangeTooMany;
+        // Contract v0.18.138 deviceCheck.phoneChange: no SMS was sent.
+        case 'device_check_failed':
+          return l10n.authErrDeviceCheckFailed;
       }
     }
     if (riderErrorKind(error) == RiderErrorKind.offline) return l10n.errOffline;
@@ -124,12 +151,37 @@ class _ContactChangePageState extends State<ContactChangePage> {
     }
   }
 
+  /// The device fields, or none when they cannot be made (the server then
+  /// decides; a failure here must never stop the phone change).
+  Future<Map<String, Object>?> _deviceFields(String phone) async {
+    try {
+      return await widget.deviceFields?.call('rider', phone);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Contract v0.18.138 `deviceCheck.binding`: a number is sent (and bound
+  /// in the device check) in E.164 exactly as sign-in reads the field
+  /// (separators out, a trunk 0 replaced by the start country's code);
+  /// a field it cannot read goes without separators (the server answers
+  /// invalid_phone). An e-mail is only trimmed.
+  String get _entered {
+    if (!_phone) return _value.text.trim();
+    return phoneNumberFromField(_value.text, _country) ??
+        _value.text.replaceAll(RegExp(r'[\s\-(). ]'), '');
+  }
+
   Future<void> _send() => _run(() async {
-    final value = _value.text.trim();
+    final value = _entered;
     if (value.isEmpty) return;
     final answer = await widget.post(
       _phone ? '/api/v1/account/phone/change' : '/api/v1/account/email/change',
-      _phone ? {'phone': value} : {'email': value},
+      // Contract v0.18.138 `deviceCheck.phoneChange`: a phone change sends a
+      // real SMS too, so it carries the install id and the check.
+      _phone
+          ? {'phone': value, ...?await _deviceFields(value)}
+          : {'email': value},
     );
     if (!mounted) return;
     // G30 (Rule 35): only `delivery: sent` means a code went out.
@@ -154,11 +206,7 @@ class _ContactChangePageState extends State<ContactChangePage> {
             ? '/api/v1/account/phone/verify'
             : '/api/v1/account/email/verify',
         _phone
-            ? {
-                'phone': _value.text.trim(),
-                'sessionId': challenge,
-                'code': code,
-              }
+            ? {'phone': _entered, 'sessionId': challenge, 'code': code}
             : {'challengeId': challenge, 'code': code},
       );
     } catch (_) {

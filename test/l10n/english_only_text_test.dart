@@ -37,6 +37,10 @@ const _dataFiles = {
 };
 
 const _allowed = <String, Set<String>>{
+  'contract v0.18.138 deviceCheck.binding: hashed, never shown '
+      '(lib/core/auth/device_identity.dart)': {
+    'movera-sms-code| | |',
+  },
   'contract v0.18.57 §79 texts kept in sv, fr and en and picked by the '
       'phone language (lib/core/config/emergency_numbers.dart)': {
     'Ring {label} {number}',

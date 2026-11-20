@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/features/auth/domain/phone_country.dart';
 import 'package:movera_rider/features/profile/presentation/contact_change.dart';
 import 'package:movera_rider/l10n/generated/app_localizations.dart';
 
@@ -12,6 +13,9 @@ void main() {
     ContactKind kind,
     Map<String, dynamic> Function(String path) answer, {
     void Function()? saved,
+    Future<Map<String, Object>> Function(String app, String phone)?
+    deviceFields,
+    PhoneCountry? startCountry,
   }) async {
     final sent = <(String, Map<String, dynamic>)>[];
     await tester.pumpWidget(
@@ -26,6 +30,8 @@ void main() {
             return answer(path);
           },
           onSaved: () async => saved?.call(),
+          deviceFields: deviceFields,
+          startCountry: () async => startCountry ?? PhoneCountries.sweden,
         ),
       ),
     );
@@ -116,6 +122,12 @@ void main() {
       'Sign in again first, then change your number/e-mail',
     ),
     (429, 'change_too_many', 'Too many changes — try again in an hour'),
+    // v0.18.138 deviceCheck.phoneChange: the real-phone check failed.
+    (
+      403,
+      'device_check_failed',
+      'This phone could not be checked. Install the app from the official store and try again.',
+    ),
   ]) {
     testWidgets('$status $reason has its own message', (tester) async {
       await open(
@@ -135,6 +147,100 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('contact-submit')));
       await tester.pumpAndSettle();
       expect(find.text(text), findsOneWidget);
+    });
+  }
+
+  testWidgets(
+    'v0.18.138: a phone change sends installId + deviceCheck, bound to the '
+    'number as sent (spaces and dashes taken out); a failing check still sends',
+    (tester) async {
+      final bound = <String>[];
+      final sent = await open(
+        tester,
+        ContactKind.phone,
+        (path) => path.endsWith('/change')
+            ? {'sessionId': 'ses_1', 'retryAfterSeconds': 30}
+            : {'phone': '+46701740633'},
+        deviceFields: (app, phone) async {
+          bound.add('$app|$phone');
+          return {
+            'installId': 'install-000000000001',
+            'deviceCheck': {'platform': 'android', 'token': 't'},
+          };
+        },
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('contact-value')),
+        '+46 70-174 06 33',
+      );
+      await tester.tap(find.byKey(const ValueKey('contact-submit')));
+      await tester.pumpAndSettle();
+      expect(sent.single.$2, {
+        'phone': '+46701740633',
+        'installId': 'install-000000000001',
+        'deviceCheck': {'platform': 'android', 'token': 't'},
+      });
+      expect(bound, ['rider|+46701740633']);
+    },
+  );
+
+  testWidgets('v0.18.138: a throwing device check never stops the change', (
+    tester,
+  ) async {
+    final sent = await open(
+      tester,
+      ContactKind.phone,
+      (_) => {'sessionId': 'ses_1', 'retryAfterSeconds': 30},
+      deviceFields: (_, _) async => throw StateError('no play services'),
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('contact-value')),
+      '+46701740633',
+    );
+    await tester.tap(find.byKey(const ValueKey('contact-submit')));
+    await tester.pumpAndSettle();
+    expect(sent.single.$2, {'phone': '+46701740633'});
+  });
+
+  testWidgets('v0.18.138: a national number with a trunk 0 and any '
+      'separators goes out in E.164, as sign-in reads it', (tester) async {
+    final sent = await open(
+      tester,
+      ContactKind.phone,
+      (_) => {'sessionId': 'ses_1', 'retryAfterSeconds': 30},
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('contact-value')),
+      '(070) 174-06.33',
+    );
+    await tester.tap(find.byKey(const ValueKey('contact-submit')));
+    await tester.pumpAndSettle();
+    expect(sent.single.$2, {'phone': '+46701740633'});
+  });
+
+  for (final (typed, country, sent) in [
+    // A French number on an en-US phone whose sign-in start country is France
+    // (saved fix / last zone in France): read as sign-in reads it.
+    ('06 12 34 56 78', 'FR', '+33612345678'),
+    ('+46 (0)70 174 06 33', 'SE', '+46701740633'),
+    ('+46 (0)70 174 06 33', 'FR', '+46701740633'),
+  ]) {
+    testWidgets('v0.18.138: "$typed" with start country $country -> $sent', (
+      tester,
+    ) async {
+      final posts = await open(
+        tester,
+        ContactKind.phone,
+        (_) => {'sessionId': 'ses_1', 'retryAfterSeconds': 30},
+        startCountry: PhoneCountries.byIso(country),
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('contact-value')),
+        typed,
+      );
+      await tester.tap(find.byKey(const ValueKey('contact-submit')));
+      await tester.pumpAndSettle();
+      expect(posts.single.$2, {'phone': sent});
     });
   }
 }

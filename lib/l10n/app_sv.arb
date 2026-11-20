@@ -140,6 +140,7 @@
   "errLockedToday": "För många fel koder i dag. Försök igen senare.",
   "appVersionLine": "Version {version} ({build})",
   "appVersionOnly": "Version {version}",
+  "authErrDeviceCheckFailed": "Telefonen kunde inte kontrolleras. Installera appen från den officiella appbutiken och försök igen.",
   "@@locale": "sv",
   "appTitle": "Movera",
   "previewBanner": "Förhandsvisning",

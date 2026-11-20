@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/auth/device_identity.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:movera_rider/app/di.dart';
@@ -117,6 +118,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ContactChangePage(
+          deviceFields: DeviceIdentity.app.requestFields,
           kind: kind,
           verifyCurrent: verifyCurrent,
           post: post,
