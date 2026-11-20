@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -192,6 +193,57 @@ void main() {
       final both = await Future.wait([payer.pay('trp_1'), payer.pay('trp_1')]);
       expect(both, contains(FeePayOutcome.closed));
       expect(sheet.calls, hasLength(1));
+    },
+  );
+  test(
+    'owner 2026-11-20: no "pay later" — the only action is Pay; closing the sheet keeps the fee owed',
+    () async {
+      for (final lang in ['en', 'sv', 'fr']) {
+        final arb =
+            jsonDecode(
+                  File(
+                    'lib/l10n/parts/stripe_fees.$lang.arb',
+                  ).readAsStringSync(),
+                )
+                as Map<String, dynamic>;
+        expect(arb.keys.where((k) => !k.startsWith('@')).toSet(), {
+          'feePayByCard',
+          'feePaidByCard',
+          'feePaymentChecking',
+          'feePaymentFailed',
+          'feePaymentUnavailable',
+        });
+        for (final v in arb.values.whereType<String>()) {
+          expect(
+            v.toLowerCase(),
+            isNot(
+              anyOf(
+                contains('later'),
+                contains('senare'),
+                contains('plus tard'),
+              ),
+            ),
+          );
+        }
+      }
+      final button = File(
+        'lib/features/fee_payment/presentation/pay_fee_button.dart',
+      ).readAsStringSync();
+      expect(
+        RegExp('TextButton|OutlinedButton|IconButton').hasMatch(button),
+        isFalse,
+      );
+      FeesPayableByCard.current.value = FeesPayableByCard.fromRider(owed);
+      payAnswer = intent;
+      profileAfter = owed;
+      expect(
+        await FeeCardPayer(
+          api: api(),
+          sheet: FakeSheet(() async => false),
+        ).pay('trp_1'),
+        FeePayOutcome.closed,
+      );
+      expect(FeesPayableByCard.current.value.forTrip('trp_1'), isNotNull);
     },
   );
 }
