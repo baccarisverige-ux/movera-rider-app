@@ -48,6 +48,7 @@ import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/domain/reservation_errors.dart';
 import 'package:movera_rider/features/reservations/application/scheduled_ride_checkout.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/application/nearby_cars_controller.dart';
@@ -224,12 +225,10 @@ class SelectRide extends StatefulWidget {
   /// Looks the stops up; defaults to the app's geocoder.
   final GeocodingRepository? geocoding;
 
-  /// The free cars drawn around the pickup (contract v0.5.2 §13); defaults
-  /// to the server's `GET /rider/nearby-vehicles`.
+  /// Free cars around the pickup (§13); default `GET /rider/nearby-vehicles`.
   final NearbyCarsSource? nearbyCars;
 
-  /// The rider's live trip on the server; defaults to the app's
-  /// `GET /rider/trips/active`.
+  /// The rider's live trip; defaults to `GET /rider/trips/active`.
   final ActiveTripRepository? activeTrips;
 
   @override
@@ -387,6 +386,7 @@ class _SelectRideState extends State<SelectRide>
     } else if (widget.bookingMode == BookingMode.scheduled) {
       _selection.setBookingMode(BookingMode.scheduled);
     }
+    _selection.takeBookingModeRequote();
     _loadQuotes();
     unawaited(_loadRoutePins());
     unawaited(_loadWalletBalance());
@@ -894,7 +894,14 @@ class _SelectRideState extends State<SelectRide>
       // Only the time here; the pickup is set once, on Set pickup after
       // Schedule.
       setState(() => _selection.scheduleFor(when));
+      if (!_bookingInFlight) _requoteForBookingMode();
     });
+  }
+
+  /// R1: mode or time changed: the server prices the list for that mode.
+  void _requoteForBookingMode() {
+    if (!_selection.takeBookingModeRequote()) return;
+    unawaited(_loadQuotes());
   }
 
   Future<void> _showBookingPicker() async {
@@ -942,6 +949,7 @@ class _SelectRideState extends State<SelectRide>
                   selected: _selection.bookingMode == BookingMode.now,
                   onTap: () {
                     setState(() => _selection.setBookingMode(BookingMode.now));
+                    _requoteForBookingMode();
                     Navigator.pop(sheetContext);
                   },
                 ),
@@ -1087,6 +1095,7 @@ class _SelectRideState extends State<SelectRide>
     _preferredHidden = false;
     if (!mounted) return;
     setState(() {});
+    if (_selection.takeBookingModeRequote()) _catalogRequoteDeferred = true;
     if (_catalogRequoteDeferred) {
       _catalogRequoteDeferred = false;
       unawaited(_loadQuotes());
