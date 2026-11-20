@@ -63,12 +63,16 @@ class ApiRideRealtime implements RideRealtime {
 
   /// Told by the app lifecycle: true on hidden / paused, false on resumed.
   static void setAppInBackground(bool background) {
+    _appInBackground = background;
     for (final rt in _live.toList()) {
       rt._setBackground(background);
     }
   }
 
-  bool _background = false;
+  /// The last state told, so an instance made while away starts slow.
+  static bool _appInBackground = false;
+
+  bool _background = _appInBackground;
 
   Duration get _pollPace => _background && backgroundPollInterval > pollInterval
       ? backgroundPollInterval

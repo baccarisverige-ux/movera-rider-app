@@ -49,6 +49,7 @@ void main() {
         clock: () => now,
         followStream: false,
       );
+      addTearDown(rt.dispose);
       void tick(Duration d) {
         now = now.add(d);
         async.elapse(d);
@@ -96,7 +97,40 @@ void main() {
       expect(calls - atResume, inInclusiveRange(3, 5));
 
       sub.cancel();
-      rt.dispose();
+    });
+  });
+
+  test('an instance made while away starts at the background pace', () {
+    fakeAsync((async) {
+      var calls = 0;
+      ApiRideRealtime.setAppInBackground(true);
+      addTearDown(() => ApiRideRealtime.setAppInBackground(false));
+      final rt = ApiRideRealtime(
+        api: ApiClient(
+          client: MockClient((_) async {
+            calls++;
+            return http.Response(
+              jsonEncode({
+                'tripId': 'trp_2',
+                'status': 'searching',
+                'version': 1,
+                'updatedAt': t0.toIso8601String(),
+              }),
+              200,
+            );
+          }),
+          env: live,
+        ),
+        connection: RealtimeConnection(),
+        clock: () => t0,
+        followStream: false,
+      );
+      addTearDown(rt.dispose);
+      final sub = rt.subscribe('trp_2').listen((_) {});
+      async.flushMicrotasks();
+      async.elapse(const Duration(minutes: 5));
+      expect(calls, lessThanOrEqualTo(7), reason: '$calls reads in 5 min');
+      sub.cancel();
     });
   });
 }
