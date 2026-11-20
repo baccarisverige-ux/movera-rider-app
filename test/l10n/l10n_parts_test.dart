@@ -90,18 +90,19 @@ void main() {
     // walletDebtPaid, walletYouOwe (payments area, contract debtModel.texts).
     // Saved-places design (contract v0.18.129): + 7 places* texts.
     // R4 (2026-11-20): + pinDecidedByArea, pinStatusByArea (ride area).
+    // Account deletion E1 (contract v0.18.134): + deleteOpenTrip, accountClosed (account area).
     const before = {
       'en': (
-        '30863f8c37293ffbfc60e1041ccbdd151afe870cecac888e69fa43bc795f0ae3',
-        2217,
+        '609dca6b8488aa0fc89bf3fe9dd44d036af903189b3025498152ceb540d35a71',
+        2221,
       ),
       'fr': (
-        'f16f36c742316655f20b0697eada7116533bc0d215d43ca52ca69853f3ef15ee',
-        1762,
+        'a924049e073535fceb85b732145543cc6ad197104278ba92151a74859de76acc',
+        1764,
       ),
       'sv': (
-        '599630fe295dc816eb322e17f40a42f961e26c79e143b4fffa97d07e89b0a382',
-        1762,
+        'bf465fc61fed3b8a727f92c38d9e83485e25dfa9ce3d51e88346668d10ac6399',
+        1764,
       ),
     };
     for (final lang in _langs) {
