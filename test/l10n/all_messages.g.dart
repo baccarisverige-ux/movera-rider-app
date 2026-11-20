@@ -1177,6 +1177,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'pinChangeBody': l.pinChangeBody,
   'pinChange': l.pinChange,
   'pinIntro': l.pinIntro,
+  'pinDecidedByArea': l.pinDecidedByArea,
+  'pinStatusByArea': l.pinStatusByArea,
   'pinToggle': l.pinToggle,
   'pinShareHint': l.pinShareHint,
   'pinSavedHint': l.pinSavedHint,
@@ -4377,6 +4379,10 @@ class _Exhaustive implements AppLocalizations {
   String get pinChange => '';
   @override
   String get pinIntro => '';
+  @override
+  String get pinDecidedByArea => '';
+  @override
+  String get pinStatusByArea => '';
   @override
   String get pinToggle => '';
   @override

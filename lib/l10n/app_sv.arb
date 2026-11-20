@@ -1171,6 +1171,8 @@
   "pinChangeBody": "Begär en ny PIN-kod från Movera. Dela den med föraren först när resan börjar.",
   "pinChange": "Byt PIN-kod",
   "pinIntro": "Lägg till en extra kontroll innan resan börjar. Föraren måste bekräfta din PIN-kod innan resan startar.",
+  "pinDecidedByArea": "Movera slår på PIN-kontrollen per område. När en resa kräver PIN ser du koden på resans skärm när din förare är på väg. Säg den till föraren innan resan börjar.",
+  "pinStatusByArea": "Styrs per område",
   "pinToggle": "Verifiera resor med PIN-kod",
   "pinShareHint": "Dela den här PIN-koden med föraren när resan börjar.",
   "pinSavedHint": "PIN-koden är sparad. Slå på verifiering för att använda den på resor.",
