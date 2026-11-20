@@ -1,7 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/ride_complete/application/server_receipt.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
+
+/// R6: the rider's words for a receipt line code
+/// (contract.json#fareLines.rider). A code this app does not know yet is
+/// still shown, as "Other", so no amount of the receipt is ever hidden.
+String receiptFareLineLabel(AppLocalizations l10n, String code) =>
+    switch (code) {
+      'base' => l10n.receiptLineBase,
+      'distance' => l10n.receiptLineDistance,
+      'time' => l10n.receiptLineTime,
+      'fixed_route' => l10n.receiptLineFixedRoute,
+      'surge' => l10n.receiptLineSurge,
+      'minimum_adjust' => l10n.receiptLineMinimumAdjust,
+      'maximum_adjust' => l10n.receiptLineMaximumAdjust,
+      'waiting' => l10n.receiptLineWaiting,
+      'stops' => l10n.receiptLineStops,
+      'stop_waiting' => l10n.receiptLineStopWaiting,
+      'extras' => l10n.receiptLineExtras,
+      'airport' => l10n.receiptLineAirport,
+      'reservation_fee' => l10n.receiptLineReservationFee,
+      'app_fee' => l10n.receiptLineAppFee,
+      'pickup_fee' => l10n.receiptLinePickupFee,
+      'rounding' => l10n.receiptLineRounding,
+      'discount' => l10n.receiptLineDiscount,
+      'cancel_fee' => l10n.receiptLineCancelFee,
+      'rider_raise' => l10n.receiptLineRiderRaise,
+      'outstanding_fee' => l10n.receiptDebtIncluded,
+      _ => l10n.receiptLineOther,
+    };
 
 /// The receipt's extra lines under the trip details.
 class ServerReceiptLines extends StatefulWidget {
@@ -66,11 +95,47 @@ class _ServerReceiptLinesState extends State<ServerReceiptLines> {
     ),
   );
 
+  /// A line's amount as the server sent it; a minus line with a real
+  /// minus sign, as the refund line.
+  static String _amount(Money amount) => amount.amountMinor < 0
+      ? '−${formatMoney(Money(-amount.amountMinor, amount.currency))}'
+      : formatMoney(amount);
+
+  /// R6: the server's receipt lines, one row each, in the server's order.
+  List<Widget> _fareLines(AppLocalizations l10n, ServerReceipt receipt) {
+    final seen = <String, int>{};
+    return [
+      Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: Text(
+          l10n.receiptLinesHeading,
+          key: const ValueKey('receipt-lines-heading'),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        ),
+      ),
+      for (final line in receipt.fareLines)
+        _line(
+          receiptFareLineLabel(l10n, line.code),
+          _amount(line.amount),
+          key: ValueKey(() {
+            final n = seen.update(line.code, (n) => n + 1, ifAbsent: () => 0);
+            return n == 0
+                ? 'receipt-line-${line.code}'
+                : 'receipt-line-${line.code}-$n';
+          }()),
+        ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final receipt = _receipt;
     if (receipt == null) return const SizedBox.shrink();
     final l10n = context.l10n;
+    // The earlier unpaid fee is one of the lines when the server lists it.
+    final debtIsALine = receipt.fareLines.any(
+      (line) => line.code == 'outstanding_fee',
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -103,7 +168,8 @@ class _ServerReceiptLinesState extends State<ServerReceiptLines> {
                 : l10n.receiptRiderEnded,
             key: const ValueKey('receipt-ended-early'),
           ),
-        if (receipt.debtIncluded case final debt?)
+        if (receipt.fareLines.isNotEmpty) ..._fareLines(l10n, receipt),
+        if (receipt.debtIncluded case final debt? when !debtIsALine)
           _line(
             l10n.receiptDebtIncluded,
             formatMoney(debt),
@@ -111,7 +177,7 @@ class _ServerReceiptLinesState extends State<ServerReceiptLines> {
           ),
         // Fix job 0 (owner A2-2, contract 0.18.29 outstandingFee.receiptText):
         // the owed fee was added by itself to this trip; say so in words.
-        if (receipt.debtIncluded != null)
+        if (receipt.debtIncluded != null || debtIsALine)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(

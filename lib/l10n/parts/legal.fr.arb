@@ -25,6 +25,7 @@
   "termAdminBody": "L’assistance Movera a annulé cette course. Elle n’est plus active et aucun chauffeur n’est en route.",
   "termAdminNote": "Contactez l’assistance depuis l’Aide si vous ne vous y attendiez pas.",
   "termNoShowTitle": "Votre chauffeur ne vous a pas trouvé",
+  "termNoShowBodyKnown": "Le chauffeur s’est présenté au lieu de prise en charge, mais vous n’étiez pas là. La course a été clôturée.",
   "termNoShowBody": "Le chauffeur s’est présenté au lieu de prise en charge, mais vous n’étiez pas là. La course a été clôturée et des frais de non-présentation du passager peuvent être appliqués.",
   "termNoShowNote": "Vous pouvez voir les éventuels frais sur votre reçu dans l’Historique, ou contacter l’assistance depuis l’Aide.",
   "termFailedEyebrow": "UN PROBLÈME EST SURVENU",

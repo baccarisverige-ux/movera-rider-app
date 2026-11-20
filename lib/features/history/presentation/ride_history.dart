@@ -663,6 +663,13 @@ class _RideHistoryState extends State<RideHistory> {
                       rideNameFor(ride.categoryName),
                       ReservationFormat.price(ride),
                     )
+                  // R7: a finished trip's price is the server's final
+                  // fare (stops, waiting), not the price it was booked at.
+                  : ride.status.isCompleted
+                  ? context.l10n.historyFinalPrice(
+                      rideNameFor(ride.categoryName),
+                      ReservationFormat.price(ride),
+                    )
                   : context.l10n.historyBooked(
                       rideNameFor(ride.categoryName),
                       ReservationFormat.price(ride),
