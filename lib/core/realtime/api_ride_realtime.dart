@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:movera_rider/features/active_ride/application/live_location_share.dart';
 import 'package:movera_rider/core/realtime/call_events.dart';
 import 'package:movera_rider/core/realtime/sos_availability.dart';
 import 'package:movera_rider/core/api/api_client.dart';
@@ -216,8 +217,10 @@ class ApiRideRealtime implements RideRealtime {
       final after = poll.streamCursor ?? poll.gate.lastSequence;
       poll.streamCursor = after;
       final path = _api.tripPath(poll.id, 'events');
+      // v0.18.144 (contract.json#liveLocation.relay): ?live=true also
+      // carries the driver's live point (`event: live_location`, no id).
       final lines = await _api.openEventStream(
-        after > 0 ? '$path?after=$after' : path,
+        after > 0 ? '$path?live=true&after=$after' : '$path?live=true',
         lastEventId: after > 0 ? '$after' : null,
       );
       if (_disposed ||
@@ -239,7 +242,9 @@ class ApiRideRealtime implements RideRealtime {
           if (event != null) {
             // A stream that delivered an event is healthy again.
             poll.streamFailures = 0;
-            _onStreamEvent(poll, event);
+            // A live point is not a trip event (no sequence): it goes to
+            // the ride screen only and is never kept.
+            if (!LiveLocationHub.offer(event)) _onStreamEvent(poll, event);
           } else if (poll.streamFailures > 0 &&
               _clock().difference(openedAt) >= streamConnectedAfter) {
             poll.streamFailures = 0;
