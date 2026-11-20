@@ -34,7 +34,23 @@ class FeeCardPayer {
 
   static const _profilePath = '/api/v1/rider/profile';
 
+  /// Review SHOULD 1+2: one payment per fee at a time (a double tap, the
+  /// button and the notice action together), app-wide.
+  static final Set<String> _inFlight = <String>{};
+
   Future<FeePayOutcome> pay(String tripId, {String countryCode = 'SE'}) async {
+    if (!_inFlight.add(tripId)) return FeePayOutcome.closed;
+    try {
+      return await _payOnce(tripId, countryCode: countryCode);
+    } finally {
+      _inFlight.remove(tripId);
+    }
+  }
+
+  Future<FeePayOutcome> _payOnce(
+    String tripId, {
+    String countryCode = 'SE',
+  }) async {
     final Map<String, dynamic> intent;
     try {
       intent = await _api.post(

@@ -179,4 +179,19 @@ void main() {
       expect(sheet.calls, isEmpty);
     },
   );
+  test(
+    'a second pay of the same fee while the first is open starts nothing',
+    () async {
+      payAnswer = intent;
+      profileAfter = {'riderId': 'rdr_1'};
+      final sheet = FakeSheet(
+        () =>
+            Future<bool>.delayed(const Duration(milliseconds: 50), () => true),
+      );
+      final payer = FeeCardPayer(api: api(), sheet: sheet);
+      final both = await Future.wait([payer.pay('trp_1'), payer.pay('trp_1')]);
+      expect(both, contains(FeePayOutcome.closed));
+      expect(sheet.calls, hasLength(1));
+    },
+  );
 }

@@ -98,14 +98,14 @@ Future<void> offerFeePayAfterCancel(
               FeePayOutcome.unavailable => L10n.current.feePaymentUnavailable,
               FeePayOutcome.closed => null,
             };
-            if (done != null)
-              messenger.showSnackBar(
-                SnackBar(
-                  key: const ValueKey('fee-pay-outcome'),
-                  content: Text(done),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+            if (done == null) return;
+            messenger.showSnackBar(
+              SnackBar(
+                key: const ValueKey('fee-pay-outcome'),
+                content: Text(done),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
           },
         ),
       ),
