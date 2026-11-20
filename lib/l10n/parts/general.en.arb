@@ -570,6 +570,18 @@
       }
     }
   },
+  "historyFinalPrice": "{category} · Final price {amount}",
+  "@historyFinalPrice": {
+    "description": "History, a finished trip: the final price the server charged (R7, 2026-11-20).",
+    "placeholders": {
+      "category": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "historyBooked": "{category} · Booked price {amount}",
   "@historyBooked": {
     "placeholders": {

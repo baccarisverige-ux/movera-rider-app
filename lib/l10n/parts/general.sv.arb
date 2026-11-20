@@ -249,6 +249,7 @@
   "historyLoadFailedBody": "Din resehistorik kunde inte läsas. Försök igen.",
   "completedRide": "Slutförd resa",
   "historyCharged": "{category} · Debiterat {amount}",
+  "historyFinalPrice": "{category} · Slutpris {amount}",
   "historyBooked": "{category} · Bokat pris {amount}",
   "historyEndedEarly": "Du avslutade resan före destinationen och betalade för sträckan som körts.",
   "historyPlannedRoute": "Planerad rutt",

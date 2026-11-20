@@ -490,6 +490,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'historyLoadFailedBody': l.historyLoadFailedBody,
   'completedRide': l.completedRide,
   'historyCharged': l.historyCharged('<category>', '<amount>'),
+  'historyFinalPrice': l.historyFinalPrice('<category>', '<amount>'),
   'historyBooked': l.historyBooked('<category>', '<amount>'),
   'historyEndedEarly': l.historyEndedEarly,
   'historyPlannedRoute': l.historyPlannedRoute,
@@ -626,6 +627,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'termAdminBody': l.termAdminBody,
   'termAdminNote': l.termAdminNote,
   'termNoShowTitle': l.termNoShowTitle,
+  'termNoShowBodyKnown': l.termNoShowBodyKnown,
   'termNoShowBody': l.termNoShowBody,
   'termNoShowNote': l.termNoShowNote,
   'termFailedEyebrow': l.termFailedEyebrow,
@@ -846,6 +848,27 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'tipCashAfterTripOff': l.tipCashAfterTripOff,
   'receiptDriverEnded': l.receiptDriverEnded,
   'receiptRiderEnded': l.receiptRiderEnded,
+  'receiptLinesHeading': l.receiptLinesHeading,
+  'receiptLineBase': l.receiptLineBase,
+  'receiptLineDistance': l.receiptLineDistance,
+  'receiptLineTime': l.receiptLineTime,
+  'receiptLineFixedRoute': l.receiptLineFixedRoute,
+  'receiptLineSurge': l.receiptLineSurge,
+  'receiptLineMinimumAdjust': l.receiptLineMinimumAdjust,
+  'receiptLineMaximumAdjust': l.receiptLineMaximumAdjust,
+  'receiptLineWaiting': l.receiptLineWaiting,
+  'receiptLineStops': l.receiptLineStops,
+  'receiptLineStopWaiting': l.receiptLineStopWaiting,
+  'receiptLineExtras': l.receiptLineExtras,
+  'receiptLineAirport': l.receiptLineAirport,
+  'receiptLineReservationFee': l.receiptLineReservationFee,
+  'receiptLineAppFee': l.receiptLineAppFee,
+  'receiptLinePickupFee': l.receiptLinePickupFee,
+  'receiptLineRounding': l.receiptLineRounding,
+  'receiptLineDiscount': l.receiptLineDiscount,
+  'receiptLineCancelFee': l.receiptLineCancelFee,
+  'receiptLineRiderRaise': l.receiptLineRiderRaise,
+  'receiptLineOther': l.receiptLineOther,
   'receiptDebtIncluded': l.receiptDebtIncluded,
   'receiptTip': l.receiptTip,
   'receiptRefunded': l.receiptRefunded,
@@ -1864,6 +1887,7 @@ const messagePlaceholders = <String, List<String>>{
   'tomorrowDate': ['date'],
   'dropoffAround': ['time'],
   'historyCharged': ['category', 'amount'],
+  'historyFinalPrice': ['category', 'amount'],
   'historyBooked': ['category', 'amount'],
   'continueWith': ['provider'],
   'stepOf': ['step', 'total'],
@@ -3006,6 +3030,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String historyCharged(String category, String amount) => '';
   @override
+  String historyFinalPrice(String category, String amount) => '';
+  @override
   String historyBooked(String category, String amount) => '';
   @override
   String get historyEndedEarly => '';
@@ -3277,6 +3303,8 @@ class _Exhaustive implements AppLocalizations {
   String get termAdminNote => '';
   @override
   String get termNoShowTitle => '';
+  @override
+  String get termNoShowBodyKnown => '';
   @override
   String get termNoShowBody => '';
   @override
@@ -3717,6 +3745,48 @@ class _Exhaustive implements AppLocalizations {
   String get receiptDriverEnded => '';
   @override
   String get receiptRiderEnded => '';
+  @override
+  String get receiptLinesHeading => '';
+  @override
+  String get receiptLineBase => '';
+  @override
+  String get receiptLineDistance => '';
+  @override
+  String get receiptLineTime => '';
+  @override
+  String get receiptLineFixedRoute => '';
+  @override
+  String get receiptLineSurge => '';
+  @override
+  String get receiptLineMinimumAdjust => '';
+  @override
+  String get receiptLineMaximumAdjust => '';
+  @override
+  String get receiptLineWaiting => '';
+  @override
+  String get receiptLineStops => '';
+  @override
+  String get receiptLineStopWaiting => '';
+  @override
+  String get receiptLineExtras => '';
+  @override
+  String get receiptLineAirport => '';
+  @override
+  String get receiptLineReservationFee => '';
+  @override
+  String get receiptLineAppFee => '';
+  @override
+  String get receiptLinePickupFee => '';
+  @override
+  String get receiptLineRounding => '';
+  @override
+  String get receiptLineDiscount => '';
+  @override
+  String get receiptLineCancelFee => '';
+  @override
+  String get receiptLineRiderRaise => '';
+  @override
+  String get receiptLineOther => '';
   @override
   String get receiptDebtIncluded => '';
   @override

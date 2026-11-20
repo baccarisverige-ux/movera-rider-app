@@ -54,7 +54,13 @@ Future<bool> showRideEndedSearchAgainSheet(
         title: base.title,
         // v0.18.7 (Q6): the fee amount and kind from the projection
         // ("No-show fee 65 kr" / "No fee"), never "a fee may apply".
-        message: feeLine == null ? base.message : '${base.message} $feeLine',
+        // R6 (owner 2026-11-20): with the fee known, a no-show does not
+        // also say "a fee may apply" in front of the amount.
+        message: feeLine == null
+            ? base.message
+            : status == RideStatus.noShow
+            ? '${L10n.current.termNoShowBodyKnown} $feeLine'
+            : '${base.message} $feeLine',
         reassurance: base.reassurance,
         primaryLabel: context.l10n.searchAgain,
         icon: base.icon,

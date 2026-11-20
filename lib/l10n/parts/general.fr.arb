@@ -249,6 +249,7 @@
   "historyLoadFailedBody": "Votre historique n’a pas pu être lu. Réessayez.",
   "completedRide": "Course terminée",
   "historyCharged": "{category} · Débité {amount}",
+  "historyFinalPrice": "{category} · Prix final {amount}",
   "historyBooked": "{category} · Prix réservé {amount}",
   "historyEndedEarly": "Vous avez arrêté cette course avant la destination et payé la distance parcourue.",
   "historyPlannedRoute": "Itinéraire prévu",

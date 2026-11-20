@@ -25,6 +25,10 @@
   "termAdminBody": "Movera support cancelled this ride. It is no longer active and no driver is on the way.",
   "termAdminNote": "Contact support from Help if you did not expect this.",
   "termNoShowTitle": "Your driver could not find you",
+  "termNoShowBodyKnown": "The driver waited at the pickup point and the ride was closed as a no-show.",
+  "@termNoShowBodyKnown": {
+    "description": "No-show end sheet when the fee is known: the fee line follows, so no \"a fee may apply\" (R6, 2026-11-20)"
+  },
   "termNoShowBody": "The driver waited at the pickup point and the ride was closed as a no-show. A no-show fee may apply.",
   "termNoShowNote": "You can see any fee on your receipt in History, or contact support from Help.",
   "termFailedEyebrow": "SOMETHING WENT WRONG",

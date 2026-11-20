@@ -25,6 +25,7 @@
   "termAdminBody": "Movera support avbokade resan. Den är inte längre aktiv och ingen förare är på väg.",
   "termAdminNote": "Kontakta support via Hjälp om du inte väntade dig detta.",
   "termNoShowTitle": "Din förare kunde inte hitta dig",
+  "termNoShowBodyKnown": "Föraren väntade vid upphämtningsplatsen och resan stängdes som utebliven.",
   "termNoShowBody": "Föraren väntade vid upphämtningsplatsen och resan stängdes som utebliven. En avgift för uteblivande kan tillkomma.",
   "termNoShowNote": "Du ser en eventuell avgift på kvittot i Historik, eller kontakta support via Hjälp.",
   "termFailedEyebrow": "NÅGOT GICK FEL",

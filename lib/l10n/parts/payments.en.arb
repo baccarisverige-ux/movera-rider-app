@@ -264,6 +264,90 @@
   "@receiptRiderEnded": {
     "description": "Rider G8 (contract 0.18.10 finish)"
   },
+  "receiptLinesHeading": "Price details",
+  "@receiptLinesHeading": {
+    "description": "Rider receipt: heading over the server's receipt lines (R6, 2026-11-20)"
+  },
+  "receiptLineBase": "Start fee",
+  "@receiptLineBase": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code base)"
+  },
+  "receiptLineDistance": "Distance",
+  "@receiptLineDistance": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code distance)"
+  },
+  "receiptLineTime": "Time",
+  "@receiptLineTime": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code time)"
+  },
+  "receiptLineFixedRoute": "Fixed price",
+  "@receiptLineFixedRoute": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code fixed_route)"
+  },
+  "receiptLineSurge": "High demand",
+  "@receiptLineSurge": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code surge)"
+  },
+  "receiptLineMinimumAdjust": "Up to the minimum price",
+  "@receiptLineMinimumAdjust": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code minimum_adjust)"
+  },
+  "receiptLineMaximumAdjust": "Down to the maximum price",
+  "@receiptLineMaximumAdjust": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code maximum_adjust)"
+  },
+  "receiptLineWaiting": "Waiting at pickup",
+  "@receiptLineWaiting": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code waiting)"
+  },
+  "receiptLineStops": "Extra stops",
+  "@receiptLineStops": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code stops)"
+  },
+  "receiptLineStopWaiting": "Waiting at stops",
+  "@receiptLineStopWaiting": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code stop_waiting)"
+  },
+  "receiptLineExtras": "Child seat",
+  "@receiptLineExtras": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code extras)"
+  },
+  "receiptLineAirport": "Airport fee",
+  "@receiptLineAirport": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code airport)"
+  },
+  "receiptLineReservationFee": "Booking fee for a booked ride",
+  "@receiptLineReservationFee": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code reservation_fee)"
+  },
+  "receiptLineAppFee": "App fee",
+  "@receiptLineAppFee": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code app_fee)"
+  },
+  "receiptLinePickupFee": "Pickup fee",
+  "@receiptLinePickupFee": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code pickup_fee)"
+  },
+  "receiptLineRounding": "Rounding",
+  "@receiptLineRounding": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code rounding)"
+  },
+  "receiptLineDiscount": "Discount",
+  "@receiptLineDiscount": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code discount)"
+  },
+  "receiptLineCancelFee": "Cancellation or no-show fee",
+  "@receiptLineCancelFee": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code cancel_fee)"
+  },
+  "receiptLineRiderRaise": "Your raise",
+  "@receiptLineRiderRaise": {
+    "description": "Rider receipt line (R6, 2026-11-20; contract.json#fareLines.rider code rider_raise)"
+  },
+  "receiptLineOther": "Other",
+  "@receiptLineOther": {
+    "description": "Rider receipt line with a code this app version does not know (R6, 2026-11-20)"
+  },
   "receiptDebtIncluded": "Earlier unpaid fee",
   "@receiptDebtIncluded": {
     "description": "Rider G8 (contract 0.18.10 finish)"

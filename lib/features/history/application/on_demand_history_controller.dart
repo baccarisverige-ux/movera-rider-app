@@ -37,8 +37,14 @@ class OnDemandHistoryController {
     List<Reservation> onDemand, {
     required bool completed,
   }) {
+    // R7 (owner 2026-11-20): a booked ride that was driven is also in the
+    // server's trip list (`GET /rider/trips`), as `ondemand-<trip id>`. It
+    // is one ride: the trip-list record stays (it holds the final price
+    // and opens the receipt), the booked-rides copy is left out.
+    final served = {for (final ride in onDemand) ride.reservationId};
     final byId = <String, Reservation>{};
     for (final ride in [...reservations, ...onDemand]) {
+      if (served.contains('ondemand-${ride.reservationId}')) continue;
       final belongs = completed
           ? ride.status.isCompleted
           : ride.status.isCancelled;

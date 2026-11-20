@@ -89,19 +89,21 @@ void main() {
     // J10 (debt model): + quoteDebtLine, riderDebtAboveMax, walletFee,
     // walletDebtPaid, walletYouOwe (payments area, contract debtModel.texts).
     // Saved-places design (contract v0.18.129): + 7 places* texts.
+    // R6 + R7 (2026-11-20): + 21 receiptLine* texts (payments area, contract
+    // fareLines.rider), termNoShowBodyKnown, historyFinalPrice.
     // R4 (2026-11-20): + pinDecidedByArea, pinStatusByArea (ride area).
     const before = {
       'en': (
-        '30863f8c37293ffbfc60e1041ccbdd151afe870cecac888e69fa43bc795f0ae3',
-        2217,
+        'd2edcbc01f0cae9199df5c497b531610c8717ae53f2945001b0eec1372680969',
+        2263,
       ),
       'fr': (
-        'f16f36c742316655f20b0697eada7116533bc0d215d43ca52ca69853f3ef15ee',
-        1762,
+        'f4ddefcbdc09479eb9bb58ce178ef23ef0a7d465d7b62d80943ba7164aa0b1da',
+        1785,
       ),
       'sv': (
-        '599630fe295dc816eb322e17f40a42f961e26c79e143b4fffa97d07e89b0a382',
-        1762,
+        '3bfcb1e6e3dd6fd9554f696148919db462825b037836d957746ff84c1f29e6b6',
+        1785,
       ),
     };
     for (final lang in _langs) {
