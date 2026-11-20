@@ -139,5 +139,7 @@
   "accountSuspended": "Ditt Movera-konto är pausat. Kontakta Movera support om du har frågor.",
   "errLockedToday": "För många fel koder i dag. Försök igen senare.",
   "appVersionLine": "Version {version} ({build})",
-  "appVersionOnly": "Version {version}"
+  "appVersionOnly": "Version {version}",
+  "deleteOpenTrip": "Avsluta eller avbryt din resa först och radera sedan kontot.",
+  "accountClosed": "Kontot är stängt och håller på att raderas. Det går inte att logga in med det."
 }

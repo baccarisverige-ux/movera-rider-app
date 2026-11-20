@@ -147,6 +147,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'errLockedToday': l.errLockedToday,
   'appVersionLine': l.appVersionLine('<version>', '<build>'),
   'appVersionOnly': l.appVersionOnly('<version>'),
+  'deleteOpenTrip': l.deleteOpenTrip,
+  'accountClosed': l.accountClosed,
   'appTitle': l.appTitle,
   'previewBanner': l.previewBanner,
   'previewNotSent': l.previewNotSent,
@@ -2319,6 +2321,10 @@ class _Exhaustive implements AppLocalizations {
   String appVersionLine(String version, String build) => '';
   @override
   String appVersionOnly(String version) => '';
+  @override
+  String get deleteOpenTrip => '';
+  @override
+  String get accountClosed => '';
   @override
   String get appTitle => '';
   @override
