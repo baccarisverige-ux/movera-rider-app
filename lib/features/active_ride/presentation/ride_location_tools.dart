@@ -200,7 +200,8 @@ class RideLocationToolsState extends State<RideLocationTools>
     final fix = await widget.fix();
     if (!mounted) return;
     if (fix == null) {
-      _lastReadFailed = true;
+      // setState: a banner built on the old fix hides.
+      setState(() => _lastReadFailed = true);
       return;
     }
     setState(() {
@@ -246,22 +247,39 @@ class RideLocationToolsState extends State<RideLocationTools>
     }
   }
 
+  /// Each _setSharing call takes a new number; a call that finds a newer
+  /// one after an await gives up, so overlapping taps leave one sender.
+  int _shareGen = 0;
+
+  /// The live sender (tests).
+  @visibleForTesting
+  LiveLocationSender? get sender => _sender;
+
   Future<void> _setSharing(bool on) async {
     final id = widget.tripId;
     if (id == null) return;
+    final gen = ++_shareGen;
     if (on) {
-      // No location permission or no fix now: the switch stays off.
-      // A double tap: the older sender stops first.
+      final first = await widget.fix();
+      if (gen != _shareGen || !mounted) return;
+      // The screen moved past "driver coming", the app went away, or no
+      // location permission / no fix: the switch stays off.
+      if (_away ||
+          widget.phase != AdjustPickupPhase.driverComing ||
+          first == null) {
+        final old = _sender;
+        _sender = null;
+        await old?.stop();
+        if (gen != _shareGen || !mounted) return;
+        setState(() => _sharing = false);
+        _arm();
+        return;
+      }
+      // The older sender (a double tap) stops right before the new one.
       final old = _sender;
       _sender = null;
       await old?.stop(tellServer: false);
-      final first = await widget.fix();
-      // The screen closed or the app went away while the GPS answered.
-      if (!mounted) return;
-      if (_away || first == null) {
-        setState(() => _sharing = false);
-        return;
-      }
+      if (gen != _shareGen || !mounted) return;
       setState(() {
         _fix = first;
         _fixAt = DateTime.now();
@@ -285,6 +303,7 @@ class RideLocationToolsState extends State<RideLocationTools>
       final sender = _sender;
       _sender = null;
       await sender?.stop();
+      if (gen != _shareGen) return;
     }
     if (mounted) setState(() => _sharing = on);
     _arm();

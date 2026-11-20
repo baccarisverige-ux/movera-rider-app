@@ -213,6 +213,7 @@ void main() {
       bool bannerAllowed = true,
       void Function()? onFix,
       bool Function()? fixOk,
+      Future<void> Function()? fixDelay,
     }) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -236,6 +237,7 @@ void main() {
               onAdjust: onAdjust,
               fix: () async {
                 onFix?.call();
+                await fixDelay?.call();
                 if (fixOk != null && !fixOk()) return null;
                 return (point: away, accuracyMeters: 5.0);
               },
@@ -486,6 +488,67 @@ void main() {
         await tester.pump();
         expect(reads, greaterThan(paused));
         expect(tester.widget<Switch>(key).value, isFalse);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+
+    testWidgets(
+      'two overlapping taps on: only one live sender; off during the GPS wait wins',
+      (tester) async {
+        final gate = <Completer<void>>[];
+        var bodies = <Object?>[];
+        await pump(
+          tester,
+          settings: const LiveLocationSettings(share: true),
+          phase: AdjustPickupPhase.driverComing,
+          onAdjust: (_) async => false,
+          fixDelay: () {
+            final c = Completer<void>();
+            gate.add(c);
+            return c.future;
+          },
+          api: ApiClient(
+            env: live,
+            client: MockClient((r) async {
+              bodies.add(jsonDecode(r.body));
+              return http.Response('{}', 200);
+            }),
+          ),
+        );
+        for (final c in gate) {
+          if (!c.isCompleted) c.complete();
+        }
+        await tester.pump();
+        gate.clear();
+        final state = tester.state<RideLocationToolsState>(
+          find.byType(RideLocationTools),
+        );
+        final key = find.byKey(const Key('share-location-switch'));
+        // Two taps while the first GPS read still waits.
+        await tester.tap(key);
+        await tester.pump();
+        final first = gate.last;
+        await tester.tap(key);
+        await tester.pump();
+        final second = gate.last;
+        first.complete();
+        second.complete();
+        await tester.pump();
+        await tester.pump();
+        final liveSender = state.sender;
+        expect(liveSender?.running, isTrue);
+        expect(
+          bodies.where((b) => (b as Map)['sharing'] == true).length,
+          1,
+          reason: 'one sender, one first point',
+        );
+        // Off while a new on waits for GPS: the on gives up, nothing is left running.
+        bodies = <Object?>[];
+        await tester.tap(key); // off
+        await tester.pump();
+        await tester.pump();
+        expect(state.sender, isNull);
+        expect(liveSender?.running, isFalse);
         await tester.pumpWidget(const SizedBox());
       },
     );
