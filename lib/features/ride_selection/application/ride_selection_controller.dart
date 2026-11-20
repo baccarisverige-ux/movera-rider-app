@@ -735,6 +735,19 @@ class RideSelectionController {
     _failedQuoteIds.remove(rideId);
   }
 
+  /// R3 (owner 2026-11-20): whether [quote] was asked under the pickup
+  /// address [label]. movera-server keeps a quote's pickup as the trip's
+  /// pickup, so the address a quote was asked under is the one the driver
+  /// sees. A quote this app holds no route for (the demo wire, another
+  /// repository) is booked with the address the booking sends: true.
+  bool quoteNamesPickup(RideQuote quote, String label) {
+    final route = ApiQuoteRepository.routeOf(quote.id);
+    if (route == null) return true;
+    // Compared as the app sends it (trimmed, at most 512 characters).
+    final asked = ApiQuoteRepository.contractPlace(0, 0, label)['address'];
+    return route.pickup['address'] == asked;
+  }
+
   /// The pickup point each held quote was priced at, when known.
   final Map<String, GeoPoint> _quotePickups = {};
 

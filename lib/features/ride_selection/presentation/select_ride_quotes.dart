@@ -115,17 +115,9 @@ extension _SelectRideQuotes on _SelectRideState {
   /// a ride now on movera-server is checked: a booked ride is priced again
   /// under its own address when it is booked, and a quote this app holds no
   /// route for is booked with the address the booking sends.
-  bool _quoteNamesPickup(RideQuote quote) {
-    if (_selection.createsReservation) return true;
-    final route = ApiQuoteRepository.routeOf(quote.id);
-    if (route == null) return true;
-    final confirmed = ApiQuoteRepository.contractPlace(
-      _pickupPosition.latitude,
-      _pickupPosition.longitude,
-      _quotePickupLabel,
-    )['address'];
-    return route.pickup['address'] == confirmed;
-  }
+  bool _quoteNamesPickup(RideQuote quote) =>
+      _selection.createsReservation ||
+      _selection.quoteNamesPickup(quote, _quotePickupLabel);
 
   /// After the steps the rider controls (Add card, Set pickup): the quote
   /// to book is the one the selection holds now, never the one captured
