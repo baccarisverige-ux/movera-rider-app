@@ -30,21 +30,56 @@ extension _WaitingDetails on _WaitingForDriverState {
   /// destination and the stops can change until the trip ends.
   Future<void> _openDetails() async {
     if (_routeEditOpen || _leaving) return;
+    // v0.18.143 (owner 2026-11-20, approved mockup screen 2): the same Ride
+    // details sheet as while searching: price, pencils and "+".
+    final pencils = WaitingForDriver.detailsPencils(
+      pickupEditable: _pickupEditable,
+    );
+    await RideDetailsSheet.open(
+      context,
+      pickupAddress: _pickupAddress,
+      destinationAddress: _destinationAddress,
+      stops: _stops,
+      rideType: widget.rideType,
+      price: _price,
+      currency: widget.currency,
+      paymentMethod: widget.paymentMethod,
+      notes: widget.notes,
+      allowCancel: !_isInTrip,
+      onCancelTrip: (sheet) {
+        Navigator.pop(sheet);
+        unawaited(_confirmCancel());
+      },
+      onEditPickup: pencils.pickup
+          ? (sheet) {
+              Navigator.pop(sheet);
+              unawaited(_movePickup());
+            }
+          : null,
+      onEditDestination: (sheet) =>
+          unawaited(_editRoute(sheet, RouteChangeEntry.destination)),
+      onAddStop: (sheet) =>
+          unawaited(_editRoute(sheet, RouteChangeEntry.newStop)),
+    );
+  }
+
+  /// A pencil or "+" of Ride details: the route screen (driver Accept /
+  /// Refuse as before), or the zone's "before pickup off" answer.
+  Future<void> _editRoute(BuildContext sheet, RouteChangeEntry entry) async {
     // G7 live fix: before boarding, read the zone's switch again (the admin
     // may have changed it since this screen opened). `beforePickup` covers
     // only the destination and the stops: with it off, the pickup can still
     // move (owner decision), so the three dots open the pickup move.
     final off = await _routeChangeOffBeforePickup();
-    if (!mounted) return;
+    if (!mounted || !sheet.mounted) return;
     switch (WaitingForDriver.detailsAction(
       beforePickupOff: off,
       pickupEditable: _pickupEditable,
     )) {
       case DetailsAction.routeScreen:
-        await _changeRoute(null, RouteChangeEntry.destination);
-      case DetailsAction.movePickup:
-        await _movePickup();
-      case DetailsAction.refused:
+        await _changeRoute(sheet, entry);
+      case DetailsAction.movePickup || DetailsAction.refused:
+        Navigator.pop(sheet);
         _showRouteBeforePickupOff();
     }
   }

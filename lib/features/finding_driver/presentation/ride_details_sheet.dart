@@ -7,6 +7,7 @@ import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 /// The route and the money of the current ride, read-only. Changing the
 /// route happens on the route screen (the three dots on the ride card).
@@ -50,6 +51,45 @@ class RideDetailsSheet extends StatelessWidget {
 
   /// The "+" under the destination (the route screen with a new stop).
   final VoidCallback? onAddStop;
+
+  /// Opens the sheet; each action gets the sheet's context (to close it
+  /// before the next screen). v0.18.143 (owner 2026-11-20): the same sheet
+  /// while searching, while the driver is coming and during the trip.
+  static Future<void> open(
+    BuildContext context, {
+    required String pickupAddress,
+    required String destinationAddress,
+    List<RouteStop> stops = const <RouteStop>[],
+    required String rideType,
+    required double price,
+    String currency = Money.defaultCurrency,
+    required String paymentMethod,
+    required RideNotes notes,
+    bool allowCancel = true,
+    required void Function(BuildContext sheet) onCancelTrip,
+    void Function(BuildContext sheet)? onEditPickup,
+    void Function(BuildContext sheet)? onEditDestination,
+    void Function(BuildContext sheet)? onAddStop,
+  }) => MoveraSheet.show<void>(
+    context: context,
+    builder: (sheet) => RideDetailsSheet(
+      pickupAddress: pickupAddress,
+      destinationAddress: destinationAddress,
+      stops: stops,
+      rideType: rideType,
+      price: price,
+      currency: currency,
+      paymentMethod: paymentMethod,
+      notes: notes,
+      allowCancel: allowCancel,
+      onCancelTrip: () => onCancelTrip(sheet),
+      onEditPickup: onEditPickup == null ? null : () => onEditPickup(sheet),
+      onEditDestination: onEditDestination == null
+          ? null
+          : () => onEditDestination(sheet),
+      onAddStop: onAddStop == null ? null : () => onAddStop(sheet),
+    ),
+  );
 
   static const Color _ink = Color(0xFF1D252C);
   static const Color _muted = Color(0xFF5C656C);
