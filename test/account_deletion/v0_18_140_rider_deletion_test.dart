@@ -9,7 +9,7 @@ import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/features/profile/data/account_repository.dart';
 import 'package:movera_rider/features/profile/presentation/delete_account.dart';
 
-/// Contract v0.18.140 (`contract.json#accountDeletion.rider`; owner button
+/// Contract v0.18.134 (`contract.json#accountDeletion.rider`; owner button
 /// 2026-11-20 "Accept, keep debt (Rec.)"): the rider's existing request works
 /// with the new server: 202 now also carries requestedAt + eraseDueAt, and
 /// 409 `deletion_open_trip` is shown as "finish or cancel your ride first".
@@ -34,7 +34,7 @@ void main() {
     );
   }
 
-  test('202 of a v0.18.140 server: requested, with the erase date', () async {
+  test('202 of a v0.18.134 server: requested, with the erase date', () async {
     final answer = await repo(202, {
       'status': 'requested',
       'requestedAt': '2026-11-20T10:00:00Z',

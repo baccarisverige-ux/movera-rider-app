@@ -204,7 +204,7 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
   }
 }
 
-/// v0.18.140 (`contract.json#accountDeletion.refused`): the server refuses a
+/// v0.18.134 (`contract.json#accountDeletion.refused`): the server refuses a
 /// deletion only during an open ride (409 `deletion_open_trip`), never for a
 /// debt.
 bool deletionOpenTrip(Object error) =>
