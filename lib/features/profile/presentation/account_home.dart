@@ -10,6 +10,8 @@ import 'package:movera_rider/features/auth/presentation/sign_out_flow.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/application/app_language_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
+import 'package:movera_rider/features/fee_payment/domain/fees_payable_by_card.dart';
+import 'package:movera_rider/features/fee_payment/presentation/pay_fee_button.dart';
 import 'package:movera_rider/features/profile/domain/rider_outstanding.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/features/profile/presentation/account_checkup.dart';
@@ -232,6 +234,22 @@ class _AccountHomePageState extends State<AccountHomePage> {
                         ),
                         showDivider: i < owed.byCurrency.length - 1,
                       ),
+                    // v0.18.136 stripeFees (DRAFT): pay an owed fee by card
+                    // or Apple Pay, for the server's amount only.
+                    ValueListenableBuilder<FeesPayableByCard>(
+                      valueListenable: FeesPayableByCard.current,
+                      builder: (context, payable, _) => payable.items.isEmpty
+                          ? const SizedBox.shrink()
+                          : Padding(
+                              key: const ValueKey('account-fees-payable'),
+                              padding: const EdgeInsets.all(12),
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [for (final fee in payable.items) PayFeeButton(fee: fee)],
+                              ),
+                            ),
+                    ),
                   ],
                 ),
               );
