@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/features/auth/domain/phone_country.dart';
 import 'package:movera_rider/features/profile/presentation/contact_change.dart';
 import 'package:movera_rider/l10n/generated/app_localizations.dart';
 
@@ -14,6 +15,7 @@ void main() {
     void Function()? saved,
     Future<Map<String, Object>> Function(String app, String phone)?
     deviceFields,
+    PhoneCountry? startCountry,
   }) async {
     final sent = <(String, Map<String, dynamic>)>[];
     await tester.pumpWidget(
@@ -29,6 +31,7 @@ void main() {
           },
           onSaved: () async => saved?.call(),
           deviceFields: deviceFields,
+          startCountry: () async => startCountry ?? PhoneCountries.sweden,
         ),
       ),
     );
@@ -214,4 +217,30 @@ void main() {
     await tester.pumpAndSettle();
     expect(sent.single.$2, {'phone': '+46701740633'});
   });
+
+  for (final (typed, country, sent) in [
+    // A French number on an en-US phone whose sign-in start country is France
+    // (saved fix / last zone in France): read as sign-in reads it.
+    ('06 12 34 56 78', 'FR', '+33612345678'),
+    ('+46 (0)70 174 06 33', 'SE', '+46701740633'),
+    ('+46 (0)70 174 06 33', 'FR', '+46701740633'),
+  ]) {
+    testWidgets('v0.18.138: "$typed" with start country $country -> $sent', (
+      tester,
+    ) async {
+      final posts = await open(
+        tester,
+        ContactKind.phone,
+        (_) => {'sessionId': 'ses_1', 'retryAfterSeconds': 30},
+        startCountry: PhoneCountries.byIso(country),
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('contact-value')),
+        typed,
+      );
+      await tester.tap(find.byKey(const ValueKey('contact-submit')));
+      await tester.pumpAndSettle();
+      expect(posts.single.$2, {'phone': sent});
+    });
+  }
 }

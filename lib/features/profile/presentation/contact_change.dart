@@ -34,7 +34,13 @@ class ContactChangePage extends StatefulWidget {
     this.onSaved,
     this.verifyCurrent,
     this.deviceFields,
+    this.startCountry = defaultPhoneCountry,
   });
+
+  /// Contract v0.18.138: how a typed number without "+" is read — the SAME
+  /// start country as the sign-in field (saved fix, last zone, then the
+  /// device region; PhoneCountries.defaultFor). Read once when the page opens.
+  final Future<PhoneCountry> Function() startCountry;
 
   final ContactKind kind;
   final ContactPost post;
@@ -58,6 +64,9 @@ class ContactChangePage extends StatefulWidget {
 }
 
 class _ContactChangePageState extends State<ContactChangePage> {
+  /// The sign-in start country; the device region until the saved one is read.
+  PhoneCountry _country = initialPhoneCountry();
+
   final _value = TextEditingController();
   final _code = TextEditingController();
   String? _challenge;
@@ -75,6 +84,12 @@ class _ContactChangePageState extends State<ContactChangePage> {
   @override
   void initState() {
     super.initState();
+    widget
+        .startCountry()
+        .then((country) {
+          if (mounted) _country = country;
+        })
+        .catchError((Object _) {});
     final current = widget.verifyCurrent?.trim() ?? '';
     _verifyCurrent = !_phone && current.isNotEmpty;
     if (_verifyCurrent) _value.text = current;
@@ -153,7 +168,7 @@ class _ContactChangePageState extends State<ContactChangePage> {
   /// invalid_phone). An e-mail is only trimmed.
   String get _entered {
     if (!_phone) return _value.text.trim();
-    return phoneNumberFromField(_value.text, initialPhoneCountry()) ??
+    return phoneNumberFromField(_value.text, _country) ??
         _value.text.replaceAll(RegExp(r'[\s\-(). ]'), '');
   }
 
