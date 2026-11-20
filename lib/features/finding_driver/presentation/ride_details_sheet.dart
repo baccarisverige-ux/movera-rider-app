@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
@@ -22,6 +23,9 @@ class RideDetailsSheet extends StatelessWidget {
     required this.notes,
     this.allowCancel = true,
     required this.onCancelTrip,
+    this.onEditPickup,
+    this.onEditDestination,
+    this.onAddStop,
   });
 
   final String pickupAddress;
@@ -36,6 +40,16 @@ class RideDetailsSheet extends StatelessWidget {
   final RideNotes notes;
   final bool allowCancel;
   final VoidCallback onCancelTrip;
+
+  /// v0.18.143 (approved mockup screen 2): the pencil on the pickup, only
+  /// while the ride is still searched (null hides it).
+  final VoidCallback? onEditPickup;
+
+  /// The pencil on the destination (the route screen).
+  final VoidCallback? onEditDestination;
+
+  /// The "+" under the destination (the route screen with a new stop).
+  final VoidCallback? onAddStop;
 
   static const Color _ink = Color(0xFF1D252C);
   static const Color _muted = Color(0xFF5C656C);
@@ -77,6 +91,8 @@ class RideDetailsSheet extends StatelessWidget {
               key: const ValueKey('ride-details-pickup'),
               kind: _RowKind.pickup,
               address: pickupAddress,
+              onEdit: onEditPickup,
+              editKey: const ValueKey('ride-details-edit-pickup'),
             ),
             for (var i = 0; i < stops.length; i++) ...[
               _connector(),
@@ -92,11 +108,24 @@ class RideDetailsSheet extends StatelessWidget {
               key: const ValueKey('ride-details-destination'),
               kind: _RowKind.destination,
               address: destinationAddress,
+              onEdit: onEditDestination,
+              editKey: const ValueKey('ride-details-edit-destination'),
             ),
+            if (onAddStop != null)
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  key: const ValueKey('ride-details-add-stop'),
+                  onPressed: onAddStop,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: Text(context.l10n.addAStop),
+                ),
+              ),
             const SizedBox(height: 16),
             _kv(rideNameFor(rideType), formatMajor(price, currency)),
             const SizedBox(height: 8),
-            _kv(context.l10n.navPayment, paymentMethod),
+            // Pay in car shown in the app language (rider-u231).
+            _kv(context.l10n.navPayment, paymentLabelFor(paymentMethod)),
             if (!notes.isEmpty) ...[
               const SizedBox(height: 12),
               Wrap(
@@ -218,11 +247,15 @@ class _RouteRow extends StatelessWidget {
     required this.kind,
     required this.address,
     this.label,
+    this.onEdit,
+    this.editKey,
   });
 
   final _RowKind kind;
   final String address;
   final String? label;
+  final VoidCallback? onEdit;
+  final Key? editKey;
 
   @override
   Widget build(BuildContext context) {
@@ -279,6 +312,13 @@ class _RouteRow extends StatelessWidget {
               ],
             ),
           ),
+          if (onEdit != null)
+            IconButton(
+              key: editKey,
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit_outlined, size: 20),
+              tooltip: context.l10n.changeRoute,
+            ),
         ],
       ),
     );

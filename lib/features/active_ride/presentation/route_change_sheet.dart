@@ -141,11 +141,14 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
         paymentLabelFor(paymentMethod),
       );
     }
+    // v0.18.143 (approved mockup screen 4): pay in car with a new price
+    // says "Your price has changed" and "Confirm new price" / "Cancel".
+    final priceChanged = _cash && quote.changesPrice;
     return _step(
       key: const ValueKey('route-change-step-route'),
       body: [
         Text(
-          context.l10n.newRoute,
+          priceChanged ? context.l10n.priceChangedTitle : context.l10n.newRoute,
           style: GoogleFonts.poppins(
             fontSize: 20,
             fontWeight: FontWeight.w700,
@@ -244,14 +247,16 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
         const SizedBox(height: 18),
         _primary(
           key: const ValueKey('route-change-confirm'),
-          label: _cash || !quote.changesPrice
+          label: priceChanged
+              ? context.l10n.confirmNewPrice
+              : _cash || !quote.changesPrice
               ? context.l10n.confirmChange
               : context.l10n.confirmNextPayment,
           onPressed: _confirmRoute,
         ),
         const SizedBox(height: 8),
         _secondary(
-          context.l10n.keepCurrentRoute,
+          priceChanged ? context.l10n.cancel : context.l10n.keepCurrentRoute,
           () => Navigator.pop(context, RouteChangeDecision.declined),
         ),
       ],

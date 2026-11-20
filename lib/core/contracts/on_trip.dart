@@ -88,6 +88,7 @@ class TripRouteChange {
     required this.status,
     this.dropoff,
     this.stops = const [],
+    this.pickup,
     this.total,
     this.difference,
     this.answerBy,
@@ -115,6 +116,7 @@ class TripRouteChange {
       changeId: id,
       status: status as String,
       dropoff: TripChangePlace.fromWire(raw['dropoff']),
+      pickup: TripChangePlace.fromWire(raw['pickup']),
       stops: [
         if (stops is List)
           for (final stop in stops) ?TripChangePlace.fromWire(stop),
@@ -130,6 +132,10 @@ class TripRouteChange {
   final String status;
   final TripChangePlace? dropoff;
   final List<TripChangePlace> stops;
+
+  /// v0.18.143 (contract onTrip.routeChange.whileSearching): the new pickup
+  /// of a change made while the ride was still searched.
+  final TripChangePlace? pickup;
   final Money? total;
   final Money? difference;
   final DateTime? answerBy;
