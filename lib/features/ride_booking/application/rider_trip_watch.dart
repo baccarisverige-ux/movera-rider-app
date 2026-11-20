@@ -20,6 +20,10 @@ import 'package:movera_rider/features/ride_booking/application/ride_restore_coor
 ///   after failed reads the poll waits 16 s, then 32 s (the cap), never
 ///   less than Retry-After; the first answer brings back [pollEvery]. A
 ///   hint, a stream reconnect and a resume still read at once.
+/// * v0.18.145 (`loadCut.riderTripWatch`, S4c load cut): while
+///   `/rider/config/stream` is connected ([onStreamUp]) the poll waits
+///   [streamUpEvery] (60 s) instead of [pollEvery]; `rider_trip_changed`
+///   and a reconnect still read at once. The stream down: [pollEvery].
 class RiderTripWatch {
   RiderTripWatch({
     bool Function()? showsHome,
@@ -29,6 +33,7 @@ class RiderTripWatch {
     bool Function()? hasBooked,
     this.pollEvery = const Duration(seconds: 8),
     this.maxBackoff = const Duration(seconds: 32),
+    this.streamUpEvery = const Duration(seconds: 60),
   }) : _showsHome = showsHome ?? _defaultShowsHome,
        _adopt = adopt ?? _defaultAdopt,
        _bookedOnTheWay = bookedOnTheWay ?? _defaultBookedOnTheWay,
@@ -45,6 +50,16 @@ class RiderTripWatch {
   /// `GET /rider/trips/active` is never shed, so before this every Home
   /// held a slot in the busy pool every 8 s.
   final Duration maxBackoff;
+
+  /// contract.json#loadCut.riderTripWatchStreamUpSeconds (60): the poll
+  /// while `/rider/config/stream` is connected.
+  final Duration streamUpEvery;
+
+  /// Whether `/rider/config/stream` is connected (R3 connected rule).
+  bool _streamUp = false;
+
+  /// The poll's current wait: [streamUpEvery] while the stream is up.
+  Duration get _every => _streamUp ? streamUpEvery : pollEvery;
 
   /// Failed reads in a row.
   int _failures = 0;
@@ -136,14 +151,35 @@ class RiderTripWatch {
     // Back in front: the resume reads at once (app_lifecycle), so the
     // next tick reads too instead of waiting out an old pause.
     _skipTicks = 0;
-    _poll = Timer.periodic(pollEvery, (_) {
+    _startTimer();
+    unawaited(_refreshList());
+  }
+
+  void _startTimer() {
+    _poll = Timer.periodic(_every, (_) {
       if (_skipTicks > 0) {
         _skipTicks--;
         return;
       }
       unawaited(check());
     });
-    unawaited(_refreshList());
+  }
+
+  /// v0.18.145 `loadCut.riderTripWatch`: `/rider/config/stream` connected
+  /// ([up]) or dropped. Up: the poll waits [streamUpEvery]; down: back to
+  /// [pollEvery]. A backoff pause keeps its length in the new ticks.
+  void onStreamUp(bool up) {
+    if (up == _streamUp) return;
+    final before = _every.inMilliseconds;
+    _streamUp = up;
+    final poll = _poll;
+    if (poll == null) return;
+    poll.cancel();
+    if (_skipTicks > 0) {
+      final after = _every.inMilliseconds;
+      _skipTicks = (_skipTicks * before + after - 1) ~/ after;
+    }
+    _startTimer();
   }
 
   Future<void> _refreshList() async {
@@ -169,7 +205,7 @@ class RiderTripWatch {
   /// 16 s, then 32 s and stays there ([maxBackoff]), never shorter than
   /// the server's Retry-After.
   int _ticksToSkip(Object error) {
-    final every = pollEvery.inMilliseconds;
+    final every = _every.inMilliseconds;
     final cap = maxBackoff.inMilliseconds;
     var wait = every << _failures.clamp(0, 16);
     if (wait > cap) wait = cap;
@@ -177,7 +213,7 @@ class RiderTripWatch {
     if (retryAfter != null && retryAfter.inMilliseconds > wait) {
       wait = retryAfter.inMilliseconds;
     }
-    // A read every [pollEvery]: the next one comes after ceil(wait / every)
+    // A read every [_every]: the next one comes after ceil(wait / every)
     // ticks, so the ones before it are skipped.
     return ((wait + every - 1) ~/ every) - 1;
   }
