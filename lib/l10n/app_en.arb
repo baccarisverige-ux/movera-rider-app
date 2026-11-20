@@ -2782,6 +2782,14 @@
   "pinChangeBody": "Request a new PIN from Movera. Share it with your driver only when the ride begins.",
   "pinChange": "Change PIN",
   "pinIntro": "Add an extra check before your ride begins. Your driver must confirm your PIN before starting the trip.",
+  "pinDecidedByArea": "Movera turns the PIN check on per area. When a ride needs a PIN, you see the code on the ride screen once your driver is on the way. Tell it to the driver before the ride starts.",
+  "@pinDecidedByArea": {
+    "description": "Safety > PIN verification on the live server: the PIN check is an admin switch per zone, not a rider setting (R4, 2026-11-20)"
+  },
+  "pinStatusByArea": "Set per area",
+  "@pinStatusByArea": {
+    "description": "Safety list, PIN row status on the live server (R4, 2026-11-20)"
+  },
   "pinToggle": "Verify rides with a PIN",
   "pinShareHint": "Share this PIN with your driver when the trip starts.",
   "pinSavedHint": "PIN is saved. Turn on verification to use it on rides.",

@@ -400,7 +400,12 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'completeRateBody': l.completeRateBody,
   'readyForFeedback': l.readyForFeedback,
   'completeDefaultBody': l.completeDefaultBody,
-  'droppedPinLabel': l.droppedPinLabel('<lat>', '<latSide>', '<lng>', '<lngSide>'),
+  'droppedPinLabel': l.droppedPinLabel(
+    '<lat>',
+    '<latSide>',
+    '<lng>',
+    '<lngSide>',
+  ),
   'compassNorth': l.compassNorth,
   'compassSouth': l.compassSouth,
   'compassEast': l.compassEast,
@@ -1177,6 +1182,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'pinChangeBody': l.pinChangeBody,
   'pinChange': l.pinChange,
   'pinIntro': l.pinIntro,
+  'pinDecidedByArea': l.pinDecidedByArea,
+  'pinStatusByArea': l.pinStatusByArea,
   'pinToggle': l.pinToggle,
   'pinShareHint': l.pinShareHint,
   'pinSavedHint': l.pinSavedHint,
@@ -1723,7 +1730,10 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'supportExit': l.supportExit,
   'supportFailed': l.supportFailed,
   'supportPriceCancelled': l.supportPriceCancelled('<price>'),
-  'supportPriceCancelledExtra': l.supportPriceCancelledExtra('<price>', '<extra>'),
+  'supportPriceCancelledExtra': l.supportPriceCancelledExtra(
+    '<price>',
+    '<extra>',
+  ),
   'supportIssueAck': l.supportIssueAck,
   'supportFollowUp': l.supportFollowUp,
   'supportWelcomeRide': l.supportWelcomeRide,
@@ -2824,7 +2834,12 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get completeDefaultBody => '';
   @override
-  String droppedPinLabel(String lat, String latSide, String lng, String lngSide) => '';
+  String droppedPinLabel(
+    String lat,
+    String latSide,
+    String lng,
+    String lngSide,
+  ) => '';
   @override
   String get compassNorth => '';
   @override
@@ -4377,6 +4392,10 @@ class _Exhaustive implements AppLocalizations {
   String get pinChange => '';
   @override
   String get pinIntro => '';
+  @override
+  String get pinDecidedByArea => '';
+  @override
+  String get pinStatusByArea => '';
   @override
   String get pinToggle => '';
   @override

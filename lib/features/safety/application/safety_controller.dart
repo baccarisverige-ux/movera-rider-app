@@ -147,8 +147,13 @@ class SafetyController extends ChangeNotifier {
   List<EmergencyContact> get contacts => _session.contacts;
   RideCheckPolicy get rideCheckPolicy => _session.rideCheck;
 
-  String pinStatusLabel() =>
-      preferences.pinRequired ? L10n.current.on : L10n.current.off;
+  /// R4: on movera-server the PIN check is Movera's switch per area, so
+  /// the Safety list says that instead of an "Off" the rider cannot change.
+  String pinStatusLabel() => !serverKeepsSettings
+      ? L10n.current.pinStatusByArea
+      : preferences.pinRequired
+      ? L10n.current.on
+      : L10n.current.off;
 
   String contactsStatusLabel() {
     if (contacts.isEmpty) return L10n.current.safetyContactsNone;
