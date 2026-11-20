@@ -461,14 +461,13 @@ class RouteChangeController {
     return TripRouteChange.fromWire(response['routeChange']);
   }
 
-  /// The saved ride once the driver accepted [change]: its drop-off, stops
-  /// and new total.
+  /// v0.18.143 (whileSearching.smallMove): the saved ride after the
+  /// same-price pickup move ([address] at [point]).
   static Future<RideSnapshot> adoptMovedPickup(
     RideSnapshot ride,
     String address,
     GeoPoint point,
   ) async {
-    // v0.18.143 (whileSearching.smallMove): the same-price pickup move.
     final updated = ride.copyWith(
       savedAt: DateTime.now(),
       pickupAddress: address,
@@ -479,7 +478,8 @@ class RouteChangeController {
     return updated;
   }
 
-  /// The saved ride once the driver accepted [change]; see [adoptAccepted].
+  /// The saved ride once the driver accepted [change]: its drop-off, stops
+  /// and new total.
   static Future<RideSnapshot> adoptAccepted(
     RideSnapshot ride,
     TripRouteChange change,
