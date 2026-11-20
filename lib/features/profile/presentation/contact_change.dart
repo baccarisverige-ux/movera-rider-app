@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/auth/device_identity.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -129,7 +130,14 @@ class _ContactChangePageState extends State<ContactChangePage> {
     if (value.isEmpty) return;
     final answer = await widget.post(
       _phone ? '/api/v1/account/phone/change' : '/api/v1/account/email/change',
-      _phone ? {'phone': value} : {'email': value},
+      // Contract v0.18.138 `deviceCheck.phoneChange`: a phone change sends a
+      // real SMS too, so it carries the install id and the check.
+      _phone
+          ? {
+              'phone': value,
+              ...await DeviceIdentity.app.requestFields('rider', value),
+            }
+          : {'email': value},
     );
     if (!mounted) return;
     // G30 (Rule 35): only `delivery: sent` means a code went out.

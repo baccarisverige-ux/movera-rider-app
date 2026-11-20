@@ -93,6 +93,10 @@ String authErrorMessage(Object error, AuthAction action, {String? provider}) {
         return L10n.current.invalidMobileNumber;
       case 'sign_in_restricted':
         return L10n.current.signInRestricted;
+      // Contract v0.18.138 deviceCheck.errors: the country asks for the
+      // real-phone check and this phone could not pass it (no SMS sent).
+      case 'device_check_failed':
+        return L10n.current.authErrDeviceCheckFailed;
       // G16-1 (full audit H6): a paused account (403, reason
       // account_suspended) is told plainly, not "could not check the code".
       case 'account_suspended':

@@ -1,17 +1,22 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/auth/device_identity.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/features/auth/application/pending_rider_name.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
 import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 
 class AuthRepository {
-  AuthRepository({ApiClient? api, TokenStore? tokens})
+  AuthRepository({ApiClient? api, TokenStore? tokens, DeviceIdentity? device})
     : _api = api ?? AppScope.instance.api,
-      _tokens = tokens ?? AppScope.instance.tokens;
+      _tokens = tokens ?? AppScope.instance.tokens,
+      // Contract v0.18.138 (`deviceCheck`): the app's own instance in the app;
+      // a test that hands in its own ApiClient sends neither field.
+      _device = device ?? (api == null ? DeviceIdentity.app : null);
 
   final ApiClient _api;
   final TokenStore _tokens;
+  final DeviceIdentity? _device;
 
   /// Sends a 4-digit code to [phone]. With [link], the code also confirms the
   /// phone number of that pending Apple or Google sign-in.
@@ -23,12 +28,16 @@ class AuthRepository {
     if (normalized.isEmpty) {
       throw ArgumentError.value(phone, 'phone', 'Phone number is required.');
     }
+    // Contract v0.18.138 (`deviceCheck`): installId + the real-phone check; a
+    // failure there sends the request without them (the server decides).
+    final device = await _device?.requestFields('rider', normalized);
     final response = await _api.post(
       '/api/v1/auth/otp/request',
       body: {
         'phone': normalized,
         // Contract §8 OtpRequest: which app signs in decides the tokens' actor.
         'app': 'rider',
+        ...?device,
         if (link != null) 'linkToken': link.linkToken,
       },
     );

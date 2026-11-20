@@ -140,6 +140,7 @@
   "errLockedToday": "Trop de codes erronés aujourd’hui. Réessayez plus tard.",
   "appVersionLine": "Version {version} ({build})",
   "appVersionOnly": "Version {version}",
+  "authErrDeviceCheckFailed": "Ce téléphone n’a pas pu être vérifié. Installez l’application depuis la boutique officielle et réessayez.",
   "@@locale": "fr",
   "appTitle": "Movera",
   "previewBanner": "Aperçu",

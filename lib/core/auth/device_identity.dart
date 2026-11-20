@@ -39,6 +39,9 @@ class DeviceIdentity {
        _timeout = timeout;
 
   static const channelName = 'movera/device_check';
+
+  /// The app's one instance (sign-in and phone change share the install id).
+  static final DeviceIdentity app = DeviceIdentity();
   static const storageKey = 'movera.installId';
 
   /// iPhone App Attest: INACTIVE until the owner's Apple account exists
