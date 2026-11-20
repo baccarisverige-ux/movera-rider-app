@@ -19,8 +19,8 @@ import 'staging/trip_run.dart';
 /// Live scenario (testlab_test `trip-lifecycle`): START, SIGN-IN,
 /// DRIVER-SIGN-IN, DRIVER-ONLINE, SOS-ZONES, BOOK, SEARCHING, SOS-FINDING,
 /// DRIVER-FOUND, ARRIVING, SWITCH-1, ARRIVED, PIN, PAY-IN-CAR, CHAT,
-/// CALL-OUT, CALL-IN, SWITCH-2, SOS, RIDE-CHECK, DROPOFF, PAY (G33 line =
-/// the driver's cashDue), RATE, RECEIPT, HISTORY, CLEANUP, OFFLINE, and
+/// CALL-OUT, CALL-IN, SWITCH-2, SOS, SOS-PRESS, SHARE, RIDE-CHECK, DROPOFF, PAY (G33 line =
+/// the driver's cashDue), RATE, RECEIPT, HISTORY, FREE-CANCEL, CLEANUP, OFFLINE, and
 /// for every screen change `TRANSITION:<name>:SMOOTH` / RELOAD / ERRORS.
 ///
 /// Booked scenario (`trip-scheduled`, MOVERA_TL_SCENARIO=scheduled):
