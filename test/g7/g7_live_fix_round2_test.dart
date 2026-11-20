@@ -184,6 +184,29 @@ void main() {
         expect(find.text('Change route'), findsNothing);
       });
 
+      // Reviewer nit: with the zone's beforePickup off the route cannot
+      // change before pickup, so Ride details shows no destination pencil
+      // and no "+" (the pickup pencil stays).
+      testWidgets('Ride details: no route pencils before pickup', (
+        tester,
+      ) async {
+        await show(tester, build());
+        await tester.tap(find.byTooltip('Ride details').first);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('ride-details-edit-destination')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('ride-details-add-stop')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('ride-details-edit-pickup')),
+          findsOneWidget,
+        );
+      });
+
       testWidgets('driver card dots open the pickup move', (tester) async {
         await show(tester, build());
         await tester.tap(find.bySemanticsLabel('More options').first);

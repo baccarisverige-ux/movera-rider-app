@@ -7,7 +7,6 @@ import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/on_trip.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/active_ride/application/pickup_move_controller.dart';
-import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_sheet.dart';
 import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
@@ -237,14 +236,7 @@ Future<RideSnapshot?> _smallPickupMove(
     if (failure == null) return null;
     throw RouteChangeException(failure);
   }
-  final updated = ride.copyWith(
-    savedAt: DateTime.now(),
-    pickupAddress: selection.pickup,
-    pickupLat: point.latitude,
-    pickupLng: point.longitude,
-  );
-  await RideSnapshotStore.save(updated);
-  return updated;
+  return RouteChangeController.adoptMovedPickup(ride, selection.pickup, point);
 }
 
 /// v0.18.9 (driver group 7): a controller with the trip zone's

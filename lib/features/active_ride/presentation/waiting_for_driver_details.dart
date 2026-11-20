@@ -56,10 +56,14 @@ extension _WaitingDetails on _WaitingForDriverState {
               unawaited(_movePickup());
             }
           : null,
-      onEditDestination: (sheet) =>
-          unawaited(_editRoute(sheet, RouteChangeEntry.destination)),
-      onAddStop: (sheet) =>
-          unawaited(_editRoute(sheet, RouteChangeEntry.newStop)),
+      // Reviewer nit: no route pencils once the route can no longer change.
+      onEditDestination: _routeEditable
+          ? (sheet) =>
+                unawaited(_editRoute(sheet, RouteChangeEntry.destination))
+          : null,
+      onAddStop: _routeEditable
+          ? (sheet) => unawaited(_editRoute(sheet, RouteChangeEntry.newStop))
+          : null,
     );
   }
 
