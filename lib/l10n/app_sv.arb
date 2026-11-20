@@ -140,6 +140,7 @@
   "errLockedToday": "För många fel koder i dag. Försök igen senare.",
   "appVersionLine": "Version {version} ({build})",
   "appVersionOnly": "Version {version}",
+  "deleteOpenTrip": "Avsluta eller avbryt din resa först och radera sedan kontot.",
   "@@locale": "sv",
   "appTitle": "Movera",
   "previewBanner": "Förhandsvisning",
