@@ -24,6 +24,7 @@ import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/core/location/app_geocoding.dart';
 import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
@@ -132,16 +133,13 @@ class SelectRide extends StatefulWidget {
     this.offerSaveAddress,
   });
 
-  /// Whether [origin] has the exact points a return ride needs (CODE-5).
   static bool canPlanReturn(Reservation origin) =>
       origin.pickup.lat != null &&
       origin.pickup.lng != null &&
       origin.destination.lat != null &&
       origin.destination.lng != null;
 
-  /// Return-ride entry: same category cards, scheduled mode, reverse route.
-  /// Needs both points of [origin] ([canPlanReturn]); CODE-5: it used to
-  /// invent nearby points (or the Stockholm centre) when they were missing.
+  /// Return ride: reverse route, scheduled; needs both points (CODE-5).
   factory SelectRide.forReturnRide(
     Reservation origin, {
     Key? key,
@@ -194,8 +192,7 @@ class SelectRide extends StatefulWidget {
   final DateTime? initialScheduledFor;
   final String? initialRideId;
 
-  /// Saved-places design (owner 2026-11-18): the saved place's fixed
-  /// category; when offered here it is chosen and Set pickup opens at once.
+  /// Saved place's fixed category: chosen here, Set pickup opens at once.
   final String? preferredCategoryId;
 
   /// A recent address that is not saved: the S3 save sheet offers it.
@@ -208,8 +205,7 @@ class SelectRide extends StatefulWidget {
   final Future<void> Function(BuildContext context, String reservationId)?
   onScheduled;
 
-  /// Optional seams are used by behavioral certification; production keeps
-  /// the same AppScope-backed defaults.
+  /// Optional test seams; production uses the AppScope defaults.
   final RideSelectionController? selection;
   final BookingController? booking;
   final RideRealtime? realtime;
@@ -321,8 +317,7 @@ class _SelectRideState extends State<SelectRide>
 
   late final RouteFitScheduler _fits = RouteFitScheduler(plan: _routeFitPlan);
 
-  /// True while a finger moves the sheet; the web overlay waits for the
-  /// settle instead of toggling mid-drag.
+  /// True while a finger moves the sheet (web overlay waits for settle).
   bool _sheetDragging = false;
 
   /// The rider's promotion (admin panel), shown on top of the list.
@@ -535,6 +530,11 @@ class _SelectRideState extends State<SelectRide>
     setState(() => _mapReady = true);
   }
 
+  /// R3: never send "Current location" as the pickup name; use a dropped pin.
+  String get _quotePickupLabel => isUnusablePickupLabel(_pickupAddress)
+      ? droppedPinPickupAddress(_pickupPosition)
+      : _pickupAddress;
+
   Future<void> _loadQuotes() async {
     final generation = _selection.beginQuotes();
     // Quotes include the stops (audit finding B7, contract §3), so the price
@@ -544,7 +544,7 @@ class _SelectRideState extends State<SelectRide>
     await _selection.loadQuotes(
       stops: stops,
       generation: generation,
-      pickup: _pickupAddress,
+      pickup: _quotePickupLabel,
       destination: widget.destinationAddress,
       distanceMeters: tripStraightMeters(
         _pickupPosition,
