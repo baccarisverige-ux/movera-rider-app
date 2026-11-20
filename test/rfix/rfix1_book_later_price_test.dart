@@ -134,6 +134,8 @@ void main() {
     WidgetTester tester,
     _Server server, {
     DateTime? scheduledFor,
+    String pickupAddress = 'Drottninggatan 1, Stockholm',
+    bool pickupAlreadyConfirmed = false,
   }) async {
     final api = ApiClient(client: server.client, env: staging);
     final selection = RideSelectionController(
@@ -152,7 +154,8 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: SelectRide(
-          pickupAddress: 'Drottninggatan 1, Stockholm',
+          pickupAddress: pickupAddress,
+          pickupAlreadyConfirmed: pickupAlreadyConfirmed,
           destinationAddress: 'Solna Centrum, Solna torg',
           pickupPosition: _origin,
           destinationPosition: const LatLng(59.3600, 18.0000),
@@ -280,6 +283,39 @@ void main() {
       expect(app.booked.all, hasLength(1));
       expect(app.booked.all.single.price, 209);
       expect(server.tripBodies, hasLength(1));
+      await close(tester);
+    },
+  );
+
+  testWidgets(
+    'R2: the re-price of a Book later pickup still called "Current location" '
+    'sends a dropped pin, never that label',
+    (tester) async {
+      final server = _Server();
+      final app = await pumpSelectRide(
+        tester,
+        server,
+        scheduledFor: tomorrow(),
+        pickupAddress: 'Current location',
+        pickupAlreadyConfirmed: true,
+      );
+      final before = server.quoteBodies.length;
+      server.extra = 500;
+      await tester.tap(find.text('Schedule Movera'));
+      await settle(tester, 40);
+      await tester.tap(find.byKey(const ValueKey('select-ride-price-accept')));
+      await settle(tester, 40);
+
+      expect(app.booked.all, hasLength(1));
+      final repriced = server.quoteBodies.skip(before).toList();
+      expect(repriced, isNotEmpty);
+      for (final body in server.quoteBodies) {
+        expect(jsonEncode(body['pickup']), isNot(contains('Current location')));
+      }
+      expect(
+        jsonEncode(server.tripBodies.single['pickup']),
+        isNot(contains('Current location')),
+      );
       await close(tester);
     },
   );

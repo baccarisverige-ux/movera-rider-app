@@ -188,7 +188,7 @@ extension _SelectRideQuotes on _SelectRideState {
           stops,
           widget.destinationPosition,
         ),
-        pickup: _pickupAddress,
+        pickup: _quotePickupLabel,
         destination: widget.destinationAddress,
         pickupPoint: _SelectRideState._geoPoint(_pickupPosition),
         destinationPoint: _SelectRideState._geoPoint(
