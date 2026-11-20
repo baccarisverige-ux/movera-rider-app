@@ -1,4 +1,5 @@
 import 'package:movera_rider/core/config/dont_match_again.dart';
+import 'package:movera_rider/features/driver_profile/data/driver_profile_data.dart';
 import 'package:movera_rider/core/config/emergency_numbers.dart';
 
 import 'dart:async';
@@ -195,6 +196,8 @@ class ApiRiderConfigRepository extends ChangeNotifier
       if (parsed == null) throw const FormatException('not a RiderAppConfig');
       // v0.18.43 §64 (fix job 10): the 1-star "don't match again" tick.
       DontMatchAgain.current = DontMatchAgain.fromJson(raw['dontMatchAgain']);
+      // v0.18.147: the zone's driver profile and written reviews switches.
+      DriverProfileSettings.current = DriverProfileSettings.fromJson(raw['driverProfile']);
       // v0.18.57 §79: the country's emergency numbers, kept offline.
       await EmergencyNumbers.accept(raw['emergencyNumbers']);
       // G7 live fix: the served document of the same version may differ

@@ -24,12 +24,14 @@ void main() {
   );
 
   test('the tag codes are contract.json#ratings.tags.aboutDriver', () {
+    // v0.18.147 (contract.json#driverProfile.compliments): six chips.
     expect(RatingTags.aboutDriver, [
-      'clean_car',
+      'great_service',
+      'knew_the_way',
       'friendly',
+      'clean_car',
       'safe_driving',
       'good_music',
-      'knew_the_way',
     ]);
   });
 
@@ -127,7 +129,7 @@ void main() {
     await tester.tap(fourth);
     await tester.pumpAndSettle();
     expect(find.text('Ren bil'), findsOneWidget);
-    expect(find.text('Hittade rätt'), findsOneWidget);
+    expect(find.text('Bra vägval'), findsOneWidget); // v0.18.147 owner words
     await tester.tap(find.byKey(const ValueKey('rating-tag-safe_driving')));
     await tester.tap(find.byKey(const ValueKey('rating-tag-clean_car')));
     await tester.pumpAndSettle();

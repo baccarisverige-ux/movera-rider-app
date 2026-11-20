@@ -314,6 +314,9 @@ class _RideCompletedState extends State<RideCompleted> {
             tipMinor: _tipMinor,
             tags: _feedback?.tags ?? const <String>[],
             comment: _feedback?.sentComment,
+            // v0.18.147: the short review, with the name choice.
+            review: _ratingSaved ? null : _feedback?.sentReview,
+            showFirstName: _feedback?.showFirstName ?? true,
             dontMatchAgain:
                 !_ratingSaved && (_feedback?.dontMatchAgain ?? false),
             idempotencyKey: _feedbackMutation.keyFor(feedbackIntent),
