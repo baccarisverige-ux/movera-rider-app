@@ -120,43 +120,8 @@ extension _SelectRideBookScheduled on _SelectRideState {
         // rider-r4-28: the stops the price was quoted for are booked too.
         final stops = await _routeStops();
         if (!mounted) return;
-        final Reservation? created;
-        try {
-          created = await ScheduledRideCheckout.run(
-            context,
-            reservations: _reservations,
-            selection: _selection,
-            pickup: ReservationPlace(
-              label: _pickupAddress,
-              lat: _pickupPosition.latitude,
-              lng: _pickupPosition.longitude,
-            ),
-            destination: ReservationPlace(
-              label: widget.destinationAddress,
-              lat: widget.destinationPosition.latitude,
-              lng: widget.destinationPosition.longitude,
-            ),
-            pickupPosition: _pickupPosition,
-            note: _driverNote(widget.note),
-            parentReservationId: widget.parentReservationId,
-            editingReservationId: widget.editingReservationId,
-            original: widget.editingReservationId == null
-                ? null
-                : _reservations.byId(widget.editingReservationId!),
-            // rider-63: the zone the time was picked in.
-            timeZone: _pickupSchedule.timeZone,
-            stops: [
-              for (final stop in stops)
-                ReservationPlace(
-                  label: stop.address,
-                  lat: stop.latitude,
-                  lng: stop.longitude,
-                ),
-            ],
-            // rider-r4-35: the quote ran out on Review changes.
-            requote: (reviewed) => _requoteReviewed(booked, reviewed),
-          );
-        } catch (error, stack) {
+        Reservation? created;
+        void failed(Object error, StackTrace stack) {
           final action = widget.editingReservationId == null
               ? ReservationAction.book
               : ReservationAction.edit;
@@ -168,7 +133,76 @@ extension _SelectRideBookScheduled on _SelectRideState {
           if (mounted) {
             MoveraToast.show(context, reservationErrorMessage(error, action));
           }
-          return;
+        }
+
+        var agreed = bookable.price;
+        for (var attempt = 0; ; attempt++) {
+          try {
+            created = await ScheduledRideCheckout.run(
+              context,
+              reservations: _reservations,
+              selection: _selection,
+              pickup: ReservationPlace(
+                label: _quotePickupLabel,
+                lat: _pickupPosition.latitude,
+                lng: _pickupPosition.longitude,
+              ),
+              destination: ReservationPlace(
+                label: widget.destinationAddress,
+                lat: widget.destinationPosition.latitude,
+                lng: widget.destinationPosition.longitude,
+              ),
+              pickupPosition: _pickupPosition,
+              note: _driverNote(widget.note),
+              parentReservationId: widget.parentReservationId,
+              editingReservationId: widget.editingReservationId,
+              original: widget.editingReservationId == null
+                  ? null
+                  : _reservations.byId(widget.editingReservationId!),
+              // rider-63: the zone the time was picked in.
+              timeZone: _pickupSchedule.timeZone,
+              stops: [
+                for (final stop in stops)
+                  ReservationPlace(
+                    label: stop.address,
+                    lat: stop.latitude,
+                    lng: stop.longitude,
+                  ),
+              ],
+              // rider-r4-35: the quote ran out on Review changes.
+              requote: (reviewed) => _requoteReviewed(booked, reviewed),
+            );
+            break;
+          } on ScheduledQuoteRequiredException catch (error, stack) {
+            // R2 (owner 2026-11-20): the server's price for the booked
+            // ride is not the one held here. Before, nothing was booked,
+            // the old price stayed and every retry failed the same way.
+            // Now the ride is priced again from the confirmed pickup, the
+            // rider agrees to a new price first, and it is booked.
+            if (!mounted) return;
+            final fresh = attempt == 0 ? await _repriceAtPickup(booked) : null;
+            if (!mounted) return;
+            if (fresh == null) {
+              failed(error, stack);
+              // The price that could not be booked does not stay.
+              unawaited(_loadQuotes());
+              return;
+            }
+            if (_selection.moneyOf(fresh.price) != _selection.moneyOf(agreed) &&
+                !await _acceptNewPrice(agreed, fresh.price)) {
+              if (!mounted) return;
+              // ignore: invalid_use_of_protected_member
+              setState(() {});
+              unawaited(_loadQuotes());
+              return;
+            }
+            if (!mounted) return;
+            if (_walletCannotPay(fresh.price)) return;
+            agreed = fresh.price;
+          } catch (error, stack) {
+            failed(error, stack);
+            return;
+          }
         }
         if (!mounted || created == null) return;
         final opener = widget.onScheduled;

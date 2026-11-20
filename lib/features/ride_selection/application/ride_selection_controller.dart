@@ -260,6 +260,63 @@ class RideSelectionController {
     return quotes;
   }
 
+  /// R1 (owner 2026-11-20): whether a server quote was priced as a booked
+  /// ride (`POST /quotes` kind scheduled: its reservation fee is in the
+  /// price) or as a ride now. Only quotes of movera-server are noted; any
+  /// other quote is taken as it is.
+  final Map<String, bool> _quotePricedAsBooked = {};
+
+  /// Whether the server prices by booking mode here (the contract wire).
+  bool get _pricesByMode {
+    final quotes = _quotes;
+    return quotes is ApiQuoteRepository && quotes.api.contractWire;
+  }
+
+  /// What a price must be for in the booking mode shown now: a booked
+  /// ride once its pickup time is picked, else a ride now.
+  bool get _pricedAsBooked => createsReservation && scheduledFor != null;
+
+  bool _bookingModeRequote = false;
+
+  /// Whether [id]'s quote is the price of the booking mode shown: a ride
+  /// now is never booked at a booked ride's price (its reservation fee),
+  /// nor a ride for later shown at the price of a ride now.
+  bool quoteIsForBookingMode(String id) {
+    final booked = _quotePricedAsBooked[id];
+    return booked == null || booked == _pricedAsBooked;
+  }
+
+  /// The booking mode changed since the list was priced: true once, and
+  /// the screen prices the list again.
+  bool takeBookingModeRequote() {
+    final due = _bookingModeRequote;
+    _bookingModeRequote = false;
+    return due;
+  }
+
+  /// The prices were asked as [before] (a booked ride or a ride now); when
+  /// the mode is the other one now, every price held or on its way is the
+  /// other mode's: it is no longer shown or booked, and the list is priced
+  /// again.
+  void _onPricingChanged(bool before) {
+    if (before == _pricedAsBooked || !_pricesByMode) return;
+    _quoteGeneration += 1;
+    _pinQuoteGeneration += 1;
+    for (final id in _quotePricedAsBooked.keys.toList()) {
+      if (quoteIsForBookingMode(id)) continue;
+      offeredPrices.remove(id);
+      quoteIds.remove(id);
+      quoteExpiresAt.remove(id);
+      authoritativeQuotes.remove(id);
+      _quotePickups.remove(id);
+      _quotePricedAsBooked.remove(id);
+      unavailableQuoteIds.add(id);
+      // As a quote that ran out: the list price is not this ride's fare.
+      _expiredQuoteIds.add(id);
+    }
+    _bookingModeRequote = true;
+  }
+
   List<RideCatalogItem> rides() {
     final all = _catalog?.current ?? _store.rides();
     if (notOfferedIds.isEmpty) return all;
@@ -589,6 +646,7 @@ class RideSelectionController {
       quoteExpiresAt.remove(id);
       authoritativeQuotes.remove(id);
       _quotePickups.remove(id);
+      _quotePricedAsBooked.remove(id);
     }
     final width = parallelism.clamp(1, catalog.length).toInt();
     _busyRound = false;
@@ -634,8 +692,11 @@ class RideSelectionController {
   }) async {
     if (generation != _quoteGeneration) return;
     try {
+      final server = _priceForMode(pickupPoint);
+      final asBooked =
+          server is ApiQuoteRepository && server.scheduledAt != null;
       final quote = await _withManagedTimeout(
-        (_priceForMode(pickupPoint) ?? _quotes).quote(
+        (server ?? _quotes).quote(
           rideType: rideId,
           distanceMeters: distanceMeters,
           pickup: pickup,
@@ -648,6 +709,7 @@ class RideSelectionController {
       );
       if (generation != _quoteGeneration) return;
       adoptQuote(rideId, quote, pickupPoint: pickupPoint);
+      if (_pricesByMode) _quotePricedAsBooked[rideId] = asBooked;
     } catch (error) {
       if (generation != _quoteGeneration) return;
       if (error is QuoteCategoryNotOffered) notOfferedIds.add(rideId);
@@ -671,6 +733,7 @@ class RideSelectionController {
       quoteExpiresAt.remove(rideId);
       authoritativeQuotes.remove(rideId);
       _quotePickups.remove(rideId);
+      _quotePricedAsBooked.remove(rideId);
       unavailableQuoteIds.add(rideId);
     }
   }
@@ -691,12 +754,18 @@ class RideSelectionController {
     GeoPoint? destinationPoint,
     List<RouteStop> stops = const <RouteStop>[],
     Duration timeout = PerformanceBudgets.quoteTimeout,
+    // R2: a price the server did not book at is never asked from the
+    // answers kept for a few seconds.
+    bool fresh = false,
   }) async {
     if (_disposed) return null;
     final generation = ++_pinQuoteGeneration;
     _quoteGeneration += 1;
+    final server = _priceForMode(pickupPoint);
+    if (fresh && server is ApiQuoteRepository) server.forgetAnswers();
+    final asBooked = server is ApiQuoteRepository && server.scheduledAt != null;
     final quote = await _withManagedTimeout(
-      (_priceForMode(pickupPoint) ?? _quotes).quote(
+      (server ?? _quotes).quote(
         rideType: rideId,
         distanceMeters: distanceMeters,
         pickup: pickup,
@@ -709,6 +778,7 @@ class RideSelectionController {
     );
     if (_disposed || generation != _pinQuoteGeneration) return null;
     adoptQuote(rideId, quote, pickupPoint: pickupPoint);
+    if (_pricesByMode) _quotePricedAsBooked[rideId] = asBooked;
     return quote;
   }
 
@@ -725,6 +795,7 @@ class RideSelectionController {
     quoteIds[rideId] = quote.id;
     quoteExpiresAt[rideId] = quote.expiresAt;
     authoritativeQuotes[rideId] = quote;
+    _quotePricedAsBooked.remove(rideId);
     if (pickupPoint == null) {
       _quotePickups.remove(rideId);
     } else {
@@ -733,6 +804,19 @@ class RideSelectionController {
     unavailableQuoteIds.remove(rideId);
     _expiredQuoteIds.remove(rideId);
     _failedQuoteIds.remove(rideId);
+  }
+
+  /// R3 (owner 2026-11-20): whether [quote] was asked under the pickup
+  /// address [label]. movera-server keeps a quote's pickup as the trip's
+  /// pickup, so the address a quote was asked under is the one the driver
+  /// sees. A quote this app holds no route for (the demo wire, another
+  /// repository) is booked with the address the booking sends: true.
+  bool quoteNamesPickup(RideQuote quote, String label) {
+    final route = ApiQuoteRepository.routeOf(quote.id);
+    if (route == null) return true;
+    // Compared as the app sends it (trimmed, at most 512 characters).
+    final asked = ApiQuoteRepository.contractPlace(0, 0, label)['address'];
+    return route.pickup['address'] == asked;
   }
 
   /// The pickup point each held quote was priced at, when known.
@@ -763,6 +847,7 @@ class RideSelectionController {
 
   bool quoteIsAvailable(String id, {DateTime? now}) {
     if (unavailableQuoteIds.contains(id)) return false;
+    if (!quoteIsForBookingMode(id)) return false;
     final quote = authoritativeQuotes[id];
     if (quote == null || !quote.bookable) {
       return false;
@@ -785,6 +870,7 @@ class RideSelectionController {
     quoteExpiresAt.remove(id);
     authoritativeQuotes.remove(id);
     _quotePickups.remove(id);
+    _quotePricedAsBooked.remove(id);
     unavailableQuoteIds.add(id);
     _expiredQuoteIds.add(id);
   }
@@ -956,19 +1042,23 @@ class RideSelectionController {
 
   void setBookingMode(BookingMode mode) {
     if (lockBookingMode && mode != BookingMode.scheduled) return;
+    final before = _pricedAsBooked;
     bookingMode = mode;
     if (mode == BookingMode.now) {
       scheduledFor = null;
     }
+    _onPricingChanged(before);
   }
 
   void scheduleFor(DateTime? at) {
+    final before = _pricedAsBooked;
     scheduledFor = at;
     if (at == null) {
       if (!lockBookingMode) bookingMode = BookingMode.now;
-      return;
+    } else {
+      bookingMode = BookingMode.scheduled;
     }
-    bookingMode = BookingMode.scheduled;
+    _onPricingChanged(before);
   }
 
   String? quoteIdFor(String id, {DateTime? now}) {

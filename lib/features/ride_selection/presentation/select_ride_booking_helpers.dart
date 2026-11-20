@@ -102,6 +102,11 @@ extension _SelectRideBookingHelpers on _SelectRideState {
         return paymentLine();
       },
       onRequote: (pin) => _requoteFromPin(ride, pin),
+      // The street under the pin from the geocoder this screen was given.
+      geocoding: switch (widget.geocoding) {
+        final AppGeocoding own => own,
+        _ => null,
+      },
       fareAfterPaymentChange: (fare) => SetPickupFare(
         totalKr: fare.totalKr,
         discountKr: fare.discountKr,
