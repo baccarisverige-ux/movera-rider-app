@@ -12,6 +12,8 @@ void main() {
     ContactKind kind,
     Map<String, dynamic> Function(String path) answer, {
     void Function()? saved,
+    Future<Map<String, Object>> Function(String app, String phone)?
+    deviceFields,
   }) async {
     final sent = <(String, Map<String, dynamic>)>[];
     await tester.pumpWidget(
@@ -26,6 +28,7 @@ void main() {
             return answer(path);
           },
           onSaved: () async => saved?.call(),
+          deviceFields: deviceFields,
         ),
       ),
     );
@@ -143,4 +146,56 @@ void main() {
       expect(find.text(text), findsOneWidget);
     });
   }
+
+  testWidgets(
+    'v0.18.138: a phone change sends installId + deviceCheck, bound to the '
+    'number as sent (spaces and dashes taken out); a failing check still sends',
+    (tester) async {
+      final bound = <String>[];
+      final sent = await open(
+        tester,
+        ContactKind.phone,
+        (path) => path.endsWith('/change')
+            ? {'sessionId': 'ses_1', 'retryAfterSeconds': 30}
+            : {'phone': '+46701740633'},
+        deviceFields: (app, phone) async {
+          bound.add('$app|$phone');
+          return {
+            'installId': 'install-000000000001',
+            'deviceCheck': {'platform': 'android', 'token': 't'},
+          };
+        },
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('contact-value')),
+        '+46 70-174 06 33',
+      );
+      await tester.tap(find.byKey(const ValueKey('contact-submit')));
+      await tester.pumpAndSettle();
+      expect(sent.single.$2, {
+        'phone': '+46701740633',
+        'installId': 'install-000000000001',
+        'deviceCheck': {'platform': 'android', 'token': 't'},
+      });
+      expect(bound, ['rider|+46701740633']);
+    },
+  );
+
+  testWidgets('v0.18.138: a throwing device check never stops the change', (
+    tester,
+  ) async {
+    final sent = await open(
+      tester,
+      ContactKind.phone,
+      (_) => {'sessionId': 'ses_1', 'retryAfterSeconds': 30},
+      deviceFields: (_, _) async => throw StateError('no play services'),
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('contact-value')),
+      '+46701740633',
+    );
+    await tester.tap(find.byKey(const ValueKey('contact-submit')));
+    await tester.pumpAndSettle();
+    expect(sent.single.$2, {'phone': '+46701740633'});
+  });
 }

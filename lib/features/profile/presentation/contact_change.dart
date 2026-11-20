@@ -134,18 +134,32 @@ class _ContactChangePageState extends State<ContactChangePage> {
     }
   }
 
+  /// The device fields, or none when they cannot be made (the server then
+  /// decides; a failure here must never stop the phone change).
+  Future<Map<String, Object>?> _deviceFields(String phone) async {
+    try {
+      return await widget.deviceFields?.call('rider', phone);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Contract v0.18.138 `deviceCheck.binding`: a number is sent (and bound
+  /// in the device check) as the server reads it, without spaces or dashes,
+  /// the same way sign-in sends it; an e-mail only trimmed.
+  String get _entered => _phone
+      ? _value.text.replaceAll(RegExp(r'[\s-]'), '').trim()
+      : _value.text.trim();
+
   Future<void> _send() => _run(() async {
-    final value = _value.text.trim();
+    final value = _entered;
     if (value.isEmpty) return;
     final answer = await widget.post(
       _phone ? '/api/v1/account/phone/change' : '/api/v1/account/email/change',
       // Contract v0.18.138 `deviceCheck.phoneChange`: a phone change sends a
       // real SMS too, so it carries the install id and the check.
       _phone
-          ? {
-              'phone': value,
-              ...?await widget.deviceFields?.call('rider', value),
-            }
+          ? {'phone': value, ...?await _deviceFields(value)}
           : {'email': value},
     );
     if (!mounted) return;
@@ -171,11 +185,7 @@ class _ContactChangePageState extends State<ContactChangePage> {
             ? '/api/v1/account/phone/verify'
             : '/api/v1/account/email/verify',
         _phone
-            ? {
-                'phone': _value.text.trim(),
-                'sessionId': challenge,
-                'code': code,
-              }
+            ? {'phone': _entered, 'sessionId': challenge, 'code': code}
             : {'challengeId': challenge, 'code': code},
       );
     } catch (_) {
