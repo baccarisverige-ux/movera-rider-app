@@ -1473,6 +1473,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'contactCodeSentTo': l.contactCodeSentTo('<email>'),
   'contactCodeNotSentYet': l.contactCodeNotSentYet,
   'contactEmailVerifiedDone': l.contactEmailVerifiedDone,
+  'sosNotSent': l.sosNotSent,
   'placeGym': l.placeGym,
   'placeMall': l.placeMall,
   'placeSchool': l.placeSchool,
@@ -4971,6 +4972,8 @@ class _Exhaustive implements AppLocalizations {
   String get contactCodeNotSentYet => '';
   @override
   String get contactEmailVerifiedDone => '';
+  @override
+  String get sosNotSent => '';
   @override
   String get placeGym => '';
   @override
