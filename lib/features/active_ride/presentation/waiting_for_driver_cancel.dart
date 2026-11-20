@@ -16,8 +16,9 @@ extension _WaitingCancel on _WaitingForDriverState {
         ),
       );
     // v0.18.136 stripeFees (DRAFT): offer to pay the fee by card now.
-    if (text != L10n.current.cancelledNoFee)
+    if (text != L10n.current.cancelledNoFee) {
       unawaited(offerFeePayAfterCancel(messenger, text));
+    }
   }
 
   Future<void> _confirmCancel() async {
