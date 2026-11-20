@@ -49,7 +49,45 @@ class ApiRideRealtime implements RideRealtime {
   }) : _api = api,
        connection = connection ?? RealtimeConnection(),
        followStream = followStream ?? api.contractWire,
-       _clock = clock ?? WireTime.now;
+       _clock = clock ?? WireTime.now {
+    _live.add(this);
+  }
+
+  /// Audit app-lifecycle 2026-11-20 P8: while the app is in the background
+  /// the poll (it runs only while the trip stream is down, or on a wire
+  /// without a stream) slows to this pace; pushes are not touched. Resume
+  /// reads the trip at once and goes back to [pollInterval].
+  static const backgroundPollInterval = Duration(minutes: 1);
+
+  static final Set<ApiRideRealtime> _live = {};
+
+  /// Told by the app lifecycle: true on hidden / paused, false on resumed.
+  static void setAppInBackground(bool background) {
+    _appInBackground = background;
+    for (final rt in _live.toList()) {
+      rt._setBackground(background);
+    }
+  }
+
+  /// The last state told, so an instance made while away starts slow.
+  static bool _appInBackground = false;
+
+  bool _background = _appInBackground;
+
+  Duration get _pollPace => _background && backgroundPollInterval > pollInterval
+      ? backgroundPollInterval
+      : pollInterval;
+
+  void _setBackground(bool background) {
+    if (_disposed || _background == background) return;
+    _background = background;
+    for (final poll in _rides.values.toList()) {
+      if (poll.timer == null) continue;
+      _stopPolling(poll);
+      _startPolling(poll);
+      if (!background) unawaited(_poll(poll, force: true));
+    }
+  }
 
   /// `pickupWaiting.follow.pollSeconds` / `minPollSeconds`.
   static const defaultPollInterval = Duration(seconds: 10);
@@ -180,7 +218,7 @@ class ApiRideRealtime implements RideRealtime {
   }
 
   void _startPolling(_RidePoll poll) {
-    poll.timer ??= Timer.periodic(pollInterval, (_) => unawaited(_poll(poll)));
+    poll.timer ??= Timer.periodic(_pollPace, (_) => unawaited(_poll(poll)));
   }
 
   void _stopPolling(_RidePoll poll) {
@@ -1037,6 +1075,7 @@ class ApiRideRealtime implements RideRealtime {
   @override
   void dispose() {
     _disposed = true;
+    _live.remove(this);
     cancelRide();
   }
 }

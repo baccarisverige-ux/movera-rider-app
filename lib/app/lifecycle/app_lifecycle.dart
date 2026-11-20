@@ -5,6 +5,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/config/api_rider_config_repository.dart';
 import 'package:movera_rider/core/config/rider_zones_controller.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
 import 'package:movera_rider/core/web/rider_map_bridge.dart';
 import 'package:movera_rider/core/web/web_gpu.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
@@ -46,6 +47,8 @@ class AppLifecycleObserver with WidgetsBindingObserver {
     );
     switch (state) {
       case AppLifecycleState.resumed:
+        // Audit P8: the trip poll is back to its normal pace, read now.
+        ApiRideRealtime.setAppInBackground(false);
         RideSnapshotStore.read().then((snapshot) {
           AppLog.info(
             'app.resume.refresh',
@@ -76,6 +79,8 @@ class AppLifecycleObserver with WidgetsBindingObserver {
         // running then. Hidden / paused / detached stop it.
         if (state != AppLifecycleState.inactive) {
           RiderTripWatch.instance.stop();
+          // Audit P8: the trip poll slows down while the app is away.
+          ApiRideRealtime.setAppInBackground(true);
         }
         RideSnapshotStore.touchCurrent().catchError((Object error) {
           AppLog.error(
