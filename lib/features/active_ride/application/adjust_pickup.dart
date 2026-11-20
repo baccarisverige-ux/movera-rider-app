@@ -29,7 +29,8 @@ abstract final class AdjustPickup {
     GeoPoint? bookedPickup,
     int? maxMoveMeters,
   }) {
-    if (!gps.isValid || !pickup.isValid) return null;
+    // 0 m = the banner is off in the zone (admin).
+    if (thresholdMeters <= 0 || !gps.isValid || !pickup.isValid) return null;
     if (accuracyMeters != null && accuracyMeters > maxAccuracyMeters) {
       return null;
     }

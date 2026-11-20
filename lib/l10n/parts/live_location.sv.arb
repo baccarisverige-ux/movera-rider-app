@@ -4,6 +4,6 @@
   "liveAdjustPickupButton": "Justera upphämtning",
   "liveAdjustPickupDone": "Upphämtningen flyttad till din plats",
   "liveShareSwitch": "Dela min plats",
-  "liveRiderShareBody": "{driver} ser exakt var du är. Slutar när resan är slut.",
-  "livePrivacyNote": "Din plats skickas bara till din förare under den här resan och sparas inte."
+  "liveRiderShareBody": "{driver} ser exakt var du är. Slutar vid upphämtningen.",
+  "livePrivacyNote": "Din plats skickas bara till din förare fram till upphämtningen och sparas inte."
 }

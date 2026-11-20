@@ -430,9 +430,8 @@ extension _SelectRideTiles on _SelectRideState {
                 boxShadow: selected
                     ? [
                         BoxShadow(
-                          color: const Color(
-                            0xFF162C36,
-                          ).withValues(alpha: 0.06),
+                          color: const Color(0xFF162C36)
+                              .withValues(alpha: 0.06),
                           blurRadius: 16,
                           offset: const Offset(0, 6),
                         ),

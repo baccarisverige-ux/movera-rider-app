@@ -1,7 +1,8 @@
 part of 'waiting_for_driver.dart';
 
 /// Contract v0.18.144 (owner 2026-11-20; approved mockup screens 6 + 7):
-/// while the driver comes, the adjust-pickup banner (only within the trip's
+/// while the driver comes, the adjust-pickup banner (not once he has
+/// arrived: [_pickupEditable]; only within the trip's
 /// `maxPickupMoveMeters`, the existing `PATCH { pickup }`) and the rider's
 /// "Share my location" switch.
 extension _WaitingLocation on _WaitingForDriverState {
@@ -26,6 +27,8 @@ extension _WaitingLocation on _WaitingForDriverState {
       settings: _zoneConfig?.liveLocation ?? const LiveLocationSettings(),
       api: AppScope.instance.api,
       onAdjust: _adjustPickupTo,
+      // Contract: no banner once the driver has arrived (pickup fixed).
+      bannerAllowed: _pickupEditable,
     );
   }
 

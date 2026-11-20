@@ -417,9 +417,8 @@ class ApiReservationRepository
       cancellationFee: cancelFee,
       timeZone: draft?.timeZone,
       // v0.18.92 (BQ-M22): the server's cancel preview of the booked ride.
-      cancelPreview: CancelPreview.fromWire(
-        trip['cancelPreview'],
-      )?.onDevice(ServerClock.toDevice),
+      cancelPreview: CancelPreview.fromWire(trip['cancelPreview'])
+          ?.onDevice(ServerClock.toDevice),
     );
   }
 }

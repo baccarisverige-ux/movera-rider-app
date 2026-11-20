@@ -58,7 +58,12 @@ class RideLocationTools extends StatefulWidget {
     this.maxMoveMeters,
     this.driverName,
     this.fix = currentRideFix,
+    this.bannerAllowed = true,
   });
+
+  /// False where the pickup cannot move now (the driver has arrived):
+  /// no banner (contract: not at arrived).
+  final bool bannerAllowed;
 
   final String? tripId;
   final AdjustPickupPhase phase;
@@ -95,16 +100,45 @@ class RideLocationToolsState extends State<RideLocationTools> {
 
   Duration get _every => Duration(seconds: widget.settings.sendEverySeconds);
 
+  /// Whether the banner can show at all (0 m = off in the zone).
+  bool get _bannerPossible =>
+      widget.bannerAllowed && widget.settings.adjustPickupMeters > 0;
+
+  /// Battery: the GPS is read every [_every] while sharing (the sender
+  /// reuses that one fix), every 30 s while only the banner can show, and
+  /// not at all when neither can.
+  Duration? get _readEvery => _sharing
+      ? _every
+      : _bannerPossible
+      ? bannerReadEvery
+      : null;
+
+  @visibleForTesting
+  static const bannerReadEvery = Duration(seconds: 30);
+
+  Duration? _armedFor;
+
+  void _arm() {
+    final every = _readEvery;
+    if (every == _armedFor && (_timer != null || every == null)) return;
+    _timer?.cancel();
+    _timer = null;
+    _armedFor = every;
+    if (every == null) return;
+    unawaited(_read());
+    _timer = Timer.periodic(every, (_) => unawaited(_read()));
+  }
+
   @override
   void initState() {
     super.initState();
-    unawaited(_read());
-    _timer = Timer.periodic(_every, (_) => unawaited(_read()));
+    _arm();
   }
 
   @override
   void didUpdateWidget(covariant RideLocationTools oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _arm();
     // Sharing is only while the driver comes (accept until pickup).
     if (widget.phase != AdjustPickupPhase.driverComing && _sharing) {
       unawaited(_setSharing(false));
@@ -127,7 +161,9 @@ class RideLocationToolsState extends State<RideLocationTools> {
 
   int? get _meters {
     final fix = _fix;
-    if (fix == null || _closedFor == _pickupKey) return null;
+    if (fix == null || !_bannerPossible || _closedFor == _pickupKey) {
+      return null;
+    }
     return AdjustPickup.metersToShow(
       phase: widget.phase,
       gps: fix.point,
@@ -166,13 +202,14 @@ class RideLocationToolsState extends State<RideLocationTools> {
         api: widget.api,
         tripId: id,
         every: _every,
-        position: () async => (await widget.fix())?.point,
+        position: () async => _fix?.point,
         onStopped: (why) {
           if (!mounted) return;
           setState(() {
             _sharing = false;
             if (why == LiveShareStop.zoneOff) _zoneOff = true;
           });
+          _arm();
         },
       )..start();
     } else {
@@ -181,6 +218,7 @@ class RideLocationToolsState extends State<RideLocationTools> {
       await sender?.stop();
     }
     if (mounted) setState(() => _sharing = on);
+    _arm();
   }
 
   @override

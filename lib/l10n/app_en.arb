@@ -1633,7 +1633,7 @@
   "@liveShareSwitch": {
     "description": "Share my location switch (v0.18.144)."
   },
-  "liveRiderShareBody": "{driver} sees exactly where you are. Stops when the ride ends.",
+  "liveRiderShareBody": "{driver} sees exactly where you are. Stops at pickup.",
   "@liveRiderShareBody": {
     "description": "Under the switch: the driver name (v0.18.144).",
     "placeholders": {
@@ -1642,7 +1642,7 @@
       }
     }
   },
-  "livePrivacyNote": "Your live location is sent only to your driver during this ride and is not saved.",
+  "livePrivacyNote": "Your live location is sent only to your driver until pickup and is not saved.",
   "@livePrivacyNote": {
     "description": "Consent / privacy line under the switch (v0.18.144, owner + legal OK pending)."
   },

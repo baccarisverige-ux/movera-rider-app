@@ -805,7 +805,7 @@ class TipRules {
 /// Contract v0.18.144 `RiderAppConfig.liveLocation { share,
 /// adjustPickupMeters, sendEverySeconds }` (`contract.json#liveLocation.
 /// setting`). Missing or a bad value = the default (off, 30 m, 8 s), as the
-/// server serves it.
+/// server serves it. adjustPickupMeters 0 = the banner is off.
 class LiveLocationSettings {
   const LiveLocationSettings({
     this.share = false,
@@ -824,7 +824,8 @@ class LiveLocationSettings {
     final every = raw['sendEverySeconds'];
     return LiveLocationSettings(
       share: share is bool ? share : false,
-      adjustPickupMeters: meters is int && meters >= 10 && meters <= 500
+      adjustPickupMeters:
+          meters is int && (meters == 0 || (meters >= 10 && meters <= 500))
           ? meters
           : 30,
       sendEverySeconds: every is int && every >= 5 && every <= 10 ? every : 8,

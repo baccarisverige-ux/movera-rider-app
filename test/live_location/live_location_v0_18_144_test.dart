@@ -147,60 +147,57 @@ void main() {
   });
 
   group('sender', () {
-    test(
-      'PUT live-location with the point; stop sends sharing false once; 409 live_location_off stops',
-      () async {
-        final bodies = <Map<String, Object?>>[];
-        var refuse = false;
-        final api = ApiClient(
-          env: live,
-          client: MockClient((request) async {
-            expect(request.method, 'PUT');
-            expect(request.url.path, '/api/v1/trips/trp_1/live-location');
-            bodies.add(
-              Map<String, Object?>.from(jsonDecode(request.body) as Map),
-            );
-            if (refuse) {
-              return http.Response(
-                jsonEncode({
-                  'code': 'conflict',
-                  'message': 'off',
-                  'reason': 'live_location_off',
-                }),
-                409,
-              );
-            }
+    test('PUT live-location with the point; stop sends sharing false once; 409 live_location_off stops', () async {
+      final bodies = <Map<String, Object?>>[];
+      var refuse = false;
+      final api = ApiClient(
+        env: live,
+        client: MockClient((request) async {
+          expect(request.method, 'PUT');
+          expect(request.url.path, '/api/v1/trips/trp_1/live-location');
+          bodies.add(
+            Map<String, Object?>.from(jsonDecode(request.body) as Map),
+          );
+          if (refuse) {
             return http.Response(
-              jsonEncode({'sharing': true, 'sendEverySeconds': 8}),
-              200,
+              jsonEncode({
+                'code': 'conflict',
+                'message': 'off',
+                'reason': 'live_location_off',
+              }),
+              409,
             );
-          }),
-        );
-        LiveShareStop? stopped;
-        final sender = LiveLocationSender(
-          api: api,
-          tripId: 'trp_1',
-          position: () async => away,
-          every: const Duration(hours: 1),
-          onStopped: (why) => stopped = why,
-        );
-        sender.start();
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-        expect(bodies.single, {
-          'sharing': true,
-          'lat': away.latitude,
-          'lng': away.longitude,
-        });
-        await sender.stop();
-        expect(bodies.last, {'sharing': false});
-        expect(sender.running, isFalse);
-        refuse = true;
-        sender.start();
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-        expect(stopped, LiveShareStop.zoneOff);
-        expect(sender.running, isFalse);
-      },
-    );
+          }
+          return http.Response(
+            jsonEncode({'sharing': true, 'sendEverySeconds': 8}),
+            200,
+          );
+        }),
+      );
+      LiveShareStop? stopped;
+      final sender = LiveLocationSender(
+        api: api,
+        tripId: 'trp_1',
+        position: () async => away,
+        every: const Duration(hours: 1),
+        onStopped: (why) => stopped = why,
+      );
+      sender.start();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(bodies.single, {
+        'sharing': true,
+        'lat': away.latitude,
+        'lng': away.longitude,
+      });
+      await sender.stop();
+      expect(bodies.last, {'sharing': false});
+      expect(sender.running, isFalse);
+      refuse = true;
+      sender.start();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(stopped, LiveShareStop.zoneOff);
+      expect(sender.running, isFalse);
+    });
   });
 
   group('widget', () {
@@ -210,6 +207,8 @@ void main() {
       required AdjustPickupPhase phase,
       required Future<bool> Function(GeoPoint) onAdjust,
       ApiClient? api,
+      bool bannerAllowed = true,
+      void Function()? onFix,
     }) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -231,7 +230,11 @@ void main() {
                     client: MockClient((_) async => http.Response('{}', 200)),
                   ),
               onAdjust: onAdjust,
-              fix: () async => (point: away, accuracyMeters: 5.0),
+              fix: () async {
+                onFix?.call();
+                return (point: away, accuracyMeters: 5.0);
+              },
+              bannerAllowed: bannerAllowed,
             ),
           ),
         ),
@@ -283,14 +286,12 @@ void main() {
         );
         expect(find.text('Share my location'), findsOneWidget);
         expect(
-          find.text(
-            'Ali sees exactly where you are. Stops when the ride ends.',
-          ),
+          find.text('Ali sees exactly where you are. Stops at pickup.'),
           findsOneWidget,
         );
         expect(
           find.text(
-            'Your live location is sent only to your driver during this ride and is not saved.',
+            'Your live location is sent only to your driver until pickup and is not saved.',
           ),
           findsOneWidget,
         );
@@ -309,6 +310,62 @@ void main() {
       expect(find.byKey(const Key('share-location-card')), findsNothing);
       expect(find.byKey(const Key('adjust-pickup-banner')), findsOneWidget);
       unawaited(Future<void>.value());
+    });
+
+    testWidgets('driver arrived (pickup not editable): no banner', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        settings: const LiveLocationSettings(),
+        phase: AdjustPickupPhase.driverComing,
+        bannerAllowed: false,
+        onAdjust: (_) async => false,
+      );
+      expect(find.byKey(const Key('adjust-pickup-banner')), findsNothing);
+    });
+
+    testWidgets(
+      '0 m = banner off; with sharing off too the GPS is not read at all',
+      (tester) async {
+        var reads = 0;
+        await pump(
+          tester,
+          settings: const LiveLocationSettings(adjustPickupMeters: 0),
+          phase: AdjustPickupPhase.driverComing,
+          onAdjust: (_) async => false,
+          onFix: () => reads++,
+        );
+        await tester.pump(const Duration(minutes: 2));
+        expect(find.byKey(const Key('adjust-pickup-banner')), findsNothing);
+        expect(reads, 0);
+        expect(
+          LiveLocationSettings.fromWire({'adjustPickupMeters': 0})
+              .adjustPickupMeters,
+          0,
+        );
+        expect(
+          LiveLocationSettings.fromWire({'adjustPickupMeters': 5})
+              .adjustPickupMeters,
+          30,
+        );
+      },
+    );
+
+    testWidgets('banner only: the GPS is read every 30 s, not every 8 s', (
+      tester,
+    ) async {
+      var reads = 0;
+      await pump(
+        tester,
+        settings: const LiveLocationSettings(),
+        phase: AdjustPickupPhase.searching,
+        onAdjust: (_) async => false,
+        onFix: () => reads++,
+      );
+      final first = reads;
+      await tester.pump(const Duration(seconds: 61));
+      expect(reads - first, 2);
     });
   });
 }

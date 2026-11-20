@@ -88,9 +88,8 @@ class PromotionDetailsSheet extends StatelessWidget {
     final code = currency ?? (await currentRiderZone()).currency;
     Money? cap;
     try {
-      cap = (await AppScope.instance.riderConfig.forTrip(
-        currency: code,
-      ))?.promoCap;
+      cap = (await AppScope.instance.riderConfig.forTrip(currency: code))
+          ?.promoCap;
     } catch (_) {
       cap = null;
     }

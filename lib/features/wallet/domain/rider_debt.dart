@@ -32,9 +32,8 @@ abstract final class RiderDebtRefusal {
   /// `<key>:<minor> <CUR>` in [details], e.g. `debt:24000 SEK`.
   static Money? _detail(List<String>? details, String key) {
     for (final item in details ?? const <String>[]) {
-      final match = RegExp(
-        '^$key:\\s*(-?\\d+)\\s+([A-Z]{3})\\s*\$',
-      ).firstMatch(item.trim());
+      final match = RegExp('^$key:\\s*(-?\\d+)\\s+([A-Z]{3})\\s*\$')
+          .firstMatch(item.trim());
       if (match == null) continue;
       return Money(int.parse(match.group(1)!), match.group(2)!);
     }
