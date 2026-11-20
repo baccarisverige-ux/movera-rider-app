@@ -152,6 +152,37 @@ extension _SelectRideQuotes on _SelectRideState {
     return _bookableQuote(ride.id);
   }
 
+  /// R2: a new server price for [ride] from the confirmed pickup, whatever
+  /// quote is held (the server did not book at that one). Null when no
+  /// price can be had.
+  Future<({RideQuote quote, double price})?> _repriceAtPickup(
+    _RideOption ride,
+  ) async {
+    try {
+      final stops = await _routeStops();
+      await _selection.quoteFromPin(
+        stops: stops,
+        rideId: ride.id,
+        distanceMeters: tripStraightMeters(
+          _pickupPosition,
+          stops,
+          widget.destinationPosition,
+        ),
+        pickup: _pickupAddress,
+        destination: widget.destinationAddress,
+        pickupPoint: _SelectRideState._geoPoint(_pickupPosition),
+        destinationPoint: _SelectRideState._geoPoint(
+          widget.destinationPosition,
+        ),
+        fresh: true,
+      );
+    } catch (_) {
+      return null;
+    }
+    if (!mounted) return null;
+    return _bookableQuote(ride.id);
+  }
+
   /// The price to book differs from the one Set pickup showed: the rider
   /// agrees to the new one first.
   Future<bool> _acceptNewPrice(double shown, double next) async {

@@ -264,6 +264,10 @@ class ApiQuoteRepository implements QuoteRepository {
     }
   }
 
+  /// R2: the next price is asked from the server, never taken from an
+  /// answer of the last [batchReuse] (the server did not book at it).
+  void forgetAnswers() => _batches.clear();
+
   _QuoteBatch _batchFor(String key, Map<String, dynamic> body) {
     final now = _clock();
     _batches.removeWhere((_, batch) => now.difference(batch.at) > batchReuse);

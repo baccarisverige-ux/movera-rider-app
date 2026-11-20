@@ -47,6 +47,7 @@ import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/domain/reservation_errors.dart';
 import 'package:movera_rider/features/reservations/application/scheduled_ride_checkout.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/application/nearby_cars_controller.dart';
@@ -386,6 +387,8 @@ class _SelectRideState extends State<SelectRide>
     } else if (widget.bookingMode == BookingMode.scheduled) {
       _selection.setBookingMode(BookingMode.scheduled);
     }
+    // The first prices are asked for this mode just below.
+    _selection.takeBookingModeRequote();
     _loadQuotes();
     unawaited(_loadRoutePins());
     unawaited(_loadWalletBalance());
@@ -885,7 +888,18 @@ class _SelectRideState extends State<SelectRide>
       // Only the time here; the pickup is set once, on Set pickup after
       // Schedule.
       setState(() => _selection.scheduleFor(when));
+      // R1: inside a booking the lock's release prices the list again.
+      if (!_bookingInFlight) _requoteForBookingMode();
     });
+  }
+
+  /// R1 (owner 2026-11-20): Book now / Book for later or the picked time
+  /// changed: the list is priced again by the server for that mode, so a
+  /// ride for later shows what it is booked at (its reservation fee
+  /// included) before the rider books, never the price of a ride now.
+  void _requoteForBookingMode() {
+    if (!_selection.takeBookingModeRequote()) return;
+    unawaited(_loadQuotes());
   }
 
   Future<void> _showBookingPicker() async {
@@ -933,6 +947,7 @@ class _SelectRideState extends State<SelectRide>
                   selected: _selection.bookingMode == BookingMode.now,
                   onTap: () {
                     setState(() => _selection.setBookingMode(BookingMode.now));
+                    _requoteForBookingMode();
                     Navigator.pop(sheetContext);
                   },
                 ),
@@ -1078,6 +1093,8 @@ class _SelectRideState extends State<SelectRide>
     _preferredHidden = false;
     if (!mounted) return;
     setState(() {});
+    // R1: the time was picked or changed inside the booking.
+    if (_selection.takeBookingModeRequote()) _catalogRequoteDeferred = true;
     if (_catalogRequoteDeferred) {
       _catalogRequoteDeferred = false;
       unawaited(_loadQuotes());
