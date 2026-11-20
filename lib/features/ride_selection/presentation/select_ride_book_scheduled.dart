@@ -143,7 +143,7 @@ extension _SelectRideBookScheduled on _SelectRideState {
               reservations: _reservations,
               selection: _selection,
               pickup: ReservationPlace(
-                label: _pickupAddress,
+                label: _quotePickupLabel,
                 lat: _pickupPosition.latitude,
                 lng: _pickupPosition.longitude,
               ),
