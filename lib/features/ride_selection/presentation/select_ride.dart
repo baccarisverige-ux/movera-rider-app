@@ -224,12 +224,10 @@ class SelectRide extends StatefulWidget {
   /// Looks the stops up; defaults to the app's geocoder.
   final GeocodingRepository? geocoding;
 
-  /// The free cars drawn around the pickup (contract v0.5.2 §13); defaults
-  /// to the server's `GET /rider/nearby-vehicles`.
+  /// Free cars around the pickup (§13); default `GET /rider/nearby-vehicles`.
   final NearbyCarsSource? nearbyCars;
 
-  /// The rider's live trip on the server; defaults to the app's
-  /// `GET /rider/trips/active`.
+  /// The rider's live trip; defaults to `GET /rider/trips/active`.
   final ActiveTripRepository? activeTrips;
 
   @override
@@ -387,7 +385,6 @@ class _SelectRideState extends State<SelectRide>
     } else if (widget.bookingMode == BookingMode.scheduled) {
       _selection.setBookingMode(BookingMode.scheduled);
     }
-    // The first prices are asked for this mode just below.
     _selection.takeBookingModeRequote();
     _loadQuotes();
     unawaited(_loadRoutePins());
@@ -888,15 +885,11 @@ class _SelectRideState extends State<SelectRide>
       // Only the time here; the pickup is set once, on Set pickup after
       // Schedule.
       setState(() => _selection.scheduleFor(when));
-      // R1: inside a booking the lock's release prices the list again.
       if (!_bookingInFlight) _requoteForBookingMode();
     });
   }
 
-  /// R1 (owner 2026-11-20): Book now / Book for later or the picked time
-  /// changed: the list is priced again by the server for that mode, so a
-  /// ride for later shows what it is booked at (its reservation fee
-  /// included) before the rider books, never the price of a ride now.
+  /// R1: mode or time changed: the server prices the list for that mode.
   void _requoteForBookingMode() {
     if (!_selection.takeBookingModeRequote()) return;
     unawaited(_loadQuotes());
@@ -1093,7 +1086,6 @@ class _SelectRideState extends State<SelectRide>
     _preferredHidden = false;
     if (!mounted) return;
     setState(() {});
-    // R1: the time was picked or changed inside the booking.
     if (_selection.takeBookingModeRequote()) _catalogRequoteDeferred = true;
     if (_catalogRequoteDeferred) {
       _catalogRequoteDeferred = false;
