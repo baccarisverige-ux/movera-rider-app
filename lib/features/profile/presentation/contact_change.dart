@@ -110,6 +110,9 @@ class _ContactChangePageState extends State<ContactChangePage> {
           return l10n.contactReauthRequired;
         case 'change_too_many':
           return l10n.contactChangeTooMany;
+        // Contract v0.18.138 deviceCheck.phoneChange: no SMS was sent.
+        case 'device_check_failed':
+          return l10n.authErrDeviceCheckFailed;
       }
     }
     if (riderErrorKind(error) == RiderErrorKind.offline) return l10n.errOffline;

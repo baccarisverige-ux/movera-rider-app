@@ -116,6 +116,12 @@ void main() {
       'Sign in again first, then change your number/e-mail',
     ),
     (429, 'change_too_many', 'Too many changes — try again in an hour'),
+    // v0.18.138 deviceCheck.phoneChange: the real-phone check failed.
+    (
+      403,
+      'device_check_failed',
+      'This phone could not be checked. Install the app from the official store and try again.',
+    ),
   ]) {
     testWidgets('$status $reason has its own message', (tester) async {
       await open(
