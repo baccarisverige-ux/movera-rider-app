@@ -141,6 +141,7 @@
   "appVersionLine": "Version {version} ({build})",
   "appVersionOnly": "Version {version}",
   "deleteOpenTrip": "Terminez ou annulez d’abord votre course, puis supprimez votre compte.",
+  "accountClosed": "Ce compte est fermé et en cours de suppression. Il ne permet plus de se connecter.",
   "@@locale": "fr",
   "appTitle": "Movera",
   "previewBanner": "Aperçu",

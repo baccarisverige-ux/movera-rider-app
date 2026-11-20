@@ -97,6 +97,9 @@ String authErrorMessage(Object error, AuthAction action, {String? provider}) {
       // account_suspended) is told plainly, not "could not check the code".
       case 'account_suspended':
         return L10n.current.accountSuspended;
+      // v0.18.140 (contract.json#accountDeletion.closeAtOnce).
+      case 'account_closed':
+        return L10n.current.accountClosed;
     }
   }
   return switch (action) {

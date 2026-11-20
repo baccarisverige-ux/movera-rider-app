@@ -266,5 +266,9 @@
   "deleteOpenTrip": "Finish or cancel your ride first, then delete your account.",
   "@deleteOpenTrip": {
     "description": "v0.18.140 (contract.json#accountDeletion.refused): 409 deletion_open_trip on Delete account."
+  },
+  "accountClosed": "This account is closed and is being deleted. It can't be used to sign in.",
+  "@accountClosed": {
+    "description": "v0.18.140 (contract.json#accountDeletion.closeAtOnce): sign-in answered 403 account_closed."
   }
 }
