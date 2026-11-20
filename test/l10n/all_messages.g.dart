@@ -375,6 +375,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'newRoute': l.newRoute,
   'newPrice': l.newPrice,
   'confirmChange': l.confirmChange,
+  'priceChangedTitle': l.priceChangedTitle,
+  'confirmNewPrice': l.confirmNewPrice,
   'confirmNextPayment': l.confirmNextPayment,
   'confirmPayment': l.confirmPayment,
   'chooseRefund': l.chooseRefund,
@@ -2775,6 +2777,10 @@ class _Exhaustive implements AppLocalizations {
   String get newPrice => '';
   @override
   String get confirmChange => '';
+  @override
+  String get priceChangedTitle => '';
+  @override
+  String get confirmNewPrice => '';
   @override
   String get confirmNextPayment => '';
   @override

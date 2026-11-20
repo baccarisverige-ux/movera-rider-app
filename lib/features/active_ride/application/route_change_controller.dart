@@ -213,6 +213,16 @@ class RouteChangeController {
   /// True when this controller speaks the contract (v0.18.9) wire.
   bool get contractWire => _api.contractWire;
 
+  /// v0.18.143: [to] is another pickup than [ride]'s (more than 1 m).
+  static bool pickupMoved(RideSnapshot ride, GeoPoint to) =>
+      GeoDistance.metersBetween(
+        ride.pickupLat,
+        ride.pickupLng,
+        to.latitude,
+        to.longitude,
+      ) >
+      1;
+
   /// The ride as last saved on this device, if any.
   static Future<RideSnapshot?> storedRide() => RideSnapshotStore.read();
 
@@ -293,6 +303,9 @@ class RouteChangeController {
       return _contractQuote(
         ride: ride,
         id: id,
+        // v0.18.143 (whileSearching): a moved pickup goes with the price;
+        // the server takes it only while the ride is searched.
+        pickup: pickupMoved(ride, pickupAt) ? (pickup, pickupAt) : null,
         destination: destination,
         destinationAt: destinationAt,
         stops: located,
@@ -348,6 +361,7 @@ class RouteChangeController {
   Future<RouteChangeQuote> _contractQuote({
     required RideSnapshot ride,
     required String id,
+    (String, GeoPoint)? pickup,
     required String destination,
     required GeoPoint destinationAt,
     required List<RouteStop> stops,
@@ -358,6 +372,12 @@ class RouteChangeController {
         '/api/v1/trips/${Uri.encodeComponent(id)}/route-quote',
         body: {
           'expectedVersion': ?version,
+          if (pickup != null)
+            'pickup': {
+              'lat': pickup.$2.latitude,
+              'lng': pickup.$2.longitude,
+              'address': pickup.$1,
+            },
           'dropoff': {
             'lat': destinationAt.latitude,
             'lng': destinationAt.longitude,
@@ -380,8 +400,8 @@ class RouteChangeController {
         : null;
     final quoteId = response['routeQuoteId'];
     return RouteChangeQuote(
-      pickupAddress: ride.pickupAddress,
-      pickupPoint: GeoPoint(ride.pickupLat, ride.pickupLng),
+      pickupAddress: pickup?.$1 ?? ride.pickupAddress,
+      pickupPoint: pickup?.$2 ?? GeoPoint(ride.pickupLat, ride.pickupLng),
       destinationAddress: destination,
       destinationPoint: destinationAt,
       stops: stops,
@@ -441,6 +461,23 @@ class RouteChangeController {
     return TripRouteChange.fromWire(response['routeChange']);
   }
 
+  /// v0.18.143 (whileSearching.smallMove): the saved ride after the
+  /// same-price pickup move ([address] at [point]).
+  static Future<RideSnapshot> adoptMovedPickup(
+    RideSnapshot ride,
+    String address,
+    GeoPoint point,
+  ) async {
+    final updated = ride.copyWith(
+      savedAt: DateTime.now(),
+      pickupAddress: address,
+      pickupLat: point.latitude,
+      pickupLng: point.longitude,
+    );
+    await RideSnapshotStore.save(updated);
+    return updated;
+  }
+
   /// The saved ride once the driver accepted [change]: its drop-off, stops
   /// and new total.
   static Future<RideSnapshot> adoptAccepted(
@@ -449,8 +486,14 @@ class RouteChangeController {
   ) async {
     final drop = change.dropoff;
     final total = change.total;
+    // v0.18.143 (whileSearching): a change made while searching moves the
+    // pickup too.
+    final pickup = change.pickup;
     final updated = ride.copyWith(
       savedAt: DateTime.now(),
+      pickupAddress: pickup?.address ?? ride.pickupAddress,
+      pickupLat: pickup?.lat ?? ride.pickupLat,
+      pickupLng: pickup?.lng ?? ride.pickupLng,
       destinationAddress: drop?.address ?? ride.destinationAddress,
       destinationLat: drop?.lat ?? ride.destinationLat,
       destinationLng: drop?.lng ?? ride.destinationLng,

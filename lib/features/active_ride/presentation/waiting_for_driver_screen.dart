@@ -14,6 +14,15 @@ class WaitingForDriver extends StatefulWidget {
     return pickupEditable ? DetailsAction.movePickup : DetailsAction.refused;
   }
 
+  /// v0.18.143 (owner 2026-11-20, approved mockup): the Ride details
+  /// pencils once a driver has the trip. The pickup pencil only while the
+  /// pickup may still move (the ≤ maxPickupMoveMeters move before arrival);
+  /// the destination pencil and "+" in every phase (the zone's
+  /// `routeChange.beforePickup` refusal is said when tapped).
+  static ({bool pickup, bool route}) detailsPencils({
+    required bool pickupEditable,
+  }) => (pickup: pickupEditable, route: true);
+
   static const routeOutcomeNoticeDuration = Duration(seconds: 10);
 
   const WaitingForDriver({

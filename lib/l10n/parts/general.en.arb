@@ -299,6 +299,8 @@
   "newRoute": "New route",
   "newPrice": "New price",
   "confirmChange": "Confirm change",
+  "priceChangedTitle": "Your price has changed",
+  "confirmNewPrice": "Confirm new price",
   "confirmNextPayment": "Confirm · next: payment",
   "confirmPayment": "Confirm payment",
   "chooseRefund": "Choose your refund",
