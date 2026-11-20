@@ -205,7 +205,8 @@ class DriverProfileSheet extends StatelessWidget {
                         : '${NumberFormat('0.0', Localizations.localeOf(context).toLanguageTag()).format(p.rating)} ★',
                     l.dpRating,
                   ),
-                  if (p.years != null) _kpi('${p.years}', l.dpYears),
+                  // Contract: years 0 shows only the since month.
+                  if ((p.years ?? 0) > 0) _kpi('${p.years}', l.dpYears),
                 ],
               ),
             ),

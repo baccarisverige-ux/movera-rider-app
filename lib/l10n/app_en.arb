@@ -660,10 +660,6 @@
   "@dpCall": {
     "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
   },
-  "dpMessage": "Message",
-  "@dpMessage": {
-    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
-  },
   "dpUnreadMessages": "Unread messages",
   "@dpUnreadMessages": {
     "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."

@@ -332,7 +332,7 @@ class _DriverOnWayCardState extends State<DriverOnWayCard> {
                     ],
                   ),
                   label: Text(
-                    l.dpMessage,
+                    l.message,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(

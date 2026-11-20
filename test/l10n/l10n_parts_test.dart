@@ -90,18 +90,19 @@ void main() {
     // walletDebtPaid, walletYouOwe (payments area, contract debtModel.texts).
     // Saved-places design (contract v0.18.129): + 7 places* texts.
     // R4 (2026-11-20): + pinDecidedByArea, pinStatusByArea (ride area).
+    // v0.18.147 driver profile: + 27 texts in the driver_profile area.
     const before = {
       'en': (
-        '30863f8c37293ffbfc60e1041ccbdd151afe870cecac888e69fa43bc795f0ae3',
-        2217,
+        'e2248357959c4da3c5e5dfd34107d20e013173a6fc5e8fa87805f217b8858940',
+        2271,
       ),
       'fr': (
-        'f16f36c742316655f20b0697eada7116533bc0d215d43ca52ca69853f3ef15ee',
-        1762,
+        '224a559618b2a8563da0d6b2bc8a89ae90f3f1371fee8876b5b16ec671eb3e18',
+        1789,
       ),
       'sv': (
-        '599630fe295dc816eb322e17f40a42f961e26c79e143b4fffa97d07e89b0a382',
-        1762,
+        '2aa89bef59bdad4e4d1846a96abd59ff32cb0c9e8e287b4f96783817775387c8',
+        1789,
       ),
     };
     for (final lang in _langs) {
