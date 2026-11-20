@@ -10,9 +10,6 @@ const String pickupLocationFallbackLabel = 'Pickup location';
 /// never be called "Current location" (U2 / D-002).
 const String locationOffPickupLabel = 'Location off, set pickup';
 
-String coordinatePickupAddress(LatLng position) =>
-    '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
-
 final RegExp _rawCoordinates = RegExp(
   r'^\s*-?\d{1,3}(\.\d+)?\s*,\s*-?\d{1,3}(\.\d+)?\s*$',
 );
