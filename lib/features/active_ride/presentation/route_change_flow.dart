@@ -73,6 +73,7 @@ Future<RideSnapshot?> openRouteChange(
           ],
           stopsSupported: true,
           pickupLocked: lockPickup,
+          driverOnTheWay: driverAccepted,
           openWithNewStop: entry == RouteChangeEntry.newStop,
           initialField: switch (entry) {
             RouteChangeEntry.pickup when !lockPickup => 'pickup',
