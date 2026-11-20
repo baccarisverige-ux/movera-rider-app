@@ -147,57 +147,60 @@ void main() {
   });
 
   group('sender', () {
-    test('PUT live-location with the point; stop sends sharing false once; 409 live_location_off stops', () async {
-      final bodies = <Map<String, Object?>>[];
-      var refuse = false;
-      final api = ApiClient(
-        env: live,
-        client: MockClient((request) async {
-          expect(request.method, 'PUT');
-          expect(request.url.path, '/api/v1/trips/trp_1/live-location');
-          bodies.add(
-            Map<String, Object?>.from(jsonDecode(request.body) as Map),
-          );
-          if (refuse) {
-            return http.Response(
-              jsonEncode({
-                'code': 'conflict',
-                'message': 'off',
-                'reason': 'live_location_off',
-              }),
-              409,
+    test(
+      'PUT live-location with the point; stop sends sharing false once; 409 live_location_off stops',
+      () async {
+        final bodies = <Map<String, Object?>>[];
+        var refuse = false;
+        final api = ApiClient(
+          env: live,
+          client: MockClient((request) async {
+            expect(request.method, 'PUT');
+            expect(request.url.path, '/api/v1/trips/trp_1/live-location');
+            bodies.add(
+              Map<String, Object?>.from(jsonDecode(request.body) as Map),
             );
-          }
-          return http.Response(
-            jsonEncode({'sharing': true, 'sendEverySeconds': 8}),
-            200,
-          );
-        }),
-      );
-      LiveShareStop? stopped;
-      final sender = LiveLocationSender(
-        api: api,
-        tripId: 'trp_1',
-        position: () async => away,
-        every: const Duration(hours: 1),
-        onStopped: (why) => stopped = why,
-      );
-      sender.start();
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-      expect(bodies.single, {
-        'sharing': true,
-        'lat': away.latitude,
-        'lng': away.longitude,
-      });
-      await sender.stop();
-      expect(bodies.last, {'sharing': false});
-      expect(sender.running, isFalse);
-      refuse = true;
-      sender.start();
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-      expect(stopped, LiveShareStop.zoneOff);
-      expect(sender.running, isFalse);
-    });
+            if (refuse) {
+              return http.Response(
+                jsonEncode({
+                  'code': 'conflict',
+                  'message': 'off',
+                  'reason': 'live_location_off',
+                }),
+                409,
+              );
+            }
+            return http.Response(
+              jsonEncode({'sharing': true, 'sendEverySeconds': 8}),
+              200,
+            );
+          }),
+        );
+        LiveShareStop? stopped;
+        final sender = LiveLocationSender(
+          api: api,
+          tripId: 'trp_1',
+          position: () async => away,
+          every: const Duration(hours: 1),
+          onStopped: (why) => stopped = why,
+        );
+        sender.start();
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        expect(bodies.single, {
+          'sharing': true,
+          'lat': away.latitude,
+          'lng': away.longitude,
+        });
+        await sender.stop();
+        expect(bodies.last, {'sharing': false});
+        expect(sender.running, isFalse);
+        refuse = true;
+        sender.start();
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        expect(stopped, LiveShareStop.zoneOff);
+        expect(sender.running, isFalse);
+      },
+    );
   });
 
   group('widget', () {
@@ -209,6 +212,7 @@ void main() {
       ApiClient? api,
       bool bannerAllowed = true,
       void Function()? onFix,
+      bool Function()? fixOk,
     }) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -232,6 +236,7 @@ void main() {
               onAdjust: onAdjust,
               fix: () async {
                 onFix?.call();
+                if (fixOk != null && !fixOk()) return null;
                 return (point: away, accuracyMeters: 5.0);
               },
               bannerAllowed: bannerAllowed,
@@ -340,13 +345,15 @@ void main() {
         expect(find.byKey(const Key('adjust-pickup-banner')), findsNothing);
         expect(reads, 0);
         expect(
-          LiveLocationSettings.fromWire({'adjustPickupMeters': 0})
-              .adjustPickupMeters,
+          LiveLocationSettings.fromWire({
+            'adjustPickupMeters': 0,
+          }).adjustPickupMeters,
           0,
         );
         expect(
-          LiveLocationSettings.fromWire({'adjustPickupMeters': 5})
-              .adjustPickupMeters,
+          LiveLocationSettings.fromWire({
+            'adjustPickupMeters': 5,
+          }).adjustPickupMeters,
           30,
         );
       },
@@ -367,5 +374,120 @@ void main() {
       await tester.pump(const Duration(seconds: 61));
       expect(reads - first, 2);
     });
+
+    testWidgets(
+      'no permission / no fix: the switch goes back off and nothing is sent',
+      (tester) async {
+        var puts = 0;
+        await pump(
+          tester,
+          settings: const LiveLocationSettings(share: true),
+          phase: AdjustPickupPhase.driverComing,
+          onAdjust: (_) async => false,
+          fixOk: () => false,
+          api: ApiClient(
+            env: live,
+            client: MockClient((_) async {
+              puts++;
+              return http.Response('{}', 200);
+            }),
+          ),
+        );
+        await tester.tap(find.byKey(const Key('share-location-switch')));
+        await tester.pump();
+        await tester.pump();
+        expect(
+          tester
+              .widget<Switch>(find.byKey(const Key('share-location-switch')))
+              .value,
+          isFalse,
+        );
+        expect(puts, 0);
+      },
+    );
+
+    testWidgets('a failed GPS read: the old fix is not sent again', (
+      tester,
+    ) async {
+      var ok = true;
+      final bodies = <Object?>[];
+      await pump(
+        tester,
+        settings: const LiveLocationSettings(share: true),
+        phase: AdjustPickupPhase.driverComing,
+        onAdjust: (_) async => false,
+        fixOk: () => ok,
+        api: ApiClient(
+          env: live,
+          client: MockClient((r) async {
+            bodies.add(jsonDecode(r.body));
+            return http.Response('{}', 200);
+          }),
+        ),
+      );
+      await tester.tap(find.byKey(const Key('share-location-switch')));
+      await tester.pump();
+      await tester.pump();
+      expect(bodies.where((b) => (b as Map)['sharing'] == true), hasLength(1));
+      ok = false;
+      await tester.pump(const Duration(seconds: 8));
+      await tester.pump(const Duration(seconds: 8));
+      await tester.pump(const Duration(seconds: 8));
+      // At most one send can race the failed read (same 8 s tick); after
+      // that nothing, however long the GPS stays silent.
+      final afterFail = bodies
+          .where((b) => (b as Map)['sharing'] == true)
+          .length;
+      expect(afterFail, lessThanOrEqualTo(2));
+      await tester.pump(const Duration(seconds: 40));
+      expect(
+        bodies.where((b) => (b as Map)['sharing'] == true),
+        hasLength(afterFail),
+        reason: 'no stale re-send',
+      );
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets(
+      'app paused: sharing stops and reads pause; resumed: reads again, switch stays off',
+      (tester) async {
+        var reads = 0;
+        final bodies = <Object?>[];
+        await pump(
+          tester,
+          settings: const LiveLocationSettings(share: true),
+          phase: AdjustPickupPhase.driverComing,
+          onAdjust: (_) async => false,
+          onFix: () => reads++,
+          api: ApiClient(
+            env: live,
+            client: MockClient((r) async {
+              bodies.add(jsonDecode(r.body));
+              return http.Response('{}', 200);
+            }),
+          ),
+        );
+        final key = find.byKey(const Key('share-location-switch'));
+        await tester.tap(key);
+        await tester.pump();
+        await tester.pump();
+        expect(tester.widget<Switch>(key).value, isTrue);
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        await tester.pump();
+        await tester.pump();
+        expect(tester.widget<Switch>(key).value, isFalse);
+        expect(bodies.last, {'sharing': false});
+        final paused = reads;
+        await tester.pump(const Duration(minutes: 2));
+        expect(reads, paused, reason: 'no GPS while away');
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump();
+        expect(reads, greaterThan(paused));
+        expect(tester.widget<Switch>(key).value, isFalse);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
   });
 }

@@ -85,9 +85,13 @@ class RideLocationTools extends StatefulWidget {
 }
 
 @visibleForTesting
-class RideLocationToolsState extends State<RideLocationTools> {
+class RideLocationToolsState extends State<RideLocationTools>
+    with WidgetsBindingObserver {
   Timer? _timer;
   RideFix? _fix;
+  DateTime? _fixAt;
+  bool _lastReadFailed = false;
+  bool _away = false;
 
   /// The pickup (as lat,lng text) the banner was closed or used for.
   String? _closedFor;
@@ -107,7 +111,9 @@ class RideLocationToolsState extends State<RideLocationTools> {
   /// Battery: the GPS is read every [_every] while sharing (the sender
   /// reuses that one fix), every 30 s while only the banner can show, and
   /// not at all when neither can.
-  Duration? get _readEvery => _sharing
+  Duration? get _readEvery => _away
+      ? null
+      : _sharing
       ? _every
       : _bannerPossible
       ? bannerReadEvery
@@ -132,7 +138,34 @@ class RideLocationToolsState extends State<RideLocationTools> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _arm();
+  }
+
+  /// Hidden or paused: no GPS read and no send; sharing turns off (it comes
+  /// back only on a tap). Back in front: the banner's reads start again.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final away =
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached;
+    if (away == _away && state != AppLifecycleState.resumed) return;
+    _away = away;
+    if (away && _sharing) {
+      unawaited(_setSharing(false));
+    } else {
+      _arm();
+    }
+  }
+
+  /// The fix the sender may use: a successful read at most 2 × the send
+  /// interval old; else null (then nothing is sent).
+  GeoPoint? get freshPoint {
+    final at = _fixAt;
+    if (_lastReadFailed || at == null) return null;
+    if (DateTime.now().difference(at) > _every * 2) return null;
+    return _fix?.point;
   }
 
   @override
@@ -147,6 +180,7 @@ class RideLocationToolsState extends State<RideLocationTools> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     // Ride screen closed (pickup, ride end, cancel): sharing stops.
     unawaited(_sender?.stop());
@@ -155,8 +189,16 @@ class RideLocationToolsState extends State<RideLocationTools> {
 
   Future<void> _read() async {
     final fix = await widget.fix();
-    if (!mounted || fix == null) return;
-    setState(() => _fix = fix);
+    if (!mounted) return;
+    if (fix == null) {
+      _lastReadFailed = true;
+      return;
+    }
+    setState(() {
+      _fix = fix;
+      _fixAt = DateTime.now();
+      _lastReadFailed = false;
+    });
   }
 
   int? get _meters {
@@ -198,11 +240,23 @@ class RideLocationToolsState extends State<RideLocationTools> {
     final id = widget.tripId;
     if (id == null) return;
     if (on) {
+      // No location permission or no fix now: the switch stays off.
+      final first = await widget.fix();
+      if (!mounted) return;
+      if (first == null) {
+        setState(() => _sharing = false);
+        return;
+      }
+      setState(() {
+        _fix = first;
+        _fixAt = DateTime.now();
+        _lastReadFailed = false;
+      });
       _sender = LiveLocationSender(
         api: widget.api,
         tripId: id,
         every: _every,
-        position: () async => _fix?.point,
+        position: () async => freshPoint,
         onStopped: (why) {
           if (!mounted) return;
           setState(() {
