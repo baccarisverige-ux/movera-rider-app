@@ -89,6 +89,7 @@ class RoutePickerPage extends StatefulWidget {
     this.savedPlaces = const [],
     this.pageTitle,
     this.pickupLocked = false,
+    this.driverOnTheWay = true,
     this.openWithNewStop = false,
     this.finishLabel,
     required this.recent,
@@ -136,6 +137,10 @@ class RoutePickerPage extends StatefulWidget {
 
   /// The driver is already at the pickup: it is shown but cannot change.
   final bool pickupLocked;
+
+  /// Audit N2: a driver has accepted; false while still searching, so the
+  /// lock does not say the driver is on the way.
+  final bool driverOnTheWay;
 
   /// Opens with an empty new stop focused (the "Add stop" entry point).
   final bool openWithNewStop;
@@ -718,9 +723,8 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
               ),
             ),
           if (locked)
-            Tooltip(
-              message: context.l10n.routeDriverOnTheWay,
-              child: Padding(
+            _lockNote(
+              Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: Icon(
                   Icons.lock_outline_rounded,
@@ -1302,6 +1306,11 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       },
     );
   }
+
+  /// Audit N2: "driver on the way" only once a driver accepted.
+  Widget _lockNote(Widget icon) => widget.driverOnTheWay
+      ? Tooltip(message: context.l10n.routeDriverOnTheWay, child: icon)
+      : icon;
 
   @override
   Widget build(BuildContext context) {
