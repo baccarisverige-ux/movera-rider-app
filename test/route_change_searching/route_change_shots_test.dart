@@ -194,6 +194,7 @@ void main() {
                     top: Radius.circular(24),
                   ),
                   child: RouteChangeSheet(
+                    whileSearching: true,
                     paymentMethod: 'Cash',
                     quote: RouteChangeQuote(
                       pickupAddress: 'Klockarvägen 37',

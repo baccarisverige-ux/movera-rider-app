@@ -245,6 +245,7 @@ void main() {
               body: TextButton(
                 onPressed: () async =>
                     decision = await RouteChangeSheet.confirm(
+                      whileSearching: true,
                       context,
                       paymentMethod: 'Cash',
                       quote: RouteChangeQuote(
@@ -273,6 +274,32 @@ void main() {
       expect(decision?.confirmed, isTrue);
     });
   }
+  testWidgets('R2: after a driver accepted the sheet keeps its old words', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RouteChangeSheet(
+            paymentMethod: 'Cash',
+            quote: RouteChangeQuote(
+              pickupAddress: 'Sergels torg',
+              pickupPoint: const GeoPoint(59.33, 18.06),
+              destinationAddress: 'T-Centralen',
+              destinationPoint: const GeoPoint(59.33, 18.06),
+              stops: const [],
+              oldPriceKr: 600,
+              newPriceKr: 280,
+              currency: 'SEK',
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text(L10n.current.priceChangedTitle), findsNothing);
+    expect(find.text(L10n.current.confirmChange), findsOneWidget);
+    expect(find.text(L10n.current.keepCurrentRoute), findsOneWidget);
+  });
 }
 
 class _Geo implements GeocodingRepository {

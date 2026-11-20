@@ -37,7 +37,13 @@ class RouteChangeSheet extends StatefulWidget {
     required this.quote,
     required this.paymentMethod,
     this.paymentMethodId,
+    this.whileSearching = false,
   });
+
+  /// v0.18.143 (reviewer R2): no driver has accepted yet; only then does a
+  /// pay-in-car price change say "Your price has changed" / "Confirm new
+  /// price" (after accept the driver still answers the change).
+  final bool whileSearching;
 
   final RouteChangeQuote quote;
   final String paymentMethod;
@@ -50,6 +56,7 @@ class RouteChangeSheet extends StatefulWidget {
     required RouteChangeQuote quote,
     required String paymentMethod,
     String? paymentMethodId,
+    bool whileSearching = false,
   }) async {
     final result = await MoveraSheet.show<RouteChangeDecision>(
       context: context,
@@ -57,6 +64,7 @@ class RouteChangeSheet extends StatefulWidget {
         quote: quote,
         paymentMethod: paymentMethod,
         paymentMethodId: paymentMethodId,
+        whileSearching: whileSearching,
       ),
     );
     return result ?? RouteChangeDecision.declined;
@@ -143,7 +151,7 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
     }
     // v0.18.143 (approved mockup screen 4): pay in car with a new price
     // says "Your price has changed" and "Confirm new price" / "Cancel".
-    final priceChanged = _cash && quote.changesPrice;
+    final priceChanged = widget.whileSearching && _cash && quote.changesPrice;
     return _step(
       key: const ValueKey('route-change-step-route'),
       body: [

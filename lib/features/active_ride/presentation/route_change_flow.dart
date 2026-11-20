@@ -142,6 +142,7 @@ Future<RideSnapshot?> openRouteChange(
                 quote: quote,
                 paymentMethod: ride.paymentMethod,
                 paymentMethodId: ride.paymentMethodId,
+                whileSearching: !driverAccepted,
               );
               if (!decision.confirmed || !context.mounted) return null;
               if (changes.contractWire) {
@@ -224,8 +225,17 @@ Future<RideSnapshot?> _smallPickupMove(
       session: AppScope.instance.ride,
     ).move(tripId: id, address: selection.pickup, to: point);
   } on PickupMoveException catch (error) {
-    if (error.failure == PickupMoveFailure.tooFar) return null;
-    throw const RouteChangeException(RouteChangeFailure.network);
+    // Reviewer R4: each pickup-move answer keeps its own meaning; too far
+    // (the server measured from the booked pickup) is priced instead.
+    final failure = switch (error.failure) {
+      PickupMoveFailure.tooFar => null,
+      PickupMoveFailure.fixedAfterArrival => RouteChangeFailure.pickupLocked,
+      PickupMoveFailure.stale => RouteChangeFailure.stale,
+      PickupMoveFailure.rideFinished => RouteChangeFailure.rideFinished,
+      PickupMoveFailure.network => RouteChangeFailure.network,
+    };
+    if (failure == null) return null;
+    throw RouteChangeException(failure);
   }
   final updated = ride.copyWith(
     savedAt: DateTime.now(),
