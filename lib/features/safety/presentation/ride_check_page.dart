@@ -56,37 +56,45 @@ class _RideCheckPageState extends State<RideCheckPage> {
             style: SafetyUi.text(15, color: SafetyUi.muted, height: 1.45),
           ),
           const SizedBox(height: 20),
-          Container(
-            decoration: SafetyUi.cardDecoration(),
-            padding: const EdgeInsets.fromLTRB(18, 8, 8, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    context.l10n.rcAlertsToggle,
-                    style: SafetyUi.text(15.5, weight: FontWeight.w500),
+          // Check 2026-11-20 (apps every control): movera-server keeps no
+          // rider ride-check setting (only the emergency contacts are
+          // served), so on the live wire this switch could only answer
+          // "Could not update ride check." Like the PIN switch in R4, it
+          // shows only where the rider's own setting is served (demo and
+          // test builds); the checks below are set by Movera.
+          if (_ctl.serverKeepsSettings) ...[
+            Container(
+              decoration: SafetyUi.cardDecoration(),
+              padding: const EdgeInsets.fromLTRB(18, 8, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.l10n.rcAlertsToggle,
+                      style: SafetyUi.text(15.5, weight: FontWeight.w500),
+                    ),
                   ),
-                ),
-                Switch.adaptive(
-                  value: on,
-                  activeThumbColor: adaptiveSwitchThumbColor(
-                    context,
-                    SafetyUi.accent,
+                  Switch.adaptive(
+                    value: on,
+                    activeThumbColor: adaptiveSwitchThumbColor(
+                      context,
+                      SafetyUi.accent,
+                    ),
+                    activeTrackColor: adaptiveSwitchTrackColor(
+                      context,
+                      SafetyUi.accent,
+                    ),
+                    onChanged: (value) => runSafetyChange(
+                      context,
+                      _ctl,
+                      () => _ctl.setRideCheck(value),
+                    ),
                   ),
-                  activeTrackColor: adaptiveSwitchTrackColor(
-                    context,
-                    SafetyUi.accent,
-                  ),
-                  onChanged: (value) => runSafetyChange(
-                    context,
-                    _ctl,
-                    () => _ctl.setRideCheck(value),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 18),
+            const SizedBox(height: 18),
+          ],
           Container(
             decoration: SafetyUi.cardDecoration(),
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
