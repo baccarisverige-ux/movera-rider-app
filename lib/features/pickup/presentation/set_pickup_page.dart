@@ -235,6 +235,7 @@ class SetPickupPage extends StatefulWidget {
     List<String> stops = const <String>[],
     bool holdOnConfirm = false,
     bool showChangeCategory = false,
+    AppGeocoding? geocoding,
   }) async {
     // Owner decision "Confirm and search": with [holdOnConfirm], Confirm
     // answers at once and Set pickup stays, its button spinning, until the
@@ -257,6 +258,7 @@ class SetPickupPage extends StatefulWidget {
         initialBagLevel: initialBagLevel,
         home: home,
         spotsController: spotsController,
+        geocoding: geocoding,
         initialIsCurrentLocation: initialIsCurrentLocation,
         positionIsFallback: positionIsFallback,
         confirmLabel: confirmLabel,

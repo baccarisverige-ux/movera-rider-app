@@ -24,6 +24,7 @@ import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/core/location/app_geocoding.dart';
 import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
@@ -536,6 +537,14 @@ class _SelectRideState extends State<SelectRide>
     setState(() => _mapReady = true);
   }
 
+  /// R3: the pickup's name in a price request. The server keeps it as the
+  /// trip's pickup address, so a label that names no place ("Current
+  /// location", shown while the street is not known) is sent as a dropped
+  /// pin with its point, as Set pickup names such a pin.
+  String get _quotePickupLabel => isUnusablePickupLabel(_pickupAddress)
+      ? droppedPinPickupAddress(_pickupPosition)
+      : _pickupAddress;
+
   Future<void> _loadQuotes() async {
     final generation = _selection.beginQuotes();
     // Quotes include the stops (audit finding B7, contract §3), so the price
@@ -545,7 +554,7 @@ class _SelectRideState extends State<SelectRide>
     await _selection.loadQuotes(
       stops: stops,
       generation: generation,
-      pickup: _pickupAddress,
+      pickup: _quotePickupLabel,
       destination: widget.destinationAddress,
       distanceMeters: tripStraightMeters(
         _pickupPosition,

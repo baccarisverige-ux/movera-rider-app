@@ -9,6 +9,8 @@ import 'package:http/testing.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
+import 'package:movera_rider/core/location/app_geocoding.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
@@ -85,6 +87,17 @@ class _Server {
   ];
 }
 
+/// The street lookup of Set pickup: every point is on [street]; null when
+/// the lookup finds nothing.
+class _Streets extends AppGeocoding {
+  _Streets(this.street);
+
+  final String? street;
+
+  @override
+  Future<String?> reverse(GeoPoint point) async => street;
+}
+
 /// Keeps what Select Ride books: the pickup address, and the `POST /trips`
 /// body the app would send for the booked quote.
 class _CaptureBooking extends BookingController {
@@ -147,8 +160,10 @@ void main() {
 
   Future<_CaptureBooking> pumpSelectRide(
     WidgetTester tester,
-    _Server server,
-  ) async {
+    _Server server, {
+    String? street = 'Vasagatan 12, Stockholm',
+    String pickupAddress = 'Drottninggatan 1, Stockholm',
+  }) async {
     final api = ApiClient(client: server.client, env: staging);
     final selection = RideSelectionController(
       catalog: RideCatalogController(api: api, cache: MemoryRideCatalogCache()),
@@ -164,12 +179,13 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: SelectRide(
-          pickupAddress: 'Drottninggatan 1, Stockholm',
+          pickupAddress: pickupAddress,
           destinationAddress: 'Solna Centrum, Solna torg',
           pickupPosition: _origin,
           destinationPosition: const LatLng(59.3600, 18.0000),
           selection: selection,
           booking: booking,
+          geocoding: _Streets(street),
         ),
       ),
     );
@@ -198,29 +214,37 @@ void main() {
     await tester.pump(const Duration(seconds: 30));
   }
 
+  String? pickupOf(Map<String, dynamic> trip) =>
+      (trip['pickup'] as Map)['address'] as String?;
+
   testWidgets(
-    'a moved pickup is booked under the address the rider confirmed, and no '
-    'price request ever names the pickup by bare coordinates',
+    'a moved pickup is booked under the street the rider confirmed: the '
+    'price is asked once more under it, and no request names the pickup by '
+    'bare coordinates',
     (tester) async {
       final server = _Server();
       final booking = await pumpSelectRide(tester, server);
       await tester.tap(find.text('Select Movera'));
       await settle(tester, 30);
       await movePin(tester);
+      // The pin's price was asked before its street was known.
+      expect(isDroppedPinLabel(server.pickupAddresses.last), isTrue);
+      final asked = server.quoteBodies.length;
       await confirm(tester);
 
       expect(booking.bookings, hasLength(1));
       final booked = booking.bookings.single;
-      final sent = (booked.trip['pickup'] as Map)['address'] as String?;
-      // The trip names the pickup as Set pickup confirmed it.
-      expect(sent, booked.address);
-      expect(isUnusablePickupLabel(sent), isFalse);
-      expect(_rawCoordinates.hasMatch(sent ?? ''), isFalse);
+      expect(booked.address, 'Vasagatan 12, Stockholm');
+      // The trip names the pickup as Set pickup confirmed it: the driver's
+      // offer card and History show the street.
+      expect(pickupOf(booked.trip), 'Vasagatan 12, Stockholm');
       expect(
         (booked.trip['pickup'] as Map)['lat'],
         closeTo(_moved.latitude, 0.005),
       );
-      // Not in any price request either: the server keeps what it is sent.
+      // One more price request, under the street.
+      expect(server.quoteBodies, hasLength(asked + 1));
+      expect(server.pickupAddresses.last, 'Vasagatan 12, Stockholm');
       for (final address in server.pickupAddresses) {
         expect(_rawCoordinates.hasMatch(address ?? ''), isFalse);
       }
@@ -229,22 +253,47 @@ void main() {
   );
 
   testWidgets(
-    'when the price cannot be asked again under the confirmed address, the '
-    'ride is still booked, as a dropped pin, never as bare coordinates',
+    'no street found for the pin: booked as a dropped pin, with no extra '
+    'price request',
+    (tester) async {
+      final server = _Server();
+      final booking = await pumpSelectRide(tester, server, street: null);
+      await tester.tap(find.text('Select Movera'));
+      await settle(tester, 30);
+      await movePin(tester);
+      final asked = server.quoteBodies.length;
+      await confirm(tester);
+
+      expect(booking.bookings, hasLength(1));
+      final sent = pickupOf(booking.bookings.single.trip);
+      expect(sent, booking.bookings.single.address);
+      expect(isDroppedPinLabel(sent), isTrue);
+      expect(_rawCoordinates.hasMatch(sent ?? ''), isFalse);
+      expect(server.quoteBodies, hasLength(asked));
+      await close(tester);
+    },
+  );
+
+  testWidgets(
+    'when the price cannot be asked again under the confirmed street, the '
+    'ride is still booked with the price the rider saw, as a dropped pin, '
+    'never as bare coordinates',
     (tester) async {
       final server = _Server();
       final booking = await pumpSelectRide(tester, server);
       await tester.tap(find.text('Select Movera'));
       await settle(tester, 30);
       await movePin(tester);
+      final held = 'qte_${server.quoteBodies.length * 3 - 2}';
       server.down = true;
       await confirm(tester);
 
       expect(booking.bookings, hasLength(1));
-      final sent =
-          (booking.bookings.single.trip['pickup'] as Map)['address'] as String?;
-      expect(_rawCoordinates.hasMatch(sent ?? ''), isFalse);
-      expect(isDroppedPinLabel(sent), isTrue);
+      final trip = booking.bookings.single.trip;
+      // The pin's own quote (its economy row) is the one booked.
+      expect(trip['quoteId'], held);
+      expect(_rawCoordinates.hasMatch(pickupOf(trip) ?? ''), isFalse);
+      expect(isDroppedPinLabel(pickupOf(trip)), isTrue);
       await close(tester);
     },
   );
@@ -262,9 +311,24 @@ void main() {
       expect(booking.bookings, hasLength(1));
       expect(server.quoteBodies, hasLength(asked));
       expect(
-        (booking.bookings.single.trip['pickup'] as Map)['address'],
+        pickupOf(booking.bookings.single.trip),
         'Drottninggatan 1, Stockholm',
       );
+      await close(tester);
+    },
+  );
+
+  testWidgets(
+    'a pickup still called "Current location" is never sent under that '
+    'name: the list is priced as a dropped pin',
+    (tester) async {
+      final server = _Server();
+      await pumpSelectRide(tester, server, pickupAddress: 'Current location');
+      expect(server.quoteBodies, isNotEmpty);
+      for (final address in server.pickupAddresses) {
+        expect(isUnusablePickupLabel(address), isFalse);
+        expect(isDroppedPinLabel(address), isTrue);
+      }
       await close(tester);
     },
   );
