@@ -1,0 +1,127 @@
+{
+  "dpTripsSince": "{trips} trips · Since {year}",
+  "@dpTripsSince": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating.",
+    "placeholders": {
+      "trips": {
+        "type": "String"
+      },
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "dpSince": "Movera driver since {month}",
+  "@dpSince": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating.",
+    "placeholders": {
+      "month": {
+        "type": "String"
+      }
+    }
+  },
+  "dpTrips": "Trips",
+  "@dpTrips": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "dpRating": "Rating",
+  "@dpRating": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "dpYears": "Years",
+  "@dpYears": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "dpWhatRidersSay": "What riders say",
+  "@dpWhatRidersSay": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "dpMilestones": "Milestones",
+  "@dpMilestones": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "dpMilestoneTrips1000": "1,000 trips",
+  "@dpMilestoneTrips1000": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "dpMilestoneTopRating": "Top rating",
+  "@dpMilestoneTopRating": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "dpMilestoneTopRatingSub": "Above 4.9 for 6 months",
+  "@dpMilestoneTopRatingSub": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "dpLatestReview": "Latest review",
+  "@dpLatestReview": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "dpAnonymous": "Anonymous",
+  "@dpAnonymous": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "dpVerified": "Verified driver",
+  "@dpVerified": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "dpCall": "Call",
+  "@dpCall": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "dpMessage": "Message",
+  "@dpMessage": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "dpUnreadMessages": "Unread messages",
+  "@dpUnreadMessages": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "dpOpenProfile": "Open the driver's profile",
+  "@dpOpenProfile": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "complimentGreatService": "Excellent service",
+  "@complimentGreatService": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "complimentKnewTheWay": "Good route",
+  "@complimentKnewTheWay": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "complimentFriendly": "Nice conversation",
+  "@complimentFriendly": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "complimentCleanCar": "Clean car",
+  "@complimentCleanCar": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "complimentSafeDriving": "Safe driving",
+  "@complimentSafeDriving": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "complimentGoodMusic": "Good music",
+  "@complimentGoodMusic": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "rateComplimentsTitle": "Give a compliment (optional)",
+  "@rateComplimentsTitle": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "rateReviewLabel": "Short review (optional)",
+  "@rateReviewLabel": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "rateReviewHint": "Shown on the driver's profile after Movera has checked it.",
+  "@rateReviewHint": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "rateShowFirstName": "Show my first name",
+  "@rateShowFirstName": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "rateShowFirstNameOff": "Your review is shown as Anonymous.",
+  "@rateShowFirstNameOff": {
+    "description": "v0.18.147 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  }
+}

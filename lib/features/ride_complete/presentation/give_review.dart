@@ -7,6 +7,7 @@ import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:movera_rider/core/config/dont_match_again.dart';
 import 'package:movera_rider/features/ratings/domain/rating_tags.dart';
+import 'package:movera_rider/features/driver_profile/data/driver_profile_data.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 class RideCompletedGiveReview extends StatefulWidget {
@@ -37,8 +38,13 @@ class _RideCompletedGiveReviewState extends State<RideCompletedGiveReview> {
   bool _dontMatch = false;
   final TextEditingController _comment = TextEditingController();
 
+  /// v0.18.147: the short review (zone switch on) and the name choice.
+  final TextEditingController _review = TextEditingController();
+  bool _showFirstName = true;
+
   @override
   void dispose() {
+    _review.dispose();
     _comment.dispose();
     super.dispose();
   }
@@ -64,6 +70,8 @@ class _RideCompletedGiveReviewState extends State<RideCompletedGiveReview> {
         ],
         comment: _comment.text,
         dontMatchAgain: _dontMatch && DontMatchAgain.current.offeredAt(_rating),
+        review: _reviewsShown ? _review.text : '',
+        showFirstName: _showFirstName,
       ),
     );
   }
@@ -76,6 +84,10 @@ class _RideCompletedGiveReviewState extends State<RideCompletedGiveReview> {
     });
     _report();
   }
+
+  /// Low ratings never become a public review (contract minStarsShown 4).
+  bool get _reviewsShown =>
+      DriverProfileSettings.current.reviews && _rating.round() >= 4;
 
   static String _valueLabel(BuildContext context, double rating) => rating < 1
       ? context.l10n.ratingNotRated
@@ -191,15 +203,55 @@ class _RideCompletedGiveReviewState extends State<RideCompletedGiveReview> {
             spacing: 8,
             runSpacing: 8,
             children: [
+              // v0.18.147: the phone's own emoji (text, no image file).
               for (final tag in RatingTags.aboutDriver)
                 FilterChip(
                   key: ValueKey('rating-tag-$tag'),
+                  avatar: Text(
+                    complimentEmoji[tag] ?? '',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  showCheckmark: false,
                   label: Text(RatingTags.label(context.l10n, tag)),
                   selected: _tags.contains(tag),
                   onSelected: (_) => _toggle(tag),
                 ),
             ],
           ),
+          if (_reviewsShown) ...[
+            12.height,
+            TextField(
+              key: const ValueKey('rating-review'),
+              controller: _review,
+              maxLength: RatingTags.reviewMaxLength,
+              minLines: 1,
+              maxLines: 3,
+              textCapitalization: TextCapitalization.sentences,
+              onChanged: (_) => _report(),
+              decoration: InputDecoration(
+                labelText: context.l10n.rateReviewLabel,
+                helperText: context.l10n.rateReviewHint,
+                helperMaxLines: 2,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            Material(
+              type: MaterialType.transparency,
+              child: SwitchListTile(
+                key: const ValueKey('rating-show-first-name'),
+                contentPadding: EdgeInsets.zero,
+                title: Text(context.l10n.rateShowFirstName),
+                subtitle: _showFirstName
+                    ? null
+                    : Text(context.l10n.rateShowFirstNameOff),
+                value: _showFirstName,
+                onChanged: (value) {
+                  setState(() => _showFirstName = value);
+                  _report();
+                },
+              ),
+            ),
+          ],
           12.height,
           TextField(
             key: const ValueKey('rating-comment'),
