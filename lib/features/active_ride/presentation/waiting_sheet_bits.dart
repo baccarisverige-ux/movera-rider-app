@@ -578,7 +578,10 @@ class WaitingNotesAndPin extends StatelessWidget {
             context.l10n.loadingPin,
             style: waitingText(12, color: const Color(0xFF5C656C)),
           ),
-        ] else if (safety.preferences.pinRequired) ...[
+        ] else if (
+        // R4: on movera-server the ride's PIN is the server's (the PIN
+        // card above); an old on-phone setting shows no second box.
+        safety.serverKeepsSettings && safety.preferences.pinRequired) ...[
           const SizedBox(height: 12),
           Container(
             width: double.infinity,

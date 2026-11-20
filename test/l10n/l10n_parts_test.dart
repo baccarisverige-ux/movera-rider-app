@@ -91,18 +91,19 @@ void main() {
     // Saved-places design (contract v0.18.129): + 7 places* texts.
     // R6 + R7 (2026-11-20): + 21 receiptLine* texts (payments area, contract
     // fareLines.rider), termNoShowBodyKnown, historyFinalPrice.
+    // R4 (2026-11-20): + pinDecidedByArea, pinStatusByArea (ride area).
     const before = {
       'en': (
-        'e5429fff4fcd5aca2e834c7a98f1e4502dff1d1ac0262105c25aff5205b906b7',
-        2259,
+        'd2edcbc01f0cae9199df5c497b531610c8717ae53f2945001b0eec1372680969',
+        2263,
       ),
       'fr': (
-        'd2a0fcda161238f2bb57da9320acd6716ab38aa02032a8eca8f29faabcccda75',
-        1783,
+        'f4ddefcbdc09479eb9bb58ce178ef23ef0a7d465d7b62d80943ba7164aa0b1da',
+        1785,
       ),
       'sv': (
-        '0f5921923b5cf9b5ac691b56b559bdf758b67cbe7603f974190fd6b2001c198c',
-        1783,
+        '3bfcb1e6e3dd6fd9554f696148919db462825b037836d957746ff84c1f29e6b6',
+        1785,
       ),
     };
     for (final lang in _langs) {

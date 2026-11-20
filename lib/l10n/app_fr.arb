@@ -1194,6 +1194,8 @@
   "pinChangeBody": "Demandez un nouveau code PIN à Movera. Ne le communiquez à votre chauffeur qu’au début du trajet.",
   "pinChange": "Changer le code PIN",
   "pinIntro": "Ajoutez une vérification avant le départ. Votre chauffeur doit confirmer votre code PIN avant de commencer le trajet.",
+  "pinDecidedByArea": "Movera active la vérification par code PIN selon la zone. Quand une course demande un code PIN, vous le voyez sur l’écran de la course dès que votre chauffeur est en route. Donnez-le au chauffeur avant le départ.",
+  "pinStatusByArea": "Selon la zone",
   "pinToggle": "Vérifier les trajets avec un code PIN",
   "pinShareHint": "Communiquez ce code PIN à votre chauffeur au début du trajet.",
   "pinSavedHint": "Le code PIN est enregistré. Activez la vérification pour l’utiliser lors de vos trajets.",
