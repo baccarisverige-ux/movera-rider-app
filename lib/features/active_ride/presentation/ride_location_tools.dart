@@ -255,6 +255,11 @@ class RideLocationToolsState extends State<RideLocationTools>
   @visibleForTesting
   LiveLocationSender? get sender => _sender;
 
+  /// The switch as a tap sets it (tests: an off while an on still waits
+  /// for the GPS, which a tap cannot do while the switch shows off).
+  @visibleForTesting
+  Future<void> debugSetSharing(bool on) => _setSharing(on);
+
   Future<void> _setSharing(bool on) async {
     final id = widget.tripId;
     if (id == null) return;

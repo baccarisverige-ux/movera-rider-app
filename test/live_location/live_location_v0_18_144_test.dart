@@ -552,5 +552,124 @@ void main() {
         await tester.pumpWidget(const SizedBox());
       },
     );
+
+    Future<
+      ({
+        List<Completer<void>> gate,
+        List<Object?> bodies,
+        RideLocationToolsState state,
+      })
+    >
+    gated(
+      WidgetTester tester, {
+      AdjustPickupPhase phase = AdjustPickupPhase.driverComing,
+    }) async {
+      final gate = <Completer<void>>[];
+      final bodies = <Object?>[];
+      var open = true;
+      await pump(
+        tester,
+        settings: const LiveLocationSettings(share: true),
+        phase: phase,
+        onAdjust: (_) async => false,
+        fixDelay: () {
+          if (open) return Future<void>.value();
+          final c = Completer<void>();
+          gate.add(c);
+          return c.future;
+        },
+        api: ApiClient(
+          env: live,
+          client: MockClient((r) async {
+            bodies.add(jsonDecode(r.body));
+            return http.Response('{}', 200);
+          }),
+        ),
+      );
+      open = false;
+      final state = tester.state<RideLocationToolsState>(
+        find.byType(RideLocationTools),
+      );
+      return (gate: gate, bodies: bodies, state: state);
+    }
+
+    int sharingPuts(List<Object?> bodies) =>
+        bodies.where((b) => (b as Map)['sharing'] == true).length;
+
+    testWidgets(
+      'off while on still waits for the GPS: no sender, no point, switch off',
+      (tester) async {
+        final g = await gated(tester);
+        unawaited(g.state.debugSetSharing(true));
+        await tester.pump();
+        expect(g.gate, isNotEmpty, reason: 'the on waits for the GPS');
+        await g.state.debugSetSharing(false);
+        await tester.pump();
+        for (final c in g.gate) {
+          c.complete();
+        }
+        await tester.pump();
+        await tester.pump();
+        expect(g.state.sender, isNull);
+        expect(sharingPuts(g.bodies), 0);
+        expect(
+          tester
+              .widget<Switch>(find.byKey(const Key('share-location-switch')))
+              .value,
+          isFalse,
+        );
+        await tester.pump(const Duration(seconds: 40));
+        for (final c in g.gate) {
+          if (!c.isCompleted) c.complete();
+        }
+        await tester.pump();
+        expect(sharingPuts(g.bodies), 0, reason: 'no point after the off');
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+
+    testWidgets(
+      'the ride leaves "driver coming" during the GPS wait: no sender, no point',
+      (tester) async {
+        final g = await gated(tester);
+        unawaited(g.state.debugSetSharing(true));
+        await tester.pump();
+        // The same widget, now on the searching phase (e.g. the driver cancelled).
+        await pump(
+          tester,
+          settings: const LiveLocationSettings(share: true),
+          phase: AdjustPickupPhase.searching,
+          onAdjust: (_) async => false,
+          fixDelay: () => Future<void>.value(),
+        );
+        for (final c in g.gate) {
+          c.complete();
+        }
+        await tester.pump();
+        await tester.pump();
+        expect(g.state.sender, isNull);
+        expect(sharingPuts(g.bodies), 0);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+
+    testWidgets('a failed GPS read hides a banner built on the old fix', (
+      tester,
+    ) async {
+      var ok = true;
+      await pump(
+        tester,
+        settings: const LiveLocationSettings(),
+        phase: AdjustPickupPhase.searching,
+        onAdjust: (_) async => false,
+        fixOk: () => ok,
+      );
+      expect(find.byKey(const Key('adjust-pickup-banner')), findsOneWidget);
+      ok = false;
+      await tester.pump(const Duration(seconds: 31));
+      await tester.pump();
+      expect(find.byKey(const Key('adjust-pickup-banner')), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
   });
 }
