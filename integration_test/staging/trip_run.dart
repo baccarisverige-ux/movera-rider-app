@@ -13,10 +13,15 @@ import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
+import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
+import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
+import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/widgets/ride_stage_map.dart';
+import 'package:url_launcher_platform_interface/link.dart';
+import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
 import 'check_log.dart';
 import 'cleanup_scope.dart';
@@ -34,6 +39,7 @@ part 'trip_cleanup.dart';
 part 'trip_extras.dart';
 part 'trip_money.dart';
 part 'trip_scheduled.dart';
+part 'trip_sensitive.dart';
 
 /// G31 rider (owner 2026-11-12: "then the RIDER app on phone (driver via
 /// API) with the same checks"): one whole trip on a real Test Lab phone.
@@ -50,6 +56,8 @@ part 'trip_scheduled.dart';
 /// their controls are tapped.
 class TripRun extends RiderSession {
   TripRun(super.tester, super.log, {this.scheduled = false}) {
+    // Sensitive buttons 2026-11-20: SOS never opens the real dialer.
+    TelLauncher.install();
     peer = DriverPeer(base);
     watch = TransitionWatch(tester, log, this);
   }
@@ -381,6 +389,13 @@ class TripRun extends RiderSession {
     await step('SEARCHING', 'Finding, offer to the test driver', _searching);
     if (!accepted) return;
     await _tripSteps(extras: true);
+    if (!completed) return;
+    // Sensitive buttons 2026-11-20: a second ride, cancelled at once.
+    await step(
+      'FREE-CANCEL',
+      'rider cancels at once after the match: no fee',
+      _freeCancel,
+    );
   }
 
   /// From "driver on the way" to History, the same for a live and a
@@ -415,6 +430,14 @@ class TripRun extends RiderSession {
         () => _switch('2'),
       );
       await step('SOS', 'SOS on the trip, zone numbers', _sos);
+      // Sensitive buttons 2026-11-20: SOS pressed (tel: kept, no dial),
+      // Share trip pressed.
+      await step(
+        'SOS-PRESS',
+        'SOS asks for the tel: dial and alerts Movera',
+        _sosPress,
+      );
+      await step('SHARE', 'Share trip pressed', _share);
       await step('RIDE-CHECK', 'ride check card, answered OK', _rideCheck);
     }
     await step('DROPOFF', 'driver drives to the drop-off', _dropoff);

@@ -72,6 +72,9 @@ dev_dependencies:
   # The wipe tests stand in a store whose remove fails (a wipe that stops
   # part-way).
   shared_preferences_platform_interface: ^2.4.1
+  # The sensitive-buttons device test keeps the SOS tel: launch (no real
+  # dial): integration_test/staging/trip_sensitive.dart.
+  url_launcher_platform_interface: ^2.3.2
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
