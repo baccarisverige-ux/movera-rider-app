@@ -24,6 +24,7 @@ import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/core/location/app_geocoding.dart';
 import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
@@ -47,6 +48,7 @@ import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/domain/reservation_errors.dart';
 import 'package:movera_rider/features/reservations/application/scheduled_ride_checkout.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/application/nearby_cars_controller.dart';
@@ -131,16 +133,13 @@ class SelectRide extends StatefulWidget {
     this.offerSaveAddress,
   });
 
-  /// Whether [origin] has the exact points a return ride needs (CODE-5).
   static bool canPlanReturn(Reservation origin) =>
       origin.pickup.lat != null &&
       origin.pickup.lng != null &&
       origin.destination.lat != null &&
       origin.destination.lng != null;
 
-  /// Return-ride entry: same category cards, scheduled mode, reverse route.
-  /// Needs both points of [origin] ([canPlanReturn]); CODE-5: it used to
-  /// invent nearby points (or the Stockholm centre) when they were missing.
+  /// Return ride: reverse route, scheduled; needs both points (CODE-5).
   factory SelectRide.forReturnRide(
     Reservation origin, {
     Key? key,
@@ -193,8 +192,7 @@ class SelectRide extends StatefulWidget {
   final DateTime? initialScheduledFor;
   final String? initialRideId;
 
-  /// Saved-places design (owner 2026-11-18): the saved place's fixed
-  /// category; when offered here it is chosen and Set pickup opens at once.
+  /// Saved place's fixed category: chosen here, Set pickup opens at once.
   final String? preferredCategoryId;
 
   /// A recent address that is not saved: the S3 save sheet offers it.
@@ -207,8 +205,7 @@ class SelectRide extends StatefulWidget {
   final Future<void> Function(BuildContext context, String reservationId)?
   onScheduled;
 
-  /// Optional seams are used by behavioral certification; production keeps
-  /// the same AppScope-backed defaults.
+  /// Optional test seams; production uses the AppScope defaults.
   final RideSelectionController? selection;
   final BookingController? booking;
   final RideRealtime? realtime;
@@ -223,12 +220,10 @@ class SelectRide extends StatefulWidget {
   /// Looks the stops up; defaults to the app's geocoder.
   final GeocodingRepository? geocoding;
 
-  /// The free cars drawn around the pickup (contract v0.5.2 §13); defaults
-  /// to the server's `GET /rider/nearby-vehicles`.
+  /// Free cars around the pickup (§13); default `GET /rider/nearby-vehicles`.
   final NearbyCarsSource? nearbyCars;
 
-  /// The rider's live trip on the server; defaults to the app's
-  /// `GET /rider/trips/active`.
+  /// The rider's live trip; defaults to `GET /rider/trips/active`.
   final ActiveTripRepository? activeTrips;
 
   @override
@@ -322,8 +317,7 @@ class _SelectRideState extends State<SelectRide>
 
   late final RouteFitScheduler _fits = RouteFitScheduler(plan: _routeFitPlan);
 
-  /// True while a finger moves the sheet; the web overlay waits for the
-  /// settle instead of toggling mid-drag.
+  /// True while a finger moves the sheet (web overlay waits for settle).
   bool _sheetDragging = false;
 
   /// The rider's promotion (admin panel), shown on top of the list.
@@ -386,6 +380,7 @@ class _SelectRideState extends State<SelectRide>
     } else if (widget.bookingMode == BookingMode.scheduled) {
       _selection.setBookingMode(BookingMode.scheduled);
     }
+    _selection.takeBookingModeRequote();
     _loadQuotes();
     unawaited(_loadRoutePins());
     unawaited(_loadWalletBalance());
@@ -535,6 +530,11 @@ class _SelectRideState extends State<SelectRide>
     setState(() => _mapReady = true);
   }
 
+  /// R3: never send "Current location" as the pickup name; use a dropped pin.
+  String get _quotePickupLabel => isUnusablePickupLabel(_pickupAddress)
+      ? droppedPinPickupAddress(_pickupPosition)
+      : _pickupAddress;
+
   Future<void> _loadQuotes() async {
     final generation = _selection.beginQuotes();
     // Quotes include the stops (audit finding B7, contract §3), so the price
@@ -544,7 +544,7 @@ class _SelectRideState extends State<SelectRide>
     await _selection.loadQuotes(
       stops: stops,
       generation: generation,
-      pickup: _pickupAddress,
+      pickup: _quotePickupLabel,
       destination: widget.destinationAddress,
       distanceMeters: tripStraightMeters(
         _pickupPosition,
@@ -885,7 +885,14 @@ class _SelectRideState extends State<SelectRide>
       // Only the time here; the pickup is set once, on Set pickup after
       // Schedule.
       setState(() => _selection.scheduleFor(when));
+      if (!_bookingInFlight) _requoteForBookingMode();
     });
+  }
+
+  /// R1: mode or time changed: the server prices the list for that mode.
+  void _requoteForBookingMode() {
+    if (!_selection.takeBookingModeRequote()) return;
+    unawaited(_loadQuotes());
   }
 
   Future<void> _showBookingPicker() async {
@@ -933,6 +940,7 @@ class _SelectRideState extends State<SelectRide>
                   selected: _selection.bookingMode == BookingMode.now,
                   onTap: () {
                     setState(() => _selection.setBookingMode(BookingMode.now));
+                    _requoteForBookingMode();
                     Navigator.pop(sheetContext);
                   },
                 ),
@@ -1078,6 +1086,7 @@ class _SelectRideState extends State<SelectRide>
     _preferredHidden = false;
     if (!mounted) return;
     setState(() {});
+    if (_selection.takeBookingModeRequote()) _catalogRequoteDeferred = true;
     if (_catalogRequoteDeferred) {
       _catalogRequoteDeferred = false;
       unawaited(_loadQuotes());

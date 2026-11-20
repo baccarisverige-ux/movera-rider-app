@@ -62,7 +62,12 @@ extension _SelectRideQuotes on _SelectRideState {
         stops,
         widget.destinationPosition,
       ),
-      pickup: coordinatePickupAddress(pin),
+      // R3 (owner 2026-11-20): the server keeps the quote's pickup as the
+      // trip's pickup, so its address is what the driver's offer card and
+      // History show. The pin's street is not known yet here; the label
+      // says it is a dropped pin, never bare coordinates ("59.332600,
+      // 18.064900"). Booking prices again under the confirmed address.
+      pickup: droppedPinPickupAddress(pin),
       destination: widget.destinationAddress,
       pickupPoint: _SelectRideState._geoPoint(pin),
       destinationPoint: _SelectRideState._geoPoint(widget.destinationPosition),
@@ -106,6 +111,14 @@ extension _SelectRideQuotes on _SelectRideState {
     return (quote: quote, price: price);
   }
 
+  /// R3: whether [quote] was asked under the confirmed pickup address. Only
+  /// a ride now on movera-server is checked: a booked ride is priced again
+  /// under its own address when it is booked, and a quote this app holds no
+  /// route for is booked with the address the booking sends.
+  bool _quoteNamesPickup(RideQuote quote) =>
+      _selection.createsReservation ||
+      _selection.quoteNamesPickup(quote, _quotePickupLabel);
+
   /// After the steps the rider controls (Add card, Set pickup): the quote
   /// to book is the one the selection holds now, never the one captured
   /// before them (RIDE-1). A quote that expired meanwhile is refreshed in
@@ -124,10 +137,47 @@ extension _SelectRideQuotes on _SelectRideState {
     }
     if (!mounted) return null;
     final current = _bookableQuote(ride.id);
-    if (current != null) return current;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(context.l10n.refreshingPrice)));
+    // R3: a ride now is booked with the quote's own pickup (the server
+    // keeps it as the trip's pickup). A quote asked under another label
+    // than the confirmed address (the pin's price) is asked again under
+    // that address, so the driver sees the street the rider confirmed.
+    final renamed = current != null && !_quoteNamesPickup(current.quote);
+    if (current != null && !renamed) return current;
+    if (!renamed) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.refreshingPrice)));
+    }
+    try {
+      final stops = await _routeStops();
+      await _selection.quoteFromPin(
+        stops: stops,
+        rideId: ride.id,
+        distanceMeters: tripStraightMeters(
+          _pickupPosition,
+          stops,
+          widget.destinationPosition,
+        ),
+        pickup: _quotePickupLabel,
+        destination: widget.destinationAddress,
+        pickupPoint: _SelectRideState._geoPoint(_pickupPosition),
+        destinationPoint: _SelectRideState._geoPoint(
+          widget.destinationPosition,
+        ),
+      );
+    } catch (_) {
+      // Reported below.
+    }
+    if (!mounted) return null;
+    return _bookableQuote(ride.id);
+  }
+
+  /// R2: a new server price for [ride] from the confirmed pickup, whatever
+  /// quote is held (the server did not book at that one). Null when no
+  /// price can be had.
+  Future<({RideQuote quote, double price})?> _repriceAtPickup(
+    _RideOption ride,
+  ) async {
     try {
       final stops = await _routeStops();
       await _selection.quoteFromPin(
@@ -144,9 +194,10 @@ extension _SelectRideQuotes on _SelectRideState {
         destinationPoint: _SelectRideState._geoPoint(
           widget.destinationPosition,
         ),
+        fresh: true,
       );
     } catch (_) {
-      // Reported below.
+      return null;
     }
     if (!mounted) return null;
     return _bookableQuote(ride.id);
