@@ -1113,8 +1113,9 @@ class _SelectRideState extends State<SelectRide>
 
     final selected = _selectedRideOrNull;
     if (selected == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(context.l10n.noRideCategory)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.noRideCategory)));
       return;
     }
     if (!_selection.quoteIsAvailable(selected.id)) {
@@ -1433,8 +1434,9 @@ class _SelectRideState extends State<SelectRide>
                     child: Material(
                       color: Colors.white,
                       elevation: 18,
-                      shadowColor: const Color(0xFF162C36)
-                          .withValues(alpha: 0.16),
+                      shadowColor: const Color(
+                        0xFF162C36,
+                      ).withValues(alpha: 0.16),
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(28),
                       ),

@@ -459,10 +459,12 @@ class _GlassLens extends StatelessWidget {
               end: Alignment.bottomCenter,
               colors: [
                 Colors.white.withValues(alpha: 0.70 * kGlassFrost),
-                const Color(0xFFE8ECEF)
-                    .withValues(alpha: (0.45 + tint) * kGlassFrost),
-                const Color(0xFFD9DFE4)
-                    .withValues(alpha: (0.55 + tint) * kGlassFrost),
+                const Color(
+                  0xFFE8ECEF,
+                ).withValues(alpha: (0.45 + tint) * kGlassFrost),
+                const Color(
+                  0xFFD9DFE4,
+                ).withValues(alpha: (0.55 + tint) * kGlassFrost),
               ],
             ),
           ),

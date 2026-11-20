@@ -1,5 +1,4 @@
 import 'package:movera_rider/core/contracts/search_step.dart';
-
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -1104,8 +1103,9 @@ class _FindingDriversState extends State<FindingDrivers> {
                     child: Material(
                       color: Colors.white,
                       elevation: 18,
-                      shadowColor: const Color(0xFF162C36)
-                          .withValues(alpha: 0.14),
+                      shadowColor: const Color(
+                        0xFF162C36,
+                      ).withValues(alpha: 0.14),
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(28),
                       ),

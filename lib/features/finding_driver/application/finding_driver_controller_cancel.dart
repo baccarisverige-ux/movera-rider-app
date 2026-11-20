@@ -112,14 +112,15 @@ extension _FindingDriverCancel on FindingDriverController {
 
   void _flushQueuedCancel() {
     unawaited(
-      FindingDriverController.flushPendingCancels(api: api)
-          .catchError((Object error) {
-            AppLog.warning(
-              'ride.cancel.flush_failed',
-              extra: {'rideId': ownedRideId, 'error': error.toString()},
-            );
-            return const <String, PendingCancelResult>{};
-          }),
+      FindingDriverController.flushPendingCancels(api: api).catchError((
+        Object error,
+      ) {
+        AppLog.warning(
+          'ride.cancel.flush_failed',
+          extra: {'rideId': ownedRideId, 'error': error.toString()},
+        );
+        return const <String, PendingCancelResult>{};
+      }),
     );
   }
 

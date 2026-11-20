@@ -124,9 +124,9 @@ class HomePlacesController {
     // A recent chosen again without a point keeps the point it had.
     final kept =
         point ??
-        [for (final saved in previous) recentPoints[saved]]
-            .whereType<GeoPoint>()
-            .firstOrNull;
+        [
+          for (final saved in previous) recentPoints[saved],
+        ].whereType<GeoPoint>().firstOrNull;
     for (final saved in previous.toList()) {
       recentPoints.remove(saved);
     }

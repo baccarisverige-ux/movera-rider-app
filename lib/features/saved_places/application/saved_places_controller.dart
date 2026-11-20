@@ -120,9 +120,9 @@ class SavedPlacesController {
     final kind = _normalizeKind(place.kind);
     final snapshot = await _store.load();
     final id = place.id;
-    final places = withPlaceIds(snapshot.places)
-        .where((item) => id == null || item['id'] != id)
-        .toList();
+    final places = withPlaceIds(
+      snapshot.places,
+    ).where((item) => id == null || item['id'] != id).toList();
 
     await _store.save(
       HomeAddressSnapshot(

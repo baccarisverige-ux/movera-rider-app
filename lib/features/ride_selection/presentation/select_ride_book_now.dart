@@ -20,8 +20,9 @@ extension _SelectRideBookNow on _SelectRideState {
     }
     final paymentItem = _selection.selectedPaymentItem();
     if (paymentItem == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(context.l10n.noPaymentMethod)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.noPaymentMethod)));
       _releaseBookingLock();
       return;
     }

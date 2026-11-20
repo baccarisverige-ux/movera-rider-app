@@ -561,21 +561,23 @@ class SupportMessages extends StatelessWidget {
 /// Sends a rider's message about a ride to Movera (`POST
 /// /rides/{id}/disputes`, the same review queue as "Report an issue" on the
 /// receipt).
-typedef SupportMessageSender = Future<void> Function({
-  required String rideId,
-  required String reason,
-  String? detail,
-});
+typedef SupportMessageSender =
+    Future<void> Function({
+      required String rideId,
+      required String reason,
+      String? detail,
+    });
 
 /// Sends a help request that is not about one ride.
 typedef SupportHelpSender = Future<void> Function({required String text});
 
 /// v0.18.15: opens a ticket on an admin topic (tests replace it).
-typedef SupportTopicSender = Future<Object?> Function({
-  String? tripId,
-  required String category,
-  required String text,
-});
+typedef SupportTopicSender =
+    Future<Object?> Function({
+      String? tripId,
+      required String category,
+      required String text,
+    });
 
 /// A topic code in the rider's language (the same seven as the driver app).
 String supportTopicLabel(AppLocalizations l, String code) => switch (code) {

@@ -149,8 +149,9 @@ extension _SelectRideBookingHelpers on _SelectRideState {
     if (trip == null ||
         (surface != RestoredSurface.finding &&
             surface != RestoredSurface.waiting)) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(context.l10n.rideAlreadyGoing)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.rideAlreadyGoing)));
       unawaited(_loadQuotes());
       return;
     }

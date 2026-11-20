@@ -144,8 +144,9 @@ extension _SelectRideQuotes on _SelectRideState {
     final renamed = current != null && !_quoteNamesPickup(current.quote);
     if (current != null && !renamed) return current;
     if (!renamed) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(context.l10n.refreshingPrice)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.refreshingPrice)));
     }
     try {
       final stops = await _routeStops();

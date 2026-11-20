@@ -22,8 +22,9 @@ class ApiWalletHistory implements WalletHistorySource, ServerBackedRepository {
 
   @override
   Future<WalletHistoryPage> load({String? cursor}) async {
-    final query = Uri(queryParameters: {'limit': '$limit', 'cursor': ?cursor})
-        .query;
+    final query = Uri(
+      queryParameters: {'limit': '$limit', 'cursor': ?cursor},
+    ).query;
     final json = await _api.get('$path?$query');
     final raw = json['items'];
     final next = json['nextCursor'];

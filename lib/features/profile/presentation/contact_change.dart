@@ -7,10 +7,11 @@ import 'package:movera_rider/l10n/l10n.dart';
 enum ContactKind { phone, email }
 
 /// The rider's `POST` (path, body) → answer.
-typedef ContactPost = Future<Map<String, dynamic>> Function(
-  String path,
-  Map<String, dynamic> body,
-);
+typedef ContactPost =
+    Future<Map<String, dynamic>> Function(
+      String path,
+      Map<String, dynamic> body,
+    );
 
 /// Decision driver-g1 (owner 2026-11-02, "same flow for riders"): the rider
 /// changes the phone number or e-mail in the app: the new value → a code

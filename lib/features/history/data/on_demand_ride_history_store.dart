@@ -10,11 +10,12 @@ import 'package:movera_rider/features/reservations/domain/reservation_status.dar
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
-typedef OnDemandArchiveWriter = Future<void> Function(
-  RideSnapshot snapshot,
-  RideStatus terminalStatus,
-  String? cancellationReason,
-);
+typedef OnDemandArchiveWriter =
+    Future<void> Function(
+      RideSnapshot snapshot,
+      RideStatus terminalStatus,
+      String? cancellationReason,
+    );
 
 /// Local archive for finished Book Now rides.
 ///
