@@ -198,4 +198,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(sent.single.$2, {'phone': '+46701740633'});
   });
+
+  testWidgets('v0.18.138: a national number with a trunk 0 and any '
+      'separators goes out in E.164, as sign-in reads it', (tester) async {
+    final sent = await open(
+      tester,
+      ContactKind.phone,
+      (_) => {'sessionId': 'ses_1', 'retryAfterSeconds': 30},
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('contact-value')),
+      '(070) 174-06.33',
+    );
+    await tester.tap(find.byKey(const ValueKey('contact-submit')));
+    await tester.pumpAndSettle();
+    expect(sent.single.$2, {'phone': '+46701740633'});
+  });
 }

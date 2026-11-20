@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/features/auth/domain/phone_country.dart';
+import 'package:movera_rider/features/auth/application/phone_country_default.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -145,11 +147,15 @@ class _ContactChangePageState extends State<ContactChangePage> {
   }
 
   /// Contract v0.18.138 `deviceCheck.binding`: a number is sent (and bound
-  /// in the device check) as the server reads it, without spaces or dashes,
-  /// the same way sign-in sends it; an e-mail only trimmed.
-  String get _entered => _phone
-      ? _value.text.replaceAll(RegExp(r'[\s-]'), '').trim()
-      : _value.text.trim();
+  /// in the device check) in E.164 exactly as sign-in reads the field
+  /// (separators out, a trunk 0 replaced by the start country's code);
+  /// a field it cannot read goes without separators (the server answers
+  /// invalid_phone). An e-mail is only trimmed.
+  String get _entered {
+    if (!_phone) return _value.text.trim();
+    return phoneNumberFromField(_value.text, initialPhoneCountry()) ??
+        _value.text.replaceAll(RegExp(r'[\s\-(). ]'), '');
+  }
 
   Future<void> _send() => _run(() async {
     final value = _entered;
