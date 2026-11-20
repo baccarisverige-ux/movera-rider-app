@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:movera_rider/core/auth/device_identity.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/l10n/l10n.dart';
@@ -32,10 +31,17 @@ class ContactChangePage extends StatefulWidget {
     required this.post,
     this.onSaved,
     this.verifyCurrent,
+    this.deviceFields,
   });
 
   final ContactKind kind;
   final ContactPost post;
+
+  /// Contract v0.18.138 `deviceCheck.phoneChange`: the install id and the
+  /// real-phone check for a new number (the app passes
+  /// DeviceIdentity.app.requestFields); null sends neither.
+  final Future<Map<String, Object>> Function(String app, String phone)?
+  deviceFields;
 
   /// G30 `emailVerified.verifyCurrent`: the rider's current, Not verified
   /// e-mail. The field is filled with it and read-only; "Change e-mail"
@@ -135,7 +141,7 @@ class _ContactChangePageState extends State<ContactChangePage> {
       _phone
           ? {
               'phone': value,
-              ...await DeviceIdentity.app.requestFields('rider', value),
+              ...?await widget.deviceFields?.call('rider', value),
             }
           : {'email': value},
     );

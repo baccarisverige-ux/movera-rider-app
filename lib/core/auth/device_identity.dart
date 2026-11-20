@@ -70,14 +70,18 @@ class DeviceIdentity {
       store = await _prefs();
       final saved = store.getString(storageKey);
       if (saved != null && _shape.hasMatch(saved)) return _id = saved;
-    } catch (_) {}
+    } catch (_) {
+      store = null; // no storage: an id for this run only
+    }
     final made = List.generate(
       16,
       (_) => _random.nextInt(256).toRadixString(16).padLeft(2, '0'),
     ).join();
     try {
       await store?.setString(storageKey, made);
-    } catch (_) {}
+    } catch (_) {
+      // not kept: the next start makes a new id (only the per-install count resets)
+    }
     return _id = made;
   }
 
