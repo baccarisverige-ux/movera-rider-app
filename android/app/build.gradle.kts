@@ -102,6 +102,9 @@ flutter {
 }
 
 dependencies {
+    // Contract v0.18.138 (deviceCheck): Google Play Integrity for the
+    // real-phone check before a sign-in SMS (lib/core/auth/device_identity.dart).
+    implementation("com.google.android.play:integrity:1.4.0")
     // G31 rider: the instrumentation runner of the device suite (test APK only).
     androidTestImplementation("androidx.test:runner:1.2.0")
     androidTestImplementation("androidx.test:rules:1.2.0")
