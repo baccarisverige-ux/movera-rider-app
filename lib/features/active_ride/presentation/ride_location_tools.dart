@@ -159,6 +159,15 @@ class RideLocationToolsState extends State<RideLocationTools>
     }
   }
 
+  /// The last fix when it is fresh enough for the banner (30 s reads: at
+  /// most 2 x 30 s old, and the last read did not fail).
+  RideFix? get freshFixForBanner {
+    final at = _fixAt;
+    if (_lastReadFailed || at == null) return null;
+    final every = _readEvery ?? bannerReadEvery;
+    return DateTime.now().difference(at) > every * 2 ? null : _fix;
+  }
+
   /// The fix the sender may use: a successful read at most 2 × the send
   /// interval old; else null (then nothing is sent).
   GeoPoint? get freshPoint {
@@ -202,7 +211,8 @@ class RideLocationToolsState extends State<RideLocationTools>
   }
 
   int? get _meters {
-    final fix = _fix;
+    // The banner follows the same freshness rule as the sender.
+    final fix = freshFixForBanner;
     if (fix == null || !_bannerPossible || _closedFor == _pickupKey) {
       return null;
     }
@@ -218,7 +228,7 @@ class RideLocationToolsState extends State<RideLocationTools>
   }
 
   Future<void> _adjust() async {
-    final fix = _fix;
+    final fix = freshFixForBanner;
     if (fix == null || _busy) return;
     setState(() => _busy = true);
     final moved = await widget.onAdjust(fix.point);
@@ -241,9 +251,14 @@ class RideLocationToolsState extends State<RideLocationTools>
     if (id == null) return;
     if (on) {
       // No location permission or no fix now: the switch stays off.
+      // A double tap: the older sender stops first.
+      final old = _sender;
+      _sender = null;
+      await old?.stop(tellServer: false);
       final first = await widget.fix();
+      // The screen closed or the app went away while the GPS answered.
       if (!mounted) return;
-      if (first == null) {
+      if (_away || first == null) {
         setState(() => _sharing = false);
         return;
       }
