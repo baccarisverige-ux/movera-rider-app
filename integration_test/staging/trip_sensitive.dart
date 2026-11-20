@@ -10,11 +10,11 @@ part of 'trip_run.dart';
 ///   without starting an intent. PASS: the app asked for `tel:` + the
 ///   zone's main number AND `POST /rider/trips/{id}/sos` answered 2xx.
 /// - SHARE: the kit's Share trip button. PASS: the share call answered
-///   2xx, or (no trusted contact on the test rider) the share page opened.
+///   2xx (the share page alone, with no POST, is a FAIL).
 /// - FREE-CANCEL: after the full trip a second cash ride is booked in the
 ///   app, the test driver accepts over HTTP, and the rider cancels in the
 ///   app at once (inside the free window). PASS: server
-///   `cancelled_by_rider` with no fee (or fee 0).
+///   `cancelled_by_rider` and the server's fee is 0 (missing = FAIL).
 extension _TripSensitive on TripRun {
   Future<void> _sosPress() async {
     const id = 'SOS-PRESS';
@@ -105,7 +105,7 @@ extension _TripSensitive on TripRun {
     final detail =
         'kit opened=$opened Share tapped=$tapped share POST=$posts '
         'share page (no contact yet)=$page back on trip=${onTripTop()}';
-    tapped && (postOk || (page && posts.isEmpty)) && onTripTop()
+    tapped && postOk && onTripTop()
         ? log.pass(id, title, detail)
         : log.fail(id, title, detail);
   }
@@ -188,7 +188,8 @@ extension _TripSensitive on TripRun {
     final view = await riderView();
     final c = view?['cancellation'];
     final fee = c is Map ? moneyOf(c['fee']) : null;
-    final free = fee == null || fee.$1 == 0;
+    // A missing fee is a FAIL: the server must say the cancel is free.
+    final free = fee != null && fee.$1 == 0;
     await wait(tester, const Duration(seconds: 2));
     await backToHome(tester);
     final detail =
@@ -197,7 +198,11 @@ extension _TripSensitive on TripRun {
         '${view?['status']} fee=${TripRun.shown(fee) ?? 'none'}';
     view?['status'] == 'cancelled_by_rider' && free
         ? log.pass(id, title, detail)
-        : log.fail(id, title, '$detail (want cancelled_by_rider, no fee)');
+        : log.fail(
+            id,
+            title,
+            '$detail (want cancelled_by_rider and server fee 0; missing fee = FAIL)',
+          );
     tripId = null;
   }
 }
