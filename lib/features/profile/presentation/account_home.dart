@@ -246,7 +246,10 @@ class _AccountHomePageState extends State<AccountHomePage> {
                               child: Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
-                                children: [for (final fee in payable.items) PayFeeButton(fee: fee)],
+                                children: [
+                                  for (final fee in payable.items)
+                                    PayFeeButton(fee: fee),
+                                ],
                               ),
                             ),
                     ),

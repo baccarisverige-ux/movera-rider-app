@@ -11,7 +11,12 @@ class StripeFeePaymentSheet implements FeePaymentSheet {
   static const merchantIdentifier = 'merchant.com.movera.rider';
 
   @override
-  Future<bool> present({required String clientSecret, required String publishableKey, required String countryCode, required bool googlePay}) async {
+  Future<bool> present({
+    required String clientSecret,
+    required String publishableKey,
+    required String countryCode,
+    required bool googlePay,
+  }) async {
     Stripe.publishableKey = publishableKey;
     Stripe.merchantIdentifier = merchantIdentifier;
     await Stripe.instance.applySettings();
@@ -20,7 +25,12 @@ class StripeFeePaymentSheet implements FeePaymentSheet {
         paymentIntentClientSecret: clientSecret,
         merchantDisplayName: 'Movera',
         applePay: PaymentSheetApplePay(merchantCountryCode: countryCode),
-        googlePay: googlePay ? PaymentSheetGooglePay(merchantCountryCode: countryCode, testEnv: true) : null,
+        googlePay: googlePay
+            ? PaymentSheetGooglePay(
+                merchantCountryCode: countryCode,
+                testEnv: true,
+              )
+            : null,
       ),
     );
     try {

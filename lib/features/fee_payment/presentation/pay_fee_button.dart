@@ -22,7 +22,12 @@ class _PayFeeButtonState extends State<PayFeeButton> {
 
   Future<void> _pay() async {
     setState(() => _busy = true);
-    final payer = widget.payer ?? FeeCardPayer(api: AppScope.instance.api, sheet: const StripeFeePaymentSheet());
+    final payer =
+        widget.payer ??
+        FeeCardPayer(
+          api: AppScope.instance.api,
+          sheet: const StripeFeePaymentSheet(),
+        );
     final outcome = await payer.pay(widget.fee.tripId);
     if (!mounted) return;
     setState(() => _busy = false);
@@ -37,7 +42,13 @@ class _PayFeeButtonState extends State<PayFeeButton> {
     if (text == null) return;
     ScaffoldMessenger.maybeOf(context)
       ?..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(key: const ValueKey('fee-pay-outcome'), content: Text(text), behavior: SnackBarBehavior.floating));
+      ..showSnackBar(
+        SnackBar(
+          key: const ValueKey('fee-pay-outcome'),
+          content: Text(text),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
   }
 
   @override
@@ -51,8 +62,17 @@ class _PayFeeButtonState extends State<PayFeeButton> {
 /// v0.18.136 stripeFees (DRAFT): after a late cancel, the fee notice offers
 /// "Pay … now" for the newest fee the server says is payable by card (the
 /// server's amount; nothing when the country switch is off).
-Future<void> offerFeePayAfterCancel(ScaffoldMessengerState messenger, String text, {FeeCardPayer? payer}) async {
-  final pay = payer ?? FeeCardPayer(api: AppScope.instance.api, sheet: const StripeFeePaymentSheet());
+Future<void> offerFeePayAfterCancel(
+  ScaffoldMessengerState messenger,
+  String text, {
+  FeeCardPayer? payer,
+}) async {
+  final pay =
+      payer ??
+      FeeCardPayer(
+        api: AppScope.instance.api,
+        sheet: const StripeFeePaymentSheet(),
+      );
   await pay.refresh();
   final items = FeesPayableByCard.current.value.items;
   if (items.isEmpty || !messenger.mounted) return;
@@ -78,7 +98,14 @@ Future<void> offerFeePayAfterCancel(ScaffoldMessengerState messenger, String tex
               FeePayOutcome.unavailable => L10n.current.feePaymentUnavailable,
               FeePayOutcome.closed => null,
             };
-            if (done != null) messenger.showSnackBar(SnackBar(key: const ValueKey('fee-pay-outcome'), content: Text(done), behavior: SnackBarBehavior.floating));
+            if (done != null)
+              messenger.showSnackBar(
+                SnackBar(
+                  key: const ValueKey('fee-pay-outcome'),
+                  content: Text(done),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
           },
         ),
       ),

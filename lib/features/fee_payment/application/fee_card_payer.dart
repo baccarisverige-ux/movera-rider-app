@@ -11,7 +11,12 @@ const bool kGooglePayEnabled = bool.fromEnvironment('MOVERA_GOOGLE_PAY');
 abstract class FeePaymentSheet {
   /// Shows the sheet for the server's PaymentIntent. true = the rider paid
   /// (Stripe said so on the phone); false = she closed it. Throws on a failure.
-  Future<bool> present({required String clientSecret, required String publishableKey, required String countryCode, required bool googlePay});
+  Future<bool> present({
+    required String clientSecret,
+    required String publishableKey,
+    required String countryCode,
+    required bool googlePay,
+  });
 }
 
 enum FeePayOutcome { paid, checking, closed, failed, unavailable }
@@ -21,7 +26,9 @@ enum FeePayOutcome { paid, checking, closed, failed, unavailable }
 /// PaymentSheet takes the card or Apple Pay; the fee is paid only when the
 /// SERVER says so (its signed webhook), read back from GET /rider/profile.
 class FeeCardPayer {
-  FeeCardPayer({required ApiClient api, required FeePaymentSheet sheet}) : _api = api, _sheet = sheet;
+  FeeCardPayer({required ApiClient api, required FeePaymentSheet sheet})
+    : _api = api,
+      _sheet = sheet;
   final ApiClient _api;
   final FeePaymentSheet _sheet;
 
@@ -30,7 +37,10 @@ class FeeCardPayer {
   Future<FeePayOutcome> pay(String tripId, {String countryCode = 'SE'}) async {
     final Map<String, dynamic> intent;
     try {
-      intent = await _api.post('/api/v1/rider/fees/${Uri.encodeComponent(tripId)}/pay', body: const {});
+      intent = await _api.post(
+        '/api/v1/rider/fees/${Uri.encodeComponent(tripId)}/pay',
+        body: const {},
+      );
     } on ApiError {
       await refresh();
       return FeePayOutcome.unavailable;
@@ -43,13 +53,20 @@ class FeeCardPayer {
     }
     final bool done;
     try {
-      done = await _sheet.present(clientSecret: secret, publishableKey: key, countryCode: countryCode, googlePay: kGooglePayEnabled);
+      done = await _sheet.present(
+        clientSecret: secret,
+        publishableKey: key,
+        countryCode: countryCode,
+        googlePay: kGooglePayEnabled,
+      );
     } catch (_) {
       return FeePayOutcome.failed;
     }
     if (!done) return FeePayOutcome.closed;
     await refresh();
-    return FeesPayableByCard.current.value.forTrip(tripId) == null ? FeePayOutcome.paid : FeePayOutcome.checking;
+    return FeesPayableByCard.current.value.forTrip(tripId) == null
+        ? FeePayOutcome.paid
+        : FeePayOutcome.checking;
   }
 
   /// Reads the Rider again: what she owes and can pay comes from the server only.

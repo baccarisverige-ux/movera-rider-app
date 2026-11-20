@@ -32,7 +32,10 @@ class FeesPayableByCard {
       if (item is! Map) continue;
       final tripId = item['tripId'];
       final amount = Money.fromWire(item['amount']);
-      if (tripId is String && tripId.isNotEmpty && amount != null && amount.isPositive) {
+      if (tripId is String &&
+          tripId.isNotEmpty &&
+          amount != null &&
+          amount.isPositive) {
         out.add(FeePayable(tripId: tripId, amount: amount));
       }
     }
@@ -40,7 +43,9 @@ class FeesPayableByCard {
   }
 
   /// What the server last said; the account page and the cancel notice listen.
-  static final ValueNotifier<FeesPayableByCard> current = ValueNotifier(const FeesPayableByCard());
+  static final ValueNotifier<FeesPayableByCard> current = ValueNotifier(
+    const FeesPayableByCard(),
+  );
 
   static void reset() => current.value = const FeesPayableByCard();
 }
