@@ -119,7 +119,8 @@ class ReservationRideRealtime implements RideRealtime {
   @override
   Future<void> reconnectAndResync(String rideId) async {
     if (_disposed || rideId != reservationId) return;
-    await controller.hydrate();
+    // The subscribers are sent the current state again, changed or not.
+    await controller.hydrate(always: true);
   }
 
   @override
