@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/fee_payment/application/fee_card_payer.dart';
-import 'package:movera_rider/features/fee_payment/data/stripe_fee_payment_sheet.dart';
 import 'package:movera_rider/features/fee_payment/domain/fees_payable_by_card.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
@@ -23,11 +22,7 @@ class _PayFeeButtonState extends State<PayFeeButton> {
   Future<void> _pay() async {
     setState(() => _busy = true);
     final payer =
-        widget.payer ??
-        FeeCardPayer(
-          api: AppScope.instance.api,
-          sheet: const StripeFeePaymentSheet(),
-        );
+        widget.payer ?? FeeCardPayer.stripe(api: AppScope.instance.api);
     final outcome = await payer.pay(widget.fee.tripId);
     if (!mounted) return;
     setState(() => _busy = false);
@@ -67,12 +62,7 @@ Future<void> offerFeePayAfterCancel(
   String text, {
   FeeCardPayer? payer,
 }) async {
-  final pay =
-      payer ??
-      FeeCardPayer(
-        api: AppScope.instance.api,
-        sheet: const StripeFeePaymentSheet(),
-      );
+  final pay = payer ?? FeeCardPayer.stripe(api: AppScope.instance.api);
   await pay.refresh();
   final items = FeesPayableByCard.current.value.items;
   if (items.isEmpty || !messenger.mounted) return;

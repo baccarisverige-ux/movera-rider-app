@@ -1,5 +1,6 @@
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/features/fee_payment/data/stripe_fee_payment_sheet.dart';
 import 'package:movera_rider/features/fee_payment/domain/fees_payable_by_card.dart';
 import 'package:movera_rider/features/profile/domain/rider_outstanding.dart';
 
@@ -26,6 +27,11 @@ enum FeePayOutcome { paid, checking, closed, failed, unavailable }
 /// PaymentSheet takes the card or Apple Pay; the fee is paid only when the
 /// SERVER says so (its signed webhook), read back from GET /rider/profile.
 class FeeCardPayer {
+  /// The live payer: Stripe PaymentSheet (the screen never imports the
+  /// data layer, guard_test).
+  factory FeeCardPayer.stripe({required ApiClient api}) =>
+      FeeCardPayer(api: api, sheet: const StripeFeePaymentSheet());
+
   FeeCardPayer({required ApiClient api, required FeePaymentSheet sheet})
     : _api = api,
       _sheet = sheet;
