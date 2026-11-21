@@ -37,6 +37,8 @@ import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/active_ride/application/pickup_move_controller.dart';
+import 'package:movera_rider/features/active_ride/application/live_location_share.dart'
+    show liveLocationSenders;
 import 'package:movera_rider/features/active_ride/application/adjust_pickup.dart';
 import 'package:movera_rider/features/active_ride/presentation/ride_location_tools.dart';
 import 'package:movera_rider/features/active_ride/presentation/cancel_fee_texts.dart';

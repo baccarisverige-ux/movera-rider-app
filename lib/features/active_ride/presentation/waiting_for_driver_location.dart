@@ -25,7 +25,7 @@ extension _WaitingLocation on _WaitingForDriverState {
           _zoneConfig?.maxPickupMoveMeters,
       driverName: driver?.firstName,
       settings: _zoneConfig?.liveLocation ?? const LiveLocationSettings(),
-      api: AppScope.instance.api,
+      senders: liveLocationSenders(AppScope.instance.api),
       onAdjust: _adjustPickupTo,
       // Contract: no banner once the driver has arrived (pickup fixed).
       bannerAllowed: _pickupEditable,

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -52,7 +51,7 @@ class RideLocationTools extends StatefulWidget {
     required this.phase,
     required this.pickup,
     required this.settings,
-    required this.api,
+    required this.senders,
     required this.onAdjust,
     this.bookedPickup,
     this.maxMoveMeters,
@@ -72,7 +71,9 @@ class RideLocationTools extends StatefulWidget {
   final int? maxMoveMeters;
   final String? driverName;
   final LiveLocationSettings settings;
-  final ApiClient api;
+
+  /// Makes the live sender (`liveLocationSenders(api)`).
+  final LiveLocationSenders senders;
 
   /// Moves the pickup to the point (the screen's own path: the v0.18.143
   /// route change while searching, `PATCH { pickup }` after accept). True
@@ -290,8 +291,7 @@ class RideLocationToolsState extends State<RideLocationTools>
         _fixAt = DateTime.now();
         _lastReadFailed = false;
       });
-      _sender = LiveLocationSender(
-        api: widget.api,
+      _sender = widget.senders(
         tripId: id,
         every: _every,
         position: () async => freshPoint,

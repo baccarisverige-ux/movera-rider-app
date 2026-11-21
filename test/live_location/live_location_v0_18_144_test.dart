@@ -228,12 +228,13 @@ void main() {
               maxMoveMeters: 200,
               driverName: 'Ali',
               settings: settings,
-              api:
-                  api ??
-                  ApiClient(
-                    env: live,
-                    client: MockClient((_) async => http.Response('{}', 200)),
-                  ),
+              senders: liveLocationSenders(
+                api ??
+                    ApiClient(
+                      env: live,
+                      client: MockClient((_) async => http.Response('{}', 200)),
+                    ),
+              ),
               onAdjust: onAdjust,
               fix: () async {
                 onFix?.call();

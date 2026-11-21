@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:movera_rider/features/active_ride/application/live_location_share.dart';
+import 'package:movera_rider/core/realtime/live_location_frames.dart';
 import 'package:movera_rider/core/realtime/call_events.dart';
 import 'package:movera_rider/core/realtime/sos_availability.dart';
 import 'package:movera_rider/core/api/api_client.dart';
