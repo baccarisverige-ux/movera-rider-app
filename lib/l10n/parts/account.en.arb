@@ -180,6 +180,10 @@
   "errServer": "Movera is having trouble right now. Try again in a moment.",
   "errWrongCode": "That code isn't right. Check it and try again.",
   "errSendCode": "Couldn't send the code. Try again.",
+  "errSmsNotSent": "We could not send the SMS. Check the number and try again.",
+  "@errSmsNotSent": {"description": "Contract v0.18.133 smsSignIn.texts.smsNotSent (503 unavailable, reason sms_not_sent)."},
+  "errSmsDailyLimit": "We cannot send more SMS codes right now. Try again later.",
+  "@errSmsDailyLimit": {"description": "Contract v0.18.133 smsSignIn.texts.smsDailyLimit (503 unavailable, reason sms_daily_limit)."},
   "errCheckCode": "Couldn't check the code. Try again.",
   "errProvider": "Couldn't sign in with {provider}. Try again.",
   "@errProvider": {
