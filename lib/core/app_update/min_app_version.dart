@@ -77,7 +77,8 @@ abstract final class MinAppVersion {
 
   /// A 426 answer with reason `app_update_required`.
   static void markServerSaid(Map<String, dynamic>? body) {
-    if (body != null && body['reason'] != 'app_update_required') return;
+    // A body that cannot be read, or another reason, never blocks.
+    if (body?['reason'] != 'app_update_required') return;
     serverSaid.value = true;
   }
 

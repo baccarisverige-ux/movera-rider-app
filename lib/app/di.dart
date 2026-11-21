@@ -1,4 +1,6 @@
 import 'package:movera_rider/core/realtime/call_events.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/core/app_update/ride_live_signal.dart';
 import 'package:movera_rider/features/calls/application/rider_trip_calls.dart';
 import 'package:movera_rider/core/config/api_rider_config_repository.dart';
 import 'package:movera_rider/core/config/rider_zones_controller.dart';
@@ -505,6 +507,19 @@ class AppScope {
   late final RiderContentController content = RiderContentController(
     api: api.contractWire ? api : null,
     onTrip: RideSnapshotStore.rideLive,
+  );
+
+  /// v0.18.154 P16c (contract.json#appUpdate.apps): "a ride is live" for
+  /// the minimum-version block: ride screens mounted (also the booked-ride
+  /// live screen and the after-ride screens), the saved snapshot, and at
+  /// start the stored ride or the server's active trip; unknown = live.
+  late final RideLiveSignal rideLive = RideLiveSignal.instance = RideLiveSignal(
+    snapshotLive: RideSnapshotStore.rideLive,
+    storedLive: () async {
+      final stored = await RideSnapshotStore.read();
+      return stored != null && !stored.status.isTerminal;
+    },
+    serverLive: () async => await activeTrips.fetchActive() != null,
   );
 
   /// Terms of use and privacy policy (contract v0.18.5 `legal`, owner G1-B2):

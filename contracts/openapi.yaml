@@ -763,12 +763,13 @@ paths:
         When both headers are present and valid and the version is below the minimum of that platform in the zone''s live
         document, these calls answer 426 code upgrade_required, reason app_update_required, details ["platform:<android|ios>",
         "minVersion:<x.y.z>"], nothing changed: POST /trips (book; rider_app_config of the quote''s zone); POST /driver/availability
-        with onlineStatus online while the driver is not on a trip (driver_app_config of his zones and last position zone,
-        the highest minimum); POST /offers/{offerId}/accept while the driver has no current trip (driver_app_config of the
-        trip''s zone). Never refused for the version: every call about a trip that is already running (trip commands, messages,
-        calls, route change, cancel, rate, tip, its stream), an accept while the driver is on a trip (a next or booked ride),
-        go offline, SOS and safety calls, sign-in / refresh / sign-out, account deletion, config, content, legal and every
-        read.'
+        with onlineStatus online while the driver is not on a trip and holds no booked ride (driver_app_config of his zones
+        and last position zone, the highest minimum); POST /offers/{offerId}/accept while the driver has no current trip (driver_app_config
+        of the trip''s zone). Never refused for the version: every call about a trip that is already running (trip commands,
+        messages, calls, route change, cancel, rate, tip, its stream), an accept while the driver is on a trip (a next or
+        booked ride), go-online while the driver holds a booked ride (an accepted reservation not started yet: the booked
+        rider depends on him and starting it needs him online), go offline, SOS and safety calls, sign-in / refresh / sign-out,
+        account deletion, config, content, legal and every read.'
   /trips/{tripId}:
     get:
       operationId: getTrip
@@ -2637,12 +2638,13 @@ paths:
         on a trip). v0.18.154 (contract.json#appUpdate): When both headers are present and valid and the version is below
         the minimum of that platform in the zone''s live document, these calls answer 426 code upgrade_required, reason app_update_required,
         details ["platform:<android|ios>", "minVersion:<x.y.z>"], nothing changed: POST /trips (book; rider_app_config of
-        the quote''s zone); POST /driver/availability with onlineStatus online while the driver is not on a trip (driver_app_config
-        of his zones and last position zone, the highest minimum); POST /offers/{offerId}/accept while the driver has no current
-        trip (driver_app_config of the trip''s zone). Never refused for the version: every call about a trip that is already
-        running (trip commands, messages, calls, route change, cancel, rate, tip, its stream), an accept while the driver
-        is on a trip (a next or booked ride), go offline, SOS and safety calls, sign-in / refresh / sign-out, account deletion,
-        config, content, legal and every read.'
+        the quote''s zone); POST /driver/availability with onlineStatus online while the driver is not on a trip and holds
+        no booked ride (driver_app_config of his zones and last position zone, the highest minimum); POST /offers/{offerId}/accept
+        while the driver has no current trip (driver_app_config of the trip''s zone). Never refused for the version: every
+        call about a trip that is already running (trip commands, messages, calls, route change, cancel, rate, tip, its stream),
+        an accept while the driver is on a trip (a next or booked ride), go-online while the driver holds a booked ride (an
+        accepted reservation not started yet: the booked rider depends on him and starting it needs him online), go offline,
+        SOS and safety calls, sign-in / refresh / sign-out, account deletion, config, content, legal and every read.'
       tags:
       - Driver · Session
       x-actor:
@@ -2904,11 +2906,13 @@ paths:
         valid and the version is below the minimum of that platform in the zone''s live document, these calls answer 426 code
         upgrade_required, reason app_update_required, details ["platform:<android|ios>", "minVersion:<x.y.z>"], nothing changed:
         POST /trips (book; rider_app_config of the quote''s zone); POST /driver/availability with onlineStatus online while
-        the driver is not on a trip (driver_app_config of his zones and last position zone, the highest minimum); POST /offers/{offerId}/accept
-        while the driver has no current trip (driver_app_config of the trip''s zone). Never refused for the version: every
-        call about a trip that is already running (trip commands, messages, calls, route change, cancel, rate, tip, its stream),
-        an accept while the driver is on a trip (a next or booked ride), go offline, SOS and safety calls, sign-in / refresh
-        / sign-out, account deletion, config, content, legal and every read.'
+        the driver is not on a trip and holds no booked ride (driver_app_config of his zones and last position zone, the highest
+        minimum); POST /offers/{offerId}/accept while the driver has no current trip (driver_app_config of the trip''s zone).
+        Never refused for the version: every call about a trip that is already running (trip commands, messages, calls, route
+        change, cancel, rate, tip, its stream), an accept while the driver is on a trip (a next or booked ride), go-online
+        while the driver holds a booked ride (an accepted reservation not started yet: the booked rider depends on him and
+        starting it needs him online), go offline, SOS and safety calls, sign-in / refresh / sign-out, account deletion, config,
+        content, legal and every read.'
       tags:
       - Driver · Offers
       x-actor:
@@ -20118,9 +20122,9 @@ components:
         When both headers are present and valid and the version is below the minimum of that platform in the zone''s live
         document, these calls answer 426 code upgrade_required, reason app_update_required, details ["platform:<android|ios>",
         "minVersion:<x.y.z>"], nothing changed: POST /trips (book; rider_app_config of the quote''s zone); POST /driver/availability
-        with onlineStatus online while the driver is not on a trip (driver_app_config of his zones and last position zone,
-        the highest minimum); POST /offers/{offerId}/accept while the driver has no current trip (driver_app_config of the
-        trip''s zone).'
+        with onlineStatus online while the driver is not on a trip and holds no booked ride (driver_app_config of his zones
+        and last position zone, the highest minimum); POST /offers/{offerId}/accept while the driver has no current trip (driver_app_config
+        of the trip''s zone).'
       headers:
         X-Request-Id:
           description: Echo of the request id (server-generated if absent).

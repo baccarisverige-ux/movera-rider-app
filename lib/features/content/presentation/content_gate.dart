@@ -61,7 +61,12 @@ class ContentGate extends StatelessWidget {
     this.legal,
     this.onCallEmergency,
     this.onOpenStore,
+    this.rideLive,
   });
+
+  /// v0.18.154 P16c: whether a ride is (or may be) live; the
+  /// minimum-version block waits while true. Null: the controller's onTrip.
+  final ValueListenable<bool>? rideLive;
 
   final RiderContentController controller;
   final Widget child;
@@ -77,6 +82,7 @@ class ContentGate extends StatelessWidget {
       listenable: Listenable.merge([
         controller,
         ?legal,
+        ?rideLive,
         MinAppVersion.rule,
         MinAppVersion.serverSaid,
       ]),
@@ -85,7 +91,7 @@ class ContentGate extends StatelessWidget {
         // v0.18.154 P16c (contract.json#appUpdate.apps): below the zone's
         // minimum version of this platform; never during a live ride.
         final belowMin = MinAppVersion.required;
-        final onTrip = controller.onTrip.value;
+        final onTrip = (rideLive ?? controller.onTrip).value;
         final legalToAccept = legal?.toAccept;
         final sos =
             onCallEmergency ??
