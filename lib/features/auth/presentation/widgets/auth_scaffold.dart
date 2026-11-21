@@ -14,6 +14,10 @@ import 'package:movera_rider/l10n/l10n.dart';
 /// The whole page scrolls when space runs short (small phones, landscape, or
 /// the keyboard up), so the card's controls stay reachable.
 class AuthScaffold extends StatelessWidget {
+  /// The white card's padding on its left and right edge (the card is as
+  /// wide as the screen). The code screen sizes six code boxes with it.
+  static const cardSidePadding = 20.0;
+
   const AuthScaffold({
     super.key,
     required this.step,
@@ -164,7 +168,12 @@ class AuthScaffold extends StatelessWidget {
         // over the scene by a shadow cast upward.
         Container(
           key: const ValueKey('auth-card'),
-          padding: EdgeInsets.fromLTRB(20, 22, 20, 18 + bottomInset),
+          padding: EdgeInsets.fromLTRB(
+            cardSidePadding,
+            22,
+            cardSidePadding,
+            18 + bottomInset,
+          ),
           decoration: const BoxDecoration(
             color: Colors.white,
             boxShadow: [

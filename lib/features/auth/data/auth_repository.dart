@@ -3,7 +3,7 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/features/auth/application/pending_rider_name.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
-import 'package:movera_rider/features/safety/domain/ride_pin.dart';
+import 'package:movera_rider/l10n/l10n.dart';
 
 class AuthRepository {
   AuthRepository({ApiClient? api, TokenStore? tokens})
@@ -13,7 +13,7 @@ class AuthRepository {
   final ApiClient _api;
   final TokenStore _tokens;
 
-  /// Sends a 4-digit code to [phone]. With [link], the code also confirms the
+  /// Sends a code to [phone]. With [link], the code also confirms the
   /// phone number of that pending Apple or Google sign-in.
   Future<OtpChallenge> requestOtp({
     required String phone,
@@ -30,6 +30,9 @@ class AuthRepository {
         // Contract §8 OtpRequest: which app signs in decides the tokens' actor.
         'app': 'rider',
         if (link != null) 'linkToken': link.linkToken,
+        // Contract §8 OtpRequest.locale (v0.18.133 smsSignIn.language): the
+        // SMS with the code is written in the app's language.
+        if (L10n.codes.contains(L10n.code)) 'locale': L10n.code,
       },
     );
     final requestId = response['requestId'];
@@ -52,6 +55,9 @@ class AuthRepository {
       expiresAt: expiresAt.toUtc(),
       retryAfter: Duration(seconds: retryAfterSeconds),
       link: link,
+      // Contract v0.18.133 `smsSignIn.codeLengthNote`: the server says how
+      // many digits this code has; no field (an older server) = 4.
+      codeLength: OtpChallenge.codeLengthOf(response['codeLength']),
     );
   }
 
@@ -63,8 +69,12 @@ class AuthRepository {
     final normalizedCode = code.trim();
     // rider-u73: expiry is the server's call (410 otp_expired); the device
     // clock can run minutes ahead and turned every code down.
-    if (!RidePin.isValidFormat(normalizedCode)) {
-      throw ArgumentError.value(code, 'code', 'A 4-digit code is required.');
+    if (!challenge.isCompleteCode(normalizedCode)) {
+      throw ArgumentError.value(
+        code,
+        'code',
+        'A ${challenge.codeLength}-digit code is required.',
+      );
     }
     final response = await _api.post(
       '/api/v1/auth/otp/verify',
