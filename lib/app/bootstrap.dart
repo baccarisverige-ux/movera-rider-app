@@ -37,6 +37,9 @@ import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/web_ride_seed.dart';
 import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
+import 'package:movera_rider/app/navigator_key.dart';
+import 'package:movera_rider/features/safety/data/sos_sender.dart';
+import 'package:movera_rider/features/safety/presentation/sos_not_sent_notice.dart';
 
 PushCoordinator? _pushCoordinator;
 
@@ -219,6 +222,14 @@ Future<void> _bootSteps() async {
   await bootStep('chat.read_marks', ChatReadMarks.load);
   // v0.18.57 §79: the country's emergency numbers kept from the last config.
   await bootStep('emergency_numbers.restore', EmergencyNumbers.restore);
+  // Contract v0.18.148 (sosPressTime): a kept SOS is sent again (same key,
+  // same press time `at`); one given up on tells the rider "SOS not sent,
+  // call 112", also after a restart.
+  SosSender.onGivenUp = () => unawaited(SosNotSentNotice.instance.raise());
+  SosNotSentNotice.instance.attach(() => moveraNavigatorKey.currentContext);
+  if (AppScope.instance.api.contractWire) {
+    unawaited(SosSender(AppScope.instance.api).retryPending());
+  }
   // Q48 / v0.18.2 auth.firstLanguage: the saved language, else the phone's
   // language (sv, fr, en), else the start country's default; a later good
   // fix in another zone moves that default with it.

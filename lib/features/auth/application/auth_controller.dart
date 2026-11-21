@@ -4,6 +4,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/auth/application/pending_rider_name.dart';
 import 'package:movera_rider/features/auth/application/user_data_wipe.dart';
+import 'package:movera_rider/features/safety/data/sos_sender.dart';
 import 'package:movera_rider/core/notifications/push_permission_gate.dart';
 import 'package:movera_rider/core/auth/signed_out_notice.dart';
 import 'package:movera_rider/features/auth/data/auth_repository.dart';
@@ -166,6 +167,9 @@ class AuthController {
     _legalSignedOut();
     // Queued cancels still go out with this rider's own session.
     await UserDataWipe.flushPendingCancels();
+    // Contract v0.18.148: a kept SOS stops here (the wipe removes it) and
+    // is told as not sent.
+    await SosSender.signedOut();
     // Unregister while the access token is still available. Even when the
     // backend is unreachable, FirebasePushService deletes the local token so a
     // signed-out Rider cannot keep receiving notifications for that session.
@@ -199,6 +203,7 @@ class AuthController {
   /// sessions and push devices). Same local wipe as [signOut].
   Future<void> signOutLocally() async {
     _legalSignedOut();
+    await SosSender.signedOut();
     try {
       await _auth.clearLocalSession();
     } finally {

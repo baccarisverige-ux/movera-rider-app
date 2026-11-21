@@ -3293,6 +3293,8 @@
   "@contactCodeNotSentYet": {"description": "G30 (contract v0.18.76 emailVerified, owner 2026-11-12): rider e-mail check. contract.json#emailVerified.texts.codeNotSentYet: delivery pending_provider (or none)."},
   "contactEmailVerifiedDone": "E-mail verified",
   "@contactEmailVerifiedDone": {"description": "G30 (contract v0.18.76 emailVerified, owner 2026-11-12): rider e-mail check."},
+  "sosNotSent": "SOS could not reach Movera. Call 112.",
+  "@sosNotSent": {"description": "Contract v0.18.148 sosPressTime.apps (owner 2026-11-20 \"after 30 min or any refusal ... SOS not sent, call 112\"): the dialog when a kept SOS was refused or is 30 min old. OWNER TO CONFIRM (same words as the driver app's safetySosNotSent)."},
   "placeGym": "Gym",
   "placeMall": "Mall",
   "placeSchool": "School",
