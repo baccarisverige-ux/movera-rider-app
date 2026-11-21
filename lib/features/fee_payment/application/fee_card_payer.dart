@@ -8,6 +8,17 @@ import 'package:movera_rider/features/profile/domain/rider_outstanding.dart';
 /// build sets `--dart-define=MOVERA_GOOGLE_PAY=true`. Card and Apple Pay only.
 const bool kGooglePayEnabled = bool.fromEnvironment('MOVERA_GOOGLE_PAY');
 
+/// Live mode (owner 2026-11-21, contract stripeFees.keys): the server sends
+/// the publishable key of ITS mode (pk_test_ or pk_live_); the app never
+/// assumes a mode and uses the key as is. Anything else = not usable.
+bool isStripePublishableKey(String key) =>
+    key.startsWith('pk_test_') || key.startsWith('pk_live_');
+
+/// Google Pay's test environment only for a test key (Google Pay stays off
+/// unless kGooglePayEnabled).
+bool stripeGooglePayTestEnv(String publishableKey) =>
+    publishableKey.startsWith('pk_test_');
+
 /// The Stripe PaymentSheet behind a port, so tests need no plugin.
 abstract class FeePaymentSheet {
   /// Shows the sheet for the server's PaymentIntent. true = the rider paid
@@ -69,7 +80,7 @@ class FeeCardPayer {
     }
     final secret = intent['clientSecret'];
     final key = intent['publishableKey'];
-    if (secret is! String || key is! String || !key.startsWith('pk_test_')) {
+    if (secret is! String || key is! String || !isStripePublishableKey(key)) {
       await refresh();
       return FeePayOutcome.unavailable;
     }

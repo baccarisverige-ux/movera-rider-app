@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 
-/// Contract v0.18.136 `stripeFees.profile` (DRAFT, Stripe TEST mode; owner
+/// Contract v0.18.136 `stripeFees.profile` (DRAFT, Stripe test or live; owner
 /// 2026-11-20 "So we use stripe"): `Rider.feesPayableByCard`, the owed fees
 /// the rider can pay by card or Apple Pay in the app now. Every amount is the
 /// server's (min of what is left of the fee and her debt); the app never

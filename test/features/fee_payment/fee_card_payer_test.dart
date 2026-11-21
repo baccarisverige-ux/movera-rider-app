@@ -10,7 +10,7 @@ import 'package:movera_rider/features/fee_payment/application/fee_card_payer.dar
 import 'package:movera_rider/features/fee_payment/domain/fees_payable_by_card.dart';
 import 'package:movera_rider/features/profile/domain/rider_outstanding.dart';
 
-/// Contract v0.18.136 stripeFees (DRAFT, Stripe TEST mode; owner 2026-11-20
+/// Contract v0.18.136 stripeFees (DRAFT, Stripe test or live keys; owner 2026-11-20
 /// "So we use stripe"): the rider pays an owed fee with the Stripe
 /// PaymentSheet for the server's amount; paid is what the server says.
 class FakeSheet implements FeePaymentSheet {
@@ -144,7 +144,7 @@ void main() {
   );
 
   test(
-    'closed sheet, failed sheet, server refusal (stripe_off), a live key: no payment claimed',
+    'closed sheet, failed sheet, server refusal (stripe_off), a key that is not a publishable key: no payment claimed',
     () async {
       payAnswer = intent;
       profileAfter = owed;
@@ -172,12 +172,33 @@ void main() {
         await FeeCardPayer(api: api(), sheet: sheet).pay('trp_1'),
         FeePayOutcome.unavailable,
       );
-      payAnswer = {...intent, 'publishableKey': 'pk_live_x'};
+      for (final bad in ['sk_live_FAKE', 'rk_live_FAKE', 'pk_FAKE', '']) {
+        payAnswer = {...intent, 'publishableKey': bad};
+        expect(
+          await FeeCardPayer(api: api(), sheet: sheet).pay('trp_1'),
+          FeePayOutcome.unavailable,
+        );
+      }
+      expect(sheet.calls, isEmpty);
+    },
+  );
+  test(
+    'live mode (owner 2026-11-21): the server\'s live publishable key is used as is; Google Pay test env only for a test key',
+    () async {
+      payAnswer = {...intent, 'publishableKey': 'pk_live_FAKE_not_real'};
+      profileAfter = {'riderId': 'rdr_1', 'outstandingByCurrency': <Object>[]};
+      final sheet = FakeSheet(() async => true);
       expect(
         await FeeCardPayer(api: api(), sheet: sheet).pay('trp_1'),
-        FeePayOutcome.unavailable,
+        FeePayOutcome.paid,
       );
-      expect(sheet.calls, isEmpty);
+      expect(sheet.calls.single['key'], 'pk_live_FAKE_not_real');
+      expect(sheet.calls.single['googlePay'], isFalse);
+      expect(isStripePublishableKey('pk_live_FAKE'), isTrue);
+      expect(isStripePublishableKey('pk_test_FAKE'), isTrue);
+      expect(isStripePublishableKey('sk_live_FAKE'), isFalse);
+      expect(stripeGooglePayTestEnv('pk_test_FAKE'), isTrue);
+      expect(stripeGooglePayTestEnv('pk_live_FAKE'), isFalse);
     },
   );
   test(

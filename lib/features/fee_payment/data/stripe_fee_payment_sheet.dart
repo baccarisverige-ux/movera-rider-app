@@ -1,9 +1,10 @@
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:movera_rider/features/fee_payment/application/fee_card_payer.dart';
 
-/// The real flutter_stripe PaymentSheet (Stripe TEST mode only: the server
-/// sends a pk_test_ key; FeeCardPayer refuses any other). Card and Apple Pay;
-/// Google Pay only when kGooglePayEnabled (default OFF, not approved yet).
+/// The real flutter_stripe PaymentSheet (test or live: the server sends the
+/// publishable key of its mode, pk_test_ or pk_live_; FeeCardPayer refuses any
+/// other). Card and Apple Pay; Google Pay only when kGooglePayEnabled (default
+/// OFF, not approved yet), in its test environment only for a test key.
 class StripeFeePaymentSheet implements FeePaymentSheet {
   const StripeFeePaymentSheet();
 
@@ -28,7 +29,7 @@ class StripeFeePaymentSheet implements FeePaymentSheet {
         googlePay: googlePay
             ? PaymentSheetGooglePay(
                 merchantCountryCode: countryCode,
-                testEnv: true,
+                testEnv: stripeGooglePayTestEnv(publishableKey),
               )
             : null,
       ),
