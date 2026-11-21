@@ -150,6 +150,9 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'appTitle': l.appTitle,
   'previewBanner': l.previewBanner,
   'previewNotSent': l.previewNotSent,
+  'minVersionTitle': l.minVersionTitle,
+  'minVersionBody': l.minVersionBody,
+  'minVersionUpdate': l.minVersionUpdate,
   'dontMatchDriverAgain': l.dontMatchDriverAgain,
   'accountPausedTitle': l.accountPausedTitle,
   'accountBlockedTitle': l.accountBlockedTitle,
@@ -2325,6 +2328,12 @@ class _Exhaustive implements AppLocalizations {
   String get previewBanner => '';
   @override
   String get previewNotSent => '';
+  @override
+  String get minVersionTitle => '';
+  @override
+  String get minVersionBody => '';
+  @override
+  String get minVersionUpdate => '';
   @override
   String get dontMatchDriverAgain => '';
   @override

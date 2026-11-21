@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/app_update/min_app_version.dart';
 import 'package:movera_rider/core/config/emergency_numbers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -39,7 +40,8 @@ String storeUrl([TargetPlatform? platform]) {
 Future<void> openStore() async {
   try {
     await launchUrl(
-      Uri.parse(storeUrl()),
+      // v0.18.154 P16c: the zone's store link for this platform, if any.
+      MinAppVersion.storeUri(storeUrl()),
       mode: LaunchMode.externalApplication,
     );
   } catch (error) {
@@ -72,16 +74,35 @@ class ContentGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([controller, ?legal]),
+      listenable: Listenable.merge([
+        controller,
+        ?legal,
+        MinAppVersion.rule,
+        MinAppVersion.serverSaid,
+      ]),
       builder: (context, _) {
         final decision = controller.decision;
+        // v0.18.154 P16c (contract.json#appUpdate.apps): below the zone's
+        // minimum version of this platform; never during a live ride.
+        final belowMin = MinAppVersion.required;
+        final onTrip = controller.onTrip.value;
         final legalToAccept = legal?.toAccept;
         final sos =
             onCallEmergency ??
             () => EmergencyCallService.shared.callEmergencyNumber();
         final store = onOpenStore ?? openStore;
         Widget? cover;
-        if (decision.blockForUpdate) {
+        if (belowMin && !onTrip) {
+          cover = UpdateRequiredScreen(
+            key: const Key('min-version-required'),
+            onOpenStore: store,
+            onCallSos: sos,
+            title: context.l10n.minVersionTitle,
+            body: context.l10n.minVersionBody,
+            buttonLabel: context.l10n.minVersionUpdate,
+            buttonKey: const Key('min-version-update'),
+          );
+        } else if (decision.blockForUpdate) {
           cover = UpdateRequiredScreen(onOpenStore: store, onCallSos: sos);
         } else if (legalToAccept != null) {
           cover = LegalAcceptScreen(
@@ -96,7 +117,7 @@ class ContentGate extends StatelessWidget {
             onCallSos: sos,
           );
         }
-        final notice = decision.tripUpdateNotice
+        final notice = decision.tripUpdateNotice || (belowMin && onTrip)
             ? UpdateNotice(text: context.l10n.contentUpdateAfterTrip)
             : decision.recommendUpdate
             ? UpdateNotice(
@@ -204,15 +225,26 @@ class UpdateRequiredScreen extends StatelessWidget {
     super.key,
     required this.onOpenStore,
     required this.onCallSos,
+    this.title,
+    this.body,
+    this.buttonLabel,
+    this.buttonKey,
   });
 
   final VoidCallback onOpenStore;
   final VoidCallback onCallSos;
 
+  /// v0.18.154 P16c: the minimum-version texts ("Update Movera to
+  /// continue", body, "Update"); null = the content app-versions texts.
+  final String? title;
+  final String? body;
+  final String? buttonLabel;
+  final Key? buttonKey;
+
   @override
   Widget build(BuildContext context) {
     return Material(
-      key: const Key('content-update-required'),
+      key: key == null ? const Key('content-update-required') : null,
       color: Colors.white,
       child: SafeArea(
         child: Padding(
@@ -239,20 +271,20 @@ class UpdateRequiredScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                context.l10n.contentUpdateTitle,
+                title ?? context.l10n.contentUpdateTitle,
                 textAlign: TextAlign.center,
                 style: _text(26, weight: FontWeight.w700),
               ),
               const SizedBox(height: 10),
               Text(
-                context.l10n.contentUpdateBody,
+                body ?? context.l10n.contentUpdateBody,
                 textAlign: TextAlign.center,
                 style: _text(15, c: _muted),
               ),
               const Spacer(),
               _PrimaryButton(
-                key: const Key('content-open-store'),
-                label: context.l10n.contentUpdateStore,
+                key: buttonKey ?? const Key('content-open-store'),
+                label: buttonLabel ?? context.l10n.contentUpdateStore,
                 onTap: onOpenStore,
               ),
             ],
