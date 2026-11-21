@@ -4,6 +4,7 @@
 // Idempotency-Key and body until Movera takes it (also after the trip
 // ended), refuses it, or it is 30 min old. A refusal or the age limit tells
 // the rider "SOS not sent, call 112".
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -34,6 +35,8 @@ void main() {
     client: MockClient((request) async {
       posts.add(request);
       if (!networkUp) throw http.ClientException('offline');
+      // A bare 429 from an edge proxy: no JSON body, no code.
+      if (status == 429) return http.Response('Too Many Requests', 429);
       return http.Response(
         jsonEncode(
           status == 200
@@ -157,10 +160,67 @@ void main() {
       await SosSender.writesDone;
       expect(await const PendingSosStore().read(), isNull);
       expect(told, 0);
-      reason = 'sos_at_in_future';
+      reason = 'sos_not_during_trip';
       expect(await SosSender(api(), clock: () => t0).send('trp_1'), isFalse);
       await SosSender.writesDone;
       expect(told, 1);
+    },
+  );
+
+  for (final busy in [429, 503]) {
+    test('a kept SOS answered $busy is retried, not refused', () async {
+      // Review 2026-11-21: a 429 without the rate_limited code was final.
+      await const PendingSosStore().save(
+        PendingSos(key: 'sos-k5', tripId: 'trp_9', body: {'at': at}),
+      );
+      networkUp = true;
+      status = busy;
+      await SosSender(
+        api(),
+        clock: () => t0.add(const Duration(minutes: 2)),
+        sleep: (_) async => status = 200,
+      ).retryPending();
+      expect(posts, hasLength(2));
+      expect(posts.map((r) => r.headers['Idempotency-Key']).toSet(), {
+        'sos-k5',
+      });
+      expect(told, 0);
+      expect(await const PendingSosStore().read(), isNull);
+    });
+  }
+
+  test(
+    'after a sign-out the next rider gets a retry loop of their own',
+    () async {
+      // Review 2026-11-21: the old rider's loop, still asleep, must not
+      // swallow the next rider's SOS.
+      await const PendingSosStore().save(
+        PendingSos(key: 'sos-old', tripId: 'trp_8', body: {'at': at}),
+      );
+      final asleep = Completer<void>();
+      final oldLoop = SosSender(
+        api(),
+        clock: () => t0,
+        sleep: (_) => asleep.future,
+      ).retryPending();
+      await Future<void>.delayed(Duration.zero);
+      await SosSender.signedOut();
+      await const PendingSosStore().clear('sos-old');
+      told = 0;
+      posts = [];
+      await const PendingSosStore().save(
+        PendingSos(key: 'sos-new', tripId: 'trp_9', body: {'at': at}),
+      );
+      networkUp = true;
+      await SosSender(
+        api(),
+        clock: () => t0,
+        sleep: (_) async {},
+      ).retryPending();
+      expect(posts.single.headers['Idempotency-Key'], 'sos-new');
+      expect(await const PendingSosStore().read(), isNull);
+      asleep.complete();
+      await oldLoop;
     },
   );
 

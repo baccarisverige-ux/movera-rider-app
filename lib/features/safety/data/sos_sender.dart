@@ -122,8 +122,13 @@ class SosSender {
   /// Bumped by [signedOut]: a retry loop of before stops.
   static int _generation = 0;
 
-  /// One background retry loop per app run.
+  /// One background retry loop per signed-in rider.
   static Future<void>? _retrying;
+
+  /// The [_generation] [_retrying] was started in: after a sign-out a new
+  /// rider's SOS never joins the old rider's ending loop (review
+  /// 2026-11-21).
+  static int _retryingGeneration = -1;
 
   /// The phone storage writes, in order; the POST never waits for them.
   static Future<void> _writes = Future<void>.value();
@@ -205,8 +210,17 @@ class SosSender {
   /// Sends the kept SOS again (same key, same body), with growing waits,
   /// until Movera takes it, refuses it, or it is [maxAge] old. Called after
   /// a failed press and at app start; a second call while one runs joins it.
-  Future<void> retryPending() =>
-      _retrying ??= _retryLoop().whenComplete(() => _retrying = null);
+  Future<void> retryPending() {
+    final running = _retrying;
+    if (running != null && _retryingGeneration == _generation) return running;
+    late final Future<void> loop;
+    loop = _retryLoop().whenComplete(() {
+      if (identical(_retrying, loop)) _retrying = null;
+    });
+    _retrying = loop;
+    _retryingGeneration = _generation;
+    return loop;
+  }
 
   Future<void> _retryLoop() async {
     final generation = _generation;
@@ -263,7 +277,10 @@ class SosSender {
   static bool _keepTrying(ApiError error) =>
       _retryable(error) || error.statusCode == 401 || error.statusCode == 408;
 
+  /// Review 2026-11-21: any 408, 429 or 5xx (also a 429 with another code
+  /// or none) is retried, never taken as a refusal.
   static bool _retryable(ApiError error) =>
+      error.isRetryable ||
       error.code == 'NETWORK' ||
       error.code == 'TIMEOUT' ||
       error.code == 'rate_limited' ||
