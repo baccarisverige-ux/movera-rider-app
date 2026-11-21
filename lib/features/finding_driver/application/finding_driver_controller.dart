@@ -1,4 +1,6 @@
+import 'package:movera_rider/core/contracts/cancel_preview.dart';
 import 'package:movera_rider/core/contracts/search_step.dart';
+import 'package:movera_rider/core/contracts/server_clock.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -196,6 +198,19 @@ class FindingDriverController {
   /// or null; a keep_waiting step already answered is not shown again.
   TripSearchStep? searchStep;
   final Set<String> _answeredSteps = {};
+
+  /// v0.18.152 (contract.json#bookedRideSeen.searchSeen): the pickup time
+  /// (device clock) of a booked ride being searched like a normal ride;
+  /// null for a live ride. The trip's projection says so (kind scheduled).
+  DateTime? bookedPickupAt;
+
+  /// True while this search is a booked ride's (v0.18.152).
+  bool get booked => bookedPickupAt != null;
+
+  /// v0.18.152: the server's `cancelPreview` of the booked ride being
+  /// searched (a booked cancel under 1 h before the pickup costs the
+  /// booking fee); null for a live search, which cancels free.
+  CancelPreview? cancelPreview;
   bool keepWaitingInFlight = false;
 
   /// `POST /trips/{tripId}/keep-waiting { answer: wait | stop }`: wait
@@ -553,8 +568,21 @@ class FindingDriverController {
       if (_cancelQueued && event.status.isSearching) _flushQueuedCancel();
       // Deep-fix 2026-11-02: the admin's search step (its message, and
       // Keep waiting / Stop for keep_waiting) is shown while searching.
+      // v0.18.152: a booked ride's projection carries its pickup time and
+      // the server's cancel preview (a whole projection replaces it).
+      if (event.bookedPickupAt case final at?) {
+        bookedPickupAt = ServerClock.toDevice(at);
+      }
+      if (event.payload[wholeProjectionKey] == true) {
+        cancelPreview = event.cancelPreview?.onDevice(ServerClock.toDevice);
+      }
       if (event.searchStep case final step?
-          when event.status.isSearching && !_answeredSteps.contains(step.id)) {
+          when event.status.isSearching &&
+              !_answeredSteps.contains(step.id) &&
+              // v0.18.152 (bookedRideSeen.searchSeen.riderApp): a booked
+              // ride never shows "No driver nearby" (its search ends at
+              // pickup + 15 min with no_driver_found).
+              !(booked && step.kind == 'no_driver_nearby')) {
         searchStep = step;
       }
       if (_assigned && event.status == RideStatus.driverAssigned) return;
