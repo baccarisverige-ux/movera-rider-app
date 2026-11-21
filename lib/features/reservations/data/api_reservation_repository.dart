@@ -400,6 +400,9 @@ class ApiReservationRepository
       paymentMethod:
           draft?.paymentMethod ?? (trip['paymentMethod'] as String? ?? 'cash'),
       status: statusOf(trip['status']),
+      // v0.18.152 (bookLater.liveFixes.driverShown): a list driver holds
+      // the ride; no driver details until he drives to the pickup.
+      assignedByServer: trip['driverAssigned'] == true,
       driver: driver is Map
           ? ReservationDriver.tryParse({...driver, 'id': driver['driverId']})
           : null,

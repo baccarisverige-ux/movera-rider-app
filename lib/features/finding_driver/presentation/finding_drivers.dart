@@ -24,6 +24,7 @@ import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_flow.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
+import 'package:movera_rider/features/active_ride/presentation/cancel_preview_note.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
@@ -89,6 +90,11 @@ class FindingDrivers extends StatefulWidget {
     @visibleForTesting this.controller,
     @visibleForTesting this.booking,
   });
+
+  /// v0.18.152: the clock a booked ride's cancel line is read at (the
+  /// server's preview is a clock compare); tests move it.
+  @visibleForTesting
+  static DateTime Function() cancelFeeClock = DateTime.now;
 
   /// When this ride's search started, for a restored search (ARCH-3: the
   /// "still looking" mark is not restarted by a reload). Null: now.
@@ -639,6 +645,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       context,
       takingLonger: _match.isDelayed,
       driverMatched: _driverMatched,
+      feeNote: _bookedCancelNote(),
       commit: () async {
         final result = await (request ??= _match.cancelSearch());
         return _isCommitted(result);
@@ -681,6 +688,17 @@ class _FindingDriversState extends State<FindingDrivers> {
       _showCancelNotice(context.l10n.driverAccepted);
     }
     _drainDeferredNavigation();
+  }
+
+  /// v0.18.152 (contract.json#bookedRideSeen.searchSeen.riderApp): a booked
+  /// ride being searched cancels by the booked rules — the server's
+  /// preview line ("Cancelling now costs …" under 1 h before the pickup);
+  /// without a preview no line at all, never "free". A live search: none.
+  String? _bookedCancelNote() {
+    if (!_match.booked) return null;
+    final preview = _match.cancelPreview;
+    if (preview == null) return null;
+    return cancelPreviewNote(preview, FindingDrivers.cancelFeeClock()).text;
   }
 
   static bool _isCommitted(SearchCancelResult result) =>
