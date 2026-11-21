@@ -1,0 +1,7 @@
+{
+  "feePayByCard": "Betala {amount} nu",
+  "feePaidByCard": "Avgiften är betald. Tack.",
+  "feePaymentChecking": "Betalningen är mottagen. Vi kontrollerar den.",
+  "feePaymentFailed": "Betalningen gick inte igenom. Försök igen.",
+  "feePaymentUnavailable": "Kortbetalning är inte tillgänglig nu."
+}

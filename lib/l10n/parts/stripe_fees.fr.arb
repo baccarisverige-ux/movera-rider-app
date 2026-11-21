@@ -1,0 +1,7 @@
+{
+  "feePayByCard": "Payer {amount} maintenant",
+  "feePaidByCard": "Frais payés. Merci.",
+  "feePaymentChecking": "Paiement reçu. Nous le vérifions.",
+  "feePaymentFailed": "Le paiement n'a pas abouti. Réessayez.",
+  "feePaymentUnavailable": "Le paiement par carte n'est pas disponible."
+}

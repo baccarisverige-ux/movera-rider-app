@@ -1660,6 +1660,11 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'swRatingStatusPending': l.swRatingStatusPending,
   'swRatingStatusSubmitted': l.swRatingStatusSubmitted,
   'swRatingStatusSkipped': l.swRatingStatusSkipped,
+  'feePayByCard': l.feePayByCard('<amount>'),
+  'feePaidByCard': l.feePaidByCard,
+  'feePaymentChecking': l.feePaymentChecking,
+  'feePaymentFailed': l.feePaymentFailed,
+  'feePaymentUnavailable': l.feePaymentUnavailable,
   'helpCentre': l.helpCentre,
   'helpCentreBody': l.helpCentreBody,
   'reportReceiptIssue': l.reportReceiptIssue,
@@ -2003,6 +2008,7 @@ const messagePlaceholders = <String, List<String>>{
   'homeRideCount': [],
   'homeYourMonth': ['month'],
   'homeCo2Kg': ['kg'],
+  'feePayByCard': ['amount'],
   'supportNoMailApp': ['email'],
   'supportPriceCancelled': ['price'],
   'supportPriceCancelledExtra': ['price', 'extra'],
@@ -5345,6 +5351,16 @@ class _Exhaustive implements AppLocalizations {
   String get swRatingStatusSubmitted => '';
   @override
   String get swRatingStatusSkipped => '';
+  @override
+  String feePayByCard(String amount) => '';
+  @override
+  String get feePaidByCard => '';
+  @override
+  String get feePaymentChecking => '';
+  @override
+  String get feePaymentFailed => '';
+  @override
+  String get feePaymentUnavailable => '';
   @override
   String get helpCentre => '';
   @override
