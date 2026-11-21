@@ -140,6 +140,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'signedOutRevoked': l.signedOutRevoked,
   'signedOutDetailExpired': l.signedOutDetailExpired,
   'signedOutDetailRevoked': l.signedOutDetailRevoked,
+  'signedOutByMovera': l.signedOutByMovera,
   'authOr': l.authOr,
   'authCodeFieldLabel': l.authCodeFieldLabel,
   'accountOutstandingFees': l.accountOutstandingFees,
@@ -2305,6 +2306,8 @@ class _Exhaustive implements AppLocalizations {
   String get signedOutDetailExpired => '';
   @override
   String get signedOutDetailRevoked => '';
+  @override
+  String get signedOutByMovera => '';
   @override
   String get authOr => '';
   @override

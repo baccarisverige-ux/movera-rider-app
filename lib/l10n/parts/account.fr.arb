@@ -133,6 +133,7 @@
   "signedOutRevoked": "Vous avez été déconnecté de votre compte. Reconnectez-vous.",
   "signedOutDetailExpired": "Vous n’avez pas utilisé l’application depuis 30 jours.",
   "signedOutDetailRevoked": "Movera a fermé votre session.",
+  "signedOutByMovera": "Vous avez été déconnecté par Movera",
   "authOr": "ou",
   "authCodeFieldLabel": "Code de vérification",
   "accountOutstandingFees": "Frais impayés",

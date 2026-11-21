@@ -90,18 +90,19 @@ void main() {
     // walletDebtPaid, walletYouOwe (payments area, contract debtModel.texts).
     // Saved-places design (contract v0.18.129): + 7 places* texts.
     // R4 (2026-11-20): + pinDecidedByArea, pinStatusByArea (ride area).
+    // Admin sign-out (contract v0.18.149): + signedOutByMovera (account area).
     const before = {
       'en': (
-        '30863f8c37293ffbfc60e1041ccbdd151afe870cecac888e69fa43bc795f0ae3',
-        2217,
+        '40c2633a785418c93363076f3639af9a7afd01897a39cdd2c08ae1ab4815ea36',
+        2219,
       ),
       'fr': (
-        'f16f36c742316655f20b0697eada7116533bc0d215d43ca52ca69853f3ef15ee',
-        1762,
+        '9071fc6f1da1becd7ce576144e99b759637db31ef98f177877bcc35e4c3a69ce',
+        1763,
       ),
       'sv': (
-        '599630fe295dc816eb322e17f40a42f961e26c79e143b4fffa97d07e89b0a382',
-        1762,
+        'b09781f57579370307cb07f456eb3b5b5974a8f405ac990926aeb616542644cb',
+        1763,
       ),
     };
     for (final lang in _langs) {
