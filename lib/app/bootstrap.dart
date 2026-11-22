@@ -38,6 +38,7 @@ import 'package:movera_rider/features/ride_booking/data/web_ride_seed.dart';
 import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/app/navigator_key.dart';
+import 'package:movera_rider/features/safety/data/prefs_sos_not_sent_flag.dart';
 import 'package:movera_rider/features/safety/data/sos_sender.dart';
 import 'package:movera_rider/features/safety/presentation/sos_not_sent_notice.dart';
 
@@ -226,7 +227,10 @@ Future<void> _bootSteps() async {
   // same press time `at`); one given up on tells the rider "SOS not sent,
   // call 112", also after a restart.
   SosSender.onGivenUp = () => unawaited(SosNotSentNotice.instance.raise());
-  SosNotSentNotice.instance.attach(() => moveraNavigatorKey.currentContext);
+  SosNotSentNotice.instance.attach(
+    () => moveraNavigatorKey.currentContext,
+    flag: const PrefsSosNotSentFlag(),
+  );
   if (AppScope.instance.api.contractWire) {
     unawaited(SosSender(AppScope.instance.api).retryPending());
   }

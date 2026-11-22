@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/features/safety/domain/sos_not_sent_flag.dart';
 import 'package:movera_rider/l10n/l10n.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 /// Contract v0.18.148 (`sosPressTime.apps`; owner 2026-11-20 "after 30 min or
 /// any refusal ... SOS not sent, call 112"): a kept SOS that was given up on
@@ -16,7 +16,9 @@ class SosNotSentNotice with WidgetsBindingObserver {
 
   static final SosNotSentNotice instance = SosNotSentNotice._();
 
-  static const prefKey = 'sos_not_sent_notice_v1';
+  /// Where the notice is kept across a restart (the data layer's store,
+  /// given by the app's start-up); null: shown now only.
+  SosNotSentFlag? flag;
 
   /// Where the dialog opens (the app's navigator); null: none yet.
   BuildContext? Function()? context;
@@ -26,8 +28,9 @@ class SosNotSentNotice with WidgetsBindingObserver {
   bool _raisedWhileOpen = false;
 
   /// Starts showing a kept notice on each resume.
-  void attach(BuildContext? Function() where) {
+  void attach(BuildContext? Function() where, {SosNotSentFlag? flag}) {
     context = where;
+    if (flag != null) this.flag = flag;
     if (!_observing) {
       _observing = true;
       WidgetsBinding.instance.addObserver(this);
@@ -43,21 +46,11 @@ class SosNotSentNotice with WidgetsBindingObserver {
   /// An SOS was given up on: kept, then shown.
   Future<void> raise() async {
     if (_open) _raisedWhileOpen = true;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(prefKey, true);
-    } catch (_) {}
+    await flag?.keep();
     await showIfPending(force: true);
   }
 
-  Future<bool> pending() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(prefKey) ?? false;
-    } catch (_) {
-      return false;
-    }
-  }
+  Future<bool> pending() async => await flag?.kept() ?? false;
 
   Future<void> showIfPending({bool force = false}) async {
     if (_open) return;
@@ -89,12 +82,7 @@ class SosNotSentNotice with WidgetsBindingObserver {
       }
       again = _raisedWhileOpen;
       _raisedWhileOpen = false;
-      if (!again) {
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.remove(prefKey);
-        } catch (_) {}
-      }
+      if (!again) await flag?.forget();
     } finally {
       _open = false;
     }
@@ -106,5 +94,6 @@ class SosNotSentNotice with WidgetsBindingObserver {
     _open = false;
     _raisedWhileOpen = false;
     context = null;
+    flag = null;
   }
 }

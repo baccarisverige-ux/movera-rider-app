@@ -70,6 +70,8 @@ class PendingSosStore {
       final prefs = await SharedPreferences.getInstance();
       final now = await read();
       if (now == null || now.key == key) await prefs.remove(prefKey);
-    } catch (_) {}
+    } catch (_) {
+      // No storage: nothing was kept, so there is nothing to clear.
+    }
   }
 }
