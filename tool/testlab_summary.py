@@ -53,12 +53,16 @@ Usage (from .github/workflows/android-test-apk.yml, plain Python 3):
       "Passed". Prints no value (check ids only; the files are scrubbed).
       Build mode (owner 2026-11-22): the harness prints "MOVERA-TL BUILD
       mode=debug|profile|release". The frame check (TRANSITION:<name>:SMOOTH)
-      counts on a profile build (release speed). On a debug build a slow
-      frame is only indicative: the harness writes it as "CHECK <id> WARN",
-      the summary lists it, and it does not fail the verdict. A WARN for any
-      other check, or on a build that is not debug, DOES fail. With
-      TL_BUILD=debug|profile (the build the workflow asked for) the verdict
-      also fails when the phone ran another build.
+      counts on a profile build (release speed): FAIL = a frame > 200 ms, or
+      > 35% missed frames with >= 60 frames; WARN = > 20% missed frames
+      (driver profile runs 45 / 46: the 20% limit alone failed a different
+      set each run). On a debug build every slow change is only a WARN. The
+      harness writes a WARN as "CHECK <id> WARN"; the summary lists it and
+      it does not fail the verdict (printed as ::warning::). A WARN for any
+      check other than SMOOTH DOES fail, and so does a transitions row over
+      the FAIL limit that has no FAIL line. With TL_BUILD=debug|profile
+      (the build the workflow asked for) the verdict also fails when the
+      phone ran another build. p90 and the jank budget are shown, not judged.
 """
 import glob
 import json
@@ -923,6 +927,86 @@ def transitions_from(root):
 
 _BUILD_RE = re.compile(re.escape(PREFIX) + r"BUILD mode=(debug|profile|release)\b")
 INDICATIVE = "indicative (debug build)"
+# The frame rule of integration_test/staging/smooth_verdict.dart (the same
+# numbers). Driver profile runs 45 / 46 (2026-11-22): at 40-80 frames the
+# share of missed frames moved by 10-20 points from run to run, so over 20%
+# is a WARN on profile; a FAIL needs a frame over 200 ms, or over 35% of at
+# least 60 frames.
+FREEZE_MS = 200
+FAIL_MISSED = 0.35
+FAIL_MIN_FRAMES = 60
+WARN_MISSED = 0.20
+NEAR_MISSED = 0.15
+DEBUG_MIN_FRAMES = 10
+SMOOTH_RULE = "FAIL: a frame > 200 ms or > 35% missed with >= 60 frames; WARN: > 20% missed"
+OVER_WARN = "over the warn limit"
+
+
+def _number(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def judge_frames(frames, missed, worst_ms, mode):
+    """'pass' / 'warn' / 'fail' for one screen change; any mode but debug is strict."""
+    frames, missed, worst_ms = _number(frames), _number(missed), _number(worst_ms)
+    ratio = missed / frames if frames > 0 else 0.0
+    freeze = worst_ms > FREEZE_MS
+    if mode == "debug":
+        return "warn" if freeze or (frames >= DEBUG_MIN_FRAMES and ratio > WARN_MISSED) else "pass"
+    if freeze or (frames >= FAIL_MIN_FRAMES and ratio > FAIL_MISSED):
+        return "fail"
+    return "warn" if ratio > WARN_MISSED else "pass"
+
+
+def _row_mode(row):
+    build = str(row.get("build") or "")
+    return next((m for m in ("debug", "profile", "release") if build.startswith(m)), None)
+
+
+def _row_judged(row):
+    """The tool's own judgement of a transitions row, from its numbers."""
+    return judge_frames(row.get("frames"), row.get("missed"), row.get("worstMs"), _row_mode(row))
+
+
+def row_outcome(row):
+    """The harness's SMOOTH outcome of a row; an older row is judged by its numbers."""
+    said = str(row.get("smoothOutcome") or "").lower()
+    return said if said in ("pass", "warn", "fail") else _row_judged(row)
+
+
+def _share(row):
+    frames, missed = _number(row.get("frames")), _number(row.get("missed"))
+    return missed / frames if frames > 0 else 0.0
+
+
+def near_limit_text(rows):
+    """One line naming every screen change with 15% or more frames missed; None = none."""
+    near = ["%s %d%% (%s/%s)" % (mask_generic(str(r.get("name", "?"))), round(_share(r) * 100),
+                                r.get("missed"), r.get("frames"))
+            for r in rows if isinstance(r, dict) and _share(r) >= NEAR_MISSED]
+    if not near:
+        return None
+    return "Near the limit (15%% or more frames missed): %s" % ", ".join(near[:30])
+
+
+def unfailed_rows(root):
+    """Names of rows over the FAIL limit (by the tool's numbers) that have no FAIL line."""
+    failed = set()
+    for path in _logcat_files(root):
+        for line in _lines(path):
+            m = _CHECK_FAIL_RE.search(line)
+            if m:
+                failed.add(m.group(1))
+    out = []
+    for r in transitions_from(root):
+        if isinstance(r, dict) and _row_judged(r) == "fail":
+            name = str(r.get("name", "?"))
+            if "TRANSITION:%s:SMOOTH" % name not in failed and name not in out:
+                out.append(name)
+    return out
 
 
 def build_mode_from(root):
@@ -940,7 +1024,7 @@ def build_mode_text(mode):
         return ("Build mode: debug (slow: the frame checks, SMOOTH, are %s and reported as WARN, "
                 "not FAIL; every other check counts)" % INDICATIVE)
     if mode in ("profile", "release"):
-        return "Build mode: %s (release speed: the frame checks, SMOOTH, count as every other check)" % mode
+        return "Build mode: %s (release speed: the frame checks, SMOOTH, count: %s)" % (mode, SMOOTH_RULE)
     return "Build mode: not reported (no MOVERA-TL BUILD line in logcat)"
 
 
@@ -959,42 +1043,57 @@ def warned_from(root):
 
 
 def smooth_warns(root):
-    """(indicative, wrong): WARN ids that are a debug build's SMOOTH, and the rest."""
-    debug = build_mode_from(root) == "debug"
+    """(smooth, wrong): WARN ids that are a SMOOTH check, and the rest (never allowed)."""
     ok, wrong = [], []
     for check in warned_from(root):
-        (ok if debug and check.endswith(":SMOOTH") else wrong).append(check)
+        (ok if check.endswith(":SMOOTH") else wrong).append(check)
     return ok, wrong
+
+
+def warn_reason(root):
+    """Why a SMOOTH WARN is not a FAIL, by the build that ran."""
+    return INDICATIVE if build_mode_from(root) == "debug" else OVER_WARN
 
 
 def transitions_text(rows):
     if not rows:
         return []
-    out = ["", "### Screen changes (FAIL: a frame > 200 ms, > 20% missed frames with >= 10 frames, "
-           "a map created again, a full-screen loader or blank frame, a failed call or exception)", "",
-           "| Change | Frames | Missed | Worst ms | GET reads | Maps re-created | Loader/blank | Errors | Result |",
-           "|---|---|---|---|---|---|---|---|---|"]
+    out = ["", "### Screen changes (FAIL: a frame > 200 ms or > 35% missed frames with >= 60 frames, "
+           "a map created again, a full-screen loader or blank frame, a failed call or exception; "
+           "WARN: > 20% missed frames; debug build: frames are WARN only)", "",
+           "| Change | Frames | Missed | Worst ms | p90 ms | Jank ms | GET reads | Maps re-created | Loader/blank "
+           "| Errors | Result |",
+           "|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
         if not isinstance(r, dict):
             continue
-        # A freeze on a debug build is indicative only (WARN, as the harness judged it).
-        freeze = not r.get("smooth", True)
-        debug_freeze = freeze and str(r.get("build") or "").startswith("debug")
-        bad = [k for k, v in (("FREEZE", freeze and not debug_freeze), ("RELOAD", r.get("reload")),
+        # The frames: FAIL, or a WARN (debug: indicative; profile: over 20% missed).
+        frames_outcome = row_outcome(r)
+        bad = [k for k, v in (("FREEZE", frames_outcome == "fail"), ("RELOAD", r.get("reload")),
                               ("ERRORS", r.get("errors"))) if v]
         result = "FAIL " + " ".join(bad) if bad else ""
-        if debug_freeze:
-            result += ("; " if result else "") + "WARN FREEZE (indicative, debug build)"
+        if frames_outcome == "warn":
+            result += ("; " if result else "") + (
+                "WARN FREEZE (indicative, debug build)" if _row_mode(r) == "debug"
+                else "WARN FRAMES (over 20% missed, not a FAIL)")
+        missed = r.get("missed")
+        if _number(r.get("frames")) > 0:
+            missed = "%s (%d%%)" % (missed, round(_share(r) * 100))
         errors = [mask_generic(str(e)) for e in list(r.get("failedCalls") or []) + list(r.get("exceptions") or [])]
-        out.append("| %s | %s | %s | %s | %s | %s | %s/%s | %s | %s |" % (
-            mask_generic(str(r.get("name", "?"))).replace("|", "/"), r.get("frames"), r.get("missed"), r.get("worstMs"),
-            r.get("gets"), mask_generic(", ".join(str(m) for m in r.get("recreatedMaps") or [])) or "-",
+        out.append("| %s | %s | %s | %s | %s | %s | %s | %s | %s/%s | %s | %s |" % (
+            mask_generic(str(r.get("name", "?"))).replace("|", "/"), r.get("frames"), missed, r.get("worstMs"),
+            r.get("p90Ms", "-"), r.get("jankMs", "-"), r.get("gets"), mask_generic(", ".join(str(m) for m in r.get("recreatedMaps") or [])) or "-",
             r.get("loaderSamples"),
             r.get("blankSamples"), "; ".join(str(e) for e in errors).replace("|", "/")[:200] or "-",
             result or "PASS"))
     build = next((r.get("build") for r in rows if isinstance(r, dict) and r.get("build")), None)
     if build:
         out += ["", "Frame numbers: %s." % mask_generic(str(build))]
+    out += ["", "p90 and jank (the sum of ms over 16.7 of the missed frames) are shown only; "
+            "they are not part of the verdict yet."]
+    near = near_limit_text(rows)
+    if near:
+        out += ["", near]
     return out
 
 
@@ -1014,10 +1113,11 @@ def summary_text(root):
     out = ["## Test Lab device checks (staging)", "", build_mode_text(build_mode_from(root)), ""]
     indicative, wrong_warns = smooth_warns(root)
     if indicative:
+        why = INDICATIVE if build_mode_from(root) == "debug" else OVER_WARN + " (> 20% missed frames)"
         out += ["WARN: %d SMOOTH check(s) %s, not a FAIL: %s" % (
-            len(indicative), INDICATIVE, mask_generic(", ".join(indicative[:20]))), ""]
+            len(indicative), why, mask_generic(", ".join(indicative[:30]))), ""]
     if wrong_warns:
-        out += ["FAIL: %d WARN line(s) that are not a debug build's SMOOTH: %s" % (
+        out += ["FAIL: %d WARN line(s) that are not a SMOOTH check: %s" % (
             len(wrong_warns), mask_generic(", ".join(wrong_warns[:20]))), ""]
     skipped = skipped_from(root)
     if skipped:
@@ -1115,8 +1215,12 @@ def verdict_reasons(root, rc, expected_build=""):
         reasons.append("%d check(s) FAIL: %s" % (len(failed), ", ".join(failed[:20])))
     _, wrong_warns = smooth_warns(root)
     if wrong_warns:
-        reasons.append("%d WARN line(s), but WARN is only for SMOOTH on a debug build: %s"
+        reasons.append("%d WARN line(s), but WARN is only for SMOOTH: %s"
                        % (len(wrong_warns), ", ".join(wrong_warns[:20])))
+    unfailed = unfailed_rows(root)
+    if unfailed:
+        reasons.append("%d screen change(s) over the FAIL limit without a FAIL line: %s (%s)"
+                       % (len(unfailed), ", ".join(unfailed[:20]), SMOOTH_RULE))
     expected = str(expected_build or "").strip()
     if expected and not skipped:
         ran = build_mode_from(root)
@@ -1142,8 +1246,11 @@ def verdict(root, rc, expected_build=""):
     reasons = verdict_reasons(root, rc, expected_build)
     indicative, _ = smooth_warns(root)
     if indicative:
-        print("::warning::%d SMOOTH check(s) %s, not counted: %s. Run with testlab_build=profile "
-              "to judge the frames." % (len(indicative), INDICATIVE, mask_generic(", ".join(indicative[:20]))))
+        debug = build_mode_from(root) == "debug"
+        print("::warning::%d SMOOTH check(s) %s, not a FAIL: %s. %s" % (
+            len(indicative), warn_reason(root), mask_generic(", ".join(indicative[:30])),
+            "Run with testlab_build=profile to judge the frames." if debug
+            else "More than 20% of the frames missed 16.7 ms; see the screen changes table."))
     for reason in reasons:
         print("::error::Device checks did not pass: " + mask_generic(reason))
     if reasons:
@@ -1153,7 +1260,8 @@ def verdict(root, rc, expected_build=""):
     mode = build_mode_from(root)
     print("Device checks passed on Test Lab (exit 0, JUnit tests, END line, no FAIL, outcome Passed; %s)."
           % ("debug build: SMOOTH %s" % INDICATIVE if mode == "debug"
-             else "%s build: SMOOTH counted" % mode if mode else "build mode not reported"))
+             else "%s build: SMOOTH counts (%s)" % (mode, SMOOTH_RULE) if mode
+             else "build mode not reported"))
     return 0
 
 

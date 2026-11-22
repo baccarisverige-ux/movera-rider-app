@@ -6,8 +6,8 @@ import 'package:integration_test/integration_test.dart';
 
 import 'smooth_verdict.dart';
 
-/// Where a check ended. `warn` is only for a frame check (SMOOTH) on a
-/// debug build: shown in the summary, never a failure ([SmoothVerdict]).
+/// Where a check ended. `warn` is only for a frame check (SMOOTH): shown
+/// in the summary, never a failure ([SmoothVerdict] says when).
 enum CheckOutcome { pass, fail, skip, warn }
 
 class CheckResult {
@@ -87,13 +87,18 @@ class CheckLog {
   void skip(String id, String title, String detail) =>
       _add(CheckResult(id, title, CheckOutcome.skip, detail));
 
-  /// A frame check (`TRANSITION:<name>:SMOOTH`). Profile / release build:
-  /// PASS or FAIL. Debug build: a slow frame is only indicative, so it is
-  /// a WARN line (in the summary, not in [failures]). Only for SMOOTH:
-  /// every other check uses [pass] / [fail].
-  void smooth(String id, bool ok, String title, String detail, {String? mode}) {
-    final outcome = SmoothVerdict.judge(smooth: ok, mode: mode);
-    final text = SmoothVerdict.detail(outcome, detail);
+  /// A frame check (`TRANSITION:<name>:SMOOTH`) that [SmoothVerdict]
+  /// judged as [outcome]. A WARN (debug build: any slow change; profile:
+  /// over the warn limit) is in the summary, not in [failures]. Only for
+  /// SMOOTH: every other check uses [pass] / [fail].
+  void smooth(
+    String id,
+    SmoothOutcome outcome,
+    String title,
+    String detail, {
+    String? mode,
+  }) {
+    final text = SmoothVerdict.detail(outcome, detail, mode: mode);
     switch (outcome) {
       case SmoothOutcome.pass:
         pass(id, title, text);
