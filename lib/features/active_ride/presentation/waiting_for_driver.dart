@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/app_update/ride_live_signal.dart';
 import 'package:movera_rider/features/fee_payment/presentation/pay_fee_button.dart';
 import 'package:movera_rider/core/config/live_data_only.dart';
+import 'package:movera_rider/core/config/driver_profile_settings.dart';
+import 'package:movera_rider/features/driver_profile/presentation/driver_on_way_card.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';

@@ -271,22 +271,28 @@ class _DriverOnWayCardState extends State<DriverOnWayCard> {
           Row(
             children: [
               Expanded(
-                child: FilledButton.icon(
-                  key: const ValueKey('waiting-call'),
-                  onPressed: widget.onCall,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: dpBlue,
-                    minimumSize: const Size.fromHeight(50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                // Same spoken label as the old block's Call chip.
+                child: Semantics(
+                  button: true,
+                  label: l.callDriver,
+                  excludeSemantics: true,
+                  child: FilledButton.icon(
+                    key: const ValueKey('waiting-call'),
+                    onPressed: widget.onCall,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: dpBlue,
+                      minimumSize: const Size.fromHeight(50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
-                  ),
-                  icon: const Icon(Icons.call_rounded, size: 20),
-                  label: Text(
-                    l.dpCall,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                    icon: const Icon(Icons.call_rounded, size: 20),
+                    label: Text(
+                      l.dpCall,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
@@ -344,10 +350,17 @@ class _DriverOnWayCardState extends State<DriverOnWayCard> {
               ),
               if (widget.onMore != null) ...[
                 const SizedBox(width: 10),
-                IconButton.filledTonal(
-                  onPressed: widget.onMore,
-                  tooltip: l.moreOptions,
-                  icon: const Icon(Icons.more_horiz_rounded),
+                // Same label as the old block's ⋯ chip (screen readers and
+                // the route tests find it by this label).
+                Semantics(
+                  button: true,
+                  label: l.moreOptions,
+                  excludeSemantics: true,
+                  child: IconButton.filledTonal(
+                    onPressed: widget.onMore,
+                    tooltip: l.moreOptions,
+                    icon: const Icon(Icons.more_horiz_rounded),
+                  ),
                 ),
               ],
             ],
