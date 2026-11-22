@@ -7,7 +7,7 @@ import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:movera_rider/core/config/dont_match_again.dart';
 import 'package:movera_rider/features/ratings/domain/rating_tags.dart';
-import 'package:movera_rider/features/driver_profile/data/driver_profile_data.dart';
+import 'package:movera_rider/features/driver_profile/application/driver_profile_data.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 class RideCompletedGiveReview extends StatefulWidget {

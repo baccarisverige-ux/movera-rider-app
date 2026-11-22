@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:movera_rider/features/driver_arriving/presentation/driver_photo_avatar.dart';
-import 'package:movera_rider/features/driver_profile/data/driver_profile_data.dart';
+import 'package:movera_rider/features/driver_profile/application/driver_profile_data.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 /// v0.18.155 (contract.json#driverProfile; design Rules
 /// plan/inspiration-ride-change-2026-11-20/driver-profile-v3.html, our own
@@ -50,9 +51,9 @@ Future<bool> showDriverProfileSheet(
   if (!DriverProfileSettings.current.on) return false;
   final profile = await DriverProfiles.load(tripId);
   if (profile == null || !context.mounted) return false;
-  await showModalBottomSheet<void>(
+  // Rider guard: every sheet goes through MoveraSheet (one motion and barrier).
+  await MoveraSheet.show<void>(
     context: context,
-    isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (_) => DriverProfileSheet(profile: profile, driver: driver),
   );

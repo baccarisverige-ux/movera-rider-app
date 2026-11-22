@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 
+export 'package:movera_rider/core/config/driver_profile_settings.dart';
+
 /// v0.18.155 (contract.json#driverProfile; owner 2026-11-20 "Now build
 /// all"): the six compliment chips in the contract's order, each drawn with
 /// the phone's own emoji as text (no image file).
@@ -33,26 +35,6 @@ const profileLanguageNames = <String, String>{
   'bs': 'Bosanski',
   'uk': 'Українська',
 };
-
-/// The zone's switches, `RiderAppConfig.driverProfile { on, reviews }`
-/// (defaults: on, reviews off). Set from the served rider document.
-class DriverProfileSettings {
-  const DriverProfileSettings({required this.on, required this.reviews});
-  static const defaults = DriverProfileSettings(on: true, reviews: false);
-  static DriverProfileSettings current = defaults;
-  final bool on;
-  final bool reviews;
-
-  static DriverProfileSettings fromJson(Object? json) {
-    if (json is! Map) return defaults;
-    return DriverProfileSettings(
-      on: json['on'] is bool ? json['on'] as bool : defaults.on,
-      reviews: json['reviews'] is bool
-          ? json['reviews'] as bool
-          : defaults.reviews,
-    );
-  }
-}
 
 class DriverCompliment {
   const DriverCompliment(this.code, this.count);
