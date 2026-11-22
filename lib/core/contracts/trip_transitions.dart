@@ -88,6 +88,15 @@ abstract final class TripStateMachine {
     TripTransition('start_search', TripActor.system, {_rq}, _s),
     // v0.5.5 (§3.6): the rider raises their offer while searching.
     TripTransition('raise_price', TripActor.rider, {_o, _s}, _s),
+    // v0.18.143 (onTrip.routeChange.whileSearching): before a driver has
+    // accepted, the rider's confirmed new route starts a new search.
+    TripTransition(
+      'change_route',
+      TripActor.rider,
+      {_rq, _s, _o},
+      _s,
+      when: TripKind.live,
+    ),
     TripTransition('send_offer', TripActor.system, {_s}, _o),
     TripTransition('offer_lapsed', TripActor.system, {_o}, _s),
     // v0.5.1: a live trip is accepted only from offered; from requested
