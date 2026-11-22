@@ -130,7 +130,7 @@ extension _TripExtras on TripRun {
     final mark = rec.length;
     var typed = false;
     if (opened && shows(chatField())) {
-      await tester.enterText(chatField().first, reply);
+      await typeText(tester, chatField().first, reply);
       await tester.pump(const Duration(milliseconds: 400));
       typed = await tapHit(tester, byKey('chat-send'), '"chat-send"');
       await pumpUntil(

@@ -308,8 +308,8 @@ class TestlabSummaryTest(unittest.TestCase):
         (self.root / 'transitions.json').write_text(json.dumps(rows))
         text = testlab_summary.summary_text(str(self.root))
         self.assertIn('### Screen changes', text)
-        self.assertIn('| offer->trip | 40 | 2 | 31.5 | 3 | - | 0/0 | - | PASS |', text)
-        self.assertIn('FAIL FREEZE RELOAD ERRORS', text)
+        self.assertIn('| offer->trip | 40 | 2 (5%) | 31.5 | - | - | 3 | - | 0/0 | - | PASS |', text)
+        self.assertIn('FAIL RELOAD ERRORS; WARN FREEZE (indicative, debug build)', text)
         self.assertIn('debug build, indicative', text)
         (self.root / 'transitions.json').unlink()
         self.logcat.write_text('I flutter : MOVERA-TL TRANSITIONS-JSON %s\n' % json.dumps(rows[:1]))
@@ -922,6 +922,367 @@ class TestlabSummaryTest(unittest.TestCase):
         pattern = testlab_summary.number_pattern(FAKE_SPELLED)
         for spelling in ('000/009 75 31', '000 / 009 / 75 / 31', '000 - 009 - 75 - 31', '+46 000/097531'):
             self.assertEqual(pattern.sub('X', 'n %s.' % spelling), 'n X.', spelling)
+
+
+class BuildModeVerdictTest(unittest.TestCase):
+    """Owner 2026-11-22: SMOOTH is judged on a profile (release-speed) build.
+
+    On a debug build a slow frame is only indicative: the harness writes it
+    as a WARN line, the summary shows it, the verdict does not fail on it.
+    Every other check stays strict in both build modes.
+    """
+
+    def _run_dir(self, logcat_lines, transitions=None):
+        run = tempfile.TemporaryDirectory()
+        self.addCleanup(run.cleanup)
+        root = pathlib.Path(run.name)
+        device = root / '43292982501-1' / 'oriole-33-en_US-portrait'
+        device.mkdir(parents=True)
+        (device / 'logcat').write_text('\n'.join(logcat_lines) + '\n')
+        (device / 'test_result_1.xml').write_text(
+            '<testsuites><testsuite name="" tests="1" failures="0" errors="0" skipped="0">'
+            '<testcase name="t0"/></testsuite></testsuites>')
+        if transitions is not None:
+            (device / 'transitions.json').write_text(json.dumps(transitions))
+        (root / 'gcloud.txt').write_text('Instrumentation testing complete.\n')
+        (root / 'testlab.json').write_text(json.dumps([
+            {'axis_value': 'oriole-33-en_US-portrait', 'outcome': 'Passed', 'test_details': '--'}]))
+        return root
+
+    TAIL = [
+        'I flutter : MOVERA-TL SUMMARY passed=2 failed=0 skipped=0 warned=1',
+        'I flutter : MOVERA-TL SUMMARY-JSON []',
+        'I flutter : MOVERA-TL END checks=3 failed=0 cleanup=pass offline=pass',
+    ]
+    DEBUG_WARN = [
+        'I flutter : MOVERA-TL BUILD mode=debug',
+        'I flutter : MOVERA-TL CHECK SIGN-IN PASS test driver reaches Home: Home is open',
+        'I flutter : MOVERA-TL CHECK TRANSITION:home->offer:SMOOTH WARN screen change has no freeze: '
+        'indicative (debug build): frames=40 missed=12 (30%) worst=410.0 ms',
+        'I flutter : MOVERA-TL CHECK TRANSITION:offer->trip:SMOOTH PASS screen change has no freeze: ok',
+    ]
+
+    def _verdict(self, root, expected=''):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = testlab_summary.verdict(str(root), '0', expected)
+        return rc, out.getvalue()
+
+    def test_build_mode_is_read_from_the_logcat_line(self):
+        for mode in ('debug', 'profile', 'release'):
+            root = self._run_dir(['I flutter : MOVERA-TL BUILD mode=%s' % mode] + self.TAIL)
+            self.assertEqual(testlab_summary.build_mode_from(str(root)), mode)
+        self.assertIsNone(testlab_summary.build_mode_from(str(self._run_dir(self.TAIL))))
+        odd = self._run_dir(['I flutter : MOVERA-TL BUILD mode=+46000097531'] + self.TAIL)
+        self.assertIsNone(testlab_summary.build_mode_from(str(odd)))
+
+    def test_debug_smooth_warn_does_not_fail_the_verdict(self):
+        root = self._run_dir(self.DEBUG_WARN + self.TAIL)
+        self.assertEqual(testlab_summary.verdict_reasons(str(root), '0'), [])
+        rc, printed = self._verdict(root)
+        self.assertEqual(rc, 0, printed)
+        self.assertNotIn('::error::', printed)
+        self.assertIn('::warning::', printed)
+        self.assertIn('indicative (debug build)', printed)
+        self.assertIn('TRANSITION:home->offer:SMOOTH', printed)
+        self.assertIn('debug build', printed.splitlines()[-1])
+
+    def test_summary_says_the_build_mode_and_lists_smooth_warns(self):
+        root = self._run_dir(self.DEBUG_WARN + [l for l in self.TAIL if 'SUMMARY-JSON' not in l])
+        text = testlab_summary.summary_text(str(root))
+        self.assertIn('Build mode: debug', text)
+        self.assertIn('WARN: 1 SMOOTH check(s) indicative (debug build), not a FAIL: '
+                      'TRANSITION:home->offer:SMOOTH', text)
+        self.assertIn('| TRANSITION:home->offer:SMOOTH  | WARN |', text)
+        profile = self._run_dir(['I flutter : MOVERA-TL BUILD mode=profile'] + self.TAIL)
+        text = testlab_summary.summary_text(str(profile))
+        self.assertIn('Build mode: profile', text)
+        self.assertNotIn('SMOOTH check(s)', text)
+        self.assertIn('Build mode: not reported', testlab_summary.summary_text(str(self._run_dir(self.TAIL))))
+
+    def test_profile_smooth_fail_fails_the_verdict(self):
+        root = self._run_dir([
+            'I flutter : MOVERA-TL BUILD mode=profile',
+            'I flutter : MOVERA-TL CHECK TRANSITION:home->offer:SMOOTH FAIL screen change has no freeze: '
+            'frames=40 missed=12 (30%) worst=410.0 ms',
+        ] + self.TAIL)
+        reasons = testlab_summary.verdict_reasons(str(root), '0')
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn('check(s) FAIL: TRANSITION:home->offer:SMOOTH', reasons[0])
+        self.assertEqual(self._verdict(root)[0], 1)
+
+    def test_other_checks_stay_strict_on_a_debug_build(self):
+        for line, want in (
+            ('I flutter : MOVERA-TL CHECK TRANSITION:home->offer:RELOAD FAIL screen change does not reload: x',
+             'check(s) FAIL: TRANSITION:home->offer:RELOAD'),
+            ('I flutter : MOVERA-TL CHECK TRANSITION:home->offer:ERRORS FAIL screen change has no error: x',
+             'check(s) FAIL: TRANSITION:home->offer:ERRORS'),
+            ('I flutter : MOVERA-TL CHECK G24 FAIL position sends are taken: sends=0', 'check(s) FAIL: G24'),
+            # A debug SMOOTH written as FAIL (an older harness) is still a FAIL.
+            ('I flutter : MOVERA-TL CHECK TRANSITION:a->b:SMOOTH FAIL frames', 'check(s) FAIL: TRANSITION:a->b:SMOOTH'),
+            # WARN exists for SMOOTH only.
+            ('I flutter : MOVERA-TL CHECK G24 WARN position sends are taken: sends=0', 'WARN is only for SMOOTH: G24'),
+            ('I flutter : MOVERA-TL CHECK TRANSITION:a->b:RELOAD WARN x', 'WARN is only for SMOOTH'),
+        ):
+            with self.subTest(line):
+                root = self._run_dir(self.DEBUG_WARN + [line] + self.TAIL)
+                reasons = testlab_summary.verdict_reasons(str(root), '0')
+                self.assertEqual(len(reasons), 1, reasons)
+                self.assertIn(want, reasons[0])
+
+    def test_a_smooth_warn_on_a_profile_build_does_not_fail(self):
+        # Runs 45 / 46: on profile a SMOOTH WARN is "over the warn limit".
+        warn = self.DEBUG_WARN[2]
+        for build in (['I flutter : MOVERA-TL BUILD mode=profile'], ['I flutter : MOVERA-TL BUILD mode=release']):
+            with self.subTest(build):
+                root = self._run_dir(build + [warn] + self.TAIL)
+                self.assertEqual(testlab_summary.verdict_reasons(str(root), '0'), [])
+                rc, printed = self._verdict(root)
+                self.assertEqual(rc, 0, printed)
+                self.assertIn('::warning::1 SMOOTH check(s) over the warn limit', printed)
+
+    def test_the_build_asked_for_must_be_the_build_that_ran(self):
+        debug = self._run_dir(self.DEBUG_WARN + self.TAIL)
+        self.assertEqual(testlab_summary.verdict_reasons(str(debug), '0', 'debug'), [])
+        reasons = testlab_summary.verdict_reasons(str(debug), '0', 'profile')
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn('build mode: asked for profile, the phone ran debug', reasons[0])
+        none = self._run_dir(self.TAIL)
+        self.assertIn('the phone ran not reported', testlab_summary.verdict_reasons(str(none), '0', 'profile')[0])
+        # No build asked for (an old caller): nothing to compare.
+        self.assertEqual(testlab_summary.verdict_reasons(str(none), '0'), [])
+        # A SKIP run never started the app's checks: no build line to expect.
+        skip = self._run_dir(['I flutter : MOVERA-TL SKIP all checks: no test number at run time'])
+        self.assertEqual(testlab_summary.verdict_reasons(str(skip), '0', 'profile'), [])
+        with unittest.mock.patch.dict(os.environ, {'RC': '0', 'TL_BUILD': 'profile'}), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(testlab_summary.main(['x', 'verdict', str(debug)]), 1)
+
+    def test_transitions_table_marks_a_debug_freeze_as_warn(self):
+        row = {'name': 'done->home', 'frames': 12, 'missed': 9, 'worstMs': 250.0, 'gets': 6,
+               'recreatedMaps': [], 'loaderSamples': 0, 'blankSamples': 0, 'failedCalls': [],
+               'exceptions': [], 'smooth': False, 'reload': False, 'errors': False}
+        debug = '\n'.join(testlab_summary.transitions_text([dict(row, build='debug build, indicative')]))
+        self.assertIn('| WARN FREEZE (indicative, debug build) |', debug)
+        self.assertNotIn('FAIL FREEZE', debug)
+        both = '\n'.join(testlab_summary.transitions_text(
+            [dict(row, build='debug build, indicative', reload=True, errors=True)]))
+        self.assertIn('| FAIL RELOAD ERRORS; WARN FREEZE (indicative, debug build) |', both)
+        profile = '\n'.join(testlab_summary.transitions_text([dict(row, build='profile build')]))
+        self.assertIn('| FAIL FREEZE |', profile)
+        self.assertIn('Frame numbers: profile build.', profile)
+
+    def test_workflow_has_the_build_choice_and_debug_is_the_default(self):
+        root = pathlib.Path(__file__).resolve().parents[2]
+        text = (root / '.github/workflows/android-test-apk.yml').read_text()
+        on = text.split('jobs:', 1)[0]
+        block = on.split('      testlab_build:', 1)[1]
+        self.assertIn('type: choice', block)
+        self.assertIn('- debug', block)
+        self.assertIn('- profile', block)
+        self.assertIn('default: debug', block)
+        job = text.split('  device-checks:', 1)[1]
+        self.assertIn('TL_BUILD: ${{ inputs.testlab_build }}', job)
+        # Debug: today's lines, unchanged.
+        self.assertIn('flutter build apk --debug \\', job)
+        self.assertIn('(cd android && ./gradlew app:assembleAndroidTest --no-daemon -q)', job)
+        # Profile: the app and its test APK are both the profile variant.
+        profile = job.split('flutter build apk --profile', 1)[1].split('ls -la out', 1)[0]
+        self.assertIn('--dart-define=MOVERA_APP_VERSION="$app_version"', profile)
+        self.assertIn('-PmoveraTestBuildType=profile', profile)
+        self.assertIn('androidTest/profile/app-profile-androidTest.apk', profile)
+        for secret in ('tl/phone', 'TL_NUMBERS', 'peer', 'rider_phone'):
+            self.assertNotIn(secret, profile)
+        self.assertIn('--app "out/app-${TL_BUILD}.apk" --test "out/app-${TL_BUILD}-androidTest.apk"', job)
+        result = job.split('- name: Result', 1)[1]
+        self.assertIn('TL_BUILD: ${{ inputs.testlab_build }}', result)
+        gradle = (root / 'android/app/build.gradle.kts').read_text()
+        self.assertIn('testBuildType = (project.findProperty("moveraTestBuildType") as String?) ?: "debug"', gradle)
+
+
+class FrameRuleTest(unittest.TestCase):
+    """Driver profile runs 45 and 46 (2026-11-22): the 20% rule was noisy.
+
+    The share of missed frames of one screen change moved by 10-20 points
+    between the two runs at 40-80 frames (worst frame never over 102 ms),
+    so each run failed a different set. Profile / release now: FAIL = a
+    frame > 200 ms, or > 35% missed with >= 60 frames; WARN (listed, never
+    fails the verdict) = > 20% missed. Debug: WARN only, as before.
+
+    Fixtures: the shares are the runs' numbers; run 46's frame counts and
+    background-resume-2 (15/82, 15/68) too. The other run 45 frame counts
+    were not reported and are made up inside the runs' 40-80 range.
+    """
+
+    @staticmethod
+    def _row(name, frames, missed, worst=60.0, outcome=None, build='profile build', **more):
+        row = {'name': name, 'frames': frames, 'missed': missed, 'worstMs': worst, 'p90Ms': 21.4,
+               'jankMs': 96.3, 'gets': 2, 'recreatedMaps': [], 'loaderSamples': 0, 'blankSamples': 0,
+               'failedCalls': [], 'exceptions': [], 'reload': False, 'errors': False, 'build': build}
+        if outcome:
+            row['smoothOutcome'] = outcome
+            row['smooth'] = outcome == 'pass'
+        row.update(more)
+        return row
+
+    def _rows(self, run):
+        r = self._row
+        if run == 45:
+            return [r('collect', 57, 12, 88.0, 'warn'), r('end', 46, 6, 71.0, 'pass'),
+                    r('waybill-during', 50, 4, 64.0, 'pass'), r('background-resume-2', 82, 15, 102.0, 'pass')]
+        return [r('collect', 50, 5, 70.0, 'pass'), r('end', 42, 13, 97.0, 'warn'),
+                r('waybill-during', 48, 10, 81.0, 'warn'), r('background-resume-2', 68, 15, 99.0, 'warn')]
+
+    def _run_dir(self, rows, build='profile', extra=()):
+        run = tempfile.TemporaryDirectory()
+        self.addCleanup(run.cleanup)
+        root = pathlib.Path(run.name)
+        device = root / '45000000046-1' / 'oriole-33-en_US-portrait'
+        device.mkdir(parents=True)
+        lines = ['I flutter : MOVERA-TL BUILD mode=%s' % build]
+        for row in rows:
+            lines.append('I flutter : MOVERA-TL CHECK TRANSITION:%s:SMOOTH %s screen change has no freeze: frames=%d'
+                         % (row['name'], row.get('smoothOutcome', 'pass').upper(), row['frames']))
+        lines += list(extra) + [
+            'I flutter : MOVERA-TL SUMMARY passed=9 failed=0 skipped=0 warned=3',
+            'I flutter : MOVERA-TL SUMMARY-JSON []',
+            'I flutter : MOVERA-TL END checks=12 failed=0 cleanup=pass offline=pass',
+        ]
+        (device / 'logcat').write_text('\n'.join(lines) + '\n')
+        (device / 'test_result_1.xml').write_text(
+            '<testsuites><testsuite name="" tests="1" failures="0" errors="0" skipped="0">'
+            '<testcase name="t0"/></testsuite></testsuites>')
+        (device / 'transitions.json').write_text(json.dumps(rows))
+        (root / 'gcloud.txt').write_text('Instrumentation testing complete.\n')
+        (root / 'testlab.json').write_text(json.dumps([
+            {'axis_value': 'oriole-33-en_US-portrait', 'outcome': 'Passed', 'test_details': '--'}]))
+        return root
+
+    def _verdict(self, root):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = testlab_summary.verdict(str(root), '0', 'profile')
+        return rc, out.getvalue()
+
+    def test_the_rule_on_the_run_45_and_46_numbers(self):
+        judge = testlab_summary.judge_frames
+        for mode in ('profile', 'release'):
+            # Run 46: all three are a WARN.
+            self.assertEqual(judge(48, 10, 81.0, mode), 'warn')   # waybill-during 21%
+            self.assertEqual(judge(68, 15, 99.0, mode), 'warn')   # background-resume-2 22%
+            self.assertEqual(judge(42, 13, 97.0, mode), 'warn')   # end 31%
+            self.assertEqual(judge(57, 12, 88.0, mode), 'warn')   # run 45 collect 21%
+            # The same changes in the other run: under the warn limit.
+            self.assertEqual(judge(82, 15, 102.0, mode), 'pass')  # background-resume-2 18%
+            self.assertEqual(judge(50, 5, 70.0, mode), 'pass')    # collect 10%
+            self.assertEqual(judge(46, 6, 71.0, mode), 'pass')    # end 13%
+            self.assertEqual(judge(50, 4, 64.0, mode), 'pass')    # waybill-during 8%
+
+    def test_the_fail_limits(self):
+        judge = testlab_summary.judge_frames
+        self.assertEqual(judge(100, 40, 60.0, 'profile'), 'fail')
+        self.assertEqual(judge(60, 22, 60.0, 'profile'), 'fail')
+        self.assertEqual(judge(100, 35, 60.0, 'profile'), 'warn')   # exactly 35% is not over
+        self.assertEqual(judge(59, 40, 60.0, 'profile'), 'warn')    # too few frames to fail
+        self.assertEqual(judge(3, 1, 20.0, 'profile'), 'warn')      # over 20% at any frame count
+        self.assertEqual(judge(50, 10, 60.0, 'profile'), 'pass')    # exactly 20% is not over
+        self.assertEqual(judge(5, 0, 250.0, 'profile'), 'fail')
+        self.assertEqual(judge(80, 0, 200.0, 'profile'), 'pass')
+        self.assertEqual(judge(0, 0, 0.0, 'profile'), 'pass')
+        self.assertEqual(judge(100, 40, 60.0, None), 'fail')        # unknown build: strict
+
+    def test_debug_stays_warn_only(self):
+        judge = testlab_summary.judge_frames
+        self.assertEqual(judge(100, 40, 60.0, 'debug'), 'warn')
+        self.assertEqual(judge(5, 0, 250.0, 'debug'), 'warn')
+        self.assertEqual(judge(40, 12, 60.0, 'debug'), 'warn')
+        self.assertEqual(judge(9, 9, 60.0, 'debug'), 'pass')
+        self.assertEqual(judge(40, 8, 60.0, 'debug'), 'pass')
+
+    def test_run_46_passes_the_verdict_with_three_warnings(self):
+        root = self._run_dir(self._rows(46))
+        self.assertEqual(testlab_summary.verdict_reasons(str(root), '0', 'profile'), [])
+        rc, printed = self._verdict(root)
+        self.assertEqual(rc, 0, printed)
+        self.assertNotIn('::error::', printed)
+        warning = [l for l in printed.splitlines() if l.startswith('::warning::')]
+        self.assertEqual(len(warning), 1, printed)
+        for name in ('end', 'waybill-during', 'background-resume-2'):
+            self.assertIn('TRANSITION:%s:SMOOTH' % name, warning[0])
+        self.assertNotIn('TRANSITION:collect:SMOOTH', warning[0])
+        self.assertIn('3 SMOOTH check(s) over the warn limit', warning[0])
+        last = printed.splitlines()[-1]
+        self.assertIn('profile build: SMOOTH counts (FAIL: a frame > 200 ms or > 35% missed with >= 60 '
+                      'frames; WARN: > 20% missed)', last)
+        self.assertNotIn('SMOOTH counted', printed)
+
+    def test_run_45_passes_the_verdict_with_one_warning(self):
+        rc, printed = self._verdict(self._run_dir(self._rows(45)))
+        self.assertEqual(rc, 0, printed)
+        self.assertIn('1 SMOOTH check(s) over the warn limit', printed)
+        self.assertIn('TRANSITION:collect:SMOOTH', printed)
+
+    def test_a_fail_row_fails_the_verdict(self):
+        for row, why in ((self._row('pickup', 100, 40, 60.0, 'fail'), '40% of 100'),
+                         (self._row('pickup', 30, 1, 250.0, 'fail'), '250 ms')):
+            with self.subTest(why):
+                root = self._run_dir(self._rows(46) + [row])
+                reasons = testlab_summary.verdict_reasons(str(root), '0', 'profile')
+                self.assertEqual(len(reasons), 1, reasons)
+                self.assertIn('check(s) FAIL: TRANSITION:pickup:SMOOTH', reasons[0])
+                self.assertEqual(self._verdict(root)[0], 1)
+
+    def test_a_row_over_the_fail_limit_without_a_fail_line_fails(self):
+        # The tool has the same numbers as the harness: a harness that wrote
+        # WARN or PASS for a row over the FAIL limit does not pass.
+        for outcome in ('warn', 'pass'):
+            for row in (self._row('pickup', 100, 40, 60.0, outcome), self._row('pickup', 30, 1, 250.0, outcome)):
+                with self.subTest((outcome, row['worstMs'])):
+                    reasons = testlab_summary.verdict_reasons(str(self._run_dir([row])), '0', 'profile')
+                    self.assertEqual(len(reasons), 1, reasons)
+                    self.assertIn('over the FAIL limit without a FAIL line: pickup', reasons[0])
+        # Debug: the same row is a WARN, nothing to fail.
+        debug = self._run_dir([self._row('pickup', 100, 40, 60.0, 'warn', build='debug build, indicative')],
+                              build='debug')
+        self.assertEqual(testlab_summary.verdict_reasons(str(debug), '0', 'debug'), [])
+
+    def test_warn_is_still_only_for_smooth(self):
+        root = self._run_dir(self._rows(46), extra=[
+            'I flutter : MOVERA-TL CHECK TRANSITION:end:RELOAD WARN screen change does not reload: x'])
+        reasons = testlab_summary.verdict_reasons(str(root), '0', 'profile')
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn('WARN is only for SMOOTH: TRANSITION:end:RELOAD', reasons[0])
+
+    def test_summary_table_has_p90_jank_and_the_outcome(self):
+        rows = self._rows(46) + [self._row('pickup', 100, 40, 60.0, 'fail'),
+                                 self._row('old-row', 40, 2, 31.5, None)]
+        del rows[-1]['p90Ms'], rows[-1]['jankMs']
+        text = testlab_summary.summary_text(str(self._run_dir(rows)))
+        self.assertIn('| Change | Frames | Missed | Worst ms | p90 ms | Jank ms | GET reads |', text)
+        self.assertIn('| collect | 50 | 5 (10%) | 70.0 | 21.4 | 96.3 | 2 | - | 0/0 | - | PASS |', text)
+        self.assertIn('| end | 42 | 13 (31%) | 97.0 | 21.4 | 96.3 | 2 | - | 0/0 | - | '
+                      'WARN FRAMES (over 20% missed, not a FAIL) |', text)
+        self.assertIn('| pickup | 100 | 40 (40%) | 60.0 | 21.4 | 96.3 | 2 | - | 0/0 | - | FAIL FREEZE |', text)
+        # A row of an older harness (no p90, no jank, no outcome): judged by the numbers.
+        self.assertIn('| old-row | 40 | 2 (5%) | 31.5 | - | - | 2 | - | 0/0 | - | PASS |', text)
+        self.assertIn('FAIL: a frame > 200 ms or > 35% missed frames with >= 60 frames', text)
+        self.assertIn('p90 and jank (the sum of ms over 16.7 of the missed frames) are shown only', text)
+
+    def test_summary_lists_warns_and_what_is_near_the_limit(self):
+        text = testlab_summary.summary_text(str(self._run_dir(self._rows(46))))
+        self.assertIn('Build mode: profile', text)
+        self.assertIn('WARN: 3 SMOOTH check(s) over the warn limit (> 20% missed frames), not a FAIL: '
+                      'TRANSITION:end:SMOOTH, TRANSITION:waybill-during:SMOOTH, '
+                      'TRANSITION:background-resume-2:SMOOTH', text)
+        self.assertIn('Near the limit (15% or more frames missed): end 31% (13/42), '
+                      'waybill-during 21% (10/48), background-resume-2 22% (15/68)', text)
+        # Run 45: background-resume-2 at 18% passes but is near the limit; end (13%) is not.
+        text = testlab_summary.summary_text(str(self._run_dir(self._rows(45))))
+        self.assertIn('Near the limit (15% or more frames missed): collect 21% (12/57), '
+                      'background-resume-2 18% (15/82)', text)
+        self.assertNotIn('end 13%', text)
+        calm = testlab_summary.summary_text(str(self._run_dir([self._row('collect', 50, 5, 70.0, 'pass')])))
+        self.assertNotIn('Near the limit', calm)
 
 
 if __name__ == '__main__':

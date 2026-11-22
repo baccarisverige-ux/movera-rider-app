@@ -70,6 +70,14 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Owner 2026-11-22 (Test Lab frame checks on a release-speed build): the
+    // androidTest APK is built for ONE build type. Default "debug", as before.
+    // The device-check workflow passes -PmoveraTestBuildType=profile to test
+    // Flutter's profile build type (made by the Flutter Gradle plugin from
+    // debug: same debug signing). Only the androidTest APK depends on this;
+    // the debug and release build types are not changed.
+    testBuildType = (project.findProperty("moveraTestBuildType") as String?) ?: "debug"
+
     signingConfigs {
         if (hasReleaseSigning) {
             create("moveraRelease") {

@@ -31,6 +31,16 @@ on:
           - trip-scheduled
           - saved-places
         default: robo
+      testlab_build:
+        # Owner 2026-11-22: the frame checks (SMOOTH) are judged on a profile build
+        # (release speed). debug = exactly the build before this input existed; there a
+        # slow frame is only a WARN ("indicative (debug build)") and never fails the run.
+        description: 'Test Lab build of the app for the device checks (not robo): debug (as before; slow frames are only a warning) or profile (release speed; slow frames fail the run)'
+        type: choice
+        options:
+          - debug
+          - profile
+        default: debug
 
 permissions:
   contents: read
@@ -287,6 +297,7 @@ jobs:
         if: steps.peers.outputs.ready == 'true'
         env:
           TARGET: ${{ steps.peers.outputs.target }}
+          TL_BUILD: ${{ inputs.testlab_build }}
         run: |
           set -euo pipefail
           if [ -z "${MAPS_API_KEY:-}" ]; then
@@ -297,17 +308,38 @@ jobs:
           app_version="$(sed -n 's/^version: *//p' pubspec.yaml)"; app_version="${app_version%%+*}+${GITHUB_RUN_NUMBER}"
           # Debug: Flutter's JUnit runner tests the debug variant. The same
           # staging dart-defines as the test APKs above; no test number in them.
-          flutter build apk --debug \
-            -t "$TARGET" \
-            --dart-define=MOVERA_FLAVOR=staging \
-            --dart-define=MOVERA_API_BASE_URL="$LIVE_API" \
-            --dart-define=MOVERA_AUTH_REQUIRED=true \
-            --dart-define=MOVERA_APP_VERSION="$app_version" \
-            --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID"
-          mkdir -p out
-          cp build/app/outputs/flutter-apk/app-debug.apk out/app-debug.apk
-          (cd android && ./gradlew app:assembleAndroidTest --no-daemon -q)
-          cp build/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk out/app-debug-androidTest.apk
+          case "$TL_BUILD" in debug|profile) ;; *) echo "::error::testlab_build must be debug or profile"; exit 1 ;; esac
+          if [ "$TL_BUILD" = debug ]; then
+            flutter build apk --debug \
+              -t "$TARGET" \
+              --dart-define=MOVERA_FLAVOR=staging \
+              --dart-define=MOVERA_API_BASE_URL="$LIVE_API" \
+              --dart-define=MOVERA_AUTH_REQUIRED=true \
+              --dart-define=MOVERA_APP_VERSION="$app_version" \
+              --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID"
+            mkdir -p out
+            cp build/app/outputs/flutter-apk/app-debug.apk out/app-debug.apk
+            (cd android && ./gradlew app:assembleAndroidTest --no-daemon -q)
+            cp build/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk out/app-debug-androidTest.apk
+          else
+            # Profile (owner 2026-11-22): release speed (AOT), so the frame checks
+            # (SMOOTH) count. Same entry file and dart-defines as debug. The
+            # test APK must be built for the same variant as the app it tests:
+            # -PmoveraTestBuildType=profile sets testBuildType (android/app/build.gradle.kts;
+            # without it Gradle only has the debug androidTest variant). Flutter's
+            # profile build type starts from debug, so both APKs get the debug key.
+            flutter build apk --profile \
+              -t "$TARGET" \
+              --dart-define=MOVERA_FLAVOR=staging \
+              --dart-define=MOVERA_API_BASE_URL="$LIVE_API" \
+              --dart-define=MOVERA_AUTH_REQUIRED=true \
+              --dart-define=MOVERA_APP_VERSION="$app_version" \
+              --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID"
+            mkdir -p out
+            cp build/app/outputs/flutter-apk/app-profile.apk out/app-profile.apk
+            (cd android && ./gradlew app:assembleAndroidTest -PmoveraTestBuildType=profile --no-daemon -q)
+            cp build/app/outputs/apk/androidTest/profile/app-profile-androidTest.apk out/app-profile-androidTest.apk
+          fi
           ls -la out
       - name: Wake the staging server (it sleeps when idle)
         if: steps.peers.outputs.ready == 'true'
@@ -329,6 +361,7 @@ jobs:
           TL_TIMEOUT: ${{ steps.peers.outputs.tl_timeout }}
           SCENARIO: ${{ steps.peers.outputs.scenario }}
           TL_TEST: ${{ inputs.testlab_test }}
+          TL_BUILD: ${{ inputs.testlab_build }}
         run: |
           set -uo pipefail
           device="$DEVICE"
@@ -348,7 +381,7 @@ jobs:
           # and dir so the results are downloaded (driver run 43245270538).
           set +e
           gcloud firebase test android run --type instrumentation \
-            --app out/app-debug.apk --test out/app-debug-androidTest.apk \
+            --app "out/app-${TL_BUILD}.apk" --test "out/app-${TL_BUILD}-androidTest.apk" \
             --device "$device" --timeout "$TL_TIMEOUT" --no-record-video --no-performance-metrics \
             --results-history-name "rider-$TL_TEST" --results-dir "$dir" "${bucket_flag[@]}" \
             --directories-to-pull /sdcard/Android/data/com.movera.rider/files/tl \
@@ -419,6 +452,8 @@ jobs:
         if: steps.peers.outputs.ready == 'true'
         env:
           RC: ${{ steps.run.outputs.rc }}
+          # The verdict fails when the phone ran another build than the one asked for.
+          TL_BUILD: ${{ inputs.testlab_build }}
         run: |
           set -euo pipefail
           python3 -I tool/testlab_summary.py verdict testlab-results
