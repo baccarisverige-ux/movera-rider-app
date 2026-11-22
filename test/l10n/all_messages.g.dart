@@ -112,6 +112,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'errServer': l.errServer,
   'errWrongCode': l.errWrongCode,
   'errSendCode': l.errSendCode,
+  'errSmsNotSent': l.errSmsNotSent,
+  'errSmsDailyLimit': l.errSmsDailyLimit,
   'errCheckCode': l.errCheckCode,
   'errProvider': l.errProvider('<provider>'),
   'notification': l.notification,
@@ -2249,6 +2251,10 @@ class _Exhaustive implements AppLocalizations {
   String get errWrongCode => '';
   @override
   String get errSendCode => '';
+  @override
+  String get errSmsNotSent => '';
+  @override
+  String get errSmsDailyLimit => '';
   @override
   String get errCheckCode => '';
   @override
