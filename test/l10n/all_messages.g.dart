@@ -248,6 +248,33 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'cancelledNoFee': l.cancelledNoFee,
   'freeRuleHours': l.freeRuleHours(37),
   'cancelFreeChained': l.cancelFreeChained,
+  'dpTripsSince': l.dpTripsSince('<trips>', '<year>'),
+  'dpSince': l.dpSince('<month>'),
+  'dpTrips': l.dpTrips,
+  'dpRating': l.dpRating,
+  'dpYears': l.dpYears,
+  'dpWhatRidersSay': l.dpWhatRidersSay,
+  'dpMilestones': l.dpMilestones,
+  'dpMilestoneTrips1000': l.dpMilestoneTrips1000,
+  'dpMilestoneTopRating': l.dpMilestoneTopRating,
+  'dpMilestoneTopRatingSub': l.dpMilestoneTopRatingSub,
+  'dpLatestReview': l.dpLatestReview,
+  'dpAnonymous': l.dpAnonymous,
+  'dpVerified': l.dpVerified,
+  'dpCall': l.dpCall,
+  'dpUnreadMessages': l.dpUnreadMessages,
+  'dpOpenProfile': l.dpOpenProfile,
+  'complimentGreatService': l.complimentGreatService,
+  'complimentKnewTheWay': l.complimentKnewTheWay,
+  'complimentFriendly': l.complimentFriendly,
+  'complimentCleanCar': l.complimentCleanCar,
+  'complimentSafeDriving': l.complimentSafeDriving,
+  'complimentGoodMusic': l.complimentGoodMusic,
+  'rateComplimentsTitle': l.rateComplimentsTitle,
+  'rateReviewLabel': l.rateReviewLabel,
+  'rateReviewHint': l.rateReviewHint,
+  'rateShowFirstName': l.rateShowFirstName,
+  'rateShowFirstNameOff': l.rateShowFirstNameOff,
   'setLocation': l.setLocation,
   'choosePickup': l.choosePickup,
   'setHomeAddress': l.setHomeAddress,
@@ -1848,6 +1875,8 @@ const messagePlaceholders = <String, List<String>>{
   'cancelledFeeCharged': ['amount'],
   'cancelledNoShowFee': ['amount'],
   'freeRuleHours': [],
+  'dpTripsSince': ['trips', 'year'],
+  'dpSince': ['month'],
   'setPlaceAddress': ['place'],
   'arriveBy': ['time'],
   'ctaSchedule': ['category'],
@@ -2547,6 +2576,60 @@ class _Exhaustive implements AppLocalizations {
   String freeRuleHours(int count) => '';
   @override
   String get cancelFreeChained => '';
+  @override
+  String dpTripsSince(String trips, String year) => '';
+  @override
+  String dpSince(String month) => '';
+  @override
+  String get dpTrips => '';
+  @override
+  String get dpRating => '';
+  @override
+  String get dpYears => '';
+  @override
+  String get dpWhatRidersSay => '';
+  @override
+  String get dpMilestones => '';
+  @override
+  String get dpMilestoneTrips1000 => '';
+  @override
+  String get dpMilestoneTopRating => '';
+  @override
+  String get dpMilestoneTopRatingSub => '';
+  @override
+  String get dpLatestReview => '';
+  @override
+  String get dpAnonymous => '';
+  @override
+  String get dpVerified => '';
+  @override
+  String get dpCall => '';
+  @override
+  String get dpUnreadMessages => '';
+  @override
+  String get dpOpenProfile => '';
+  @override
+  String get complimentGreatService => '';
+  @override
+  String get complimentKnewTheWay => '';
+  @override
+  String get complimentFriendly => '';
+  @override
+  String get complimentCleanCar => '';
+  @override
+  String get complimentSafeDriving => '';
+  @override
+  String get complimentGoodMusic => '';
+  @override
+  String get rateComplimentsTitle => '';
+  @override
+  String get rateReviewLabel => '';
+  @override
+  String get rateReviewHint => '';
+  @override
+  String get rateShowFirstName => '';
+  @override
+  String get rateShowFirstNameOff => '';
   @override
   String get setLocation => '';
   @override

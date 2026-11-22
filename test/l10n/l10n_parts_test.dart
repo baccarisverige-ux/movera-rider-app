@@ -103,18 +103,19 @@ void main() {
     // Admin sign-out (contract v0.18.149): + signedOutByMovera (account area).
     // P16c (contract v0.18.154 appUpdate.texts): + minVersionTitle,
     // minVersionBody, minVersionUpdate (app_update area).
+    // v0.18.155 driver profile: + 27 texts in the driver_profile area.
     const before = {
       'en': (
-        'd073587dfe74faefad3361ef00995f14db087e34abe4d6b390f2637d10959da8',
-        2258,
+        'c83a200eabd05c4b6823ba68bbb5fed81e15f380509842a3b6f77b62286f1914',
+        2312,
       ),
       'fr': (
-        '1fbd0a980232997cf541041ff38b5fa1bdc1405d47e21cb309a3038a404c0b39',
-        1785,
+        '9c954a33bb388c0e585fe2c39de6e63dcdebd77f7c1437e7e673a7ada77da749',
+        1812,
       ),
       'sv': (
-        '59fba777083cff06c6d7e48bfd9c6c21a646f43d10abf5f2ca9a5bd8e2bb46d8',
-        1785,
+        'bd07291c97763834cef8b8028ecf201f465cfaef07de7f8c66834c215c47869a',
+        1812,
       ),
     };
     for (final lang in _langs) {

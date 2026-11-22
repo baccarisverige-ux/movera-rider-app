@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.154",
+  "version": "0.18.155",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -150,6 +150,7 @@
     "tags": {
       "note": "v0.9.0 (owner real-data decision, part 3): one fixed list of tag codes, the same in every country; each app shows its own words (sv/fr/en). aboutDriver: the tags a rider may give the driver; aboutRider: the tags a driver may give the rider. A rating may carry none of them.",
       "aboutDriver": [
+        "great_service",
         "clean_car",
         "friendly",
         "safe_driving",
@@ -161,7 +162,9 @@
         "polite",
         "clear_pickup"
       ],
-      "maxPerRating": 5
+      "maxPerRating": 6,
+      "maxPerRatingBefore0_18_155": 5,
+      "noteV0_18_155": "v0.18.155 (contract.json#driverProfile.compliments): great_service added to aboutDriver; a rider may pick all six (maxPerRating 6, was 5). The aboutRider list is unchanged."
     },
     "moderation": {
       "note": "v0.9.0: an admin hides a rating (POST /admin/ratings/{tripId}/{from}/hide) or restores it. A hidden rating stops counting in the person's average and in the low-rating risk signal; restoring counts it again (owner, 2026-10-27)."
@@ -4131,7 +4134,9 @@
         "android": null,
         "ios": null
       }
-    }
+    },
+    "driverProfileOn": true,
+    "driverReviewsOn": false
   },
   "realtime": {
     "envelope": [
@@ -11298,6 +11303,96 @@
         "sv": "Telefoner under den här versionen måste uppdatera innan de kan boka eller gå online.",
         "fr": "Les téléphones en dessous de cette version doivent faire la mise à jour avant de pouvoir réserver ou se connecter."
       }
+    }
+  },
+  "driverProfile": {
+    "note": "v0.18.155 (driver profile v3; owner 2026-11-20 \"Now build all\", design Rules plan/inspiration-ride-change-2026-11-20/driver-profile-v3.html; Rule 0): the rider's driver card opens a driver profile (photo, verified tick, languages, city, trips, rating, years, compliment counts, milestones, the latest approved review); after the trip the rider gives stars, compliment chips, an optional short review and chooses to show his first name or stay anonymous; the driver chooses his languages and what to show; admin turns the profile and written reviews on/off per zone and approves or hides each review. Additive; X-Api-Version stays 0.5; server migration 0127. Follows v0.18.132 (0.18.133-0.18.146 are other open drafts; renumber at merge, tags only go up).",
+    "compliments": {
+      "note": "The six compliment chips, in this order. Each is a ratings.tags.aboutDriver code; the icon is the phone's own emoji drawn as text (no image file). Each app has its own words (sv/en/fr/ar).",
+      "list": [
+        {
+          "code": "great_service",
+          "emoji": "⭐"
+        },
+        {
+          "code": "knew_the_way",
+          "emoji": "🧭"
+        },
+        {
+          "code": "friendly",
+          "emoji": "💬"
+        },
+        {
+          "code": "clean_car",
+          "emoji": "✨"
+        },
+        {
+          "code": "safe_driving",
+          "emoji": "🛡"
+        },
+        {
+          "code": "good_music",
+          "emoji": "🎵"
+        }
+      ],
+      "counts": "The server keeps one count per driver and code, raised in the same transaction as the rating (never counted on read); a hidden rating (ratings.moderation) takes its codes off again. Only ratings with stars >= minStars add to the counts. The profile sends only the codes with count >= 1, in list order.",
+      "minStars": 4
+    },
+    "review": {
+      "field": "RatingRequest.review (string, 1-280 characters after trim, rider only): the short text the rider allows to show on the driver's profile. RatingRequest.comment stays private (admin only) as before. A review with stars < minStarsShown is never stored as a review (the text is kept as a private comment instead).",
+      "maxLength": 280,
+      "minStarsShown": 4,
+      "reviewName": "RatingRequest.reviewName: first_name (default) | anonymous. first_name: the review shows the rider's first name as it was at rating time (first word of the profile name, at most 20 characters); anonymous: no name. Nothing else about the rider is ever stored on or sent with a review: no rider id, phone, photo, e-mail, trip id, address or exact date; the month (YYYY-MM, the trip's zone time) only.",
+      "moderation": "Every review starts pending. It shows on the profile only after an admin approves it (POST /admin/driver-reviews/{reviewId}/approve). Hide (POST /admin/driver-reviews/{reviewId}/hide) takes it off at once; approve again shows it again. The driver sees his own reviews with their status in GET /driver/public-profile; the rider never sees pending or hidden ones.",
+      "latest": "DriverPublicProfile.latestReview = the newest approved review of the driver (by trip month, then approval time), or null. Only while the zone's reviews switch is on."
+    },
+    "languages": {
+      "rule": "The driver picks up to max languages from codes (ISO 639-1); order kept as saved. Empty = none shown.",
+      "max": 6,
+      "codes": [
+        "sv",
+        "en",
+        "ar",
+        "fr",
+        "fi",
+        "es",
+        "de",
+        "fa",
+        "so",
+        "ti",
+        "tr",
+        "pl",
+        "ru",
+        "ku",
+        "bs",
+        "uk"
+      ]
+    },
+    "visibility": {
+      "rule": "The driver chooses showCity (default true: the zone's city name) and showYears (default true: 'since' month and years). Trips, rating and compliments are always shown while the profile is on; low ratings are never listed one by one.",
+      "showCity": true,
+      "showYears": true
+    },
+    "milestones": {
+      "rule": "The server works them out when the profile is read (from the stored counts, no extra job). Each item: { code, reachedAt (YYYY-MM) }. Shown only when reached.",
+      "trips_1000": "tripCount >= 1000; reachedAt = the month of the 1000th completed trip.",
+      "top_rating": "the average of the last 6 months' shown ratings >= 4.9 with at least 50 of them; reachedAt = the current month."
+    },
+    "kpis": "DriverPublicProfile: tripCount (completed trips), rating (1 decimal, null with fewer than 5 ratings), years (whole years since the first approved day, 0 shown as the since month only), sinceMonth (YYYY-MM).",
+    "verified": "verified true when the driver's account is approved and his profile photo is approved.",
+    "routes": {
+      "rider": "GET /rider/trips/{tripId}/driver-profile (rider of that trip; from accepted until 24 h after the trip ended) -> DriverPublicProfile. Not the trip's rider or another state: 404 not_found. The zone's profile switch off: 404 not_found, reason driver_profile_off (the card still opens the old simple page).",
+      "driverRead": "GET /driver/public-profile -> DriverOwnPublicProfile: the settings, the preview exactly as a rider sees it, the compliment counts and the driver's reviews (newest first, at most 50, with status).",
+      "driverWrite": "PATCH /driver/public-profile { languages?, showCity?, showYears? } -> DriverOwnPublicProfile. An unknown code or too many: 400 invalid_request, reason invalid_language.",
+      "adminList": "GET /admin/driver-reviews?status=pending|approved|hidden&zoneId&cursor (settings.read, the admin's zones) -> AdminDriverReviewPage, oldest pending first. Each item: reviewId, driverId, driver first name, zoneId, stars, text, name (or null), month, status, createdAt. No rider id or contact.",
+      "adminModerate": "POST /admin/driver-reviews/{reviewId}/approve | /hide (settings.publish) -> AdminDriverReview; written to the audit log."
+    },
+    "load": "LOAD RULE (owner): no new polling. The rider app reads the profile once when the sheet opens (and again only after 5 min); the answer carries Cache-Control: private, max-age=300 and an ETag, and If-None-Match gets 304. The driver app reads GET /driver/public-profile when Min profil opens. Counts are aggregated on the server.",
+    "setting": "Per zone: rider_app_config carries driverProfile { on (default configDefaults.driverProfileOn = true), reviews (default configDefaults.driverReviewsOn = false) }; the server serves the same object in GET /driver/config (DriverAppConfig.driverProfile). Not an object, or a value that is not true / false: 400 invalid_request, reason invalid_document. reviews off: no review box after the trip, no latestReview; stored reviews stay for the admin.",
+    "apps": {
+      "rider": "Waiting card: photo with rating badge, first name with verified tick, trips and since-year, the plate and car model + colour, big Call (filled) and Message (soft, unread dot); a tap on the card opens the profile sheet (one read, cached). After the trip: stars, the six chips, the short review (only while reviews is on) and 'Show my first name' (default on).",
+      "driver": "Profile > Min profil: languages, show city / years switches, compliment counts, own reviews with status, 'View as rider' preview.",
+      "admin": "Dispatch > Riders' view per zone: 'Driver profile' and 'Written reviews' switches; Reviews > Driver reviews: the moderation list (Approve / Hide)."
     }
   }
 }

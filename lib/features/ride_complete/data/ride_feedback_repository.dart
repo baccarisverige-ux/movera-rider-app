@@ -24,6 +24,8 @@ class RideFeedbackRepository {
     String? comment,
     String tipMethod = 'cash',
     bool dontMatchAgain = false,
+    String? review,
+    bool showFirstName = true,
     required String idempotencyKey,
   }) async {
     if (rideId.trim().isEmpty) throw ArgumentError.value(rideId, 'rideId');
@@ -37,6 +39,11 @@ class RideFeedbackRepository {
     final note = comment?.trim();
     if (note != null && note.length > RatingTags.commentMaxLength) {
       throw ArgumentError.value(comment, 'comment');
+    }
+    final shortReview = review?.trim();
+    if (shortReview != null &&
+        shortReview.length > RatingTags.reviewMaxLength) {
+      throw ArgumentError.value(review, 'review');
     }
     if (rating == null && tipMinor == null) return;
     // Q38 / X20: whole stars only, 1 to 5.
@@ -65,6 +72,11 @@ class RideFeedbackRepository {
             if (note != null && note.isNotEmpty) 'comment': note,
             // Fix job 10 (v0.18.43 §64): only when ticked.
             if (dontMatchAgain) 'dontMatchAgain': true,
+            // v0.18.155: the short review waits for an admin's approval.
+            if (shortReview != null && shortReview.isNotEmpty) ...{
+              'review': shortReview,
+              'reviewName': showFirstName ? 'first_name' : 'anonymous',
+            },
           },
           idempotencyKey: idempotencyKey,
         );
