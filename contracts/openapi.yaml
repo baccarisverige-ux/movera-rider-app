@@ -25348,9 +25348,10 @@ components:
         over every screen with an Update button that opens storeUrls.<platform> (else the built-in store link) and the SOS
         / emergency button; it goes away only when a newer document says the version is OK. A 426 app_update_required answer
         shows it too until the next config. Driver: never while a trip is active (accepted, to pickup, arrived, on trip) or
-        a held next ride runs; only a small line, the block when the trip ends. Rider: never while a ride is live; the block
-        at Home when it ends. Web builds and "dev" builds are never blocked. The content slot app-versions (§19) keeps working
-        as before; either one below its minimum blocks.'
+        a held next ride runs; only a small line, the block when the trip ends. A driver who holds a booked ride not started
+        yet (or whose booked rides are not known yet) never gets the full screen, only the small line, as the server never
+        refuses his go-online. Rider: never while a ride is live; the block at Home when it ends. Web builds and "dev" builds
+        are never blocked. The content slot app-versions (§19) keeps working as before; either one below its minimum blocks.'
       properties:
         minimumVersion:
           type: string
