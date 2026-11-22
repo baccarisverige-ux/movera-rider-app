@@ -30,8 +30,9 @@ void main() {
       ReservationController reservations,
       List<Duration> reads,
     )
-    body,
-  ) {
+    body, {
+    Duration readTakes = Duration.zero,
+  }) {
     fakeAsync((async) {
       final start = DateTime.utc(2026, 11, 22, 10);
       final reads = <Duration>[];
@@ -40,6 +41,9 @@ void main() {
           api: ApiClient(
             client: MockClient((request) async {
               reads.add(async.elapsed);
+              if (readTakes > Duration.zero) {
+                await Future<void>.delayed(readTakes);
+              }
               return http.Response(
                 jsonEncode({'items': <Object>[], 'nextCursor': null}),
                 200,
@@ -130,6 +134,70 @@ void main() {
       expect(waited, isTrue, reason: 'that read started after its call');
       async.elapse(const Duration(minutes: 1));
       expect(reads, hasLength(2), reason: 'no trailing read is left over');
+    });
+  });
+
+  group('a call while a read is out (the read may be older than the hint)', () {
+    const slow = Duration(seconds: 2);
+
+    test('a hint gives exactly one more read after it, and is answered by '
+        'that read', () {
+      run(readTakes: slow, (async, reservations, reads) {
+        reservations.refresh();
+        async.elapse(const Duration(seconds: 1));
+        var done = false;
+        reservations.refresh().then((_) => done = true); // the hint
+        async.elapse(const Duration(seconds: 2)); // the first read ended at 2 s
+        expect(reads, hasLength(1));
+        expect(done, isFalse, reason: 'the read out started before the hint');
+        async.elapse(window); // 8 s: the trailing read started at 7 s
+        expect(reads, hasLength(2));
+        expect(reads[1], slow + window);
+        expect(done, isFalse, reason: 'the trailing read is still out');
+        async.elapse(slow);
+        expect(done, isTrue);
+        async.elapse(const Duration(minutes: 1));
+        expect(reads, hasLength(2));
+      });
+    });
+
+    test('now: true gives a second read right after the first one ends, '
+        'never two at once', () {
+      run(readTakes: slow, (async, reservations, reads) {
+        reservations.refresh();
+        async.elapse(const Duration(seconds: 1));
+        var done = false;
+        reservations.refresh(now: true).then((_) => done = true);
+        async.elapse(const Duration(milliseconds: 900));
+        expect(reads, hasLength(1), reason: 'not in parallel');
+        async.elapse(const Duration(milliseconds: 200));
+        expect(reads, hasLength(2));
+        expect(reads[1], slow, reason: 'right when the first one ended');
+        expect(done, isFalse);
+        async.elapse(slow);
+        expect(done, isTrue);
+        async.elapse(const Duration(minutes: 1));
+        expect(reads, hasLength(2));
+      });
+    });
+
+    test('a burst that spans the read ends with exactly one trailing read', () {
+      run(readTakes: slow, (async, reservations, reads) {
+        var answered = 0;
+        reservations.refresh(); // 0 s, reads
+        for (var i = 0; i < 5; i++) {
+          // 0.5 s .. 4.5 s: three while the read is out, two after it.
+          async.elapse(const Duration(milliseconds: 500));
+          if (i.isOdd) async.elapse(const Duration(milliseconds: 500));
+          reservations.refresh().then((_) => answered++);
+          async.elapse(const Duration(milliseconds: 500));
+        }
+        expect(reads, hasLength(1));
+        async.elapse(const Duration(minutes: 1));
+        expect(reads, hasLength(2));
+        expect(reads[1], slow + window);
+        expect(answered, 5);
+      });
     });
   });
 }

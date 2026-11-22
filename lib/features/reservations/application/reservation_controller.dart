@@ -270,11 +270,16 @@ class ReservationController extends ChangeNotifier {
   Completer<void>? _trailing;
   Timer? _trailingTimer;
 
+  /// A `now` call came while a read was out: the next read starts when
+  /// that one ends, not at the end of the window.
+  bool _readNext = false;
+  bool _disposed = false;
+
   /// SUP3-R1 (contract bookedRideSeen.riderTripEvent: "reads ... (and its
   /// Upcoming list) again on it"): reads the server's booked rides again
   /// (Upcoming and the Home chrono). Called on rider_trip_changed, on
   /// resume, after sign-in and when Home shows the chrono (never on Home's
-  /// 8 s check, Rule 33). A call while one is out joins it. Never throws;
+  /// 8 s check, Rule 33). Never throws;
   /// the list kept stays when the read fails. Nothing to do on a
   /// device-only build.
   ///
@@ -283,12 +288,21 @@ class ReservationController extends ChangeNotifier {
   /// `rider_trip_changed` in a row; a resume reads on start and again when
   /// the stream is back). ONE trailing read runs at the end of that window
   /// and every call in between gets its future, so no hint is lost and an
-  /// awaited call completes after a read that started after it. [now]: read
-  /// at once (the rider is waiting on the answer, or the rider changed).
+  /// awaited call completes after a read that started after it. A call
+  /// while a read is out is a hint that read may have missed: it waits for
+  /// the trailing read too. [now]: read at once (the rider is waiting on
+  /// the answer, or the rider changed); while a read is out, as soon as it
+  /// ends.
   Future<void> refresh({bool now = false}) {
     if (!serverBacked) return Future<void>.value();
-    final running = _refreshing;
-    if (running != null) return running;
+    if (_refreshing != null) {
+      // The read out started before this call: the server may have
+      // changed since (this call is the hint about it). It is answered by
+      // the next read: the trailing one, or with [now] one that starts as
+      // soon as the read out ends. Never two reads at once.
+      if (now) _readNext = true;
+      return (_trailing ??= Completer<void>()).future;
+    }
     final ended = _refreshEnded;
     final wait = ended == null
         ? Duration.zero
@@ -308,10 +322,18 @@ class ReservationController extends ChangeNotifier {
     _trailingTimer = null;
     final waiting = _trailing;
     _trailing = null;
+    _readNext = false;
     final read = _refreshNow().whenComplete(() {
       _refreshing = null;
       _refreshEnded = _clock();
       waiting?.complete();
+      // Calls that came while this read was out.
+      if (_trailing == null || _disposed) return;
+      if (_readNext) {
+        _read();
+      } else {
+        _trailingTimer ??= Timer(refreshQuiet, _read);
+      }
     });
     return _refreshing = read;
   }
@@ -605,6 +627,7 @@ class ReservationController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _trailingTimer?.cancel();
     _trailingTimer = null;
     _trailing?.complete();
