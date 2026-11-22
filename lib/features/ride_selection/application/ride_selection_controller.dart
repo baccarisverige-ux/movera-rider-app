@@ -136,7 +136,9 @@ class RideSelectionController {
   /// Q7 FINAL: the contract payment methods the pickup zone's config
   /// offers (`cash`, `card`, `apple_pay`; v0.18.10 no Google Pay). Select Ride sets
   /// it from the zone's config; the wallet is separate.
-  List<String> zonePaymentMethods = ZoneDefaults.paymentMethods;
+  /// Rule D: until the zone's config arrives a live build offers pay in
+  /// car only ([UnservedPaymentMethods]).
+  List<String> zonePaymentMethods = UnservedPaymentMethods.current;
 
   /// The contract zone method a payment row is ([zonePaymentMethods]), or
   /// null for the wallet (never a zone method).

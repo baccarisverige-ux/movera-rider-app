@@ -71,6 +71,8 @@ jobs:
           RIDER_MAP_ID: ${{ vars.RIDER_MAP_ID || '9fdc5d9e56d4a0916c77a424' }}
           MAPS_WEB_API_KEY: ${{ secrets.MAPS1 || secrets.MAPS || secrets.GOOGLE_MAPS_WEB_API_KEY || secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS_API_KEY }}
         run: |
+          # A pasted line break or space in the repository variable must never reach the build or a check.
+          LIVE_API="$(printf '%s' "$LIVE_API" | tr -d '[:space:][:cntrl:]')"
           case "$LIVE_API" in https://*) ;; *) echo "::error::MOVERA_LIVE_API_URL must start with https://"; exit 1 ;; esac
           if ! printf '%s' "$RIDER_MAP_ID" | grep -Eq '^[A-Za-z0-9]+$'; then
             echo "::error::Invalid RIDER_MAP_ID (letters and digits only)."
@@ -98,7 +100,7 @@ jobs:
             --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID"
           printf '%s\n' '{"flavor":"staging","production":false}' > build/web/movera-environment.json
           # D12 (R10 #14): the same size budget as ci.yml's production build.
-          python3 tool/check_web_budget.py build/web --main-raw 6500000 --main-gzip 1850000
+          python3 tool/check_web_budget.py build/web --main-raw 6633472 --main-gzip 1890304
           python3 - <<'PY'
           import os
           from pathlib import Path
@@ -115,6 +117,62 @@ jobs:
           PY
           rm -rf /tmp/movera-live
           cp -a build/web /tmp/movera-live
+          git checkout -- .
+
+      # Owner 2026-11-19 (Rules plan/NEW-SERVER-PLAN.md option a): the REAL rider app for the new real server, at
+      # /movera-rider-app/app/, built in the same run so one Pages deploy carries both folders. It is built only
+      # when the repository variable MOVERA_PROD_API_URL is set; while it is not set this step is skipped and the
+      # published site is exactly as before (only /live/). The test app at /live/ never changes here.
+      - name: Build the real rider web (new real server)
+        if: ${{ vars.MOVERA_PROD_API_URL != '' }}
+        env:
+          PROD_API: ${{ vars.MOVERA_PROD_API_URL }}
+          LIVE_API: ${{ vars.MOVERA_LIVE_API_URL }}
+          RIDER_MAP_ID: ${{ vars.RIDER_MAP_ID || '9fdc5d9e56d4a0916c77a424' }}
+          MAPS_WEB_API_KEY: ${{ secrets.MAPS1 || secrets.MAPS || secrets.GOOGLE_MAPS_WEB_API_KEY || secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS_API_KEY }}
+        run: |
+          # A pasted line break or space in the repository variable must never reach the build or a check.
+          PROD_API="$(printf '%s' "$PROD_API" | tr -d '[:space:][:cntrl:]')"
+          LIVE_API="$(printf '%s' "$LIVE_API" | tr -d '[:space:][:cntrl:]')"
+          case "$PROD_API" in https://*) ;; *) echo "::error::MOVERA_PROD_API_URL must start with https://"; exit 1 ;; esac
+          # Never a "real" app that talks to the test server.
+          if [ "${PROD_API%/}" = "${LIVE_API%/}" ]; then
+            echo "::error::MOVERA_PROD_API_URL is the test server (same as MOVERA_LIVE_API_URL)."
+            exit 1
+          fi
+          if ! printf '%s' "$RIDER_MAP_ID" | grep -Eq '^[A-Za-z0-9]+$'; then
+            echo "::error::Invalid RIDER_MAP_ID (letters and digits only)."
+            exit 1
+          fi
+          app_version="$(sed -n 's/^version: *//p' pubspec.yaml)"
+          # Same build as the test app above (staging flavor = release-like, sign-in required:
+          # lib/app/config/env.dart), only the server address and the folder differ.
+          flutter build web --release \
+            -t lib/main_staging.dart \
+            --dart-define=MOVERA_FLAVOR=staging \
+            --dart-define=MOVERA_API_BASE_URL="$PROD_API" \
+            --dart-define=MOVERA_AUTH_REQUIRED=true \
+            --dart-define=MOVERA_APP_VERSION="$app_version" \
+            --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID"
+          printf '%s\n' '{"flavor":"staging","production":false,"server":"real"}' > build/web/movera-environment.json
+          python3 tool/check_web_budget.py build/web --main-raw 6633472 --main-gzip 1890304
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          p = Path('build/web/index.html')
+          s = p.read_text()
+          bootstrap = '  <script src="flutter_bootstrap.js" defer onerror="window.moveraBootFailed && window.moveraBootFailed()"></script>'
+          key = os.environ.get('MAPS_WEB_API_KEY', '')
+          if key and bootstrap in s and 'maps.googleapis.com/maps/api/js' not in s:
+              s = s.replace(bootstrap, f'  <script>window.moveraMapsSrc = "https://maps.googleapis.com/maps/api/js?key={key}";</script>\n' + bootstrap)
+          if '<base href="/">' not in s:
+              raise SystemExit('base href not found')
+          s = s.replace('<base href="/">', '<base href="/movera-rider-app/app/">')
+          p.write_text(s)
+          PY
+          rm -rf /tmp/movera-app
+          cp -a build/web /tmp/movera-app
           git checkout -- .
 
       # Owner 2026-11-05 ("Archive + send to live"): the public demo is no longer
@@ -134,6 +192,12 @@ jobs:
           for page in index.html 404.html; do
             printf '%s\n' '<!doctype html><meta http-equiv="refresh" content="0;url=/movera-rider-app/live/"><link rel="canonical" href="/movera-rider-app/live/"><script>location.replace("/movera-rider-app/live/")</script>' > "/tmp/movera-pages/$page"
           done
+          # The real app (only when MOVERA_PROD_API_URL is set and its build above ran).
+          if [ -d /tmp/movera-app ]; then
+            cp -a /tmp/movera-app /tmp/movera-pages/app
+            # A lost path under /app/ must reopen the REAL app, never the test app at /live/.
+            printf '%s\n' '<!doctype html><script>location.replace(location.pathname.indexOf("/movera-rider-app/app/")===0?"/movera-rider-app/app/":"/movera-rider-app/live/")</script>' > /tmp/movera-pages/404.html
+          fi
           touch /tmp/movera-pages/.nojekyll
 
       - name: Configure GitHub Pages

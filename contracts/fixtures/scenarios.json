@@ -1150,6 +1150,73 @@
      "accepted"
     ]
    ]
+  },
+  {
+   "id": "change_route_while_searching",
+   "kind": "live",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "change_route",
+     "rider",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "change_route",
+     "rider",
+     "searching"
+    ],
+    [
+     "send_offer",
+     "system",
+     "offered"
+    ],
+    [
+     "accept",
+     "driver",
+     "accepted"
+    ],
+    [
+     "change_route",
+     "rider",
+     "invalid_transition"
+    ]
+   ]
+  },
+  {
+   "id": "change_route_scheduled_refused",
+   "kind": "scheduled",
+   "steps": [
+    [
+     "quote",
+     "system",
+     "quoted"
+    ],
+    [
+     "request",
+     "rider",
+     "requested"
+    ],
+    [
+     "change_route",
+     "rider",
+     "invalid_transition"
+    ]
+   ]
   }
  ]
 }

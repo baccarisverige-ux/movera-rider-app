@@ -135,6 +135,7 @@ class RiderAppConfig {
     this.cancelAfterArrivedIsNoShow = true,
     this.paymentOptions,
     this.tipRules = const TipRules(),
+    this.liveLocation = const LiveLocationSettings(),
   });
 
   /// Built-in defaults for a field neither the document nor its fallback
@@ -199,6 +200,11 @@ class RiderAppConfig {
   /// `booking.maxPickupMoveMeters`: how far the pickup may move after
   /// accept (Q40).
   final int maxPickupMoveMeters;
+
+  /// Contract v0.18.144 `liveLocation` (owner 2026-11-20): the zone's live
+  /// location switch (default OFF until the load test passes) and the
+  /// adjust-pickup banner distance.
+  final LiveLocationSettings liveLocation;
 
   /// ISO 3166 country of the zone (`SE`, `FR`, `TN`).
   final String country;
@@ -394,7 +400,7 @@ class RiderAppConfig {
       paymentMethods:
           readZonePaymentMethods(raw['paymentMethods']) ??
           fallback?.paymentMethods ??
-          ZoneDefaults.paymentMethods,
+          UnservedPaymentMethods.current,
       maxPickupMoveMeters:
           _count(
             booking is Map ? booking['maxPickupMoveMeters'] : null,
@@ -449,6 +455,7 @@ class RiderAppConfig {
       reservationsOn: booking is Map && booking['reservationsOn'] is bool
           ? booking['reservationsOn'] as bool
           : fallback?.reservationsOn ?? true,
+      liveLocation: LiveLocationSettings.fromWire(raw['liveLocation']),
       pickupSpotsOn: switch (booking) {
         {'pickupSpots': {'on': final bool on}} => on,
         _ => true,
@@ -791,6 +798,37 @@ class TipRules {
           max != null && max.amountMinor > 0 && _currencyFits(max, country)
           ? max
           : defaultCustomMax[country],
+    );
+  }
+}
+
+/// Contract v0.18.144 `RiderAppConfig.liveLocation { share,
+/// adjustPickupMeters, sendEverySeconds }` (`contract.json#liveLocation.
+/// setting`). Missing or a bad value = the default (off, 30 m, 8 s), as the
+/// server serves it. adjustPickupMeters 0 = the banner is off.
+class LiveLocationSettings {
+  const LiveLocationSettings({
+    this.share = false,
+    this.adjustPickupMeters = 30,
+    this.sendEverySeconds = 8,
+  });
+
+  final bool share;
+  final int adjustPickupMeters;
+  final int sendEverySeconds;
+
+  static LiveLocationSettings fromWire(Object? raw) {
+    if (raw is! Map) return const LiveLocationSettings();
+    final share = raw['share'];
+    final meters = raw['adjustPickupMeters'];
+    final every = raw['sendEverySeconds'];
+    return LiveLocationSettings(
+      share: share is bool ? share : false,
+      adjustPickupMeters:
+          meters is int && (meters == 0 || (meters >= 10 && meters <= 500))
+          ? meters
+          : 30,
+      sendEverySeconds: every is int && every >= 5 && every <= 10 ? every : 8,
     );
   }
 }

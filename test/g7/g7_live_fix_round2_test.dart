@@ -168,14 +168,43 @@ void main() {
     ('in-app booking', booked),
   ]) {
     group('$name, beforePickup off', () {
-      testWidgets('ride card dots open the pickup move, not Change route', (
+      // v0.18.143 (owner 2026-11-20): the dots open Ride details; its
+      // pickup pencil is the pickup move and the destination pencil says
+      // the route changes once in the car.
+      testWidgets('ride card dots: Ride details; pickup pencil = pickup move, '
+          'destination pencil refused', (tester) async {
+        await show(tester, build());
+        await tester.tap(find.byTooltip('Ride details').first);
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('ride-details-edit-pickup')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(ConfirmPickupSpot), findsOneWidget);
+        expect(find.text('Change route'), findsNothing);
+      });
+
+      // Reviewer nit: with the zone's beforePickup off the route cannot
+      // change before pickup, so Ride details shows no destination pencil
+      // and no "+" (the pickup pencil stays).
+      testWidgets('Ride details: no route pencils before pickup', (
         tester,
       ) async {
         await show(tester, build());
         await tester.tap(find.byTooltip('Ride details').first);
         await tester.pumpAndSettle();
-        expect(find.byType(ConfirmPickupSpot), findsOneWidget);
-        expect(find.text('Change route'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('ride-details-edit-destination')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('ride-details-add-stop')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('ride-details-edit-pickup')),
+          findsOneWidget,
+        );
       });
 
       testWidgets('driver card dots open the pickup move', (tester) async {
@@ -220,6 +249,11 @@ void main() {
     });
     await show(tester, restored());
     await tester.tap(find.byTooltip('Ride details').first);
+    await tester.pumpAndSettle();
+    // v0.18.143: Ride details first; its destination pencil opens the route.
+    await tester.tap(
+      find.byKey(const ValueKey('ride-details-edit-destination')),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Change route'), findsWidgets);
     expect(find.byType(ConfirmPickupSpot), findsNothing);

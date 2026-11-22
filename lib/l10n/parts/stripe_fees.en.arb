@@ -1,0 +1,27 @@
+{
+  "feePayByCard": "Pay {amount} now",
+  "@feePayByCard": {
+    "description": "v0.18.136 stripeFees (DRAFT): button on an owed fee (account debt line, late-cancel notice); amount is the server's.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "feePaidByCard": "Fee paid. Thank you.",
+  "@feePaidByCard": {
+    "description": "v0.18.136 stripeFees: the server says the fee is paid (after the Stripe PaymentSheet)."
+  },
+  "feePaymentChecking": "Payment received. We are checking it.",
+  "@feePaymentChecking": {
+    "description": "v0.18.136 stripeFees: the sheet said paid, the server has not confirmed yet (webhook)."
+  },
+  "feePaymentFailed": "The payment did not go through. Try again.",
+  "@feePaymentFailed": {
+    "description": "v0.18.136 stripeFees: the Stripe PaymentSheet failed."
+  },
+  "feePaymentUnavailable": "Card payment is not available now.",
+  "@feePaymentUnavailable": {
+    "description": "v0.18.136 stripeFees: card payment of fees is off or not possible now (server refused)."
+  }
+}

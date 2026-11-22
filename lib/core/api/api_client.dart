@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:movera_rider/core/app_update/min_app_version.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
@@ -302,6 +303,8 @@ class ApiClient {
         'X-Request-Id': requestId,
         'X-Api-Version': apiVersion,
         'X-Contract-Version': contractVersion,
+        // v0.18.154 P16c: X-App-Version + X-App-Platform (Android / iOS).
+        ...MinAppVersion.headers,
         if (access != null) 'Authorization': 'Bearer $access',
         // contract.json#headers: an Idempotency-Key on every mutation. A
         // caller that names none (a quote, a sign-out) gets one of its own
@@ -369,6 +372,11 @@ class ApiClient {
         },
       );
       if (response.statusCode >= 400) {
+        // v0.18.154 P16c: 426 app_update_required shows "Update Movera to
+        // continue" (never during a live ride).
+        if (response.statusCode == 426) {
+          MinAppVersion.markServerSaid(_bodyMap(response.body));
+        }
         throw _errorFromResponse(response, requestId);
       }
       if (response.body.isEmpty) return {'requestId': requestId};
@@ -620,4 +628,14 @@ class _Refresh {
 
   /// The refresh endpoint could not answer; the tokens are kept.
   final bool unavailable;
+}
+
+/// The JSON object of [body], or null.
+Map<String, dynamic>? _bodyMap(String body) {
+  try {
+    final decoded = jsonDecode(body);
+    return decoded is Map<String, dynamic> ? decoded : null;
+  } catch (_) {
+    return null;
+  }
 }

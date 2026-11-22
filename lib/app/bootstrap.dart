@@ -37,6 +37,10 @@ import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/web_ride_seed.dart';
 import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
+import 'package:movera_rider/app/navigator_key.dart';
+import 'package:movera_rider/features/safety/data/prefs_sos_not_sent_flag.dart';
+import 'package:movera_rider/features/safety/data/sos_sender.dart';
+import 'package:movera_rider/features/safety/presentation/sos_not_sent_notice.dart';
 
 PushCoordinator? _pushCoordinator;
 
@@ -94,6 +98,18 @@ void _openNotificationsFromPush() {
 /// crashed". The step is logged and skipped; what it would have loaded
 /// keeps its defaults.
 @visibleForTesting
+/// Start-up: the trip watch follows the settings stream [config] and
+/// starts. Its own function so a test drives the real wiring.
+void wireTripWatch(ApiRiderConfigRepository config, RiderTripWatch watch) {
+  // v0.18.32 P21: a trip made elsewhere reaches Home at once.
+  config.eventTaps.add(watch.onConfigEvent);
+  // E15: hints lost while the stream was down are read again.
+  config.reconnectTaps.add(watch.onStreamReconnected);
+  // v0.18.145 loadCut: the trip watch polls every 60 s while connected.
+  config.streamUpTaps.add(watch.onStreamUp);
+  watch.start();
+}
+
 Future<void> bootStep(String name, Future<void> Function() step) async {
   try {
     await step();
@@ -219,6 +235,17 @@ Future<void> _bootSteps() async {
   await bootStep('chat.read_marks', ChatReadMarks.load);
   // v0.18.57 §79: the country's emergency numbers kept from the last config.
   await bootStep('emergency_numbers.restore', EmergencyNumbers.restore);
+  // Contract v0.18.148 (sosPressTime): a kept SOS is sent again (same key,
+  // same press time `at`); one given up on tells the rider "SOS not sent,
+  // call 112", also after a restart.
+  SosSender.onGivenUp = () => unawaited(SosNotSentNotice.instance.raise());
+  SosNotSentNotice.instance.attach(
+    () => moveraNavigatorKey.currentContext,
+    flag: const PrefsSosNotSentFlag(),
+  );
+  if (AppScope.instance.api.contractWire) {
+    unawaited(SosSender(AppScope.instance.api).retryPending());
+  }
   // Q48 / v0.18.2 auth.firstLanguage: the saved language, else the phone's
   // language (sv, fr, en), else the start country's default; a later good
   // fix in another zone moves that default with it.
@@ -255,11 +282,7 @@ Future<void> _bootSteps() async {
     // content) from the same stream.
     config.eventTaps.add(AppScope.instance.content.onConfigEvent);
     config.eventTaps.add(AppScope.instance.zones.onConfigEvent);
-    // v0.18.32 P21: a trip made elsewhere reaches Home at once.
-    config.eventTaps.add(RiderTripWatch.instance.onConfigEvent);
-    // E15: hints lost while the stream was down are read again.
-    config.reconnectTaps.add(RiderTripWatch.instance.onStreamReconnected);
-    RiderTripWatch.instance.start();
+    wireTripWatch(config, RiderTripWatch.instance);
   }
   // v0.18.2 auth.beforeSignIn: the reads that need a session start now
   // only when one is stored; otherwise right after sign-in

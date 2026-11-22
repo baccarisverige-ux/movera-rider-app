@@ -321,7 +321,14 @@ class Reservation {
     this.timeZone,
     this.stops = const <ReservationPlace>[],
     this.cancelPreview,
+    this.assignedByServer = false,
   });
+
+  /// v0.18.152 (contract.json#bookLater.liveFixes.driverShown): the
+  /// server's `TripProjection.driverAssigned` — a list driver holds this
+  /// booked ride and the rider gets no driver details until he drives to
+  /// the pickup. Home's chrono shows its "driver assigned" check from it.
+  final bool assignedByServer;
 
   /// v0.18.92 (BQ-M22): the server's `cancelPreview` of this booked ride
   /// (what a cancel costs now and from `freeUntil` on); null from an older
@@ -408,7 +415,10 @@ class Reservation {
     return copyWith(timeZone: RiderZones.at(lat, lng).timeZone);
   }
 
-  bool get driverAssigned => status.hasDriver && driver != null;
+  /// A driver is really on the ride: his details are known, or the server
+  /// says a driver holds it (v0.18.152 [assignedByServer], no details yet).
+  bool get driverAssigned =>
+      status.hasDriver && (driver != null || assignedByServer);
 
   bool get isSearchingDriver => status.isSearchingDriver;
 
@@ -453,6 +463,7 @@ class Reservation {
     bool? paymentFailed,
     String? timeZone,
     List<ReservationPlace>? stops,
+    bool? assignedByServer,
   }) {
     return Reservation(
       reservationId: reservationId,
@@ -485,6 +496,7 @@ class Reservation {
       paymentFailed: paymentFailed ?? this.paymentFailed,
       timeZone: timeZone ?? this.timeZone,
       stops: stops ?? this.stops,
+      assignedByServer: assignedByServer ?? this.assignedByServer,
       // BQ-M22: the server's preview holds for this pickup time, price and
       // state only; a copy that changes one of them waits for the next read.
       cancelPreview:
@@ -529,6 +541,7 @@ class Reservation {
     if (paymentFailed) 'paymentFailed': true,
     if (timeZone != null) 'timeZone': timeZone,
     if (stops.isNotEmpty) 'stops': [for (final stop in stops) stop.toJson()],
+    if (assignedByServer) 'driverAssigned': true,
   };
 
   static Reservation? tryParse(dynamic raw) {
@@ -591,6 +604,7 @@ class Reservation {
         chargedFare: Money.fromWire(map['chargedFare']),
         paymentFailed: map['paymentFailed'] == true,
         timeZone: map['timeZone'] as String?,
+        assignedByServer: map['driverAssigned'] == true,
         stops: [
           if (map['stops'] case final List stops)
             ...stops
