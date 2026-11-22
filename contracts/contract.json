@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.133",
+  "version": "0.18.145",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -4047,12 +4047,7 @@
     },
     "pickupSpotsOn": true,
     "shareTripOn": true,
-    "driverOneStream": false,
-    "smsSignIn": {
-      "enabled": false,
-      "dailyCap": 200,
-      "note": "v0.18.133: CountryRules.smsSignIn never saved (every country)."
-    }
+    "driverOneStream": false
   },
   "realtime": {
     "envelope": [
@@ -10567,72 +10562,13 @@
     "rider": "Not affected: the rider app has no offer feed; GET /rider/config/stream and the trip stream are unchanged.",
     "admin": "Admin › Dispatch, per zone: the switch 'One live connection per driver phone' (default off), with an 'i' text (what it does, what it saves, who it affects, when to turn it on, the way back, older apps). It is the way back without an app release."
   },
-  "smsSignIn": {
-    "note": "v0.18.133 (owner 2026-11-19 button \"Yes, build it now (Rec.)\", Rules decisions/session-2026-11-06.md; SMS company 46elks: owner 2026-11-02 \"46elks + Twilio backup\", Rules decisions/servers-test-live.md; impact list Rules audits/impact/sms-sign-in.md; Rule 0; launch Sweden first, RULE D): real sign-in codes by SMS for real phone numbers. Additive; X-Api-Version stays 0.5; no new route, the two OTP calls keep their request shapes and the code request's answer gains one optional field (OtpChallenge.codeLength, see codeLength); no migration. Nothing changes until BOTH conditions of active hold: test numbers and the test code (auth.testSignIn) work exactly as before and every other number is still 403 sign_in_restricted.",
-    "active": "A number that is not a test number gets a real code only when ALL hold: (1) the server has the SMS company's two keys (serverKeys; set by the owner on the server, never in a repository, never sent to an app or the admin panel); (2) the number is a mobile number of a country Movera serves (countries, mobileNumbers); (3) CountryRules.smsSignIn.enabled of that country's standard is true. Otherwise the answer is 403 forbidden, reason sign_in_restricted, exactly as before (the apps offer the waiting list). A test number (outside production) never gets an SMS and keeps the fixed test code, whatever the switch says.",
-    "setting": "CountryRules.smsSignIn { enabled (boolean), dailyCap (integer, dailyCapRange) } of the COUNTRY STANDARD only (standard-<CC>), like sosContactsSms: Admin › Pricing › Tips & limits per country, card \"Real SMS sign-in codes\" (settings.edit, published with the country_rules document by settings.publish). A zone's own country_rules carrying it is 400 invalid_request, reason sms_sign_in_country_only; enabled not true / false, dailyCap not a whole number inside dailyCapRange, or another key inside it, is 400 invalid_request, reason invalid_document. Never saved, or a part missing = configDefaults.smsSignIn (off, 200).",
-    "dailyCapRange": [
-      10,
-      100000
-    ],
-    "serverKeys": [
-      "ELKS_API_USERNAME",
-      "ELKS_API_PASSWORD"
-    ],
-    "serverKeysNote": "The names of the server's environment variables for the 46elks API (HTTPS, basic auth). Only one of the two set, or an empty value: the feature stays off and the server writes one warning at start. SMS_SENDER_NAME (optional) replaces sender; a value 46elks would refuse (not 3-11 letters and digits starting with a letter) is ignored with a warning.",
-    "sender": "Movera",
-    "codeLength": 6,
-    "codeLengthNote": "Owner 2026-11-19 button \"6 digits (Rec.)\" (Rules decisions/session-2026-11-06.md; replaces the 2026-11-02 \"Keep 4 digits\" for REAL SMS codes only): a code sent by SMS has codeLength digits. Unchanged: the fixed test code of a test number (auth.testSignIn.code) and auth.otp.codeLength stay 4 digits, and so does the e-mail change code. The answer of POST /auth/otp/request and POST /account/phone/change (OtpChallenge) carries codeLength = how many digits THIS code has: auth.otp.codeLength for a test number, smsSignIn.codeLength for a code sent by SMS; a phone change that answers without sending (the number already has an account) carries the length a real send to that number would have. An answer without the field (a server before v0.18.133) means auth.otp.codeLength. The rider and driver apps show that many boxes, check the code by itself at the last digit and never guess the length from the phone number, so one app build works with a server that has only test numbers and with one that sends SMS. An app from before v0.18.133 has 4 boxes and cannot enter an SMS code: switch a country on only when the app versions with this rule are the ones in use. POST /auth/otp/verify and POST /account/phone/verify take a code of auth.otp.codeLength or smsSignIn.codeLength digits (any other shape: 400 invalid_otp_code, not counted, as before); a code of the other length than the session's is a wrong code and counts as a try. With codeLength 6 and auth.otp.maxAttempts tries a code is guessed with a chance of 5 in 1 000 000 (4 digits: 5 in 10 000). From v0.18.133 this note decides the shape of a code: the older lines auth.signInErrors.invalid_otp_code (\"not 4 digits\"), deepFix1 signIn (\"Codes stay 4 digits\") and otpFormat (\"not 4 digits\") are kept as released (Rule 21) and now mean the test code; read them as \"not auth.otp.codeLength or smsSignIn.codeLength digits\". A server checks the WHOLE code (nothing before or after it, no line break). POST /account/phone/change to a real number sends a real code by SMS under the same conditions as a sign-in (active, limits, dailyCap): it is a sign-in code; otherSms means the fleet invitation SMS and the SOS contacts SMS only.",
-    "countries": {
-      "+46": "SE",
-      "+33": "FR",
-      "+216": "TN"
-    },
-    "mobileNumbers": {
-      "SE": "^\\+467[02369][0-9]{7}$",
-      "FR": "^\\+33[67][0-9]{8}$",
-      "TN": "^\\+216[2459][0-9]{7}$"
-    },
-    "mobileNumbersNote": "Only a mobile number of the country can get an SMS; each pattern is matched against the WHOLE number (nothing before or after it, no line break). SE: 70, 72, 73, 76 or 79 + 7 digits (not 71 machine numbers, 74 pagers, 75 or 77 service numbers, 78); FR: 6 or 7 + 8 digits; TN: 2, 4, 5 or 9 + 7 digits, after the calling code. The rider and driver apps' phone field already takes only mobile-shaped numbers (for Sweden any 7 + 8 digits; the server is stricter). Any other number of the country (a landline, a service or premium number, a wrong length) is 403 sign_in_restricted and nothing is sent.",
-    "code": "A new random code per request from a cryptographic random source (smsSignIn.codeLength digits, owner 2026-11-19 \"6 digits (Rec.)\"; never the test code: the fixed test code (auth.testSignIn.code) is never the code of a number that is not a test number and never signs one in, in any environment), kept only as a keyed hash, valid auth.otp.expiresSeconds, at most auth.otp.maxAttempts tries, one active code per phone and app (a new code replaces the earlier one), used once (a verified or replaced code is 400 invalid_otp_session). The compare takes the same time for a right and a wrong code. The answers never say whether the number already has an account.",
-    "limits": "Every limit of the test sign-in applies unchanged and counts each SMS asked for, sent or not: auth.otp.retryAfterSeconds between codes, countryLimits.codesPerPhonePerHour, countryLimits.codesPerAddressPerHour, the wrong-code locks (countryLimits.wrongCodesPerDay per number and address, 4 × that per number) and, in production, the write limit in front (rateLimit.key, phone + address; staging and development leave the sign-in calls out of it, as before). The staging fast path of test numbers never applies to a real number.",
-    "dailyCap": "Cost guard (SMS pumping): per country, the sign-in SMS handed to the SMS company in the last 24 hours are counted, and the new one is booked, in one step per country (two requests at once can never both pass the limit). Counted: accepted, still being sent, and every hand-over the company did not answer or answered with a server error (a time-out, a broken connection, a 5xx answer: it may still have sent and billed it); only an SMS the company answered with a refusal (a 4xx answer) is not counted. At dailyCap the request is refused: 503 unavailable, reason sms_daily_limit, Retry-After = until the oldest leaves the 24 h window (at most 24 h); no code is made and nothing is sent (fail closed). Test numbers are not counted and not stopped.",
-    "delivery": "The code is stored first, then the SMS is handed to the SMS company (one try, short time limit) before the answer. Accepted: 200 as before (requestId, sessionId, expiresAt, retryAfterSeconds) plus codeLength (codeLengthNote). Refused by the company, answered with an error, or not answered (a time-out or a broken connection): the code is void at once and the answer is 503 unavailable, reason sms_not_sent, Retry-After = auth.otp.retryAfterSeconds; the app may ask again after that wait. The try still counts on the hourly limits.",
-    "errors": {
-      "sign_in_restricted": "403 forbidden: not active for this number (see active); the apps offer the waiting list as before.",
-      "sms_daily_limit": "503 unavailable (retryable): the country's daily SMS limit is reached (dailyCap). The apps show the text and do not ask again by themselves.",
-      "sms_not_sent": "503 unavailable (retryable): the SMS company did not take the SMS (delivery). The apps show the text and do not ask again by themselves (each new request counts on the hourly limits and may cost an SMS); the person taps Send again."
-    },
-    "language": "The SMS is written in the request's locale when it is sv, fr or en; else the country's language (noticeLanguage.countryDefault: SE sv, FR fr, TN fr); else en.",
-    "texts": {
-      "sms": {
-        "sv": "Movera: din inloggningskod är {code}. Dela den inte med någon.",
-        "fr": "Movera : votre code de connexion est {code}. Ne le partagez avec personne.",
-        "en": "Movera: your sign-in code is {code}. Do not share it with anyone."
-      },
-      "smsNote": "{code} = the code (smsSignIn.codeLength digits). The app name and the code, no link, one SMS part (GSM-7 letters only, under 160 characters).",
-      "smsNotSent": {
-        "sv": "Vi kunde inte skicka sms:et. Kontrollera numret och försök igen.",
-        "fr": "Nous n’avons pas pu envoyer le SMS. Vérifiez le numéro et réessayez.",
-        "en": "We could not send the SMS. Check the number and try again."
-      },
-      "smsDailyLimit": {
-        "sv": "Vi kan inte skicka fler sms-koder just nu. Försök igen senare.",
-        "fr": "Nous ne pouvons plus envoyer de codes par SMS pour le moment. Réessayez plus tard.",
-        "en": "We cannot send more SMS codes right now. Try again later."
-      }
-    },
-    "alert": {
-      "rule": "Admin alert kind system_health (no new kind or setting), one per country book, checked on each alert sweep and right after a refusal: from nearPercent % of dailyCap an important alert (cause system_health:sms_cap_near:<country>), at dailyCap a critical one (cause system_health:sms_cap:<country>); each turns solved by itself when the count falls below its limit. Only for a country whose smsSignIn.enabled is true and where the book's system_health is on.",
-      "nearPercent": 80,
-      "titles": {
-        "near": "Sign-in SMS: {0} of {1} sent in the last 24 hours",
-        "reached": "Sign-in SMS limit reached: {0} of {1} in the last 24 hours. New sign-in codes are stopped"
-      },
-      "detail": "Raise the daily limit in Tips & limits per country if these are real people"
-    },
-    "logs": "The server log and the stored SMS row never hold the code; the log never holds the full phone number (calling code and the last two digits at most). The stored SMS row keeps the text with the code replaced by dots.",
-    "otherSms": "Only sign-in codes use the keys in this version. The fleet invitation SMS and the SOS contacts SMS (sosContactsSms) stay not connected until a later version says so.",
-    "apps": "Contract: this block (errors: the reasons beside auth.signInErrors, which is kept as released), configDefaults.smsSignIn, CountryRules.smsSignIn. Server: the sender, the rules above. Admin: the card with the switch and the daily limit per country, the alert texts. Driver and rider apps: the code field has OtpChallenge.codeLength boxes (sign-in and phone change; 4 when the answer has no codeLength); texts.smsNotSent and texts.smsDailyLimit for the two new reasons on the phone-number and code screens (resend with the countdown, wrong code, expired code, too many tries and the waiting list are unchanged)."
+  "loadCut": {
+    "note": "v0.18.145 (S4c load cut, Rules audits/impact/stress-s4b-2026-11-20.md 'S4c': all busy 503 were the pool-wait shed and about 70 % of the requests were app polling). Additive; X-Api-Version stays 0.5; no migration; no new user text; old endpoints stay. Follows v0.18.132 (0.18.133-0.18.144 are other open drafts; renumber at merge, tags only go up).",
+    "homeBadges": "GET /driver/home-badges answers Home's four badge reads in one request: { profile (= GET /driver/profile), notifications (= GET /notifications?unreadOnly=true, first page), reminders (= GET /driver/reminders), onboardingSettings (= GET /driver/onboarding/settings for the driver's own country, null when the account has no country yet) }. Same rules, texts and shed class as the four reads. The driver app sends it instead of the four (every 60 s while Home shows, on resume and back); on 404 (an older server) it falls back to the four.",
+    "airportQueueLive": "The server sends { eventId, kind: 'airport_queue_changed', areaId, occurredAt, serverTime } on GET /driver/config/stream (and GET /driver/stream) to every driver whose place in that airport line changed (joined, left, moved up, picked). No SSE id (not replayed). The driver app reads GET /driver/airport-queue again on it, at most once per 5 s; its timer becomes a fallback every fallbackSeconds (was 20 s), and on every stream reconnect it reads at once.",
+    "airportQueueFallbackSeconds": 60,
+    "riderTripWatch": "While GET /rider/config/stream is connected the rider app's trip watch (GET /rider/trips/active on Home, the booked-driver banner read on a ride screen) polls every streamUpSeconds instead of bookedRideSeen pollSeconds (8): rider_trip_changed already reads at once (bookedRideSeen.riderTripEvent), and a stream reconnect reads at once. While the stream is down the 8 s poll and its backoff stay as before. Server: no change.",
+    "riderTripWatchStreamUpSeconds": 60,
+    "nearbyCache": "GET /rider/nearby-vehicles: each server copy keeps the answer's cars per grid cell (0.005 degrees) for at most NEARBY_CACHE_MS (server env, default 2500, 0 = off). Only the already blurred, rounded positions, keys and headings are kept (never a driver id or a true position); each rider still gets only the cars within radiusMeters of his own point, nearest first, at most maxVehicles. A car may show up to that long late."
   }
 }

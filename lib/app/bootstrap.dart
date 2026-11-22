@@ -259,6 +259,8 @@ Future<void> _bootSteps() async {
     config.eventTaps.add(RiderTripWatch.instance.onConfigEvent);
     // E15: hints lost while the stream was down are read again.
     config.reconnectTaps.add(RiderTripWatch.instance.onStreamReconnected);
+    // v0.18.145 loadCut: the trip watch polls every 60 s while connected.
+    config.streamUpTaps.add(RiderTripWatch.instance.onStreamUp);
     RiderTripWatch.instance.start();
   }
   // v0.18.2 auth.beforeSignIn: the reads that need a session start now

@@ -1,11 +1,11 @@
-# Movera API v0.18.133 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.145 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.133
+  version: 0.18.145
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.133 in this folder; this file must agree with them.
+    v0.18.145 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.133
+  version: 0.18.145
   source: contract.json
 paths:
   /auth/otp/request:
@@ -118,24 +118,7 @@ paths:
         the app says "Too many wrong codes today. Try again later." with the wait from retryAfterSeconds and disables Send
         code v0.18.119 (S7 W2 Q118, owner OQ-1 "Lock at 60 for 24 h (Rec.)"): also when the number alone reaches 4 × wrongCodesPerDay
         wrong codes in 24 h over all addresses (default 60): then every address gets it for that number, even with the right
-        code, for up to 24 h or until an admin unlocks it (auth.otp.note). The app text and handling are unchanged. v0.18.133
-        (contract.json#smsSignIn): A number that is not a test number gets a real code only when ALL hold: (1) the server
-        has the SMS company''s two keys (serverKeys; set by the owner on the server, never in a repository, never sent to
-        an app or the admin panel); (2) the number is a mobile number of a country Movera serves (countries, mobileNumbers);
-        (3) CountryRules.smsSignIn.enabled of that country''s standard is true. Otherwise the answer is 403 forbidden, reason
-        sign_in_restricted, exactly as before (the apps offer the waiting list). A test number (outside production) never
-        gets an SMS and keeps the fixed test code, whatever the switch says. Cost guard (SMS pumping): per country, the sign-in
-        SMS handed to the SMS company in the last 24 hours are counted, and the new one is booked, in one step per country
-        (two requests at once can never both pass the limit). Counted: accepted, still being sent, and every hand-over the
-        company did not answer or answered with a server error (a time-out, a broken connection, a 5xx answer: it may still
-        have sent and billed it); only an SMS the company answered with a refusal (a 4xx answer) is not counted. At dailyCap
-        the request is refused: 503 unavailable, reason sms_daily_limit, Retry-After = until the oldest leaves the 24 h window
-        (at most 24 h); no code is made and nothing is sent (fail closed). Test numbers are not counted and not stopped. The
-        code is stored first, then the SMS is handed to the SMS company (one try, short time limit) before the answer. Accepted:
-        200 as before (requestId, sessionId, expiresAt, retryAfterSeconds) plus codeLength (codeLengthNote). Refused by the
-        company, answered with an error, or not answered (a time-out or a broken connection): the code is void at once and
-        the answer is 503 unavailable, reason sms_not_sent, Retry-After = auth.otp.retryAfterSeconds; the app may ask again
-        after that wait. The try still counts on the hourly limits.'
+        code, for up to 24 h or until an admin unlocks it (auth.otp.note). The app text and handling are unchanged.'
       tags:
       - Auth
       x-actor:
@@ -1429,9 +1412,13 @@ paths:
     get:
       operationId: getRiderNearbyVehicles
       summary: Free cars near a point, for the rider's map
-      description: CONTRACT.md §13 (v0.5.2). Drivers online and free within 3000 m of the point with a fix not older than
+      description: 'CONTRACT.md §13 (v0.5.2). Drivers online and free within 3000 m of the point with a fix not older than
         120 s, nearest first, at most 15. No id, name, plate or trip; positions rounded to 4 decimals. The app asks again
-        every refreshSeconds while the rider chooses a ride. An empty list is normal.
+        every refreshSeconds while the rider chooses a ride. An empty list is normal. v0.18.145 (contract.json#loadCut): GET
+        /rider/nearby-vehicles: each server copy keeps the answer''s cars per grid cell (0.005 degrees) for at most NEARBY_CACHE_MS
+        (server env, default 2500, 0 = off). Only the already blurred, rounded positions, keys and headings are kept (never
+        a driver id or a true position); each rider still gets only the cars within radiusMeters of his own point, nearest
+        first, at most maxVehicles. A car may show up to that long late.'
       tags:
       - Rider · Booking
       x-actor:
@@ -1573,7 +1560,11 @@ paths:
         '503':
           $ref: '#/components/responses/Unavailable'
       description: 'v0.18.128 (contract.json#realtime.appStreamsPerSession): more than 3 open app streams of one session on
-        a server copy are logged and counted, never refused in this version.'
+        a server copy are logged and counted, never refused in this version. v0.18.145 (contract.json#loadCut): While GET
+        /rider/config/stream is connected the rider app''s trip watch (GET /rider/trips/active on Home, the booked-driver
+        banner read on a ride screen) polls every streamUpSeconds instead of bookedRideSeen pollSeconds (8): rider_trip_changed
+        already reads at once (bookedRideSeen.riderTripEvent), and a stream reconnect reads at once. While the stream is down
+        the 8 s poll and its backoff stay as before. Server: no change. streamUpSeconds = 60.'
   /rider/profile:
     get:
       operationId: getRiderProfile
@@ -3557,7 +3548,12 @@ paths:
         not exist is 404 zone_not_found (config and stream); on GET /driver/config a zone with nothing published (own or country
         standard) is 404 config_not_published and the app keeps its document. There is no rule limiting which zone a driver
         may read (unchanged). v0.18.128 (contract.json#realtime.appStreamsPerSession): more than 3 open app streams of one
-        session on a server copy are logged and counted, never refused in this version.'
+        session on a server copy are logged and counted, never refused in this version. v0.18.145 (contract.json#loadCut):
+        also AirportQueueChangedEvent (kind airport_queue_changed). The server sends { eventId, kind: ''airport_queue_changed'',
+        areaId, occurredAt, serverTime } on GET /driver/config/stream (and GET /driver/stream) to every driver whose place
+        in that airport line changed (joined, left, moved up, picked). No SSE id (not replayed). The driver app reads GET
+        /driver/airport-queue again on it, at most once per 5 s; its timer becomes a fallback every fallbackSeconds (was 20
+        s), and on every stream reconnect it reads at once.'
   /driver/earnings:
     get:
       operationId: getDriverEarnings
@@ -18063,7 +18059,11 @@ paths:
         minutes in a row; he goes offline or goes online again later (a new online session never keeps the old place); he
         accepts any trip (queue or not); the area is turned off or removed. The others move up. v0.18.83 (S2, owner ''Yes,
         7 checks''): under overload it may answer 503 unavailable, reason server_busy, Retry-After 2 at once; the app keeps
-        the last value (contract.json#fastDispatch.shedPolls).'
+        the last value (contract.json#fastDispatch.shedPolls). v0.18.145 (contract.json#loadCut): The server sends { eventId,
+        kind: ''airport_queue_changed'', areaId, occurredAt, serverTime } on GET /driver/config/stream (and GET /driver/stream)
+        to every driver whose place in that airport line changed (joined, left, moved up, picked). No SSE id (not replayed).
+        The driver app reads GET /driver/airport-queue again on it, at most once per 5 s; its timer becomes a fallback every
+        fallbackSeconds (was 20 s), and on every stream reconnect it reads at once. Fallback poll: 60 s.'
       tags:
       - Driver · Session
       x-actor:
@@ -19485,7 +19485,12 @@ paths:
         as before) and give its events to the two existing readers (offers by sequence, settings by kind); do not open the
         two old streams. false or missing, or GET /driver/stream answers 404 (an older server): the two streams as before,
         and after a 404 the app does not try the one stream again until it restarts. When the switch changes, the app closes
-        what it holds and opens the other within one settings update.'
+        what it holds and opens the other within one settings update. v0.18.145 (contract.json#loadCut): also AirportQueueChangedEvent
+        (kind airport_queue_changed). The server sends { eventId, kind: ''airport_queue_changed'', areaId, occurredAt, serverTime
+        } on GET /driver/config/stream (and GET /driver/stream) to every driver whose place in that airport line changed (joined,
+        left, moved up, picked). No SSE id (not replayed). The driver app reads GET /driver/airport-queue again on it, at
+        most once per 5 s; its timer becomes a fallback every fallbackSeconds (was 20 s), and on every stream reconnect it
+        reads at once.'
       tags:
       - Realtime
       x-actor:
@@ -19594,6 +19599,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DriverTripHistoryPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /driver/home-badges:
+    get:
+      operationId: getDriverHomeBadges
+      summary: Home's four badge reads in one
+      description: 'v0.18.145 (contract.json#loadCut): GET /driver/home-badges answers Home''s four badge reads in one request:
+        { profile (= GET /driver/profile), notifications (= GET /notifications?unreadOnly=true, first page), reminders (=
+        GET /driver/reminders), onboardingSettings (= GET /driver/onboarding/settings for the driver''s own country, null
+        when the account has no country yet) }. Same rules, texts and shed class as the four reads. The driver app sends it
+        instead of the four (every 60 s while Home shows, on resume and back); on 404 (an older server) it falls back to the
+        four.'
+      tags:
+      - Driver · Session
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverHomeBadges'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -25140,26 +25186,6 @@ components:
             amount of one bonus campaign (CountryRules.bonusCampaignMax, per country standard or zone, Admin › Pricing › Tips
             & limits, settings.publish). Builder default values (plan §12 D13), admin-changeable. Defaults SE 2 000,00 kr
             (200000 SEK), FR 200,00 € (20000 EUR), TN 200.000 DT (200000 TND). Optional: absent → configDefaults.bonusCampaignMax.'
-        smsSignIn:
-          type: object
-          description: 'v0.18.133 (contract.json#smsSignIn): CountryRules.smsSignIn { enabled (boolean), dailyCap (integer,
-            dailyCapRange) } of the COUNTRY STANDARD only (standard-<CC>), like sosContactsSms: Admin › Pricing › Tips & limits
-            per country, card "Real SMS sign-in codes" (settings.edit, published with the country_rules document by settings.publish).
-            A zone''s own country_rules carrying it is 400 invalid_request, reason sms_sign_in_country_only; enabled not true
-            / false, dailyCap not a whole number inside dailyCapRange, or another key inside it, is 400 invalid_request, reason
-            invalid_document. Never saved, or a part missing = configDefaults.smsSignIn (off, 200).'
-          properties:
-            enabled:
-              type: boolean
-              description: Real SMS sign-in codes for this country's numbers.
-              default: false
-            dailyCap:
-              type: integer
-              minimum: 10
-              maximum: 100000
-              default: 200
-              description: Sign-in SMS per 24 hours for this country before new codes are refused (sms_daily_limit).
-          additionalProperties: false
       x-server-only: true
     FeeRule:
       type: object
@@ -26301,8 +26327,7 @@ components:
           $ref: '#/components/schemas/Language'
     OtpChallenge:
       type: object
-      description: 'The code lives 300 s; at most 5 attempts. v0.18.133 (contract.json#smsSignIn): it is 4 digits for a test
-        number and 6 digits when sent by SMS (codeLength).'
+      description: The code is 4 digits and lives 300 s; at most 5 attempts.
       required:
       - requestId
       - sessionId
@@ -26319,13 +26344,6 @@ components:
           type: integer
           minimum: 0
           default: 30
-        codeLength:
-          type: integer
-          enum:
-          - 4
-          - 6
-          description: 'v0.18.133 (contract.json#smsSignIn): how many digits this code has: 4 for a test number (auth.otp.codeLength),
-            6 for a code sent by SMS (smsSignIn.codeLength). Missing = 4.'
     OtpVerifyRequest:
       type: object
       required:
@@ -26339,7 +26357,7 @@ components:
           $ref: '#/components/schemas/Id'
         code:
           type: string
-          pattern: ^([0-9]{4}|[0-9]{6})$
+          pattern: ^[0-9]{4}$
         linkToken:
           type: string
           minLength: 1
@@ -36246,7 +36264,7 @@ components:
           $ref: '#/components/schemas/Id'
         code:
           type: string
-          pattern: ^([0-9]{4}|[0-9]{6})$
+          pattern: ^[0-9]{4}$
     AccountEmailChange:
       type: object
       required:
@@ -39132,3 +39150,52 @@ components:
           - string
           - 'null'
           description: Opaque; null on the last page.
+    DriverHomeBadges:
+      type: object
+      description: 'v0.18.145 (contract.json#loadCut): GET /driver/home-badges answers Home''s four badge reads in one request:
+        { profile (= GET /driver/profile), notifications (= GET /notifications?unreadOnly=true, first page), reminders (=
+        GET /driver/reminders), onboardingSettings (= GET /driver/onboarding/settings for the driver''s own country, null
+        when the account has no country yet) }. Same rules, texts and shed class as the four reads. The driver app sends it
+        instead of the four (every 60 s while Home shows, on resume and back); on 404 (an older server) it falls back to the
+        four.'
+      required:
+      - profile
+      - notifications
+      - reminders
+      - onboardingSettings
+      properties:
+        profile:
+          $ref: '#/components/schemas/Driver'
+        notifications:
+          $ref: '#/components/schemas/NotificationPage'
+        reminders:
+          $ref: '#/components/schemas/DriverReminderList'
+        onboardingSettings:
+          oneOf:
+          - $ref: '#/components/schemas/OnboardingSettings'
+          - type: 'null'
+    AirportQueueChangedEvent:
+      type: object
+      description: 'v0.18.145 (contract.json#loadCut): The server sends { eventId, kind: ''airport_queue_changed'', areaId,
+        occurredAt, serverTime } on GET /driver/config/stream (and GET /driver/stream) to every driver whose place in that
+        airport line changed (joined, left, moved up, picked). No SSE id (not replayed). The driver app reads GET /driver/airport-queue
+        again on it, at most once per 5 s; its timer becomes a fallback every fallbackSeconds (was 20 s), and on every stream
+        reconnect it reads at once.'
+      required:
+      - eventId
+      - kind
+      - areaId
+      - occurredAt
+      - serverTime
+      properties:
+        eventId:
+          $ref: '#/components/schemas/Id'
+        kind:
+          type: string
+          const: airport_queue_changed
+        areaId:
+          type: string
+        occurredAt:
+          $ref: '#/components/schemas/Timestamp'
+        serverTime:
+          $ref: '#/components/schemas/Timestamp'
