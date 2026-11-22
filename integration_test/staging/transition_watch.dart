@@ -36,7 +36,10 @@ import 'rider_steps.dart';
 ///   exception, or a crash report the app sent to its own sink
 ///   (`POST /api/v1/telemetry/crash…`).
 ///
-/// The phone runs a DEBUG build, so frame numbers are indicative.
+/// Build (workflow input `testlab_build`): on a PROFILE build (release
+/// speed) SMOOTH counts. On a DEBUG build the frame numbers are only
+/// indicative: a slow frame is a WARN line, not a FAIL (smooth_verdict.dart).
+/// RELOAD and ERRORS are strict in both.
 class TransitionWatch {
   TransitionWatch(this.tester, this.log, this.session);
 
@@ -296,7 +299,14 @@ class TransitionWatch {
       ok ? log.pass(id, title, detail) : log.fail(id, title, detail);
     }
 
-    check('SMOOTH', smooth, 'screen change has no freeze', smoothDetail);
+    // Frames count on a profile build; on a debug build a slow frame is
+    // a WARN, not a FAIL (owner 2026-11-22, [SmoothVerdict]).
+    log.smooth(
+      'TRANSITION:$name:SMOOTH',
+      smooth,
+      'screen change has no freeze',
+      smoothDetail,
+    );
     check('RELOAD', reloadOk, 'screen change does not reload', reloadDetail);
     check('ERRORS', errorsOk, 'screen change has no error', errorDetail);
     rows.add(<String, Object?>{

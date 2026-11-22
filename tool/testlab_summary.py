@@ -51,6 +51,14 @@ Usage (from .github/workflows/android-test-apk.yml, plain Python 3):
       "MOVERA-TL CHECK <id> FAIL" line; logcat has "Test timed out after";
       gcloud.txt has "non-retryable error"; the testlab.json outcome is not
       "Passed". Prints no value (check ids only; the files are scrubbed).
+      Build mode (owner 2026-11-22): the harness prints "MOVERA-TL BUILD
+      mode=debug|profile|release". The frame check (TRANSITION:<name>:SMOOTH)
+      counts on a profile build (release speed). On a debug build a slow
+      frame is only indicative: the harness writes it as "CHECK <id> WARN",
+      the summary lists it, and it does not fail the verdict. A WARN for any
+      other check, or on a build that is not debug, DOES fail. With
+      TL_BUILD=debug|profile (the build the workflow asked for) the verdict
+      also fails when the phone ran another build.
 """
 import glob
 import json
@@ -913,6 +921,52 @@ def transitions_from(root):
     return []
 
 
+_BUILD_RE = re.compile(re.escape(PREFIX) + r"BUILD mode=(debug|profile|release)\b")
+INDICATIVE = "indicative (debug build)"
+
+
+def build_mode_from(root):
+    """'debug' / 'profile' / 'release' from the harness line; None = not said."""
+    for path in _logcat_files(root):
+        for line in _lines(path):
+            m = _BUILD_RE.search(line)
+            if m:
+                return m.group(1)
+    return None
+
+
+def build_mode_text(mode):
+    if mode == "debug":
+        return ("Build mode: debug (slow: the frame checks, SMOOTH, are %s and reported as WARN, "
+                "not FAIL; every other check counts)" % INDICATIVE)
+    if mode in ("profile", "release"):
+        return "Build mode: %s (release speed: the frame checks, SMOOTH, count as every other check)" % mode
+    return "Build mode: not reported (no MOVERA-TL BUILD line in logcat)"
+
+
+_CHECK_WARN_RE = re.compile(re.escape(PREFIX) + r"CHECK (\S+) WARN\b")
+
+
+def warned_from(root):
+    """Ids of the CHECK ... WARN lines in logcat, in order, each once."""
+    out = []
+    for path in _logcat_files(root):
+        for line in _lines(path):
+            m = _CHECK_WARN_RE.search(line)
+            if m and m.group(1) not in out:
+                out.append(m.group(1))
+    return out
+
+
+def smooth_warns(root):
+    """(indicative, wrong): WARN ids that are a debug build's SMOOTH, and the rest."""
+    debug = build_mode_from(root) == "debug"
+    ok, wrong = [], []
+    for check in warned_from(root):
+        (ok if debug and check.endswith(":SMOOTH") else wrong).append(check)
+    return ok, wrong
+
+
 def transitions_text(rows):
     if not rows:
         return []
@@ -923,15 +977,21 @@ def transitions_text(rows):
     for r in rows:
         if not isinstance(r, dict):
             continue
-        bad = [k for k, v in (("FREEZE", not r.get("smooth", True)), ("RELOAD", r.get("reload")),
+        # A freeze on a debug build is indicative only (WARN, as the harness judged it).
+        freeze = not r.get("smooth", True)
+        debug_freeze = freeze and str(r.get("build") or "").startswith("debug")
+        bad = [k for k, v in (("FREEZE", freeze and not debug_freeze), ("RELOAD", r.get("reload")),
                               ("ERRORS", r.get("errors"))) if v]
+        result = "FAIL " + " ".join(bad) if bad else ""
+        if debug_freeze:
+            result += ("; " if result else "") + "WARN FREEZE (indicative, debug build)"
         errors = [mask_generic(str(e)) for e in list(r.get("failedCalls") or []) + list(r.get("exceptions") or [])]
         out.append("| %s | %s | %s | %s | %s | %s | %s/%s | %s | %s |" % (
             mask_generic(str(r.get("name", "?"))).replace("|", "/"), r.get("frames"), r.get("missed"), r.get("worstMs"),
             r.get("gets"), mask_generic(", ".join(str(m) for m in r.get("recreatedMaps") or [])) or "-",
             r.get("loaderSamples"),
             r.get("blankSamples"), "; ".join(str(e) for e in errors).replace("|", "/")[:200] or "-",
-            "FAIL " + " ".join(bad) if bad else "PASS"))
+            result or "PASS"))
     build = next((r.get("build") for r in rows if isinstance(r, dict) and r.get("build")), None)
     if build:
         out += ["", "Frame numbers: %s." % mask_generic(str(build))]
@@ -951,7 +1011,14 @@ def summary_text(root):
     checks, source = checks_from(root)
     totals, failed_cases = junit_from(root)
     crashes = crash_lines(root)
-    out = ["## Test Lab device checks (staging)", ""]
+    out = ["## Test Lab device checks (staging)", "", build_mode_text(build_mode_from(root)), ""]
+    indicative, wrong_warns = smooth_warns(root)
+    if indicative:
+        out += ["WARN: %d SMOOTH check(s) %s, not a FAIL: %s" % (
+            len(indicative), INDICATIVE, mask_generic(", ".join(indicative[:20]))), ""]
+    if wrong_warns:
+        out += ["FAIL: %d WARN line(s) that are not a debug build's SMOOTH: %s" % (
+            len(wrong_warns), mask_generic(", ".join(wrong_warns[:20]))), ""]
     skipped = skipped_from(root)
     if skipped:
         out += ["NOT CHECKED: " + skipped, ""]
@@ -1018,8 +1085,12 @@ def _outcomes(root):
     return out
 
 
-def verdict_reasons(root, rc):
-    """Why the device run did NOT pass; [] = passed. Never a value."""
+def verdict_reasons(root, rc, expected_build=""):
+    """Why the device run did NOT pass; [] = passed. Never a value.
+
+    expected_build: the build the workflow asked for ("debug" / "profile");
+    empty = not compared.
+    """
     reasons = []
     if str(rc).strip() != "0":
         reasons.append("Test Lab exit code %s (0 = passed, 10 = a test failed, 15 = inconclusive)"
@@ -1042,6 +1113,17 @@ def verdict_reasons(root, rc):
                 failed.append(m.group(1))
     if failed:
         reasons.append("%d check(s) FAIL: %s" % (len(failed), ", ".join(failed[:20])))
+    _, wrong_warns = smooth_warns(root)
+    if wrong_warns:
+        reasons.append("%d WARN line(s), but WARN is only for SMOOTH on a debug build: %s"
+                       % (len(wrong_warns), ", ".join(wrong_warns[:20])))
+    expected = str(expected_build or "").strip()
+    if expected and not skipped:
+        ran = build_mode_from(root)
+        if ran != expected:
+            reasons.append("build mode: asked for %s, the phone ran %s"
+                           % (expected if expected in ("debug", "profile") else "an unknown mode",
+                              ran or "not reported"))
     if _logcat_has(root, "Test timed out after"):
         reasons.append("logcat: \"Test timed out after\" (the test's own time limit ended it)")
     gcloud = os.path.join(root, "gcloud.txt")
@@ -1055,16 +1137,23 @@ def verdict_reasons(root, rc):
     return reasons
 
 
-def verdict(root, rc):
+def verdict(root, rc, expected_build=""):
     """The `verdict` command; returns an exit code."""
-    reasons = verdict_reasons(root, rc)
+    reasons = verdict_reasons(root, rc, expected_build)
+    indicative, _ = smooth_warns(root)
+    if indicative:
+        print("::warning::%d SMOOTH check(s) %s, not counted: %s. Run with testlab_build=profile "
+              "to judge the frames." % (len(indicative), INDICATIVE, mask_generic(", ".join(indicative[:20]))))
     for reason in reasons:
         print("::error::Device checks did not pass: " + mask_generic(reason))
     if reasons:
         print("Device checks FAILED (%d reason(s)); see the summary above and the "
               "testlab-results artifact." % len(reasons))
         return 1
-    print("Device checks passed on Test Lab (exit 0, JUnit tests, END line, no FAIL, outcome Passed).")
+    mode = build_mode_from(root)
+    print("Device checks passed on Test Lab (exit 0, JUnit tests, END line, no FAIL, outcome Passed; %s)."
+          % ("debug build: SMOOTH %s" % INDICATIVE if mode == "debug"
+             else "%s build: SMOOTH counted" % mode if mode else "build mode not reported"))
     return 0
 
 
@@ -1108,7 +1197,7 @@ def main(argv):
         print(message)
         return rc
     if argv[1] == "verdict":
-        return verdict(root, os.environ.get("RC", ""))
+        return verdict(root, os.environ.get("RC", ""), os.environ.get("TL_BUILD", ""))
     text = summary_text(root)
     print(text)
     step = os.environ.get("GITHUB_STEP_SUMMARY")

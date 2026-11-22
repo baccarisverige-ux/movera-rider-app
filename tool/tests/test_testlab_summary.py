@@ -309,7 +309,7 @@ class TestlabSummaryTest(unittest.TestCase):
         text = testlab_summary.summary_text(str(self.root))
         self.assertIn('### Screen changes', text)
         self.assertIn('| offer->trip | 40 | 2 | 31.5 | 3 | - | 0/0 | - | PASS |', text)
-        self.assertIn('FAIL FREEZE RELOAD ERRORS', text)
+        self.assertIn('FAIL RELOAD ERRORS; WARN FREEZE (indicative, debug build)', text)
         self.assertIn('debug build, indicative', text)
         (self.root / 'transitions.json').unlink()
         self.logcat.write_text('I flutter : MOVERA-TL TRANSITIONS-JSON %s\n' % json.dumps(rows[:1]))
@@ -922,6 +922,179 @@ class TestlabSummaryTest(unittest.TestCase):
         pattern = testlab_summary.number_pattern(FAKE_SPELLED)
         for spelling in ('000/009 75 31', '000 / 009 / 75 / 31', '000 - 009 - 75 - 31', '+46 000/097531'):
             self.assertEqual(pattern.sub('X', 'n %s.' % spelling), 'n X.', spelling)
+
+
+class BuildModeVerdictTest(unittest.TestCase):
+    """Owner 2026-11-22: SMOOTH is judged on a profile (release-speed) build.
+
+    On a debug build a slow frame is only indicative: the harness writes it
+    as a WARN line, the summary shows it, the verdict does not fail on it.
+    Every other check stays strict in both build modes.
+    """
+
+    def _run_dir(self, logcat_lines, transitions=None):
+        run = tempfile.TemporaryDirectory()
+        self.addCleanup(run.cleanup)
+        root = pathlib.Path(run.name)
+        device = root / '43292982501-1' / 'oriole-33-en_US-portrait'
+        device.mkdir(parents=True)
+        (device / 'logcat').write_text('\n'.join(logcat_lines) + '\n')
+        (device / 'test_result_1.xml').write_text(
+            '<testsuites><testsuite name="" tests="1" failures="0" errors="0" skipped="0">'
+            '<testcase name="t0"/></testsuite></testsuites>')
+        if transitions is not None:
+            (device / 'transitions.json').write_text(json.dumps(transitions))
+        (root / 'gcloud.txt').write_text('Instrumentation testing complete.\n')
+        (root / 'testlab.json').write_text(json.dumps([
+            {'axis_value': 'oriole-33-en_US-portrait', 'outcome': 'Passed', 'test_details': '--'}]))
+        return root
+
+    TAIL = [
+        'I flutter : MOVERA-TL SUMMARY passed=2 failed=0 skipped=0 warned=1',
+        'I flutter : MOVERA-TL SUMMARY-JSON []',
+        'I flutter : MOVERA-TL END checks=3 failed=0 cleanup=pass offline=pass',
+    ]
+    DEBUG_WARN = [
+        'I flutter : MOVERA-TL BUILD mode=debug',
+        'I flutter : MOVERA-TL CHECK SIGN-IN PASS test driver reaches Home: Home is open',
+        'I flutter : MOVERA-TL CHECK TRANSITION:home->offer:SMOOTH WARN screen change has no freeze: '
+        'indicative (debug build): frames=40 missed=12 (30%) worst=410.0 ms',
+        'I flutter : MOVERA-TL CHECK TRANSITION:offer->trip:SMOOTH PASS screen change has no freeze: ok',
+    ]
+
+    def _verdict(self, root, expected=''):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = testlab_summary.verdict(str(root), '0', expected)
+        return rc, out.getvalue()
+
+    def test_build_mode_is_read_from_the_logcat_line(self):
+        for mode in ('debug', 'profile', 'release'):
+            root = self._run_dir(['I flutter : MOVERA-TL BUILD mode=%s' % mode] + self.TAIL)
+            self.assertEqual(testlab_summary.build_mode_from(str(root)), mode)
+        self.assertIsNone(testlab_summary.build_mode_from(str(self._run_dir(self.TAIL))))
+        odd = self._run_dir(['I flutter : MOVERA-TL BUILD mode=+46000097531'] + self.TAIL)
+        self.assertIsNone(testlab_summary.build_mode_from(str(odd)))
+
+    def test_debug_smooth_warn_does_not_fail_the_verdict(self):
+        root = self._run_dir(self.DEBUG_WARN + self.TAIL)
+        self.assertEqual(testlab_summary.verdict_reasons(str(root), '0'), [])
+        rc, printed = self._verdict(root)
+        self.assertEqual(rc, 0, printed)
+        self.assertNotIn('::error::', printed)
+        self.assertIn('::warning::', printed)
+        self.assertIn('indicative (debug build)', printed)
+        self.assertIn('TRANSITION:home->offer:SMOOTH', printed)
+        self.assertIn('debug build', printed.splitlines()[-1])
+
+    def test_summary_says_the_build_mode_and_lists_smooth_warns(self):
+        root = self._run_dir(self.DEBUG_WARN + [l for l in self.TAIL if 'SUMMARY-JSON' not in l])
+        text = testlab_summary.summary_text(str(root))
+        self.assertIn('Build mode: debug', text)
+        self.assertIn('WARN: 1 SMOOTH check(s) indicative (debug build), not a FAIL: '
+                      'TRANSITION:home->offer:SMOOTH', text)
+        self.assertIn('| TRANSITION:home->offer:SMOOTH  | WARN |', text)
+        profile = self._run_dir(['I flutter : MOVERA-TL BUILD mode=profile'] + self.TAIL)
+        text = testlab_summary.summary_text(str(profile))
+        self.assertIn('Build mode: profile', text)
+        self.assertNotIn('WARN:', text)
+        self.assertIn('Build mode: not reported', testlab_summary.summary_text(str(self._run_dir(self.TAIL))))
+
+    def test_profile_smooth_fail_fails_the_verdict(self):
+        root = self._run_dir([
+            'I flutter : MOVERA-TL BUILD mode=profile',
+            'I flutter : MOVERA-TL CHECK TRANSITION:home->offer:SMOOTH FAIL screen change has no freeze: '
+            'frames=40 missed=12 (30%) worst=410.0 ms',
+        ] + self.TAIL)
+        reasons = testlab_summary.verdict_reasons(str(root), '0')
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn('check(s) FAIL: TRANSITION:home->offer:SMOOTH', reasons[0])
+        self.assertEqual(self._verdict(root)[0], 1)
+
+    def test_other_checks_stay_strict_on_a_debug_build(self):
+        for line, want in (
+            ('I flutter : MOVERA-TL CHECK TRANSITION:home->offer:RELOAD FAIL screen change does not reload: x',
+             'check(s) FAIL: TRANSITION:home->offer:RELOAD'),
+            ('I flutter : MOVERA-TL CHECK TRANSITION:home->offer:ERRORS FAIL screen change has no error: x',
+             'check(s) FAIL: TRANSITION:home->offer:ERRORS'),
+            ('I flutter : MOVERA-TL CHECK G24 FAIL position sends are taken: sends=0', 'check(s) FAIL: G24'),
+            # A debug SMOOTH written as FAIL (an older harness) is still a FAIL.
+            ('I flutter : MOVERA-TL CHECK TRANSITION:a->b:SMOOTH FAIL frames', 'check(s) FAIL: TRANSITION:a->b:SMOOTH'),
+            # WARN exists for SMOOTH only.
+            ('I flutter : MOVERA-TL CHECK G24 WARN position sends are taken: sends=0', 'WARN is only for SMOOTH'),
+            ('I flutter : MOVERA-TL CHECK TRANSITION:a->b:RELOAD WARN x', 'WARN is only for SMOOTH'),
+        ):
+            with self.subTest(line):
+                root = self._run_dir(self.DEBUG_WARN + [line] + self.TAIL)
+                reasons = testlab_summary.verdict_reasons(str(root), '0')
+                self.assertEqual(len(reasons), 1, reasons)
+                self.assertIn(want, reasons[0])
+
+    def test_a_smooth_warn_outside_a_debug_build_fails(self):
+        warn = self.DEBUG_WARN[2]
+        for build in (['I flutter : MOVERA-TL BUILD mode=profile'], ['I flutter : MOVERA-TL BUILD mode=release'], []):
+            with self.subTest(build):
+                reasons = testlab_summary.verdict_reasons(str(self._run_dir(build + [warn] + self.TAIL)), '0')
+                self.assertEqual(len(reasons), 1, reasons)
+                self.assertIn('WARN is only for SMOOTH on a debug build', reasons[0])
+
+    def test_the_build_asked_for_must_be_the_build_that_ran(self):
+        debug = self._run_dir(self.DEBUG_WARN + self.TAIL)
+        self.assertEqual(testlab_summary.verdict_reasons(str(debug), '0', 'debug'), [])
+        reasons = testlab_summary.verdict_reasons(str(debug), '0', 'profile')
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn('build mode: asked for profile, the phone ran debug', reasons[0])
+        none = self._run_dir(self.TAIL)
+        self.assertIn('the phone ran not reported', testlab_summary.verdict_reasons(str(none), '0', 'profile')[0])
+        # No build asked for (an old caller): nothing to compare.
+        self.assertEqual(testlab_summary.verdict_reasons(str(none), '0'), [])
+        # A SKIP run never started the app's checks: no build line to expect.
+        skip = self._run_dir(['I flutter : MOVERA-TL SKIP all checks: no test number at run time'])
+        self.assertEqual(testlab_summary.verdict_reasons(str(skip), '0', 'profile'), [])
+        with unittest.mock.patch.dict(os.environ, {'RC': '0', 'TL_BUILD': 'profile'}), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(testlab_summary.main(['x', 'verdict', str(debug)]), 1)
+
+    def test_transitions_table_marks_a_debug_freeze_as_warn(self):
+        row = {'name': 'done->home', 'frames': 12, 'missed': 9, 'worstMs': 250.0, 'gets': 6,
+               'recreatedMaps': [], 'loaderSamples': 0, 'blankSamples': 0, 'failedCalls': [],
+               'exceptions': [], 'smooth': False, 'reload': False, 'errors': False}
+        debug = '\n'.join(testlab_summary.transitions_text([dict(row, build='debug build, indicative')]))
+        self.assertIn('| WARN FREEZE (indicative, debug build) |', debug)
+        self.assertNotIn('FAIL FREEZE', debug)
+        both = '\n'.join(testlab_summary.transitions_text(
+            [dict(row, build='debug build, indicative', reload=True, errors=True)]))
+        self.assertIn('| FAIL RELOAD ERRORS; WARN FREEZE (indicative, debug build) |', both)
+        profile = '\n'.join(testlab_summary.transitions_text([dict(row, build='profile build')]))
+        self.assertIn('| FAIL FREEZE |', profile)
+        self.assertIn('Frame numbers: profile build.', profile)
+
+    def test_workflow_has_the_build_choice_and_debug_is_the_default(self):
+        root = pathlib.Path(__file__).resolve().parents[2]
+        text = (root / '.github/workflows/android-test-apk.yml').read_text()
+        on = text.split('jobs:', 1)[0]
+        block = on.split('      testlab_build:', 1)[1]
+        self.assertIn('type: choice', block)
+        self.assertIn('- debug', block)
+        self.assertIn('- profile', block)
+        self.assertIn('default: debug', block)
+        job = text.split('  device-checks:', 1)[1]
+        self.assertIn('TL_BUILD: ${{ inputs.testlab_build }}', job)
+        # Debug: today's lines, unchanged.
+        self.assertIn('flutter build apk --debug \\', job)
+        self.assertIn('(cd android && ./gradlew app:assembleAndroidTest --no-daemon -q)', job)
+        # Profile: the app and its test APK are both the profile variant.
+        profile = job.split('flutter build apk --profile', 1)[1].split('ls -la out', 1)[0]
+        self.assertIn('--dart-define=MOVERA_APP_VERSION="$app_version"', profile)
+        self.assertIn('-PmoveraTestBuildType=profile', profile)
+        self.assertIn('androidTest/profile/app-profile-androidTest.apk', profile)
+        for secret in ('tl/phone', 'TL_NUMBERS', 'peer', 'rider_phone'):
+            self.assertNotIn(secret, profile)
+        self.assertIn('--app "out/app-${TL_BUILD}.apk" --test "out/app-${TL_BUILD}-androidTest.apk"', job)
+        result = job.split('- name: Result', 1)[1]
+        self.assertIn('TL_BUILD: ${{ inputs.testlab_build }}', result)
+        gradle = (root / 'android/app/build.gradle.kts').read_text()
+        self.assertIn('testBuildType = (project.findProperty("moveraTestBuildType") as String?) ?: "debug"', gradle)
 
 
 if __name__ == '__main__':
