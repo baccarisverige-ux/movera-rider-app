@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:movera_rider/core/config/driver_profile_settings.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/core/api/api_client.dart';
@@ -127,6 +128,16 @@ void main() {
     tester,
   ) async {
     phone(tester);
+    // The snapshot was written before the split with the old driver block;
+    // the v0.18.155 card is a new widget (zone switch driverProfile.on),
+    // so this split check keeps the switch off.
+    DriverProfileSettings.current = const DriverProfileSettings(
+      on: false,
+      reviews: false,
+    );
+    addTearDown(
+      () => DriverProfileSettings.current = DriverProfileSettings.defaults,
+    );
     AppScope.instance.ride.restoreFromBackend(
       RideStatus.driverAssigned,
       id: 'split-1',
