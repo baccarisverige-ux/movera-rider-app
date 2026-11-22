@@ -65,6 +65,11 @@ class AuthScaffold extends StatelessWidget {
       body: SafeArea(
         bottom: false,
         child: CustomScrollView(
+          // Owner 2026-11-22 (iPhone): no bounce. On iOS the default physics
+          // pull the page past its edges, baring the ground under the white
+          // card. Clamping still scrolls when the form is taller than the
+          // screen (keyboard up, small phones), and stops at the edges.
+          physics: const ClampingScrollPhysics(),
           slivers: [
             SliverFillRemaining(
               hasScrollBody: false,
