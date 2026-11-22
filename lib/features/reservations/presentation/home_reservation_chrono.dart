@@ -260,7 +260,8 @@ class _HomeReservationChronoState extends State<HomeReservationChrono>
   Future<void> _openServerLiveRide(String reservationId) async {
     _openedLiveId = reservationId;
     try {
-      await _reservations.refresh();
+      // At once: the rider tapped the ride and waits for it to open.
+      await _reservations.refresh(now: true);
       if (!mounted || !_routeIsCurrent) return;
       final ride = _reservations.byId(reservationId);
       if (ride == null || !ride.status.isUpcoming || !ride.revealsDriver) {
