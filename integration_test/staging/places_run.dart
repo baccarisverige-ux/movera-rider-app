@@ -9,6 +9,7 @@ import 'package:movera_rider/l10n/l10n.dart';
 import 'check_log.dart';
 import 'rider_session.dart';
 import 'rider_steps.dart';
+import 'type_text.dart';
 
 /// Saved-places fixed category proof (contract 0.18.129, rider #651-#653,
 /// owner 2026-11-18 design steps 2-5) on a real Test Lab phone against
@@ -196,7 +197,7 @@ class PlacesRun extends RiderSession {
     if (!shows(field)) {
       return log.fail('RECENT', title, 'Where to did not open');
     }
-    await tester.enterText(field.first, dropoffQuery);
+    await typeText(tester, field.first, dropoffQuery);
     final row = byKeyPrefix('route-picker-row-');
     if (!await pumpUntil(tester, () => tester.any(row.hitTestable()))) {
       return log.fail('RECENT', title, 'no suggestion row in 30 s');
