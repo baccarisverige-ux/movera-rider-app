@@ -98,6 +98,10 @@ android {
 
     buildTypes {
         release {
+            // flutter_stripe (README, Android step 7): the app's own R8 rules,
+            // added to the ones the Flutter Gradle plugin already applies.
+            // Minify / R8 stays on.
+            proguardFiles("proguard-rules.pro")
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("moveraRelease")
             }
