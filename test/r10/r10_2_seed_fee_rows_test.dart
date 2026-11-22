@@ -17,6 +17,15 @@ import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// The contract's sample rider document (a data fixture, not app source).
+Map<String, dynamic> _fixture() =>
+    jsonDecode(
+          File(
+            'contracts/fixtures/config/rider_app_config.json',
+          ).readAsStringSync(),
+        )
+        as Map<String, dynamic>;
+
 void main() {
   const staging = AppEnv(
     flavor: AppFlavor.staging,
@@ -38,13 +47,7 @@ void main() {
   test('live: a fee row the server did not send is not shown', () async {
     // Recorded-shape server answer (contract fixture) without the
     // reservation premium row.
-    final answer =
-        jsonDecode(
-              File(
-                'contracts/fixtures/config/rider_app_config.json',
-              ).readAsStringSync(),
-            )
-            as Map<String, dynamic>;
+    final answer = _fixture();
     ((answer['cancelFees'] as Map)['reservation'] as Map).remove('premium');
 
     final repo = ApiRiderConfigRepository(
@@ -92,26 +95,18 @@ void main() {
     );
   }
 
-  Map<String, dynamic> fixture() =>
-      jsonDecode(
-            File(
-              'contracts/fixtures/config/rider_app_config.json',
-            ).readAsStringSync(),
-          )
-          as Map<String, dynamic>;
-
   test(
     'live: no waiting block from the server means no waiting fees',
     () async {
       // D1 (R10 #2): the sample per-minute and no-show fees must not stand in.
-      final answer = fixture()..remove('waiting');
+      final answer = _fixture()..remove('waiting');
       final served = await (await repoFor(answer)).currentServed();
       expect(served.waiting, isNull);
     },
   );
 
   test('live: a waiting block without money keeps no sample money', () async {
-    final answer = fixture();
+    final answer = _fixture();
     final waiting = Map<String, dynamic>.from(answer['waiting'] as Map)
       ..remove('perMin')
       ..remove('noShowFee')

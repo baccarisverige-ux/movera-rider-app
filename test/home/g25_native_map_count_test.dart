@@ -236,6 +236,12 @@ void main() {
     expect(dots, findsWidgets);
     await tester.ensureVisible(dots.last);
     await tester.tap(dots.last);
+    // v0.18.143: Ride details first; its destination pencil opens the route.
+    final pencil = find.byKey(const ValueKey('ride-details-edit-destination'));
+    for (var i = 0; i < 40 && pencil.evaluate().isEmpty; i++) {
+      await pump(const Duration(milliseconds: 100));
+    }
+    await tester.tap(pencil);
     final picker = find.byType(RoutePickerPage);
     for (var i = 0; i < 40 && picker.evaluate().isEmpty; i++) {
       await pump(const Duration(milliseconds: 100));

@@ -67,5 +67,7 @@ jobs:
 
       - name: Android debug build
         run: |
-          flutter build apk --debug -t lib/main_demo.dart
+          # v0.18.154 P16c: the build knows its version (minimum app version check).
+          flutter build apk --debug -t lib/main_demo.dart \
+            --dart-define=MOVERA_APP_VERSION="$(sh tool/app_version.sh "${GITHUB_RUN_NUMBER:-}")"
           test -f build/app/outputs/flutter-apk/app-debug.apk

@@ -180,6 +180,10 @@
   "errServer": "Movera is having trouble right now. Try again in a moment.",
   "errWrongCode": "That code isn't right. Check it and try again.",
   "errSendCode": "Couldn't send the code. Try again.",
+  "errSmsNotSent": "We could not send the SMS. Check the number and try again.",
+  "@errSmsNotSent": {"description": "Contract v0.18.133 smsSignIn.texts.smsNotSent (503 unavailable, reason sms_not_sent)."},
+  "errSmsDailyLimit": "We cannot send more SMS codes right now. Try again later.",
+  "@errSmsDailyLimit": {"description": "Contract v0.18.133 smsSignIn.texts.smsDailyLimit (503 unavailable, reason sms_daily_limit)."},
   "errCheckCode": "Couldn't check the code. Try again.",
   "errProvider": "Couldn't sign in with {provider}. Try again.",
   "@errProvider": {
@@ -244,6 +248,8 @@
   "@signedOutDetailExpired": {"description": "Contract v0.18.5 auth.signedOut.detail.expired (G1-D3): reason line."},
   "signedOutDetailRevoked": "Movera ended your session.",
   "@signedOutDetailRevoked": {"description": "Contract v0.18.5 auth.signedOut.detail.revoked (G1-D3): reason line."},
+  "signedOutByMovera": "You were signed out by Movera",
+  "@signedOutByMovera": {"description": "Contract v0.18.149 auth.signedOut.byMoveraTexts (owner G12 Q6): an admin signed this phone out; reason line instead of signedOutDetailRevoked. Owner to confirm."},
   "authOr": "or",
   "@authOr": {"description": "G1-B5 divider 'or', same as the driver app (authOr)."},
   "authCodeFieldLabel": "Verification code",
@@ -263,10 +269,21 @@
     "description": "Owner 2026-11-11 (v0.18.66 §87): the Account version line when the build has no build number (a local build says Version dev).",
     "placeholders": {"version": {"type": "String"}}
   },
+  "deleteOpenTrip": "Finish or cancel your ride first, then delete your account.",
+  "@deleteOpenTrip": {
+    "description": "v0.18.134 (contract.json#accountDeletion.refused): 409 deletion_open_trip on Delete account."
+  },
+  "accountClosed": "This account is closed and is being deleted. It can't be used to sign in.",
+  "@accountClosed": {
+    "description": "v0.18.134 (contract.json#accountDeletion.closeAtOnce): sign-in answered 403 account_closed."
+  },
   "@@locale": "en",
   "appTitle": "Movera",
   "previewBanner": "Preview",
   "previewNotSent": "Preview – not sent",
+  "minVersionTitle": "Update Movera to continue",
+  "minVersionBody": "This version of the app is too old. Install the latest version from the store to keep using Movera.",
+  "minVersionUpdate": "Update",
   "dontMatchDriverAgain": "Don't match me with this driver again",
   "@dontMatchDriverAgain": {
     "description": "v0.18.43 §64 (fix job 10): tick on the rating at a low rating. The driver is never told."
@@ -891,6 +908,8 @@
   "newRoute": "New route",
   "newPrice": "New price",
   "confirmChange": "Confirm change",
+  "priceChangedTitle": "Your price has changed",
+  "confirmNewPrice": "Confirm new price",
   "confirmNextPayment": "Confirm · next: payment",
   "confirmPayment": "Confirm payment",
   "chooseRefund": "Choose your refund",
@@ -1177,7 +1196,7 @@
   "historyPlannedRoute": "Planned route",
   "getHelpWithRide": "Get help with this ride",
   "enterPhone": "Enter your phone number",
-  "textFourDigitCode": "We'll text you a 4-digit code.",
+  "textFourDigitCode": "We'll text you a 6-digit code.",
   "byContinuing": "By continuing you agree to our ",
   "and": " and ",
   "reenterPhone": "Go back and enter your phone number again.",
@@ -1607,6 +1626,44 @@
         "type": "String"
       }
     }
+  },
+  "liveAdjustPickupTitle": "You're {meters} m from your pickup",
+  "@liveAdjustPickupTitle": {
+    "description": "Banner title: the rider is this many metres from the pickup (v0.18.144, owner OK pending).",
+    "placeholders": {
+      "meters": {
+        "type": "String"
+      }
+    }
+  },
+  "liveAdjustPickupBody": "Move the pickup to where you are now?",
+  "@liveAdjustPickupBody": {
+    "description": "Banner question (v0.18.144)."
+  },
+  "liveAdjustPickupButton": "Adjust pickup",
+  "@liveAdjustPickupButton": {
+    "description": "Banner button (v0.18.144)."
+  },
+  "liveAdjustPickupDone": "Pickup moved to your location",
+  "@liveAdjustPickupDone": {
+    "description": "Toast after the pickup moved to the GPS (v0.18.144)."
+  },
+  "liveShareSwitch": "Share my location",
+  "@liveShareSwitch": {
+    "description": "Share my location switch (v0.18.144)."
+  },
+  "liveRiderShareBody": "{driver} sees exactly where you are. Stops at pickup.",
+  "@liveRiderShareBody": {
+    "description": "Under the switch: the driver name (v0.18.144).",
+    "placeholders": {
+      "driver": {
+        "type": "String"
+      }
+    }
+  },
+  "livePrivacyNote": "Your live location is sent only to your driver until pickup and is not saved.",
+  "@livePrivacyNote": {
+    "description": "Consent / privacy line under the switch (v0.18.144, owner + legal OK pending)."
   },
   "priceUpdated": "Price updated",
   "priceUpdatedBody": "The price for this pickup is now {now} (was {was}).",
@@ -3293,6 +3350,8 @@
   "@contactCodeNotSentYet": {"description": "G30 (contract v0.18.76 emailVerified, owner 2026-11-12): rider e-mail check. contract.json#emailVerified.texts.codeNotSentYet: delivery pending_provider (or none)."},
   "contactEmailVerifiedDone": "E-mail verified",
   "@contactEmailVerifiedDone": {"description": "G30 (contract v0.18.76 emailVerified, owner 2026-11-12): rider e-mail check."},
+  "sosNotSent": "SOS could not reach Movera. Call 112.",
+  "@sosNotSent": {"description": "Contract v0.18.148 sosPressTime.apps (owner 2026-11-20 \"after 30 min or any refusal ... SOS not sent, call 112\"): the dialog when a kept SOS was refused or is 30 min old. OWNER TO CONFIRM (same words as the driver app's safetySosNotSent)."},
   "placeGym": "Gym",
   "placeMall": "Mall",
   "placeSchool": "School",
@@ -3631,6 +3690,31 @@
   "@swRatingStatusSubmitted": {"description": "Contract status word statusWords.families.ratingStatus.submitted (tool/gen_status_words.py)."},
   "swRatingStatusSkipped": "Skipped",
   "@swRatingStatusSkipped": {"description": "Contract status word statusWords.families.ratingStatus.skipped (tool/gen_status_words.py)."},
+  "feePayByCard": "Pay {amount} now",
+  "@feePayByCard": {
+    "description": "v0.18.136 stripeFees (DRAFT): button on an owed fee (account debt line, late-cancel notice); amount is the server's.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "feePaidByCard": "Fee paid. Thank you.",
+  "@feePaidByCard": {
+    "description": "v0.18.136 stripeFees: the server says the fee is paid (after the Stripe PaymentSheet)."
+  },
+  "feePaymentChecking": "Payment received. We are checking it.",
+  "@feePaymentChecking": {
+    "description": "v0.18.136 stripeFees: the sheet said paid, the server has not confirmed yet (webhook)."
+  },
+  "feePaymentFailed": "The payment did not go through. Try again.",
+  "@feePaymentFailed": {
+    "description": "v0.18.136 stripeFees: the Stripe PaymentSheet failed."
+  },
+  "feePaymentUnavailable": "Card payment is not available now.",
+  "@feePaymentUnavailable": {
+    "description": "v0.18.136 stripeFees: card payment of fees is off or not possible now (server refused)."
+  },
   "helpCentre": "Help centre",
   "helpCentreBody": "Answers to common questions, any time",
   "reportReceiptIssue": "Report an issue with this receipt",

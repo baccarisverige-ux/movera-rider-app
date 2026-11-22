@@ -1,0 +1,9 @@
+{
+  "liveAdjustPickupTitle": "Vous êtes à {meters} m de votre point de prise en charge",
+  "liveAdjustPickupBody": "Déplacer la prise en charge là où vous êtes ?",
+  "liveAdjustPickupButton": "Ajuster la prise en charge",
+  "liveAdjustPickupDone": "Prise en charge déplacée à votre position",
+  "liveShareSwitch": "Partager ma position",
+  "liveRiderShareBody": "{driver} voit exactement où vous êtes. S'arrête à la prise en charge.",
+  "livePrivacyNote": "Votre position est envoyée uniquement à votre chauffeur jusqu'à la prise en charge et n'est pas enregistrée."
+}

@@ -18,6 +18,7 @@ import 'package:movera_rider/features/profile/presentation/account_home.dart';
 import 'package:movera_rider/features/profile/presentation/delete_account.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/presentation/ride_restore_gate.dart';
+import 'package:movera_rider/features/safety/data/sos_sender.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// FLOW-2 / NAV-4: Sign out and Delete account are reachable, confirm first,
@@ -94,6 +95,10 @@ void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   setUp(() async {
+    // Launch build: SosSender keeps its write chain in a static (rider #680,
+    // contract v0.18.148); one left by the test before sits in that test's
+    // fake clock and the next sign-out would wait on it forever.
+    await SosSender.resetForTesting();
     FlutterSecureStorage.setMockInitialValues(<String, String>{});
     SharedPreferences.setMockInitialValues(<String, Object>{..._rider});
   });

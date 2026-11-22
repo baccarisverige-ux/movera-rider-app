@@ -1,0 +1,9 @@
+{
+  "liveAdjustPickupTitle": "Du är {meters} m från din upphämtning",
+  "liveAdjustPickupBody": "Flytta upphämtningen till där du är nu?",
+  "liveAdjustPickupButton": "Justera upphämtning",
+  "liveAdjustPickupDone": "Upphämtningen flyttad till din plats",
+  "liveShareSwitch": "Dela min plats",
+  "liveRiderShareBody": "{driver} ser exakt var du är. Slutar vid upphämtningen.",
+  "livePrivacyNote": "Din plats skickas bara till din förare fram till upphämtningen och sparas inte."
+}

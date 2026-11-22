@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/app_update/ride_live_signal.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:flutter/scheduler.dart';
@@ -24,6 +25,7 @@ import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_flow.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
+import 'package:movera_rider/features/active_ride/presentation/cancel_preview_note.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
@@ -31,6 +33,8 @@ import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.
 import 'package:movera_rider/features/finding_driver/domain/nearby_vehicle.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
+import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
+import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/price_bump_card.dart';
 import 'package:movera_rider/features/finding_driver/presentation/rebook_price_dialog.dart';
 export 'package:movera_rider/features/finding_driver/presentation/rebook_price_dialog.dart'
@@ -90,6 +94,11 @@ class FindingDrivers extends StatefulWidget {
     @visibleForTesting this.booking,
   });
 
+  /// v0.18.152: the clock a booked ride's cancel line is read at (the
+  /// server's preview is a clock compare); tests move it.
+  @visibleForTesting
+  static DateTime Function() cancelFeeClock = DateTime.now;
+
   /// When this ride's search started, for a restored search (ARCH-3: the
   /// "still looking" mark is not restarted by a reload). Null: now.
   final DateTime? searchStartedAt;
@@ -148,7 +157,8 @@ enum _Rebook {
   declined,
 }
 
-class _FindingDriversState extends State<FindingDrivers> {
+class _FindingDriversState extends State<FindingDrivers>
+    with RideScreenLive<FindingDrivers> {
   /// The trip's currency: the one the search holds once it started (a
   /// restored or re-requested trip keeps its own), else the widget's.
   String get _currency => _match.ownershipSnapshot?.currency ?? widget.currency;
@@ -639,6 +649,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       context,
       takingLonger: _match.isDelayed,
       driverMatched: _driverMatched,
+      feeNote: _bookedCancelNote(),
       commit: () async {
         final result = await (request ??= _match.cancelSearch());
         return _isCommitted(result);
@@ -681,6 +692,17 @@ class _FindingDriversState extends State<FindingDrivers> {
       _showCancelNotice(context.l10n.driverAccepted);
     }
     _drainDeferredNavigation();
+  }
+
+  /// v0.18.152 (contract.json#bookedRideSeen.searchSeen.riderApp): a booked
+  /// ride being searched cancels by the booked rules — the server's
+  /// preview line ("Cancelling now costs …" under 1 h before the pickup);
+  /// without a preview no line at all, never "free". A live search: none.
+  String? _bookedCancelNote() {
+    if (!_match.booked) return null;
+    final preview = _match.cancelPreview;
+    if (preview == null) return null;
+    return cancelPreviewNote(preview, FindingDrivers.cancelFeeClock()).text;
   }
 
   static bool _isCommitted(SearchCancelResult result) =>
@@ -762,6 +784,7 @@ class _FindingDriversState extends State<FindingDrivers> {
         // rider-u36: the server's difference, as the sheet showed it.
         differenceKr: lastRouteDifferenceKr ?? updated.price - ride.price,
         currency: updated.currency,
+        newPrice: updated.price,
       );
     }
     if (_match.matchCount == 1) _matchedPending = true;
@@ -809,8 +832,36 @@ class _FindingDriversState extends State<FindingDrivers> {
   /// The three dots on the ride card: the route screen with the current
   /// addresses, where the rider adjusts the pickup, the destination or
   /// the stops.
-  Future<void> _openDetails() =>
-      _changeRoute(null, RouteChangeEntry.destination);
+  /// v0.18.143 (approved mockup screen 2): the ride card's three dots open
+  /// Ride details with the price; the pencils and "+" open the route
+  /// screen. The pickup pencil shows only while no driver has accepted.
+  Future<void> _openDetails() async {
+    if (_pickupEditOpen || _leaving) return;
+    final searching = _match.matchCount == 0;
+    await MoveraSheet.show<void>(
+      context: context,
+      builder: (sheet) => RideDetailsSheet(
+        pickupAddress: _pickupAddress,
+        destinationAddress: _destinationAddress,
+        stops: _stops,
+        rideType: widget.rideType,
+        price: _match.currentPrice > 0 ? _match.currentPrice : widget.price,
+        currency: _match.currency,
+        paymentMethod: widget.paymentMethod,
+        notes: widget.notes,
+        onCancelTrip: () {
+          Navigator.pop(sheet);
+          unawaited(_confirmCancel());
+        },
+        onEditPickup: searching
+            ? () => _changeRoute(sheet, RouteChangeEntry.pickup)
+            : null,
+        onEditDestination: () =>
+            _changeRoute(sheet, RouteChangeEntry.destination),
+        onAddStop: () => _changeRoute(sheet, RouteChangeEntry.newStop),
+      ),
+    );
+  }
 
   @override
   void dispose() {

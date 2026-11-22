@@ -112,6 +112,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'errServer': l.errServer,
   'errWrongCode': l.errWrongCode,
   'errSendCode': l.errSendCode,
+  'errSmsNotSent': l.errSmsNotSent,
+  'errSmsDailyLimit': l.errSmsDailyLimit,
   'errCheckCode': l.errCheckCode,
   'errProvider': l.errProvider('<provider>'),
   'notification': l.notification,
@@ -140,6 +142,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'signedOutRevoked': l.signedOutRevoked,
   'signedOutDetailExpired': l.signedOutDetailExpired,
   'signedOutDetailRevoked': l.signedOutDetailRevoked,
+  'signedOutByMovera': l.signedOutByMovera,
   'authOr': l.authOr,
   'authCodeFieldLabel': l.authCodeFieldLabel,
   'accountOutstandingFees': l.accountOutstandingFees,
@@ -147,9 +150,14 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'errLockedToday': l.errLockedToday,
   'appVersionLine': l.appVersionLine('<version>', '<build>'),
   'appVersionOnly': l.appVersionOnly('<version>'),
+  'deleteOpenTrip': l.deleteOpenTrip,
+  'accountClosed': l.accountClosed,
   'appTitle': l.appTitle,
   'previewBanner': l.previewBanner,
   'previewNotSent': l.previewNotSent,
+  'minVersionTitle': l.minVersionTitle,
+  'minVersionBody': l.minVersionBody,
+  'minVersionUpdate': l.minVersionUpdate,
   'dontMatchDriverAgain': l.dontMatchDriverAgain,
   'accountPausedTitle': l.accountPausedTitle,
   'accountBlockedTitle': l.accountBlockedTitle,
@@ -375,6 +383,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'newRoute': l.newRoute,
   'newPrice': l.newPrice,
   'confirmChange': l.confirmChange,
+  'priceChangedTitle': l.priceChangedTitle,
+  'confirmNewPrice': l.confirmNewPrice,
   'confirmNextPayment': l.confirmNextPayment,
   'confirmPayment': l.confirmPayment,
   'chooseRefund': l.chooseRefund,
@@ -750,6 +760,13 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'termsBookedNoShow': l.termsBookedNoShow('<noShowAfter>', '<noShowFee>'),
   'termsBookedCancelAfterArrived': l.termsBookedCancelAfterArrived,
   'termsPickupMove': l.termsPickupMove('<meters>'),
+  'liveAdjustPickupTitle': l.liveAdjustPickupTitle('<meters>'),
+  'liveAdjustPickupBody': l.liveAdjustPickupBody,
+  'liveAdjustPickupButton': l.liveAdjustPickupButton,
+  'liveAdjustPickupDone': l.liveAdjustPickupDone,
+  'liveShareSwitch': l.liveShareSwitch,
+  'liveRiderShareBody': l.liveRiderShareBody('<driver>'),
+  'livePrivacyNote': l.livePrivacyNote,
   'priceUpdated': l.priceUpdated,
   'priceUpdatedBody': l.priceUpdatedBody('<now>', '<was>'),
   'priceUnavailableRefreshing': l.priceUnavailableRefreshing,
@@ -1473,6 +1490,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'contactCodeSentTo': l.contactCodeSentTo('<email>'),
   'contactCodeNotSentYet': l.contactCodeNotSentYet,
   'contactEmailVerifiedDone': l.contactEmailVerifiedDone,
+  'sosNotSent': l.sosNotSent,
   'placeGym': l.placeGym,
   'placeMall': l.placeMall,
   'placeSchool': l.placeSchool,
@@ -1660,6 +1678,11 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'swRatingStatusPending': l.swRatingStatusPending,
   'swRatingStatusSubmitted': l.swRatingStatusSubmitted,
   'swRatingStatusSkipped': l.swRatingStatusSkipped,
+  'feePayByCard': l.feePayByCard('<amount>'),
+  'feePaidByCard': l.feePaidByCard,
+  'feePaymentChecking': l.feePaymentChecking,
+  'feePaymentFailed': l.feePaymentFailed,
+  'feePaymentUnavailable': l.feePaymentUnavailable,
   'helpCentre': l.helpCentre,
   'helpCentreBody': l.helpCentreBody,
   'reportReceiptIssue': l.reportReceiptIssue,
@@ -1884,6 +1907,8 @@ const messagePlaceholders = <String, List<String>>{
   'termsBookedIncludedWaiting': ['minutes'],
   'termsBookedNoShow': ['noShowAfter', 'noShowFee'],
   'termsPickupMove': ['meters'],
+  'liveAdjustPickupTitle': ['meters'],
+  'liveRiderShareBody': ['driver'],
   'priceUpdatedBody': ['now', 'was'],
   'cardExpires': ['date'],
   'walletWrongCurrency': ['wallet', 'ride'],
@@ -2003,6 +2028,7 @@ const messagePlaceholders = <String, List<String>>{
   'homeRideCount': [],
   'homeYourMonth': ['month'],
   'homeCo2Kg': ['kg'],
+  'feePayByCard': ['amount'],
   'supportNoMailApp': ['email'],
   'supportPriceCancelled': ['price'],
   'supportPriceCancelledExtra': ['price', 'extra'],
@@ -2250,6 +2276,10 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get errSendCode => '';
   @override
+  String get errSmsNotSent => '';
+  @override
+  String get errSmsDailyLimit => '';
+  @override
   String get errCheckCode => '';
   @override
   String errProvider(String provider) => '';
@@ -2306,6 +2336,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get signedOutDetailRevoked => '';
   @override
+  String get signedOutByMovera => '';
+  @override
   String get authOr => '';
   @override
   String get authCodeFieldLabel => '';
@@ -2320,11 +2352,21 @@ class _Exhaustive implements AppLocalizations {
   @override
   String appVersionOnly(String version) => '';
   @override
+  String get deleteOpenTrip => '';
+  @override
+  String get accountClosed => '';
+  @override
   String get appTitle => '';
   @override
   String get previewBanner => '';
   @override
   String get previewNotSent => '';
+  @override
+  String get minVersionTitle => '';
+  @override
+  String get minVersionBody => '';
+  @override
+  String get minVersionUpdate => '';
   @override
   String get dontMatchDriverAgain => '';
   @override
@@ -2775,6 +2817,10 @@ class _Exhaustive implements AppLocalizations {
   String get newPrice => '';
   @override
   String get confirmChange => '';
+  @override
+  String get priceChangedTitle => '';
+  @override
+  String get confirmNewPrice => '';
   @override
   String get confirmNextPayment => '';
   @override
@@ -3525,6 +3571,20 @@ class _Exhaustive implements AppLocalizations {
   String get termsBookedCancelAfterArrived => '';
   @override
   String termsPickupMove(String meters) => '';
+  @override
+  String liveAdjustPickupTitle(String meters) => '';
+  @override
+  String get liveAdjustPickupBody => '';
+  @override
+  String get liveAdjustPickupButton => '';
+  @override
+  String get liveAdjustPickupDone => '';
+  @override
+  String get liveShareSwitch => '';
+  @override
+  String liveRiderShareBody(String driver) => '';
+  @override
+  String get livePrivacyNote => '';
   @override
   String get priceUpdated => '';
   @override
@@ -4972,6 +5032,8 @@ class _Exhaustive implements AppLocalizations {
   @override
   String get contactEmailVerifiedDone => '';
   @override
+  String get sosNotSent => '';
+  @override
   String get placeGym => '';
   @override
   String get placeMall => '';
@@ -5345,6 +5407,16 @@ class _Exhaustive implements AppLocalizations {
   String get swRatingStatusSubmitted => '';
   @override
   String get swRatingStatusSkipped => '';
+  @override
+  String feePayByCard(String amount) => '';
+  @override
+  String get feePaidByCard => '';
+  @override
+  String get feePaymentChecking => '';
+  @override
+  String get feePaymentFailed => '';
+  @override
+  String get feePaymentUnavailable => '';
   @override
   String get helpCentre => '';
   @override
