@@ -8,7 +8,7 @@ import 'package:http/testing.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/screen_scale.dart';
 import 'package:movera_rider/core/api/api_client.dart';
-import 'package:movera_rider/features/driver_profile/data/driver_profile_data.dart';
+import 'package:movera_rider/features/driver_profile/application/driver_profile_data.dart';
 import 'package:movera_rider/features/driver_profile/presentation/driver_on_way_card.dart';
 import 'package:movera_rider/features/driver_profile/presentation/driver_profile_sheet.dart';
 import 'package:movera_rider/features/ratings/domain/rating_tags.dart';

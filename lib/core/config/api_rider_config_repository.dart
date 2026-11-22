@@ -1,6 +1,6 @@
 import 'package:movera_rider/core/config/dont_match_again.dart';
 import 'package:movera_rider/core/app_update/min_app_version.dart';
-import 'package:movera_rider/features/driver_profile/data/driver_profile_data.dart';
+import 'package:movera_rider/core/config/driver_profile_settings.dart';
 import 'package:movera_rider/core/config/emergency_numbers.dart';
 
 import 'dart:async';
