@@ -4,8 +4,11 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
-/// Where a check ended.
-enum CheckOutcome { pass, fail, skip }
+import 'smooth_verdict.dart';
+
+/// Where a check ended. `warn` is only for a frame check (SMOOTH): shown
+/// in the summary, never a failure ([SmoothVerdict] says when).
+enum CheckOutcome { pass, fail, skip, warn }
 
 class CheckResult {
   CheckResult(this.id, this.title, this.outcome, this.detail);
@@ -29,7 +32,10 @@ class CheckResult {
 ///
 /// Never pass a phone number, a code, a token or a request body here.
 class CheckLog {
-  CheckLog({required this.binding, required this.outDir, required this.shots});
+  CheckLog({required this.binding, required this.outDir, required this.shots}) {
+    // The summary and the verdict say and check which build ran.
+    say(SmoothVerdict.buildLine());
+  }
 
   static const prefix = 'MOVERA-TL';
 
@@ -80,6 +86,28 @@ class CheckLog {
 
   void skip(String id, String title, String detail) =>
       _add(CheckResult(id, title, CheckOutcome.skip, detail));
+
+  /// A frame check (`TRANSITION:<name>:SMOOTH`) that [SmoothVerdict]
+  /// judged as [outcome]. A WARN (debug build: any slow change; profile:
+  /// over the warn limit) is in the summary, not in [failures]. Only for
+  /// SMOOTH: every other check uses [pass] / [fail].
+  void smooth(
+    String id,
+    SmoothOutcome outcome,
+    String title,
+    String detail, {
+    String? mode,
+  }) {
+    final text = SmoothVerdict.detail(outcome, detail, mode: mode);
+    switch (outcome) {
+      case SmoothOutcome.pass:
+        pass(id, title, text);
+      case SmoothOutcome.fail:
+        fail(id, title, text);
+      case SmoothOutcome.warn:
+        _add(CheckResult(id, title, CheckOutcome.warn, text));
+    }
+  }
 
   void _add(CheckResult result) {
     missed = null;
@@ -148,9 +176,10 @@ class CheckLog {
   }) async {
     final passed = results.where((r) => r.outcome == CheckOutcome.pass);
     final skipped = results.where((r) => r.outcome == CheckOutcome.skip);
+    final warned = results.where((r) => r.outcome == CheckOutcome.warn);
     say(
       'SUMMARY passed=${passed.length} failed=${failures.length} '
-      'skipped=${skipped.length}',
+      'skipped=${skipped.length} warned=${warned.length}',
     );
     say('SUMMARY-JSON ${jsonEncode([for (final r in results) r.toJson()])}');
     for (final MapEntry(:key, :value) in extra.entries) {

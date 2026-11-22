@@ -7,6 +7,7 @@ import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.da
 import 'package:movera_rider/features/home/presentation/home.dart';
 
 import 'check_log.dart';
+import 'type_text.dart';
 
 /// UI steps of the rider device run, on the real app, through its keys
 /// (G31 rider; the pattern of the driver suite's driver_steps.dart, merged
@@ -199,7 +200,7 @@ Future<String?> signIn(
     CheckLog.miss('"auth-phone-field" (its text field) not on Sign in');
     return 'sign-in screen has no phone field';
   }
-  await tester.enterText(field.first, phone);
+  await typeText(tester, field.first, phone);
   await tester.pump(const Duration(milliseconds: 400));
   if (!await tapHit(tester, byKey('auth-consent'), '"auth-consent"')) {
     return 'consent box not tappable';
@@ -228,7 +229,7 @@ Future<String?> signIn(
     CheckLog.miss('"auth-code" (its text field) not on the code screen');
     return 'code screen has no code field';
   }
-  await tester.enterText(pin.first, code);
+  await typeText(tester, pin.first, code);
   await tester.pump(const Duration(milliseconds: 600));
   // The last digit sends the code by itself; Verify is the fallback.
   final verify = byKey('auth-verify');

@@ -28,6 +28,7 @@ import 'tap_ready.dart';
 import 'transition_watch.dart';
 import 'trip_rules.dart';
 import 'trip_steps.dart';
+import 'type_text.dart';
 
 part 'trip_book.dart';
 part 'trip_cleanup.dart';

@@ -69,7 +69,7 @@ extension _TripBook on TripRun {
       CheckLog.miss('"route-picker-field-destination" not shown');
       return log.fail(id, title, 'Where to did not open');
     }
-    await tester.enterText(field.first, dropoffQuery);
+    await typeText(tester, field.first, dropoffQuery);
     // The first server suggestion row (`route-picker-row-<i>`; a row equal
     // to a recent place is not drawn, so it is not always row 0).
     final row = byKeyPrefix('route-picker-row-');

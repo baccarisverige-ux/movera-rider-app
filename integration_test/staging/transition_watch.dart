@@ -14,14 +14,18 @@ import 'check_log.dart';
 import 'recording_client.dart';
 import 'rider_session.dart';
 import 'rider_steps.dart';
+import 'smooth_verdict.dart';
 
 /// Owner 2026-11-12 ("can you check if screens change smoothly without any
 /// big reload or any problem?"), rider app on the phone (G31 rider): every
 /// screen change gets three checks, as in the driver suite:
 ///
-/// * `TRANSITION:<name>:SMOOTH`  engine FrameTiming while it runs: FAIL
-///   when one frame takes > [freezeMs] ms or, with at least
-///   [minFramesForRatio] frames, more than [missedLimit] miss 16.7 ms.
+/// * `TRANSITION:<name>:SMOOTH`  engine FrameTiming while it runs (the
+///   longer of a frame's build and raster time). Profile build: FAIL when
+///   one frame takes > 200 ms or > 35% of >= 60 frames miss 16.7 ms; WARN
+///   (not a FAIL) when > 20% miss. Debug build: WARN only. The rule and
+///   its numbers are in smooth_verdict.dart; p90 and the jank budget are
+///   logged, not judged.
 /// * `TRANSITION:<name>:RELOAD`  FAIL when a map a screen keeps is created
 ///   again: a new GoogleMap State for the same screen, or the app's map
 ///   provider (`AppScope.instance.maps`) counting a new map
@@ -36,16 +40,19 @@ import 'rider_steps.dart';
 ///   exception, or a crash report the app sent to its own sink
 ///   (`POST /api/v1/telemetry/crash…`).
 ///
-/// The phone runs a DEBUG build, so frame numbers are indicative.
+/// Build (workflow input `testlab_build`): on a PROFILE build (release
+/// speed) SMOOTH counts. On a DEBUG build the frame numbers are only
+/// indicative: a slow frame is a WARN line, not a FAIL (smooth_verdict.dart).
+/// RELOAD and ERRORS are strict in both.
 class TransitionWatch {
   TransitionWatch(this.tester, this.log, this.session);
 
-  static const int freezeMs = 200;
-  static const double missedLimit = 0.20;
-  static const int minFramesForRatio = 10;
+  // The frame rule lives in smooth_verdict.dart; these names are kept.
+  static const int freezeMs = SmoothVerdict.freezeMs;
+  static const double missedLimit = SmoothVerdict.warnMissed;
+  static const int minFramesForRatio = SmoothVerdict.debugMinFrames;
   static const Duration repeatWindow = Duration(seconds: 4);
   static const Duration settleWindow = Duration(seconds: 8);
-  static const Duration _budget = Duration(microseconds: 16667);
 
   final WidgetTester tester;
   final CheckLog log;
@@ -208,18 +215,20 @@ class TransitionWatch {
     required String owners,
   }) {
     double ms(Duration d) => d.inMicroseconds / 1000.0;
-    var missed = 0;
-    var worst = 0.0;
-    for (final f in frames) {
-      final build = f.buildDuration, raster = f.rasterDuration;
-      if (build > _budget || raster > _budget) missed++;
-      final w = ms(build) > ms(raster) ? ms(build) : ms(raster);
-      if (w > worst) worst = w;
-    }
-    final ratio = frames.isEmpty ? 0.0 : missed / frames.length;
-    final smooth =
-        worst <= freezeMs &&
-        (frames.length < minFramesForRatio || ratio <= missedLimit);
+    final stats = SmoothStats.of([
+      for (final f in frames)
+        ms(
+          f.buildDuration > f.rasterDuration
+              ? f.buildDuration
+              : f.rasterDuration,
+        ),
+    ]);
+    final missed = stats.missed;
+    final worst = stats.worstMs;
+    final ratio = stats.ratio;
+    // PASS / WARN / FAIL by build mode (smooth_verdict.dart has the rule).
+    final outcome = SmoothVerdict.judge(stats);
+    final smooth = outcome == SmoothOutcome.pass;
 
     final calls = rec.since(mark);
     final gets = calls
@@ -275,8 +284,9 @@ class TransitionWatch {
     final smoothDetail =
         'frames=${frames.length} missed=$missed '
         '(${(ratio * 100).toStringAsFixed(0)}%) worst=${worst.toStringAsFixed(1)} ms '
-        '[FAIL above $freezeMs ms or ${(missedLimit * 100).round()}% missed '
-        'with >= $minFramesForRatio frames; $buildMode]';
+        'p90=${stats.p90Ms.toStringAsFixed(1)} ms '
+        'jank=${stats.jankMs.toStringAsFixed(1)} ms '
+        '[${SmoothVerdict.rule}; $buildMode]';
     final reloadDetail =
         'GET reads=${gets.length} $perPath repeated<4s=${repeated.toList()}; '
         'maps before=${_ids(before)} after=${_ids(after)} map owner $owners '
@@ -296,7 +306,14 @@ class TransitionWatch {
       ok ? log.pass(id, title, detail) : log.fail(id, title, detail);
     }
 
-    check('SMOOTH', smooth, 'screen change has no freeze', smoothDetail);
+    // Frames count on a profile build; on a debug build a slow frame is
+    // a WARN, not a FAIL (owner 2026-11-22, [SmoothVerdict]).
+    log.smooth(
+      'TRANSITION:$name:SMOOTH',
+      outcome,
+      'screen change has no freeze',
+      smoothDetail,
+    );
     check('RELOAD', reloadOk, 'screen change does not reload', reloadDetail);
     check('ERRORS', errorsOk, 'screen change has no error', errorDetail);
     rows.add(<String, Object?>{
@@ -304,6 +321,8 @@ class TransitionWatch {
       'frames': frames.length,
       'missed': missed,
       'worstMs': double.parse(worst.toStringAsFixed(1)),
+      'p90Ms': double.parse(stats.p90Ms.toStringAsFixed(1)),
+      'jankMs': double.parse(stats.jankMs.toStringAsFixed(1)),
       'gets': gets.length,
       'repeatedReads': repeated.toList(),
       'recreatedMaps': recreated,
@@ -312,6 +331,7 @@ class TransitionWatch {
       'failedCalls': failed,
       'exceptions': [...exceptions, ...crashReports],
       'smooth': smooth,
+      'smoothOutcome': outcome.name,
       'reload': !reloadOk,
       'errors': !errorsOk,
       'build': buildMode,
