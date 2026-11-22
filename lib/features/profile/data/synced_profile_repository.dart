@@ -9,6 +9,7 @@ import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
 import 'package:movera_rider/features/profile/domain/rider_profile_repository.dart';
+import 'package:movera_rider/features/fee_payment/domain/fees_payable_by_card.dart';
 import 'package:movera_rider/features/profile/domain/rider_outstanding.dart';
 
 /// The profile the server knows (FLOW-7). The device copy stays as a cache
@@ -127,6 +128,7 @@ class SyncedProfileRepository
   @override
   void clearLocal() {
     RiderOutstanding.reset();
+    FeesPayableByCard.reset();
     _cache.clearLocal();
     _syncPending = false;
     _serverKnown = false;
@@ -255,6 +257,8 @@ class SyncedProfileRepository
     if (server is Map) {
       // v0.18.7 (Q3): what the rider owes, per currency.
       RiderOutstanding.current.value = RiderOutstanding.fromRider(server);
+      // v0.18.136 stripeFees.profile: the owed fees payable by card now.
+      FeesPayableByCard.current.value = FeesPayableByCard.fromRider(server);
       // v0.18.43 §64 (fix job 10): the rider's level (warning / paused /
       // banned) from Rider.moderation.
       RiderModeration.current.value = RiderModeration.fromRider(server);

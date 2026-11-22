@@ -94,18 +94,19 @@ void main() {
     // + errSmsNotSent, errSmsDailyLimit; textFourDigitCode 4 -> 6 (owner
     // 2026-11-20 "Yes, 4 → 6 only (Rec.)").
     // Account deletion E1 (contract v0.18.134): + deleteOpenTrip, accountClosed (account area).
+    // v0.18.136 (Stripe rider fee): + 5 fee* card-payment texts.
     const before = {
       'en': (
-        'ec2540519546ec1db7ee924927ed3f3ba7814da0557547572d21ac5218904dd0',
-        2225,
+        'e29951cbfed44cbda594f10de792aa822f21c86d6b46d49374df0f2fc1454fb9',
+        2235,
       ),
       'fr': (
-        'fb6c19754ce94c5269c98df591f413be17cc4566f99d747731126f530c62cfd1',
-        1766,
+        'bccdf84158afe30472394b8d2d89ada80ba3c83794a2dd975221d46d86c3eca1',
+        1771,
       ),
       'sv': (
-        'd1af55eda75820493755fc2dff1fc39c1e424c380d77d4379b453ed2d0c2fe3e',
-        1766,
+        '674bef5858af191b4dfdc29bf0ebe4e2b6415ab966c78285882f6b5c6aa6155d',
+        1771,
       ),
     };
     for (final lang in _langs) {
