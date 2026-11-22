@@ -101,18 +101,20 @@ void main() {
     // (live_location area).
     // v0.18.148 (sosPressTime): + sosNotSent (safety area, owner to confirm).
     // Admin sign-out (contract v0.18.149): + signedOutByMovera (account area).
+    // P16c (contract v0.18.154 appUpdate.texts): + minVersionTitle,
+    // minVersionBody, minVersionUpdate (app_update area).
     const before = {
       'en': (
-        'fbfc8380b539cb60f3b4d5b7df5e915f9a490227ea7ca22eb022de61416a4bfc',
-        2255,
+        'd073587dfe74faefad3361ef00995f14db087e34abe4d6b390f2637d10959da8',
+        2258,
       ),
       'fr': (
-        '73a8827a3e45a99cc2ba8f135dc3c76094ea19a6249c4bc4edd3b6a86d2375c4',
-        1782,
+        '1fbd0a980232997cf541041ff38b5fa1bdc1405d47e21cb309a3038a404c0b39',
+        1785,
       ),
       'sv': (
-        'c6ca029daa0dcc196e979b1249af1c6ec802616b81e670445aa758d1812a79b5',
-        1782,
+        '59fba777083cff06c6d7e48bfd9c6c21a646f43d10abf5f2ca9a5bd8e2bb46d8',
+        1785,
       ),
     };
     for (final lang in _langs) {

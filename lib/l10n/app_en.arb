@@ -281,6 +281,9 @@
   "appTitle": "Movera",
   "previewBanner": "Preview",
   "previewNotSent": "Preview – not sent",
+  "minVersionTitle": "Update Movera to continue",
+  "minVersionBody": "This version of the app is too old. Install the latest version from the store to keep using Movera.",
+  "minVersionUpdate": "Update",
   "dontMatchDriverAgain": "Don't match me with this driver again",
   "@dontMatchDriverAgain": {
     "description": "v0.18.43 §64 (fix job 10): tick on the rating at a low rating. The driver is never told."

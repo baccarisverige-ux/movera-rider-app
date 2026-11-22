@@ -3,6 +3,7 @@ import 'package:movera_rider/features/favourites/favourite_drivers.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/app_update/ride_live_signal.dart';
 import 'package:movera_rider/features/ride_complete/domain/tip_refused.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -96,7 +97,8 @@ int _completionRank(RideStatus status) {
   }
 }
 
-class _RideCompletedState extends State<RideCompleted> {
+class _RideCompletedState extends State<RideCompleted>
+    with RideScreenLive<RideCompleted> {
   late final RideCompleteController _controller =
       widget.controller ?? AppScope.instance.rideComplete;
   StreamSubscription<RideRealtimeEvent>? _completionSub;

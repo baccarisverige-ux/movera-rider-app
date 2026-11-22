@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/app_update/ride_live_signal.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:flutter/scheduler.dart';
@@ -156,7 +157,8 @@ enum _Rebook {
   declined,
 }
 
-class _FindingDriversState extends State<FindingDrivers> {
+class _FindingDriversState extends State<FindingDrivers>
+    with RideScreenLive<FindingDrivers> {
   /// The trip's currency: the one the search holds once it started (a
   /// restored or re-requested trip keeps its own), else the widget's.
   String get _currency => _match.ownershipSnapshot?.currency ?? widget.currency;

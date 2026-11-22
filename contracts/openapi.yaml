@@ -1,11 +1,11 @@
-# Movera API v0.18.149 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.154 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.149
+  version: 0.18.154
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.149 in this folder; this file must agree with them.
+    v0.18.154 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.149
+  version: 0.18.154
   source: contract.json
 paths:
   /auth/otp/request:
@@ -303,42 +303,39 @@ paths:
         /admin/auth/refresh). Apps send one refresh at a time and retry a lost one at once; no app change is needed. v0.18.5
         (owner G1-D3 "Show a message (Recommended)"): when POST /auth/refresh answers 401 the app signs out and its sign-in
         screen shows why, in sv / fr / en. The 401 reason says which. Reasons: session_expired = expired, session_ended =
-        revoked, refresh_token_reused = revoked, refresh_token_unknown = revoked, signed_in_elsewhere = revoked, signed_out_by_movera
-        = revoked. v0.18.14: Codes stay 4 digits (owner). otp_locked_today per number + address; admin unlock; countryLimits
-        (wrongCodesPerDay, codesPerAddressPerHour, codesPerPhonePerHour, uploadsPerHour). One phone at a time for drivers:
-        a new driver sign-in ends his other sessions — their calls and POST /auth/refresh answer 401 reason signed_in_elsewhere
-        (auth.signedOut.reasons); the old phone is set offline (the driver goes online again from the new phone) and a notice
-        kind signed_in_elsewhere is sent. Riders keep several phones. v0.18.119 (S7 W2 Q118): otp_locked_today also per number
-        over all addresses at 4 × wrongCodesPerDay wrong codes in 24 h (up to 24 h, admin unlock; auth.otp.note). POST /auth/refresh
-        and /admin/auth/refresh are write-limited per refresh session + address (contract.json#rateLimit.key). v0.18.49 §71
-        (owner Q6, Rules plan/finders-2026-11-07/D.md D9 + D8): a refresh token already used, whose replacement was never
-        used, sent again more than refreshRetryWindowSeconds after its last use, is a lost answer (a dead zone, a tunnel,
-        a lift), not theft: answered once with a fresh pair; the never-used replacement is dropped. A second late use of the
-        same old token ends the session (refresh_token_reused). A replacement that WAS used means two holders of the session:
-        the session ends at once, as before. Each old refresh token is accepted at most once outside the 60 s window (the
-        server keeps the time it accepted it: refresh_tokens.late_retry_at). Inside the 60 s window after that answer, retries
-        still work. v0.18.119 (contract.json#rateLimit.key): v0.18.119 (S7 W2 Q117 + Q118; owner 2026-11-15 "Yes, per user
-        (Rec.)" and "Yes, phone + address (Rec.)", 2026-11-16 OQ-1 "Lock at 60 for 24 h (Rec.)" and OQ-2 "Keep fixed in server
-        (Rec.)", Rules decisions/session-2026-11-06.md, audits/impact/s7-q117-q118.md): a valid access token: its actor and
-        user (sub), so many accounts behind one address never share a budget. An access token that ran out but carries the
-        server''s signature, at most the refresh lifetime (auth.tokens.refreshExpiresDays) ago: still its user, on a key of
-        its own apart from the live one, at the user budget; the answer is still 401 (the app refreshes), not 429 from a shared
-        address budget, and it gets no safety-write pass (safetyWrites needs a valid token). A forged token, a changed sub
-        or an older token: the client address. v0.18.132 (follow-up SF-1 + SF-2, Rules audits/impact/s7-q117-followup.md):
-        POST /auth/otp/request and /auth/otp/verify: the phone in the body + the client address; POST /auth/refresh and /admin/auth/refresh:
-        the refresh token''s session + the client address (an unknown token, a body without a valid phone or a failed look-up:
-        the client address); each at the address budget, whether or not an access token is sent (a valid or expired token
-        is not read on these four calls). A call on these four whose body cannot be read (not valid JSON, too large, wrong
-        media type) counts against the client address at the address budget: over it, 429 rate_limited instead of the 400.
-        On these four calls the phone alone and the address alone are only ceilings of 10 × the address budget (a fixed server
-        factor, not an admin setting); the address ceiling is counted before the body is read, and a call refused on its phone
-        + address key adds nothing to the phone''s ceiling, so one address alone never fills a number''s ceiling. So one address
-        may cause up to 10 × the address budget refresh look-ups a minute (one indexed read each). The two code calls are
-        counted in production only (signInOutsideProduction). Every other call without a valid token: the client address (the
-        address the trusted proxy saw, TRUST_PROXY_HOPS). The wrong-code locks are not this limit: auth.otp.note. v0.18.149
-        (contract.json#adminSessions): reason signed_out_by_movera: an admin signed this phone out (Rider and driver apps:
-        on a 401 with this reason (a call, then the refresh) the app signs out and the sign-in screen shows auth.signedOut.texts.revoked
-        with byMoveraTexts as the detail line, once; no message after the person''s own Sign out.)'
+        revoked, refresh_token_reused = revoked, refresh_token_unknown = revoked, signed_in_elsewhere = revoked. v0.18.14:
+        Codes stay 4 digits (owner). otp_locked_today per number + address; admin unlock; countryLimits (wrongCodesPerDay,
+        codesPerAddressPerHour, codesPerPhonePerHour, uploadsPerHour). One phone at a time for drivers: a new driver sign-in
+        ends his other sessions — their calls and POST /auth/refresh answer 401 reason signed_in_elsewhere (auth.signedOut.reasons);
+        the old phone is set offline (the driver goes online again from the new phone) and a notice kind signed_in_elsewhere
+        is sent. Riders keep several phones. v0.18.119 (S7 W2 Q118): otp_locked_today also per number over all addresses at
+        4 × wrongCodesPerDay wrong codes in 24 h (up to 24 h, admin unlock; auth.otp.note). POST /auth/refresh and /admin/auth/refresh
+        are write-limited per refresh session + address (contract.json#rateLimit.key). v0.18.49 §71 (owner Q6, Rules plan/finders-2026-11-07/D.md
+        D9 + D8): a refresh token already used, whose replacement was never used, sent again more than refreshRetryWindowSeconds
+        after its last use, is a lost answer (a dead zone, a tunnel, a lift), not theft: answered once with a fresh pair;
+        the never-used replacement is dropped. A second late use of the same old token ends the session (refresh_token_reused).
+        A replacement that WAS used means two holders of the session: the session ends at once, as before. Each old refresh
+        token is accepted at most once outside the 60 s window (the server keeps the time it accepted it: refresh_tokens.late_retry_at).
+        Inside the 60 s window after that answer, retries still work. v0.18.119 (contract.json#rateLimit.key): v0.18.119 (S7
+        W2 Q117 + Q118; owner 2026-11-15 "Yes, per user (Rec.)" and "Yes, phone + address (Rec.)", 2026-11-16 OQ-1 "Lock at
+        60 for 24 h (Rec.)" and OQ-2 "Keep fixed in server (Rec.)", Rules decisions/session-2026-11-06.md, audits/impact/s7-q117-q118.md):
+        a valid access token: its actor and user (sub), so many accounts behind one address never share a budget. An access
+        token that ran out but carries the server''s signature, at most the refresh lifetime (auth.tokens.refreshExpiresDays)
+        ago: still its user, on a key of its own apart from the live one, at the user budget; the answer is still 401 (the
+        app refreshes), not 429 from a shared address budget, and it gets no safety-write pass (safetyWrites needs a valid
+        token). A forged token, a changed sub or an older token: the client address. v0.18.132 (follow-up SF-1 + SF-2, Rules
+        audits/impact/s7-q117-followup.md): POST /auth/otp/request and /auth/otp/verify: the phone in the body + the client
+        address; POST /auth/refresh and /admin/auth/refresh: the refresh token''s session + the client address (an unknown
+        token, a body without a valid phone or a failed look-up: the client address); each at the address budget, whether
+        or not an access token is sent (a valid or expired token is not read on these four calls). A call on these four whose
+        body cannot be read (not valid JSON, too large, wrong media type) counts against the client address at the address
+        budget: over it, 429 rate_limited instead of the 400. On these four calls the phone alone and the address alone are
+        only ceilings of 10 × the address budget (a fixed server factor, not an admin setting); the address ceiling is counted
+        before the body is read, and a call refused on its phone + address key adds nothing to the phone''s ceiling, so one
+        address alone never fills a number''s ceiling. So one address may cause up to 10 × the address budget refresh look-ups
+        a minute (one indexed read each). The two code calls are counted in production only (signInOutsideProduction). Every
+        other call without a valid token: the client address (the address the trusted proxy saw, TRUST_PROXY_HOPS). The wrong-code
+        locks are not this limit: auth.otp.note.'
       tags:
       - Auth
       x-actor:
@@ -695,6 +692,8 @@ paths:
       - $ref: '#/components/parameters/IdempotencyKey'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/AppVersionHeader'
+      - $ref: '#/components/parameters/AppPlatformHeader'
       requestBody:
         required: true
         content:
@@ -740,6 +739,8 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '426':
+          $ref: '#/components/responses/UpgradeRequired'
       description: 'v0.18.44 §67: POST /quotes and POST /trips refuse a drop-off closer than minTripMeters to the pickup:
         400 invalid_request, reason dropoff_too_close, details [''meters=<n>'', ''limitMeters=<m>'']. /trips re-checks with
         the zone''s live value (the admin may have raised it since the quote). The older samePointWarnMeters warning (v0.18.30)
@@ -758,7 +759,17 @@ paths:
         invalid_request, reason trip_too_long (live rides are not limited by it). Q4 ''Charge at booking'': a scheduled trip
         paid by card or apple_pay is charged the full price when it is booked (Trip.paymentStatus captured at POST /trips);
         a free cancel refunds it. Card payments are still ''coming soon'' on live (POST /trips answers payment_method_coming_soon),
-        so nothing is charged until the payment company is connected; the rule is in place for then.'
+        so nothing is charged until the payment company is connected; the rule is in place for then. v0.18.154 (contract.json#appUpdate):
+        When both headers are present and valid and the version is below the minimum of that platform in the zone''s live
+        document, these calls answer 426 code upgrade_required, reason app_update_required, details ["platform:<android|ios>",
+        "minVersion:<x.y.z>"], nothing changed: POST /trips (book; rider_app_config of the quote''s zone); POST /driver/availability
+        with onlineStatus online while the driver is not on a trip and holds no booked ride (driver_app_config of his zones
+        and last position zone, the highest minimum); POST /offers/{offerId}/accept while the driver has no current trip (driver_app_config
+        of the trip''s zone). Never refused for the version: every call about a trip that is already running (trip commands,
+        messages, calls, route change, cancel, rate, tip, its stream), an accept while the driver is on a trip (a next or
+        booked ride), go-online while the driver holds a booked ride (an accepted reservation not started yet: the booked
+        rider depends on him and starting it needs him online), go offline, SOS and safety calls, sign-in / refresh / sign-out,
+        account deletion, config, content, legal and every read.'
   /trips/{tripId}:
     get:
       operationId: getTrip
@@ -2624,7 +2635,16 @@ paths:
         unchanged, as before. From the tap: no new offers of any kind, the on-trip Exclusives after minRouteDonePct (contract.json#afterTestRules,
         live and booked) included. His open offers are withdrawn at once (the withdraw_driver_offers job, as when going offline).
         An accept that still reaches the server is refused 409 conflict reason going_offline. Admin sends skip him (he is
-        on a trip).'
+        on a trip). v0.18.154 (contract.json#appUpdate): When both headers are present and valid and the version is below
+        the minimum of that platform in the zone''s live document, these calls answer 426 code upgrade_required, reason app_update_required,
+        details ["platform:<android|ios>", "minVersion:<x.y.z>"], nothing changed: POST /trips (book; rider_app_config of
+        the quote''s zone); POST /driver/availability with onlineStatus online while the driver is not on a trip and holds
+        no booked ride (driver_app_config of his zones and last position zone, the highest minimum); POST /offers/{offerId}/accept
+        while the driver has no current trip (driver_app_config of the trip''s zone). Never refused for the version: every
+        call about a trip that is already running (trip commands, messages, calls, route change, cancel, rate, tip, its stream),
+        an accept while the driver is on a trip (a next or booked ride), go-online while the driver holds a booked ride (an
+        accepted reservation not started yet: the booked rider depends on him and starting it needs him online), go offline,
+        SOS and safety calls, sign-in / refresh / sign-out, account deletion, config, content, legal and every read.'
       tags:
       - Driver · Session
       x-actor:
@@ -2633,6 +2653,8 @@ paths:
       - $ref: '#/components/parameters/IdempotencyKey'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/AppVersionHeader'
+      - $ref: '#/components/parameters/AppPlatformHeader'
       requestBody:
         required: true
         content:
@@ -2665,6 +2687,8 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '426':
+          $ref: '#/components/responses/UpgradeRequired'
   /driver/location:
     post:
       operationId: postDriverLocation
@@ -2878,7 +2902,17 @@ paths:
       operationId: acceptOffer
       summary: Accept / claim an offer (incl. reservation claim)
       description: 'expectedVersion is the OFFER version. Another driver won → 409 conflict with projection = Offer(status=claimed_elsewhere).
-        Scheduled trip claim: requested → accepted.'
+        Scheduled trip claim: requested → accepted. v0.18.154 (contract.json#appUpdate): When both headers are present and
+        valid and the version is below the minimum of that platform in the zone''s live document, these calls answer 426 code
+        upgrade_required, reason app_update_required, details ["platform:<android|ios>", "minVersion:<x.y.z>"], nothing changed:
+        POST /trips (book; rider_app_config of the quote''s zone); POST /driver/availability with onlineStatus online while
+        the driver is not on a trip and holds no booked ride (driver_app_config of his zones and last position zone, the highest
+        minimum); POST /offers/{offerId}/accept while the driver has no current trip (driver_app_config of the trip''s zone).
+        Never refused for the version: every call about a trip that is already running (trip commands, messages, calls, route
+        change, cancel, rate, tip, its stream), an accept while the driver is on a trip (a next or booked ride), go-online
+        while the driver holds a booked ride (an accepted reservation not started yet: the booked rider depends on him and
+        starting it needs him online), go offline, SOS and safety calls, sign-in / refresh / sign-out, account deletion, config,
+        content, legal and every read.'
       tags:
       - Driver · Offers
       x-actor:
@@ -2889,6 +2923,8 @@ paths:
       - $ref: '#/components/parameters/IdempotencyKey'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
+      - $ref: '#/components/parameters/AppVersionHeader'
+      - $ref: '#/components/parameters/AppPlatformHeader'
       requestBody:
         required: true
         content:
@@ -2921,6 +2957,8 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '426':
+          $ref: '#/components/responses/UpgradeRequired'
   /offers/{offerId}/decline:
     post:
       operationId: declineOffer
@@ -9419,7 +9457,11 @@ paths:
         so the one-live-connection switch never falls back to off by a save from another screen. offers.autoOffline is not
         listed: every admin save of the driver document starts from the server document and writes offers whole from the Dispatch
         page that owns it. Publish and Restore are unchanged (Restore names a removed kept key in removeKeys, as for the other
-        documents).'
+        documents). v0.18.154 (configDocs.keptKeys; rider_app_config and driver_app_config: appUpdate.minVersion, appUpdate.storeUrls):
+        v0.18.154 (P16c minimum app version; owner 2026-11-21 20:30 "Yes, build it now (Recommended)", Rules plan/NUMBERS.md
+        P16c; Rule 0; X-Api-Version stays 0.5; additive; no migration; follows v0.18.132; 0.18.133–0.18.153 reserved for other
+        drafts): both app documents keep appUpdate.minVersion and appUpdate.storeUrls (contract.json#appUpdate.keptKeys) when
+        a save leaves them out, so a save from another screen never turns the minimum off.'
       tags:
       - Admin · Config
       x-actor:
@@ -19592,214 +19634,6 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
-  /admin/riders/{riderId}/sessions:
-    get:
-      operationId: adminListRiderSessions
-      summary: A rider's signed-in sessions
-      description: 'v0.18.149 (contract.json#adminSessions): v0.18.149 (owner decisions/driver-g12.md Q6 "Real, riders + drivers
-        (Recommended)"): an admin sees the signed-in sessions (phones) of one rider or driver and signs one or all of them
-        out with a reason. The person''s next call and next POST /auth/refresh answer 401 unauthenticated, reason signed_out_by_movera;
-        the app signs out and its sign-in screen shows auth.signedOut.byMoveraTexts once. Riders and drivers, SE / FR / TN
-        alike. Zone-scoped like the other admin people routes: a driver outside every zone of the admin, or a rider who never
-        rode in the admin''s zones, is 403 forbidden, reason zone_out_of_scope (all-zones admins see everyone). Unknown person:
-        404 rider_not_found / driver_not_found. A short label from the sign-in''s user agent: iPhone, iPad, Android phone,
-        Web browser, or null when the app sent nothing useful. platform ios | android | web | unknown (the push registration''s
-        platform wins). appVersion from the push registration, else null. lastSeenAt = the last token refresh, else the sign-in.
-        Never the IP address, the raw user agent or any place: no city, country or position is kept per session, so none is
-        shown.'
-      tags:
-      - Admin · People
-      x-actor:
-      - admin
-      x-permission: riders.read
-      parameters:
-      - $ref: '#/components/parameters/RiderId'
-      - $ref: '#/components/parameters/RequestId'
-      - $ref: '#/components/parameters/ApiVersion'
-      responses:
-        '200':
-          description: OK
-          headers:
-            X-Request-Id:
-              description: Echo of the request id (server-generated if absent).
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AdminSessionList'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '503':
-          $ref: '#/components/responses/Unavailable'
-  /admin/riders/{riderId}/sessions/sign-out:
-    post:
-      operationId: adminSignOutRiderSessions
-      summary: Sign a rider out of one or all sessions (reason, audited)
-      description: 'v0.18.149 (contract.json#adminSessions): Zone-scoped like the other admin people routes: a driver outside
-        every zone of the admin, or a rider who never rode in the admin''s zones, is 403 forbidden, reason zone_out_of_scope
-        (all-zones admins see everyone). Unknown person: 404 rider_not_found / driver_not_found. The sessions end (auth_sessions.revoked_reason
-        signed_out_by_movera), their refresh tokens expire and their push devices are forgotten. Every server copy refuses
-        them at once (the revoke NOTIFY of the session check cache). A free online driver left with no session is set offline
-        and his offers are withdrawn. A driver with a current trip (auth.signOutOnTrip) is refused: 409 conflict, reason sign_out_on_trip;
-        nothing changes. He is signed out only after the trip ends (the admin tries again then). sessionId that is not an
-        active session of this person: 404 not_found, reason session_not_found. all: true with no active session: 200 { signedOut:
-        0 }. Idempotency-Key required; the same key replays the first answer and writes no second audit row. rider.sessions_sign_out
-        / driver.sessions_sign_out, target the person, detail { reason, all, sessionIds }.'
-      tags:
-      - Admin · People
-      x-actor:
-      - admin
-      x-permission: riders.block
-      parameters:
-      - $ref: '#/components/parameters/RiderId'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      - $ref: '#/components/parameters/RequestId'
-      - $ref: '#/components/parameters/ApiVersion'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AdminSessionSignOutCommand'
-      responses:
-        '200':
-          description: OK
-          headers:
-            X-Request-Id:
-              description: Echo of the request id (server-generated if absent).
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AdminSessionSignOutResult'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '503':
-          $ref: '#/components/responses/Unavailable'
-  /admin/drivers/{driverId}/sessions:
-    get:
-      operationId: adminListDriverSessions
-      summary: A driver's signed-in sessions
-      description: 'v0.18.149 (contract.json#adminSessions): v0.18.149 (owner decisions/driver-g12.md Q6 "Real, riders + drivers
-        (Recommended)"): an admin sees the signed-in sessions (phones) of one rider or driver and signs one or all of them
-        out with a reason. The person''s next call and next POST /auth/refresh answer 401 unauthenticated, reason signed_out_by_movera;
-        the app signs out and its sign-in screen shows auth.signedOut.byMoveraTexts once. Riders and drivers, SE / FR / TN
-        alike. Zone-scoped like the other admin people routes: a driver outside every zone of the admin, or a rider who never
-        rode in the admin''s zones, is 403 forbidden, reason zone_out_of_scope (all-zones admins see everyone). Unknown person:
-        404 rider_not_found / driver_not_found. A short label from the sign-in''s user agent: iPhone, iPad, Android phone,
-        Web browser, or null when the app sent nothing useful. platform ios | android | web | unknown (the push registration''s
-        platform wins). appVersion from the push registration, else null. lastSeenAt = the last token refresh, else the sign-in.
-        Never the IP address, the raw user agent or any place: no city, country or position is kept per session, so none is
-        shown.'
-      tags:
-      - Admin · People
-      x-actor:
-      - admin
-      x-permission: drivers.read
-      parameters:
-      - $ref: '#/components/parameters/DriverId'
-      - $ref: '#/components/parameters/RequestId'
-      - $ref: '#/components/parameters/ApiVersion'
-      responses:
-        '200':
-          description: OK
-          headers:
-            X-Request-Id:
-              description: Echo of the request id (server-generated if absent).
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AdminSessionList'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '503':
-          $ref: '#/components/responses/Unavailable'
-  /admin/drivers/{driverId}/sessions/sign-out:
-    post:
-      operationId: adminSignOutDriverSessions
-      summary: Sign a driver out of one or all sessions (reason, audited)
-      description: 'v0.18.149 (contract.json#adminSessions): Zone-scoped like the other admin people routes: a driver outside
-        every zone of the admin, or a rider who never rode in the admin''s zones, is 403 forbidden, reason zone_out_of_scope
-        (all-zones admins see everyone). Unknown person: 404 rider_not_found / driver_not_found. The sessions end (auth_sessions.revoked_reason
-        signed_out_by_movera), their refresh tokens expire and their push devices are forgotten. Every server copy refuses
-        them at once (the revoke NOTIFY of the session check cache). A free online driver left with no session is set offline
-        and his offers are withdrawn. A driver with a current trip (auth.signOutOnTrip) is refused: 409 conflict, reason sign_out_on_trip;
-        nothing changes. He is signed out only after the trip ends (the admin tries again then). sessionId that is not an
-        active session of this person: 404 not_found, reason session_not_found. all: true with no active session: 200 { signedOut:
-        0 }. Idempotency-Key required; the same key replays the first answer and writes no second audit row. rider.sessions_sign_out
-        / driver.sessions_sign_out, target the person, detail { reason, all, sessionIds }.'
-      tags:
-      - Admin · People
-      x-actor:
-      - admin
-      x-permission: drivers.activate
-      parameters:
-      - $ref: '#/components/parameters/DriverId'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      - $ref: '#/components/parameters/RequestId'
-      - $ref: '#/components/parameters/ApiVersion'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AdminSessionSignOutCommand'
-      responses:
-        '200':
-          description: OK
-          headers:
-            X-Request-Id:
-              description: Echo of the request id (server-generated if absent).
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AdminSessionSignOutResult'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '503':
-          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -20162,6 +19996,30 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/Id'
+    AppVersionHeader:
+      name: X-App-Version
+      in: header
+      required: false
+      description: 'v0.18.154 (contract.json#appUpdate): The Android and iOS builds of both apps send X-App-Version (their
+        own build version x.y.z, no build number) and X-App-Platform (android | ios) on every API call. The web builds and
+        builds with no version (local "dev") send neither. A call with no X-App-Version or X-App-Platform, or with a value
+        that is not valid (an older app, a web build, a local build), is served as before: no check. Known limit: the server
+        cannot force those apps; their full screen still comes from the config.'
+      schema:
+        type: string
+        pattern: ^(0|[1-9]\d{0,4})\.(0|[1-9]\d{0,4})\.(0|[1-9]\d{0,4})$
+    AppPlatformHeader:
+      name: X-App-Platform
+      in: header
+      required: false
+      description: 'v0.18.154 (contract.json#appUpdate): The Android and iOS builds of both apps send X-App-Version (their
+        own build version x.y.z, no build number) and X-App-Platform (android | ios) on every API call. The web builds and
+        builds with no version (local "dev") send neither.'
+      schema:
+        type: string
+        enum:
+        - android
+        - ios
   responses:
     BadRequest:
       description: 'invalid_request: malformed body, unknown enum, wrong reasonCode group, bad PIN.'
@@ -20259,6 +20117,23 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/PendingApproval'
+    UpgradeRequired:
+      description: 'upgrade_required (HTTP 426), reason app_update_required: this app version is below the zone''s minimum.
+        When both headers are present and valid and the version is below the minimum of that platform in the zone''s live
+        document, these calls answer 426 code upgrade_required, reason app_update_required, details ["platform:<android|ios>",
+        "minVersion:<x.y.z>"], nothing changed: POST /trips (book; rider_app_config of the quote''s zone); POST /driver/availability
+        with onlineStatus online while the driver is not on a trip and holds no booked ride (driver_app_config of his zones
+        and last position zone, the highest minimum); POST /offers/{offerId}/accept while the driver has no current trip (driver_app_config
+        of the trip''s zone).'
+      headers:
+        X-Request-Id:
+          description: Echo of the request id (server-generated if absent).
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
   schemas:
     Id:
       type: string
@@ -20765,6 +20640,7 @@ components:
       - rate_limited
       - unavailable
       - internal
+      - upgrade_required
     RealtimeKind:
       type: string
       enum:
@@ -25460,7 +25336,22 @@ components:
                   the rider app shows it.'
     AppUpdate:
       type: object
-      description: Below minimumVersion = forced update; below latestVersion = soft update.
+      description: 'Below minimumVersion = forced update; below latestVersion = soft update. v0.18.154 (contract.json#appUpdate):
+        v0.18.154 (P16c minimum app version; owner 2026-11-21 20:30 "Yes, build it now (Recommended)", Rules plan/NUMBERS.md
+        P16c; Rule 0; X-Api-Version stays 0.5; additive; no migration; follows v0.18.132; 0.18.133–0.18.153 reserved for other
+        drafts): the admin sets a minimum app version per app (rider_app_config, driver_app_config), per platform (android,
+        ios) and per zone or country Standard. Default off (null). A phone below it sees one full screen "Update Movera to
+        continue" with a button to its store; the server refuses booking, go-online and offer accept from it with 426. A driver
+        or rider on a trip is never blocked mid-trip. Why: the first store version must already carry the check, else old
+        phones can never be made to update. At start and on every config_published, each app compares its own build version
+        with appUpdate.minVersion of its platform in the zone''s document. Below: one full screen "Update Movera to continue"
+        over every screen with an Update button that opens storeUrls.<platform> (else the built-in store link) and the SOS
+        / emergency button; it goes away only when a newer document says the version is OK. A 426 app_update_required answer
+        shows it too until the next config. Driver: never while a trip is active (accepted, to pickup, arrived, on trip) or
+        a held next ride runs; only a small line, the block when the trip ends. A driver who holds a booked ride not started
+        yet (or whose booked rides are not known yet) never gets the full screen, only the small line, as the server never
+        refuses his go-online. Rider: never while a ride is live; the block at Home when it ends. Web builds and "dev" builds
+        are never blocked. The content slot app-versions (§19) keeps working as before; either one below its minimum blocks.'
       properties:
         minimumVersion:
           type: string
@@ -25471,6 +25362,55 @@ components:
         storeUrl:
           type: string
           format: uri
+        minVersion:
+          type: object
+          description: 'v0.18.154 (contract.json#appUpdate): RiderAppConfig.appUpdate and DriverAppConfig.appUpdate (the existing
+            AppUpdate object) get two optional keys: minVersion { android: "x.y.z" | null, ios: "x.y.z" | null } (null or
+            missing = no minimum on that platform) and storeUrls { android: https URL | null, ios: https URL | null } (null
+            or missing = the app''s own built-in store link). The older keys minimumVersion, latestVersion and storeUrl keep
+            their old meaning and never block; storeUrl stays a string (Rule 21), so the per-platform links are storeUrls.
+            Per zone, as every key of the app documents: the zone''s own live document, else its country Standard (configDocs.standard,
+            the same whole-document rule as the other keys). A zone with its own document does not read the Standard''s minimum;
+            set it on the zone too (the admin card shows which one applies). PUT /admin/config/rider_app_config and /driver_app_config
+            (and their publish): appUpdate not an object, minVersion or storeUrls not an object, a platform key other than
+            android / ios, a minVersion that is not null or a semver x.y.z (whole numbers 0-99999, no leading zeros, no suffix),
+            or a store link that is not null or an https URL of at most 500 characters is 400 invalid_request, reason invalid_document.
+            Nothing is saved.'
+          properties:
+            android:
+              oneOf:
+              - type: string
+                pattern: ^(0|[1-9]\d{0,4})\.(0|[1-9]\d{0,4})\.(0|[1-9]\d{0,4})$
+              - type: 'null'
+            ios:
+              oneOf:
+              - type: string
+                pattern: ^(0|[1-9]\d{0,4})\.(0|[1-9]\d{0,4})\.(0|[1-9]\d{0,4})$
+              - type: 'null'
+          additionalProperties: false
+        storeUrls:
+          type: object
+          description: 'v0.18.154 (contract.json#appUpdate): RiderAppConfig.appUpdate and DriverAppConfig.appUpdate (the existing
+            AppUpdate object) get two optional keys: minVersion { android: "x.y.z" | null, ios: "x.y.z" | null } (null or
+            missing = no minimum on that platform) and storeUrls { android: https URL | null, ios: https URL | null } (null
+            or missing = the app''s own built-in store link). The older keys minimumVersion, latestVersion and storeUrl keep
+            their old meaning and never block; storeUrl stays a string (Rule 21), so the per-platform links are storeUrls.'
+          properties:
+            android:
+              oneOf:
+              - type: string
+                format: uri
+                pattern: ^https://
+                maxLength: 500
+              - type: 'null'
+            ios:
+              oneOf:
+              - type: string
+                format: uri
+                pattern: ^https://
+                maxLength: 500
+              - type: 'null'
+          additionalProperties: false
     RideCheck:
       type: object
       description: 'Ride check settings (Safety). v0.18.9: DriverAppConfig.rideCheck (Admin › Safety › Ride check, per zone,
@@ -28520,49 +28460,32 @@ components:
             once, never 202 pending_approval.'
     AdminSession:
       type: object
-      description: 'v0.18.149 (contract.json#adminSessions): one signed-in phone. Never the IP address, the raw user agent
-        or any place: no city, country or position is kept per session, so none is shown.'
+      description: 'v0.5.1 (CONTRACT.md §9), owner decisions 9 and 14 (2026-10-24): the admin panel signs in with e-mail and
+        password through the server; this replaces "outside this contract" in auth.note for the admin. No second factor in
+        v0.5.1.'
       required:
-      - sessionId
-      - app
-      - device
-      - platform
-      - appVersion
-      - lastSeenAt
-      - createdAt
+      - accessToken
+      - refreshToken
+      - expiresIn
+      - actor
+      - admin
       properties:
-        sessionId:
-          $ref: '#/components/schemas/Id'
-        app:
+        accessToken:
           type: string
-          enum:
-          - rider
-          - driver
-        device:
-          oneOf:
-          - type: string
-            maxLength: 40
-          - type: 'null'
-          description: 'A short label from the sign-in''s user agent: iPhone, iPad, Android phone, Web browser, or null when
-            the app sent nothing useful. platform ios | android | web | unknown (the push registration''s platform wins).
-            appVersion from the push registration, else null. lastSeenAt = the last token refresh, else the sign-in.'
-        platform:
+          minLength: 1
+        refreshToken:
           type: string
-          enum:
-          - ios
-          - android
-          - web
-          - unknown
-        appVersion:
-          oneOf:
-          - type: string
-            maxLength: 40
-          - type: 'null'
-        lastSeenAt:
-          $ref: '#/components/schemas/Timestamp'
-        createdAt:
-          $ref: '#/components/schemas/Timestamp'
-      additionalProperties: false
+          minLength: 1
+          description: Opaque, rotated on every refresh.
+        expiresIn:
+          type: integer
+          minimum: 1
+          default: 900
+        actor:
+          type: string
+          const: admin
+        admin:
+          $ref: '#/components/schemas/AdminMe'
     AdminSignInRequest:
       type: object
       required:
@@ -31591,6 +31514,8 @@ components:
           items:
             type: string
             enum:
+            - appUpdate.minVersion
+            - appUpdate.storeUrls
             - calls.adminCallRoles
             - calls.phoneProvider
             - driverOwesLimit
@@ -31600,7 +31525,7 @@ components:
             - payoutSchedule
             - radar.reaskAfterSeconds
             - realtime.oneStream
-          maxItems: 9
+          maxItems: 11
           description: 'v0.18.123 (configDocs.keptKeys.removeKeys): ConfigDraftUpdate.removeKeys (optional, array of dotted
             paths): each must be a kept key of that document, else 400 invalid_request, reason unknown_kept_key, details ["key:<path>"],
             nothing saved. A named key that the sent document carries is saved as sent (removeKeys only stops the keep).'
@@ -39315,50 +39240,3 @@ components:
           - string
           - 'null'
           description: Opaque; null on the last page.
-    AdminSessionList:
-      type: object
-      description: 'v0.18.149 (contract.json#adminSessions): Active sessions only (not ended, not expired), newest sign-in
-        first, at most 50.'
-      required:
-      - items
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/AdminSession'
-          maxItems: 50
-    AdminSessionSignOutCommand:
-      type: object
-      description: 'v0.18.149 (contract.json#adminSessions): { sessionId, reason } signs out one session; { all: true, reason
-        } signs out every active session. Exactly one of sessionId / all, else 400 invalid_request reason session_or_all.
-        Required, 1-500 characters after trimming, else 400 invalid_request reason reason_required. Kept in the audit, never
-        shown to the person.'
-      required:
-      - reason
-      properties:
-        sessionId:
-          $ref: '#/components/schemas/Id'
-        all:
-          type: boolean
-          const: true
-        reason:
-          type: string
-          minLength: 1
-          maxLength: 500
-      additionalProperties: false
-    AdminSessionSignOutResult:
-      type: object
-      description: 'v0.18.149 (contract.json#adminSessions): 200 AdminSessionSignOutResult { signedOut, items } (items = the
-        sessions still active).'
-      required:
-      - signedOut
-      - items
-      properties:
-        signedOut:
-          type: integer
-          minimum: 0
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/AdminSession'
-          maxItems: 50

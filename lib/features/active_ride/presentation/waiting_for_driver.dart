@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/app_update/ride_live_signal.dart';
 import 'package:movera_rider/features/fee_payment/presentation/pay_fee_button.dart';
 import 'package:movera_rider/core/config/live_data_only.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
@@ -127,7 +128,8 @@ part 'waiting_for_driver_widgets.dart';
 /// ([WaitingForDriver.detailsAction]).
 enum DetailsAction { routeScreen, movePickup, refused }
 
-class _WaitingForDriverState extends State<WaitingForDriver> {
+class _WaitingForDriverState extends State<WaitingForDriver>
+    with RideScreenLive<WaitingForDriver> {
   late final ActiveRideController _ride =
       widget.controller ?? ActiveRideController();
   late final DriverTrackingController _tracking = DriverTrackingController(

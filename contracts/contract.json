@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.149",
+  "version": "0.18.154",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -1142,8 +1142,7 @@
         "session_ended": "revoked",
         "refresh_token_reused": "revoked",
         "refresh_token_unknown": "revoked",
-        "signed_in_elsewhere": "revoked",
-        "signed_out_by_movera": "revoked"
+        "signed_in_elsewhere": "revoked"
       },
       "kinds": {
         "expired": "not used for refreshExpiresDays (30 days)",
@@ -1178,12 +1177,6 @@
         "sv": "Inloggad på en annan telefon",
         "fr": "Connecté sur un autre téléphone",
         "en": "Signed in on another phone"
-      },
-      "byMoveraTexts": {
-        "note": "v0.18.149 (owner decisions/driver-g12.md Q6): reason signed_out_by_movera = an admin signed this phone out (adminSessions). The sign-in screen shows the revoked title with this line instead of detail.revoked, once (until the next sign-in). New text, owner to confirm.",
-        "sv": "Du loggades ut av Movera",
-        "fr": "Vous avez été déconnecté par Movera",
-        "en": "You were signed out by Movera"
       }
     },
     "signOutOnTrip": {
@@ -1352,11 +1345,18 @@
         "radar.reaskAfterSeconds",
         "exclusive.reaskAfterSeconds"
       ],
+      "rider_app_config": [
+        "appUpdate.minVersion",
+        "appUpdate.storeUrls"
+      ],
       "driver_app_config": [
-        "realtime.oneStream"
+        "realtime.oneStream",
+        "appUpdate.minVersion",
+        "appUpdate.storeUrls"
       ],
       "driverAppConfigNote": "v0.18.130 (SCS guard re-check follow-up, owner Q-SCS-1 \"Keep values, save rest (Rec.)\"): the driver document keeps realtime.oneStream (driverOneStream, v0.18.122) when a save leaves out realtime, so the one-live-connection switch never falls back to off by a save from another screen. offers.autoOffline is not listed: every admin save of the driver document starts from the server document and writes offers whole from the Dispatch page that owns it. Publish and Restore are unchanged (Restore names a removed kept key in removeKeys, as for the other documents).",
-      "removeKeys": "ConfigDraftUpdate.removeKeys (optional, array of dotted paths): each must be a kept key of that document, else 400 invalid_request, reason unknown_kept_key, details [\"key:<path>\"], nothing saved. A named key that the sent document carries is saved as sent (removeKeys only stops the keep)."
+      "removeKeys": "ConfigDraftUpdate.removeKeys (optional, array of dotted paths): each must be a kept key of that document, else 400 invalid_request, reason unknown_kept_key, details [\"key:<path>\"], nothing saved. A named key that the sent document carries is saved as sent (removeKeys only stops the keep).",
+      "appUpdateNote": "v0.18.154 (P16c minimum app version; owner 2026-11-21 20:30 \"Yes, build it now (Recommended)\", Rules plan/NUMBERS.md P16c; Rule 0; X-Api-Version stays 0.5; additive; no migration; follows v0.18.132; 0.18.133–0.18.153 reserved for other drafts): both app documents keep appUpdate.minVersion and appUpdate.storeUrls (contract.json#appUpdate.keptKeys) when a save leaves them out, so a save from another screen never turns the minimum off."
     },
     "standard": "v0.8.0 (owner 2026-10-27): every country has one standard rider_app_config, driver_app_config, pricing and dispatch, set in the admin, in the country's currency. A zone with no own published document of a kind uses its country's standard of that kind: the server serves it (GET /rider/config, /driver/config) and prices and dispatches with it, with zoneId set to the zone's id and usesStandard: true; its version is the standard's version. A zone with its own published document never uses the standard. Publishing a standard sends config_published (app documents) for every zone of the country that uses it. A zone's first own publish gets version max(own live, standard live) + 1. A standard document carries zoneId \"standard-<CC>\" (e.g. standard-SE) and its country's currency, country and timeZone. GET /admin/config/{doc}?zoneId returns usesStandard: true and the standard as the draft's starting point while the zone has nothing of its own.",
     "countryRules": "v0.8.1 (owner 2026-10-28: Tips & limits apply only to the zones chosen at the top; for the whole country the admin chooses all zones): tips, raiseSteps and driverBonus are the country_rules document { version, publishedAt, country, currency, tips: [AmountOption], raiseSteps: [AmountOption], driverBonus: { defaultLimit, hardMax } }, like the other documents published per zone (?zoneId, the zone's own) or per country (?country, the country's standard). A zone's rules are its own once published for it, else its country's standard (usesStandard: true); a zone with its own rules never uses the standard again until 'Go back to Standard' (useStandard, also for country_rules). Publishing a zone's own rules writes, in the same transaction, RiderAppConfig.tips / raiseSteps and DriverAppConfig.driverBonus of that zone's live and draft app documents; a zone that uses the standard app documents gets its own, copied from the standard with the new values (as publishPricing does), each changed one as its next version with config_published. Publishing the standard rules writes them into the standard app documents and into the own app documents of every zone of the country that has no own rules; zones with their own rules keep them. While a zone's rules (own or standard) are live, PUT and publish of that zone's app documents take those three fields from them, whatever the admin sent; the dispatch driver bonus limit of a trip is its zone's rules. The admin panel publishes to exactly the zones chosen at the top ('All zones' = every zone of the country it may work in, each as its own) and to the standard only when it is chosen.",
@@ -4054,7 +4054,18 @@
     },
     "pickupSpotsOn": true,
     "shareTripOn": true,
-    "driverOneStream": false
+    "driverOneStream": false,
+    "appUpdate": {
+      "note": "v0.18.154 (P16c minimum app version; owner 2026-11-21 20:30 \"Yes, build it now (Recommended)\", Rules plan/NUMBERS.md P16c; Rule 0; X-Api-Version stays 0.5; additive; no migration; follows v0.18.132; 0.18.133–0.18.153 reserved for other drafts): off by default; null on both platforms (contract.json#appUpdate).",
+      "minVersion": {
+        "android": null,
+        "ios": null
+      },
+      "storeUrls": {
+        "android": null,
+        "ios": null
+      }
+    }
   },
   "realtime": {
     "envelope": [
@@ -4220,15 +4231,19 @@
       "documents_not_approved",
       "rate_limited",
       "unavailable",
-      "internal"
+      "internal",
+      "upgrade_required"
     ],
-    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit). v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.44 reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress). v0.18.49 reason: sign_out_on_trip (409 conflict, contract.json#auth.signOutOnTrip). v0.18.56 reasons: message_too_long, unknown_quick_reply, translate_target_not_allowed (400 invalid_request), translation_off (403 forbidden), coming_soon (503 unavailable) (contract.json#chat, §78). v0.18.64 reason: auto_translate_off (403 forbidden, contract.json#chat.autoTranslate, §85). v0.18.76 reasons: email_needs_code (400 invalid_request), email_not_verified (409 invalid_transition) (contract.json#emailVerified). v0.18.82 reason: fare_is_driver_pay (400 invalid_request, admin adjust / complete sent the old fare field; contract.json#moneyBase.adminFare). v0.18.84 reasons (contract.json#debtModel): rider_debt_above_max (409 conflict, POST /trips pay in car), driver_owes_movera (409 conflict, admin assign of a cash trip to a driver at or over the owes-limit), owed_changed (409 conflict, paid-movera), paid_above_owed and owes_limit_needs_amount (400 invalid_request). v0.18.86 reason: commission_steps_invalid (400 invalid_request, PUT /admin/config/pricing and its publish; details [\"step:<index>\", \"problem:<code>\"], contract.json#commissionSteps.validation). v0.18.93 reasons: driver_away_from_pickup (409, the driver's no-show while the waiting clock is stopped), invalid_auto_arrive_distance (400, contract.json#autoArrive.settings.validation). v0.18.108 reason: not_at_stop (409 invalid_transition, the driver's stop tap or back tap farther than allowed from the stop; contract.json#autoArrive.stops.tap / back)."
+    "reason": "optional machine-readable detail under a code (snake_case), e.g. invalid_request + invalid_phone, invalid_otp_code, invalid_otp_session; never shown to users as is. v0.15.0: the sign-in reasons are listed in auth.signInErrors. v0.18.5 reasons: invalid_file_content, categories_required, note_required, expiry_too_far, driver_photo_unavailable, legal_country_unknown. v0.18.7 reasons: pickup_move_too_far, pickup_fixed_after_arrival, route_change_not_available. v0.18.8 reasons: pin_required, pin_wrong, pin_locked, pin_not_required, pin_not_now, pin_blocked, pin_trip_over, not_a_no_show. v0.18.24 reason: too_many_requests (429 rate_limited, contract.json#rateLimit). v0.18.30 reasons: invalid_ticket_category, invalid_ticket_body (contract.json#smallFixes.ticketReasons). v0.18.44 reason: dropoff_too_close (400 invalid_request, contract.json#sameAddress). v0.18.49 reason: sign_out_on_trip (409 conflict, contract.json#auth.signOutOnTrip). v0.18.56 reasons: message_too_long, unknown_quick_reply, translate_target_not_allowed (400 invalid_request), translation_off (403 forbidden), coming_soon (503 unavailable) (contract.json#chat, §78). v0.18.64 reason: auto_translate_off (403 forbidden, contract.json#chat.autoTranslate, §85). v0.18.76 reasons: email_needs_code (400 invalid_request), email_not_verified (409 invalid_transition) (contract.json#emailVerified). v0.18.82 reason: fare_is_driver_pay (400 invalid_request, admin adjust / complete sent the old fare field; contract.json#moneyBase.adminFare). v0.18.84 reasons (contract.json#debtModel): rider_debt_above_max (409 conflict, POST /trips pay in car), driver_owes_movera (409 conflict, admin assign of a cash trip to a driver at or over the owes-limit), owed_changed (409 conflict, paid-movera), paid_above_owed and owes_limit_needs_amount (400 invalid_request). v0.18.86 reason: commission_steps_invalid (400 invalid_request, PUT /admin/config/pricing and its publish; details [\"step:<index>\", \"problem:<code>\"], contract.json#commissionSteps.validation). v0.18.93 reasons: driver_away_from_pickup (409, the driver's no-show while the waiting clock is stopped), invalid_auto_arrive_distance (400, contract.json#autoArrive.settings.validation). v0.18.108 reason: not_at_stop (409 invalid_transition, the driver's stop tap or back tap farther than allowed from the stop; contract.json#autoArrive.stops.tap / back).",
+    "upgradeRequired": "v0.18.154 (P16c minimum app version; owner 2026-11-21 20:30 \"Yes, build it now (Recommended)\", Rules plan/NUMBERS.md P16c; Rule 0; X-Api-Version stays 0.5; additive; no migration; follows v0.18.132; 0.18.133–0.18.153 reserved for other drafts): upgrade_required is HTTP 426, never retryable; reason app_update_required (contract.json#appUpdate.server)."
   },
   "headers": {
     "Idempotency-Key": "required on every mutation, 16–128 chars",
     "X-Request-Id": "sent by clients, echoed by the server",
     "X-Api-Version": "0.5",
-    "Date": "v0.18.50 §72 (L9): every answer carries Date (the server clock); it is listed in Access-Control-Expose-Headers with X-Request-Id, X-Api-Version and Retry-After, so the web apps can read it (the rider's server-clock correction)."
+    "Date": "v0.18.50 §72 (L9): every answer carries Date (the server clock); it is listed in Access-Control-Expose-Headers with X-Request-Id, X-Api-Version and Retry-After, so the web apps can read it (the rider's server-clock correction).",
+    "X-App-Version": "v0.18.154 (P16c minimum app version; owner 2026-11-21 20:30 \"Yes, build it now (Recommended)\", Rules plan/NUMBERS.md P16c; Rule 0; X-Api-Version stays 0.5; additive; no migration; follows v0.18.132; 0.18.133–0.18.153 reserved for other drafts): optional; the Android / iOS app build version x.y.z (contract.json#appUpdate.headers).",
+    "X-App-Platform": "v0.18.154 (P16c minimum app version; owner 2026-11-21 20:30 \"Yes, build it now (Recommended)\", Rules plan/NUMBERS.md P16c; Rule 0; X-Api-Version stays 0.5; additive; no migration; follows v0.18.132; 0.18.133–0.18.153 reserved for other drafts): optional; android | ios (contract.json#appUpdate.headers)."
   },
   "cancelFees": {
     "note": "v0.8.0 (owner 2026-10-27): DriverAppConfig.cancelFees.driverSharePct, set in Admin › Dispatch per zone: the driver's share of a rider's cancel fee, 0–100, default 100. Movera keeps the rest.",
@@ -10569,65 +10584,47 @@
     "rider": "Not affected: the rider app has no offer feed; GET /rider/config/stream and the trip stream are unchanged.",
     "admin": "Admin › Dispatch, per zone: the switch 'One live connection per driver phone' (default off), with an 'i' text (what it does, what it saves, who it affects, when to turn it on, the way back, older apps). It is the way back without an app release."
   },
-  "adminSessions": {
-    "note": "v0.18.149 (owner decisions/driver-g12.md Q6 \"Real, riders + drivers (Recommended)\"): an admin sees the signed-in sessions (phones) of one rider or driver and signs one or all of them out with a reason. The person's next call and next POST /auth/refresh answer 401 unauthenticated, reason signed_out_by_movera; the app signs out and its sign-in screen shows auth.signedOut.byMoveraTexts once. Riders and drivers, SE / FR / TN alike.",
-    "routes": {
-      "listRider": "GET /admin/riders/{riderId}/sessions",
-      "listDriver": "GET /admin/drivers/{driverId}/sessions",
-      "signOutRider": "POST /admin/riders/{riderId}/sessions/sign-out",
-      "signOutDriver": "POST /admin/drivers/{driverId}/sessions/sign-out"
+  "appUpdate": {
+    "note": "v0.18.154 (P16c minimum app version; owner 2026-11-21 20:30 \"Yes, build it now (Recommended)\", Rules plan/NUMBERS.md P16c; Rule 0; X-Api-Version stays 0.5; additive; no migration; follows v0.18.132; 0.18.133–0.18.153 reserved for other drafts): the admin sets a minimum app version per app (rider_app_config, driver_app_config), per platform (android, ios) and per zone or country Standard. Default off (null). A phone below it sees one full screen \"Update Movera to continue\" with a button to its store; the server refuses booking, go-online and offer accept from it with 426. A driver or rider on a trip is never blocked mid-trip. Why: the first store version must already carry the check, else old phones can never be made to update.",
+    "fields": "RiderAppConfig.appUpdate and DriverAppConfig.appUpdate (the existing AppUpdate object) get two optional keys: minVersion { android: \"x.y.z\" | null, ios: \"x.y.z\" | null } (null or missing = no minimum on that platform) and storeUrls { android: https URL | null, ios: https URL | null } (null or missing = the app's own built-in store link). The older keys minimumVersion, latestVersion and storeUrl keep their old meaning and never block; storeUrl stays a string (Rule 21), so the per-platform links are storeUrls.",
+    "scope": "Per zone, as every key of the app documents: the zone's own live document, else its country Standard (configDocs.standard, the same whole-document rule as the other keys). A zone with its own document does not read the Standard's minimum; set it on the zone too (the admin card shows which one applies).",
+    "validation": "PUT /admin/config/rider_app_config and /driver_app_config (and their publish): appUpdate not an object, minVersion or storeUrls not an object, a platform key other than android / ios, a minVersion that is not null or a semver x.y.z (whole numbers 0-99999, no leading zeros, no suffix), or a store link that is not null or an https URL of at most 500 characters is 400 invalid_request, reason invalid_document. Nothing is saved.",
+    "keptKeys": "appUpdate.minVersion and appUpdate.storeUrls are kept keys of both app documents (configDocs.keptKeys): a save that leaves them out keeps the stored values; removeKeys may name them.",
+    "headers": "The Android and iOS builds of both apps send X-App-Version (their own build version x.y.z, no build number) and X-App-Platform (android | ios) on every API call. The web builds and builds with no version (local \"dev\") send neither.",
+    "compare": "Versions compare number by number (1.10.0 > 1.9.3). Below = lower than minVersion of the phone's platform; equal or higher is OK.",
+    "server": "When both headers are present and valid and the version is below the minimum of that platform in the zone's live document, these calls answer 426 code upgrade_required, reason app_update_required, details [\"platform:<android|ios>\", \"minVersion:<x.y.z>\"], nothing changed: POST /trips (book; rider_app_config of the quote's zone); POST /driver/availability with onlineStatus online while the driver is not on a trip and holds no booked ride (driver_app_config of his zones and last position zone, the highest minimum); POST /offers/{offerId}/accept while the driver has no current trip (driver_app_config of the trip's zone).",
+    "neverRefused": "Never refused for the version: every call about a trip that is already running (trip commands, messages, calls, route change, cancel, rate, tip, its stream), an accept while the driver is on a trip (a next or booked ride), go-online while the driver holds a booked ride (an accepted reservation not started yet: the booked rider depends on him and starting it needs him online), go offline, SOS and safety calls, sign-in / refresh / sign-out, account deletion, config, content, legal and every read.",
+    "missingHeader": "A call with no X-App-Version or X-App-Platform, or with a value that is not valid (an older app, a web build, a local build), is served as before: no check. Known limit: the server cannot force those apps; their full screen still comes from the config.",
+    "apps": "At start and on every config_published, each app compares its own build version with appUpdate.minVersion of its platform in the zone's document. Below: one full screen \"Update Movera to continue\" over every screen with an Update button that opens storeUrls.<platform> (else the built-in store link) and the SOS / emergency button; it goes away only when a newer document says the version is OK. A 426 app_update_required answer shows it too until the next config. Driver: never while a trip is active (accepted, to pickup, arrived, on trip) or a held next ride runs; only a small line, the block when the trip ends. A driver who holds a booked ride not started yet (or whose booked rides are not known yet) never gets the full screen, only the small line, as the server never refuses his go-online. Rider: never while a ride is live; the block at Home when it ends. Web builds and \"dev\" builds are never blocked. The content slot app-versions (§19) keeps working as before; either one below its minimum blocks.",
+    "texts": {
+      "title": {
+        "en": "Update Movera to continue",
+        "sv": "Uppdatera Movera för att fortsätta",
+        "fr": "Mettez à jour Movera pour continuer"
+      },
+      "body": {
+        "en": "This version of the app is too old. Install the latest version from the store to keep using Movera.",
+        "sv": "Den här versionen av appen är för gammal. Installera den senaste versionen från butiken för att fortsätta använda Movera.",
+        "fr": "Cette version de l'application est trop ancienne. Installez la dernière version depuis le store pour continuer à utiliser Movera."
+      },
+      "button": {
+        "en": "Update",
+        "sv": "Uppdatera",
+        "fr": "Mettre à jour"
+      }
     },
-    "permissions": {
-      "listRider": "riders.read",
-      "listDriver": "drivers.read",
-      "signOutRider": "riders.block",
-      "signOutDriver": "drivers.activate",
-      "note": "Existing permissions, no new one: who may read the person reads the list; who may block a rider / activate a driver signs out."
-    },
-    "scope": "Zone-scoped like the other admin people routes: a driver outside every zone of the admin, or a rider who never rode in the admin's zones, is 403 forbidden, reason zone_out_of_scope (all-zones admins see everyone). Unknown person: 404 rider_not_found / driver_not_found.",
-    "list": {
-      "fields": [
-        "sessionId",
-        "app",
-        "device",
-        "platform",
-        "appVersion",
-        "lastSeenAt",
-        "createdAt"
-      ],
-      "order": "Active sessions only (not ended, not expired), newest sign-in first, at most 50.",
-      "device": "A short label from the sign-in's user agent: iPhone, iPad, Android phone, Web browser, or null when the app sent nothing useful. platform ios | android | web | unknown (the push registration's platform wins). appVersion from the push registration, else null. lastSeenAt = the last token refresh, else the sign-in.",
-      "privacy": "Never the IP address, the raw user agent or any place: no city, country or position is kept per session, so none is shown."
-    },
-    "signOut": {
-      "body": "{ sessionId, reason } signs out one session; { all: true, reason } signs out every active session. Exactly one of sessionId / all, else 400 invalid_request reason session_or_all.",
-      "reason": "Required, 1-500 characters after trimming, else 400 invalid_request reason reason_required. Kept in the audit, never shown to the person.",
-      "effect": "The sessions end (auth_sessions.revoked_reason signed_out_by_movera), their refresh tokens expire and their push devices are forgotten. Every server copy refuses them at once (the revoke NOTIFY of the session check cache). A free online driver left with no session is set offline and his offers are withdrawn.",
-      "driverOnTrip": "A driver with a current trip (auth.signOutOnTrip) is refused: 409 conflict, reason sign_out_on_trip; nothing changes. He is signed out only after the trip ends (the admin tries again then).",
-      "notFound": "sessionId that is not an active session of this person: 404 not_found, reason session_not_found. all: true with no active session: 200 { signedOut: 0 }.",
-      "idempotency": "Idempotency-Key required; the same key replays the first answer and writes no second audit row.",
-      "answer": "200 AdminSessionSignOutResult { signedOut, items } (items = the sessions still active).",
-      "audit": "rider.sessions_sign_out / driver.sessions_sign_out, target the person, detail { reason, all, sessionIds }."
-    },
-    "apps": {
-      "reason": "signed_out_by_movera (auth.signedOut.reasons, kind revoked)",
-      "show": "Rider and driver apps: on a 401 with this reason (a call, then the refresh) the app signs out and the sign-in screen shows auth.signedOut.texts.revoked with byMoveraTexts as the detail line, once; no message after the person's own Sign out."
-    },
-    "errors": {
-      "reason_required": "400 invalid_request",
-      "session_or_all": "400 invalid_request",
-      "zone_out_of_scope": "403 forbidden",
-      "rider_not_found": "404 not_found",
-      "driver_not_found": "404 not_found",
-      "session_not_found": "404 not_found",
-      "sign_out_on_trip": "409 conflict",
-      "signed_out_by_movera": "401 unauthenticated (the signed-out phone)"
-    },
-    "scenario": {
-      "given": "Rider Sara is signed in on an iPhone and an Android phone; admin Ali (riders.block, Stockholm) opens her page.",
-      "when": "Ali opens Sessions, picks the iPhone, writes the reason \"Lost phone\" and confirms Sign out.",
-      "then": "The answer lists only the Android phone (signedOut 1); the audit has rider.sessions_sign_out { reason \"Lost phone\" }. The iPhone's next call is 401 signed_out_by_movera; it signs out and Sign in shows \"You were signed out – please sign in again\" / \"You were signed out by Movera\". The Android phone keeps working. Driver Omar on a trip: Sign out all is 409 sign_out_on_trip until the trip ends; afterwards it signs him out and sets him offline."
-    },
-    "admin": "Admin: a Sessions card on the rider and the driver detail page (admin.rider.signOut, admin.driver.signOut) with Sign out per phone and Sign out all, a confirm step with the required reason; the buttons only with the permission above. Texts in en / sv / fr (admin area c54)."
+    "admin": "Settings › Minimum app version (admin area c57; settings.read to see, settings.edit + settings.publish to save): pick a country Standard or a zone; for the rider app and the driver app: Android minimum, iOS minimum (text x.y.z, empty = off), Android store link, iOS store link (https, empty = the app's own link), each with an \"i\" text; the warning line \"Phones below this version must update before they can book or go online.\"; Save publishes appUpdate.minVersion and appUpdate.storeUrls of that scope's rider_app_config and driver_app_config, starting from the server's document (nothing else changes).",
+    "adminTexts": {
+      "title": {
+        "en": "Minimum app version",
+        "sv": "Lägsta appversion",
+        "fr": "Version minimale de l'app"
+      },
+      "warning": {
+        "en": "Phones below this version must update before they can book or go online.",
+        "sv": "Telefoner under den här versionen måste uppdatera innan de kan boka eller gå online.",
+        "fr": "Les téléphones en dessous de cette version doivent faire la mise à jour avant de pouvoir réserver ou se connecter."
+      }
+    }
   }
 }

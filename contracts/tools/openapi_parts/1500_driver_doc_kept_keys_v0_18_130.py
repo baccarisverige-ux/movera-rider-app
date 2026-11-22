@@ -6,4 +6,5 @@ _rk = S["ConfigDraftUpdate"]["properties"]["removeKeys"]
 assert "realtime.oneStream" not in _rk["items"]["enum"], "removeKeys names realtime.oneStream before v0.18.130"
 _rk["items"]["enum"] = sorted(set(_rk["items"]["enum"]) | set(_KK130["driver_app_config"]))
 _rk["maxItems"] = len(_rk["items"]["enum"])
-PATHS["/admin/config/{doc}"]["put"]["description"] += " v0.18.130 (configDocs.keptKeys; driver_app_config: " + ", ".join(_KK130["driver_app_config"]) + "): " + _KK130["driverAppConfigNote"]
+# v0.18.154: the appUpdate kept keys of the driver document are named by part 1740, not here.
+PATHS["/admin/config/{doc}"]["put"]["description"] += " v0.18.130 (configDocs.keptKeys; driver_app_config: " + ", ".join(p for p in _KK130["driver_app_config"] if not p.startswith("appUpdate.")) + "): " + _KK130["driverAppConfigNote"]
