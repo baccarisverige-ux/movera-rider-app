@@ -90,7 +90,8 @@ Future<void> startServerReads() async {
   unawaited(AppScope.instance.reservations.refreshRules());
   // SUP3-R1: the booked rides of the rider who just signed in (the start
   // read ran before the session, or for the previous rider).
-  unawaited(AppScope.instance.reservations.refresh());
+  // At once: another rider's list may have been read a moment ago.
+  unawaited(AppScope.instance.reservations.refresh(now: true));
   unawaited(FindingDriverController.flushPendingCancels());
   // BASE B13 (contract v0.18.26 §47): saved places from the server; the
   // phone's older places are uploaded once.

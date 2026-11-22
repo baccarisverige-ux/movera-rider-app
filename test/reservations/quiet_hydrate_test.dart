@@ -50,6 +50,7 @@ void main() {
 
   late List<Map<String, Object?>> server;
   late int listReads;
+  var now = DateTime.utc(2026, 11, 22, 10);
 
   ReservationController controller() => ReservationController(
     store: ApiReservationRepository(
@@ -66,6 +67,8 @@ void main() {
       ),
     ),
     environment: staging,
+    // Every refresh is past the quiet window of the one before it.
+    clock: () => now = now.add(const Duration(seconds: 6)),
   );
 
   setUp(() {

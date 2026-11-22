@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -257,15 +258,62 @@ class ReservationController extends ChangeNotifier {
 
   Future<void>? _refreshing;
 
+  /// How long after a read of the booked rides ended the next one waits
+  /// ([refresh]).
+  static const refreshQuiet = Duration(seconds: 5);
+
+  /// When the last read of [refresh] ended; null before the first.
+  DateTime? _refreshEnded;
+
+  /// The calls of [refresh] waiting for the one trailing read, and the
+  /// timer that starts it.
+  Completer<void>? _trailing;
+  Timer? _trailingTimer;
+
   /// SUP3-R1 (contract bookedRideSeen.riderTripEvent: "reads ... (and its
   /// Upcoming list) again on it"): reads the server's booked rides again
   /// (Upcoming and the Home chrono). Called on rider_trip_changed, on
   /// resume, after sign-in and when Home shows the chrono (never on Home's
-  /// 8 s check, Rule 33). A call while one is out joins it. Never throws; the list kept
-  /// stays when the read fails. Nothing to do on a device-only build.
-  Future<void> refresh() {
+  /// 8 s check, Rule 33). A call while one is out joins it. Never throws;
+  /// the list kept stays when the read fails. Nothing to do on a
+  /// device-only build.
+  ///
+  /// Test Lab run 39: a call less than [refreshQuiet] after the last read
+  /// ended does not read at once (a phone call sends three
+  /// `rider_trip_changed` in a row; a resume reads on start and again when
+  /// the stream is back). ONE trailing read runs at the end of that window
+  /// and every call in between gets its future, so no hint is lost and an
+  /// awaited call completes after a read that started after it. [now]: read
+  /// at once (the rider is waiting on the answer, or the rider changed).
+  Future<void> refresh({bool now = false}) {
     if (!serverBacked) return Future<void>.value();
-    return _refreshing ??= _refreshNow().whenComplete(() => _refreshing = null);
+    final running = _refreshing;
+    if (running != null) return running;
+    final ended = _refreshEnded;
+    final wait = ended == null
+        ? Duration.zero
+        : refreshQuiet - _clock().difference(ended);
+    // A clock set back (a negative time since the read) is not a reason
+    // to wait longer than the window.
+    if (now || wait <= Duration.zero || wait > refreshQuiet) return _read();
+    final trailing = _trailing ??= Completer<void>();
+    _trailingTimer ??= Timer(wait, _read);
+    return trailing.future;
+  }
+
+  /// Reads now. The calls waiting for the trailing read are answered by
+  /// this one: it starts after them.
+  Future<void> _read() {
+    _trailingTimer?.cancel();
+    _trailingTimer = null;
+    final waiting = _trailing;
+    _trailing = null;
+    final read = _refreshNow().whenComplete(() {
+      _refreshing = null;
+      _refreshEnded = _clock();
+      waiting?.complete();
+    });
+    return _refreshing = read;
   }
 
   Future<void> _refreshNow() async {
@@ -557,6 +605,10 @@ class ReservationController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _trailingTimer?.cancel();
+    _trailingTimer = null;
+    _trailing?.complete();
+    _trailing = null;
     _mockDispatch?.dispose();
     super.dispose();
   }
