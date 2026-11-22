@@ -95,18 +95,20 @@ void main() {
     // 2026-11-20 "Yes, 4 → 6 only (Rec.)").
     // Account deletion E1 (contract v0.18.134): + deleteOpenTrip, accountClosed (account area).
     // v0.18.136 (Stripe rider fee): + 5 fee* card-payment texts.
+    // v0.18.143 (change route while searching): + priceChangedTitle,
+    // confirmNewPrice (general area).
     const before = {
       'en': (
-        'e29951cbfed44cbda594f10de792aa822f21c86d6b46d49374df0f2fc1454fb9',
-        2235,
+        '8ce0e8319c366002b2a174e62486c5812c54a52015d6060c2f4c73ea83ff36d9',
+        2237,
       ),
       'fr': (
-        'bccdf84158afe30472394b8d2d89ada80ba3c83794a2dd975221d46d86c3eca1',
-        1771,
+        '6bccf54b15e994c5017c28024a8507cfe894826a914a39772adc10633d9b87a5',
+        1773,
       ),
       'sv': (
-        '674bef5858af191b4dfdc29bf0ebe4e2b6415ab966c78285882f6b5c6aa6155d',
-        1771,
+        '2d42560164d018f17d85f46b7107156dcf9a6e7d6254557a6876cbee607e3b75',
+        1773,
       ),
     };
     for (final lang in _langs) {

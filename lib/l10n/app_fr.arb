@@ -373,6 +373,8 @@
   "newRoute": "Nouvel itinéraire",
   "newPrice": "Nouveau prix",
   "confirmChange": "Confirmer la modification",
+  "priceChangedTitle": "Votre prix a changé",
+  "confirmNewPrice": "Confirmer le nouveau prix",
   "confirmNextPayment": "Confirmer · ensuite : paiement",
   "confirmPayment": "Confirmer le paiement",
   "chooseRefund": "Choisissez votre remboursement",

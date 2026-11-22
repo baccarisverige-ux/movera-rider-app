@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/features/payments/presentation/payment_labels.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 /// The route and the money of the current ride, read-only. Changing the
 /// route happens on the route screen (the three dots on the ride card).
@@ -22,6 +24,9 @@ class RideDetailsSheet extends StatelessWidget {
     required this.notes,
     this.allowCancel = true,
     required this.onCancelTrip,
+    this.onEditPickup,
+    this.onEditDestination,
+    this.onAddStop,
   });
 
   final String pickupAddress;
@@ -36,6 +41,55 @@ class RideDetailsSheet extends StatelessWidget {
   final RideNotes notes;
   final bool allowCancel;
   final VoidCallback onCancelTrip;
+
+  /// v0.18.143 (approved mockup screen 2): the pencil on the pickup, only
+  /// while the ride is still searched (null hides it).
+  final VoidCallback? onEditPickup;
+
+  /// The pencil on the destination (the route screen).
+  final VoidCallback? onEditDestination;
+
+  /// The "+" under the destination (the route screen with a new stop).
+  final VoidCallback? onAddStop;
+
+  /// Opens the sheet; each action gets the sheet's context (to close it
+  /// before the next screen). v0.18.143 (owner 2026-11-20): the same sheet
+  /// while searching, while the driver is coming and during the trip.
+  static Future<void> open(
+    BuildContext context, {
+    required String pickupAddress,
+    required String destinationAddress,
+    List<RouteStop> stops = const <RouteStop>[],
+    required String rideType,
+    required double price,
+    String currency = Money.defaultCurrency,
+    required String paymentMethod,
+    required RideNotes notes,
+    bool allowCancel = true,
+    required void Function(BuildContext sheet) onCancelTrip,
+    void Function(BuildContext sheet)? onEditPickup,
+    void Function(BuildContext sheet)? onEditDestination,
+    void Function(BuildContext sheet)? onAddStop,
+  }) => MoveraSheet.show<void>(
+    context: context,
+    builder: (sheet) => RideDetailsSheet(
+      pickupAddress: pickupAddress,
+      destinationAddress: destinationAddress,
+      stops: stops,
+      rideType: rideType,
+      price: price,
+      currency: currency,
+      paymentMethod: paymentMethod,
+      notes: notes,
+      allowCancel: allowCancel,
+      onCancelTrip: () => onCancelTrip(sheet),
+      onEditPickup: onEditPickup == null ? null : () => onEditPickup(sheet),
+      onEditDestination: onEditDestination == null
+          ? null
+          : () => onEditDestination(sheet),
+      onAddStop: onAddStop == null ? null : () => onAddStop(sheet),
+    ),
+  );
 
   static const Color _ink = Color(0xFF1D252C);
   static const Color _muted = Color(0xFF5C656C);
@@ -77,6 +131,8 @@ class RideDetailsSheet extends StatelessWidget {
               key: const ValueKey('ride-details-pickup'),
               kind: _RowKind.pickup,
               address: pickupAddress,
+              onEdit: onEditPickup,
+              editKey: const ValueKey('ride-details-edit-pickup'),
             ),
             for (var i = 0; i < stops.length; i++) ...[
               _connector(),
@@ -92,11 +148,24 @@ class RideDetailsSheet extends StatelessWidget {
               key: const ValueKey('ride-details-destination'),
               kind: _RowKind.destination,
               address: destinationAddress,
+              onEdit: onEditDestination,
+              editKey: const ValueKey('ride-details-edit-destination'),
             ),
+            if (onAddStop != null)
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  key: const ValueKey('ride-details-add-stop'),
+                  onPressed: onAddStop,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: Text(context.l10n.addAStop),
+                ),
+              ),
             const SizedBox(height: 16),
             _kv(rideNameFor(rideType), formatMajor(price, currency)),
             const SizedBox(height: 8),
-            _kv(context.l10n.navPayment, paymentMethod),
+            // Pay in car shown in the app language (rider-u231).
+            _kv(context.l10n.navPayment, paymentLabelFor(paymentMethod)),
             if (!notes.isEmpty) ...[
               const SizedBox(height: 12),
               Wrap(
@@ -218,11 +287,15 @@ class _RouteRow extends StatelessWidget {
     required this.kind,
     required this.address,
     this.label,
+    this.onEdit,
+    this.editKey,
   });
 
   final _RowKind kind;
   final String address;
   final String? label;
+  final VoidCallback? onEdit;
+  final Key? editKey;
 
   @override
   Widget build(BuildContext context) {
@@ -279,6 +352,13 @@ class _RouteRow extends StatelessWidget {
               ],
             ),
           ),
+          if (onEdit != null)
+            IconButton(
+              key: editKey,
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit_outlined, size: 20),
+              tooltip: context.l10n.changeRoute,
+            ),
         ],
       ),
     );

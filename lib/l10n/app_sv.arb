@@ -373,6 +373,8 @@
   "newRoute": "Ny rutt",
   "newPrice": "Nytt pris",
   "confirmChange": "Bekräfta ändringen",
+  "priceChangedTitle": "Ditt pris har ändrats",
+  "confirmNewPrice": "Bekräfta nytt pris",
   "confirmNextPayment": "Bekräfta · nästa: betalning",
   "confirmPayment": "Bekräfta betalningen",
   "chooseRefund": "Välj din återbetalning",
