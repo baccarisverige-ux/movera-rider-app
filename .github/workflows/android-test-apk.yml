@@ -55,6 +55,9 @@ jobs:
           TESTLAB_DEVICE: ${{ inputs.testlab_device }}
         run: |
           set -euo pipefail
+          # A pasted line break or space in the repository variable must never reach the build or a check.
+          PROD_API="$(printf '%s' "$PROD_API" | tr -d '[:space:][:cntrl:]')"
+          LIVE_API="$(printf '%s' "$LIVE_API" | tr -d '[:space:][:cntrl:]')"
           if [ "$SERVER" = real ]; then
             case "$PROD_API" in https://*) ;; *) echo "::error::server=real needs the repository variable MOVERA_PROD_API_URL (https://...)."; exit 1 ;; esac
             if [ "${PROD_API%/}" = "https://movera-server.onrender.com" ]; then echo "::error::MOVERA_PROD_API_URL is the test server."; exit 1; fi
@@ -94,6 +97,8 @@ jobs:
           NEW_REF: ${{ inputs.new_ref }}
         run: |
           set -euo pipefail
+          # A pasted line break or space in the repository variable must never reach the build or a check.
+          LIVE_API="$(printf '%s' "$LIVE_API" | tr -d '[:space:][:cntrl:]')"
           if [ -z "${MAPS_API_KEY:-}" ]; then
             echo '::error::Missing Android Google Maps key. Add the ANDROID_MAPS_API_KEY (or MAPS_API_KEY) repository secret; the web key does not work in the Android app.'
             exit 1
