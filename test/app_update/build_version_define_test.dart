@@ -41,13 +41,29 @@ void main() {
   });
 
   test('tool/app_version.sh prints the pubspec version', () {
-    final pubspec = File('pubspec.yaml').readAsStringSync();
-    final version = RegExp(
-      r'^version: *([0-9.]+)',
-      multiLine: true,
-    ).firstMatch(pubspec)!.group(1);
-    final out = Process.runSync('sh', ['tool/app_version.sh', '7']);
-    expect(out.exitCode, 0);
-    expect((out.stdout as String).trim(), '$version+7');
+    // The real script, run in a copy of the layout it expects (tool/ next
+    // to pubspec.yaml) with a version this test chose.
+    final root = Directory.systemTemp.createTempSync('movera_app_version');
+    addTearDown(() => root.deleteSync(recursive: true));
+    Directory('${root.path}/tool').createSync();
+    final script = File(
+      'tool/app_version.sh',
+    ).copySync('${root.path}/tool/app_version.sh');
+    File('${root.path}/pubspec.yaml').writeAsStringSync(
+      'name: movera_rider\nversion: 9.8.7+123\nenvironment:\n  sdk: ^3.0.0\n',
+    );
+
+    final withBuild = Process.runSync('sh', [script.path, '7']);
+    expect(withBuild.exitCode, 0, reason: '${withBuild.stderr}');
+    expect((withBuild.stdout as String).trim(), '9.8.7+7');
+
+    final plain = Process.runSync('sh', [script.path]);
+    expect(plain.exitCode, 0, reason: '${plain.stderr}');
+    expect((plain.stdout as String).trim(), '9.8.7');
+
+    // And here: this app's own version, x.y.z.
+    final own = Process.runSync('sh', ['tool/app_version.sh']);
+    expect(own.exitCode, 0);
+    expect((own.stdout as String).trim(), matches(RegExp(r'^\d+\.\d+\.\d+$')));
   });
 }

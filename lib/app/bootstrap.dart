@@ -98,6 +98,18 @@ void _openNotificationsFromPush() {
 /// crashed". The step is logged and skipped; what it would have loaded
 /// keeps its defaults.
 @visibleForTesting
+/// Start-up: the trip watch follows the settings stream [config] and
+/// starts. Its own function so a test drives the real wiring.
+void wireTripWatch(ApiRiderConfigRepository config, RiderTripWatch watch) {
+  // v0.18.32 P21: a trip made elsewhere reaches Home at once.
+  config.eventTaps.add(watch.onConfigEvent);
+  // E15: hints lost while the stream was down are read again.
+  config.reconnectTaps.add(watch.onStreamReconnected);
+  // v0.18.145 loadCut: the trip watch polls every 60 s while connected.
+  config.streamUpTaps.add(watch.onStreamUp);
+  watch.start();
+}
+
 Future<void> bootStep(String name, Future<void> Function() step) async {
   try {
     await step();
@@ -270,13 +282,7 @@ Future<void> _bootSteps() async {
     // content) from the same stream.
     config.eventTaps.add(AppScope.instance.content.onConfigEvent);
     config.eventTaps.add(AppScope.instance.zones.onConfigEvent);
-    // v0.18.32 P21: a trip made elsewhere reaches Home at once.
-    config.eventTaps.add(RiderTripWatch.instance.onConfigEvent);
-    // E15: hints lost while the stream was down are read again.
-    config.reconnectTaps.add(RiderTripWatch.instance.onStreamReconnected);
-    // v0.18.145 loadCut: the trip watch polls every 60 s while connected.
-    config.streamUpTaps.add(RiderTripWatch.instance.onStreamUp);
-    RiderTripWatch.instance.start();
+    wireTripWatch(config, RiderTripWatch.instance);
   }
   // v0.18.2 auth.beforeSignIn: the reads that need a session start now
   // only when one is stored; otherwise right after sign-in

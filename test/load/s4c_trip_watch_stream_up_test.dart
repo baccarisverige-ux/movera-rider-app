@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:movera_rider/app/bootstrap.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
@@ -176,10 +176,66 @@ void main() {
   });
 
   test('the app wires the stream state into the trip watch', () {
-    final source = File('lib/app/bootstrap.dart').readAsStringSync();
-    expect(
-      source,
-      contains('config.streamUpTaps.add(RiderTripWatch.instance.onStreamUp)'),
-    );
+    // The start-up wiring itself (bootstrap's wireTripWatch) on a real
+    // settings stream: connected slows the reads to 60 s, dropped brings
+    // the 8 s back.
+    fakeAsync((async) {
+      late StreamController<List<int>> body;
+      final client = MockClient.streaming((request, _) async {
+        if (request.url.path.endsWith('/stream')) {
+          body = StreamController<List<int>>();
+          return http.StreamedResponse(body.stream, 200);
+        }
+        return http.StreamedResponse(Stream.value(utf8.encode('{}')), 200);
+      });
+      final repo = ApiRiderConfigRepository(
+        api: ApiClient(
+          env: const AppEnv(
+            flavor: AppFlavor.staging,
+            apiBaseUrl: 'https://api.movera.invalid',
+          ),
+          client: client,
+          tokens: MemoryTokenStore()..save(access: 'a', refresh: 'r'),
+        ),
+        cache: MemoryRiderConfigCache(),
+        random: math.Random(7),
+      );
+      final reads = <Duration>[];
+      final watch = RiderTripWatch(
+        showsHome: () => true,
+        adopt: () async => reads.add(async.elapsed),
+        bookedOnTheWay: () async => false,
+        refreshBooked: () async {},
+      );
+
+      wireTripWatch(repo, watch);
+      repo.watch('Z001');
+      async.elapse(const Duration(seconds: 16));
+      expect(secs(reads), [8, 16], reason: 'started; not connected: 8 s');
+
+      reads.clear();
+      body.add(utf8.encode('data: {"kind":"heartbeat"}\n\n'));
+      async.flushMicrotasks();
+      async.elapse(const Duration(seconds: 120));
+      expect(secs(reads), [76, 136], reason: 'connected: every 60 s');
+
+      reads.clear();
+      body.add(utf8.encode('data: {"kind":"rider_trip_changed"}\n\n'));
+      async.flushMicrotasks();
+      expect(secs(reads), [136], reason: 'a hint still reads at once');
+
+      reads.clear();
+      unawaited(body.close());
+      async.flushMicrotasks();
+      async.elapse(const Duration(seconds: 16));
+      expect(secs(reads), [
+        141,
+        144,
+        152,
+      ], reason: 'stream down: 8 s again; the reconnect (5 s) reads at once');
+      watch.stop();
+      repo.dispose();
+      async.flushMicrotasks();
+    });
   });
 }

@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -8,7 +8,10 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/fee_payment/application/fee_card_payer.dart';
 import 'package:movera_rider/features/fee_payment/domain/fees_payable_by_card.dart';
+import 'package:movera_rider/features/fee_payment/presentation/pay_fee_button.dart';
 import 'package:movera_rider/features/profile/domain/rider_outstanding.dart';
+import 'package:movera_rider/l10n/l10n.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 
 /// Contract v0.18.136 stripeFees (DRAFT, Stripe test or live keys; owner 2026-11-20
 /// "So we use stripe"): the rider pays an owed fee with the Stripe
@@ -216,27 +219,28 @@ void main() {
       expect(sheet.calls, hasLength(1));
     },
   );
-  test(
+  testWidgets(
     'owner 2026-11-20: no "pay later" — the only action is Pay; closing the sheet keeps the fee owed',
-    () async {
+    (tester) async {
+      addTearDown(() => L10n.use('en'));
       for (final lang in ['en', 'sv', 'fr']) {
-        final arb =
-            jsonDecode(
-                  File(
-                    'lib/l10n/parts/stripe_fees.$lang.arb',
-                  ).readAsStringSync(),
-                )
-                as Map<String, dynamic>;
-        expect(arb.keys.where((k) => !k.startsWith('@')).toSet(), {
-          'feePayByCard',
-          'feePaidByCard',
-          'feePaymentChecking',
-          'feePaymentFailed',
-          'feePaymentUnavailable',
-        });
-        for (final v in arb.values.whereType<String>()) {
+        L10n.use(lang);
+        final l10n = lookupAppLocalizations(Locale(lang));
+        FeesPayableByCard.current.value = FeesPayableByCard.fromRider(owed);
+        payAnswer = intent;
+        profileAfter = owed;
+        final fee = FeesPayableByCard.current.value.items.single;
+        final payLabel = l10n.feePayByCard(formatMoney(fee.amount));
+        // Every text the rider can meet here: none offers to pay later.
+        for (final text in [
+          payLabel,
+          l10n.feePaidByCard,
+          l10n.feePaymentChecking,
+          l10n.feePaymentFailed,
+          l10n.feePaymentUnavailable,
+        ]) {
           expect(
-            v.toLowerCase(),
+            text.toLowerCase(),
             isNot(
               anyOf(
                 contains('later'),
@@ -244,27 +248,70 @@ void main() {
                 contains('plus tard'),
               ),
             ),
+            reason: lang,
           );
         }
+        final sheet = FakeSheet(() async => false);
+        final payer = FeeCardPayer(api: api(), sheet: sheet);
+        final messengerKey = GlobalKey<ScaffoldMessengerState>();
+        await tester.pumpWidget(
+          MaterialApp(
+            key: ValueKey(lang),
+            scaffoldMessengerKey: messengerKey,
+            locale: Locale(lang),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: Center(
+                child: PayFeeButton(fee: fee, payer: payer),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        final anyButton = find.byWidgetPredicate(
+          (w) => w is ButtonStyleButton || w is IconButton,
+        );
+
+        // Account page: one button, and it is Pay.
+        expect(anyButton, findsOneWidget, reason: lang);
+        expect(find.widgetWithText(FilledButton, payLabel), findsOneWidget);
+
+        // The rider closes the sheet: nothing is said, the fee stays owed.
+        await tester.tap(find.byKey(const ValueKey('fee-pay-trp_1')));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+        expect(sheet.calls, hasLength(1), reason: lang);
+        expect(find.byKey(const ValueKey('fee-pay-outcome')), findsNothing);
+        expect(FeesPayableByCard.current.value.forTrip('trp_1'), isNotNull);
+
+        // The notice after a late cancel: its one action is Pay too.
+        await tester.runAsync(
+          () => offerFeePayAfterCancel(
+            messengerKey.currentState!,
+            'Cancelled',
+            payer: payer,
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+        final notice = find.byKey(const ValueKey('cancel-fee-outcome'));
+        expect(notice, findsOneWidget, reason: lang);
+        expect(
+          find.descendant(of: notice, matching: anyButton),
+          findsOneWidget,
+          reason: lang,
+        );
+        expect(
+          find.descendant(of: notice, matching: find.text(payLabel)),
+          findsOneWidget,
+          reason: lang,
+        );
+        messengerKey.currentState!.removeCurrentSnackBar();
+        await tester.pump();
       }
-      final button = File(
-        'lib/features/fee_payment/presentation/pay_fee_button.dart',
-      ).readAsStringSync();
-      expect(
-        RegExp('TextButton|OutlinedButton|IconButton').hasMatch(button),
-        isFalse,
-      );
-      FeesPayableByCard.current.value = FeesPayableByCard.fromRider(owed);
-      payAnswer = intent;
-      profileAfter = owed;
-      expect(
-        await FeeCardPayer(
-          api: api(),
-          sheet: FakeSheet(() async => false),
-        ).pay('trp_1'),
-        FeePayOutcome.closed,
-      );
-      expect(FeesPayableByCard.current.value.forTrip('trp_1'), isNotNull);
     },
   );
 }
