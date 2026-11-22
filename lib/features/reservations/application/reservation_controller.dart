@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/config/live_data_only.dart';
@@ -219,10 +221,36 @@ class ReservationController extends ChangeNotifier {
     return null;
   }
 
-  Future<void> hydrate() async {
+  /// Reads the store again and tells the listeners when the list is not
+  /// the one they already show. A read that changes nothing notifies
+  /// nobody: every `rider_trip_changed` event and every resume reads the
+  /// booked list ([refresh]), and each notify made Home's "Your month"
+  /// read the whole trip history again (Test Lab, repeated reads).
+  /// [always]: notify also for an unchanged list (a realtime resync, whose
+  /// subscribers are sent the current state again).
+  Future<void> hydrate({bool always = false}) async {
+    final before = _shown();
     await _store.hydrate();
-    notifyListeners();
+    if (always || _shown() != before) notifyListeners();
   }
+
+  /// Everything a screen can show of the list, in its order: every field
+  /// of every reservation (the stored form, plus the cancel preview, which
+  /// is not stored).
+  String _shown() => jsonEncode([
+    for (final ride in _store.cached)
+      [
+        ride.toJson(),
+        if (ride.cancelPreview case final preview?)
+          [
+            preview.feeNow.toJson(),
+            preview.kind.name,
+            preview.freeUntil?.toIso8601String(),
+            preview.feeAfterFree?.toJson(),
+            preview.kindAfterFree?.name,
+          ],
+      ],
+  ]);
 
   /// Whether the booked rides are the server's (a server build).
   bool get serverBacked => _store is ServerBackedRepository;
