@@ -1480,6 +1480,7 @@
   "contactCodeSentTo": "Nous avons envoyé un code à {email}.",
   "contactCodeNotSentYet": "Les codes par e-mail ne peuvent pas encore être envoyés. Réessayez plus tard.",
   "contactEmailVerifiedDone": "E-mail vérifié",
+  "sosNotSent": "Le SOS n’a pas atteint Movera. Appelez le 112.",
   "placeGym": "Salle de sport",
   "placeMall": "Centre commercial",
   "placeSchool": "École",

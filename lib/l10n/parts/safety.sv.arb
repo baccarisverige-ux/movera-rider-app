@@ -107,5 +107,6 @@
   "contactVerifyEmail": "Verifiera e-post",
   "contactCodeSentTo": "Vi har skickat en kod till {email}.",
   "contactCodeNotSentYet": "E-postkoder kan inte skickas än. Försök igen senare.",
-  "contactEmailVerifiedDone": "E-postadressen är verifierad"
+  "contactEmailVerifiedDone": "E-postadressen är verifierad",
+  "sosNotSent": "SOS nådde inte Movera. Ring 112."
 }

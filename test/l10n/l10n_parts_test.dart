@@ -99,18 +99,19 @@ void main() {
     // confirmNewPrice (general area).
     // v0.18.144 (live location + adjust-pickup banner): + 7 live* texts
     // (live_location area).
+    // v0.18.148 (sosPressTime): + sosNotSent (safety area, owner to confirm).
     const before = {
       'en': (
-        '651deeb0dbac6aaa8a53627a627d467293d972a987e628e35e1fd7dfde704e83',
-        2251,
+        '6ee9a505a751bccd951e7cd87df1b1966de25b06d6d6620771f140850899a681',
+        2253,
       ),
       'fr': (
-        'dfa0cf4d76e91a3f064f6bec16165e201ea2c43d2465cf7dfc876275af787ebd',
-        1780,
+        '071dcf5113c671c32ce387abbcb3cab2b007f5d7d95623f27da3a5ceae3dccfc',
+        1781,
       ),
       'sv': (
-        '3a492cb5afffdfc31962eeb8e980c0338498f77c42931b693f9dce7c8f69be0a',
-        1780,
+        'd67e52f4f61a4c990fa3763d07fec91adfea8b5cf1c86299b9c5ba37cfacc2fb',
+        1781,
       ),
     };
     for (final lang in _langs) {
