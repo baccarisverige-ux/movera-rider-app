@@ -400,7 +400,7 @@ class RiderAppConfig {
       paymentMethods:
           readZonePaymentMethods(raw['paymentMethods']) ??
           fallback?.paymentMethods ??
-          ZoneDefaults.paymentMethods,
+          UnservedPaymentMethods.current,
       maxPickupMoveMeters:
           _count(
             booking is Map ? booking['maxPickupMoveMeters'] : null,

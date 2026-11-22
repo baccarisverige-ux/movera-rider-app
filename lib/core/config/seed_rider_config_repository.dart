@@ -2,6 +2,7 @@
 /// of `rider_app_config.dart` (D13, R10 #18) with no behaviour change.
 library;
 
+import 'live_data_only.dart';
 import 'rider_app_config.dart';
 import 'rider_zones.dart';
 
@@ -33,6 +34,29 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
       zoneSeeds[zoneId] ??
       seedForCurrency(RiderZones.byId(zoneId)?.currency ?? '') ??
       seed;
+
+  /// Rule D ([UnservedPaymentMethods]): the same seeds offering pay in car
+  /// only, for a live build that has no document from the server.
+  static final Map<String, RiderAppConfig> payInCarZoneSeeds = {
+    for (final overrides in [
+      const <String, Object?>{},
+      _franceOverrides,
+      _tunisiaOverrides,
+    ])
+      (overrides['zoneId'] ?? seed.zoneId) as String: RiderAppConfig.fromJson({
+        ...seedDocument,
+        ...overrides,
+        'paymentMethods': UnservedPaymentMethods.payInCarOnly,
+      })!,
+  };
+
+  /// [seedFor] as a build without a served document may show it: on a live
+  /// build pay in car only, else the seed itself.
+  static RiderAppConfig unservedFor(String? zoneId) {
+    final full = seedFor(zoneId);
+    if (!LiveDataOnly.on) return full;
+    return payInCarZoneSeeds[full.zoneId] ?? payInCarZoneSeeds[seed.zoneId]!;
+  }
 
   /// The seed whose prices are in [currency], or null.
   static RiderAppConfig? seedForCurrency(String currency) {

@@ -165,8 +165,9 @@ class ApiRiderConfigRepository extends ChangeNotifier
     }
   }
 
+  /// Rule D: on a live build the stand-in offers pay in car only.
   static RiderAppConfig _seed(String zoneId) =>
-      SeedRiderConfigRepository.seedFor(zoneId);
+      SeedRiderConfigRepository.unservedFor(zoneId);
 
   @override
   Future<RiderAppConfig> current() => forZone(homeZoneId);

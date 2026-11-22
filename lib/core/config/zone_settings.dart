@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/config/live_data_only.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 
 /// One admin-editable amount in the zone's currency: a tip option or a
@@ -147,6 +148,21 @@ List<AmountOption>? readAmountOptions(Object? raw, String currency) {
     );
   }
   return out.isEmpty ? null : out;
+}
+
+/// Rule D (owner 2026-11-19 "show ONLY pay the driver in the car",
+/// 2026-11-22 "Only pay in car"): the payment methods a screen offers
+/// before, or without, a list the server sent. On a live build (staging,
+/// production: sign-in required, [LiveDataOnly]) that is pay in car only,
+/// so Card and Apple Pay never show while the zone's settings are on their
+/// way or could not be read. They are only not shown: a served list that
+/// names them shows them as before. Demo, dev and test builds keep every
+/// zone method.
+abstract final class UnservedPaymentMethods {
+  static const payInCarOnly = <String>['cash'];
+
+  static List<String> get current =>
+      LiveDataOnly.on ? payInCarOnly : ZoneDefaults.paymentMethods;
 }
 
 /// Reads `paymentMethods` as contract zone methods (aliases resolved,
