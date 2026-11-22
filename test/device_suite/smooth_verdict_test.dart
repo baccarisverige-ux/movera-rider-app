@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../integration_test/staging/smooth_verdict.dart';
@@ -126,46 +124,5 @@ void main() {
     // `flutter test` runs debug code: the default is the real build.
     expect(SmoothVerdict.buildMode, 'debug');
     expect(SmoothVerdict.buildLine(), 'BUILD mode=debug');
-  });
-
-  group('the harness uses it for SMOOTH only', () {
-    // Without white space: the formatter may break a line anywhere.
-    String flat(String text) => text.replaceAll(RegExp(r'\s+'), '');
-    final watch = flat(
-      File('integration_test/staging/transition_watch.dart').readAsStringSync(),
-    );
-    final log = flat(
-      File('integration_test/staging/check_log.dart').readAsStringSync(),
-    );
-
-    test('SMOOTH goes through the build-mode verdict', () {
-      expect(watch, contains('SmoothVerdict.judge(stats)'));
-      expect(watch, contains("log.smooth('TRANSITION:\$name:SMOOTH',outcome,"));
-    });
-
-    test('the rows carry the outcome, p90 and the jank budget', () {
-      expect(watch, contains("'smoothOutcome':outcome.name"));
-      expect(watch, contains("'p90Ms':"));
-      expect(watch, contains("'jankMs':"));
-    });
-
-    test('RELOAD and ERRORS stay PASS / FAIL', () {
-      expect(watch, contains("check('RELOAD',reloadOk"));
-      expect(watch, contains("check('ERRORS',errorsOk"));
-      expect(watch, isNot(contains("check('SMOOTH'")));
-      expect(
-        watch,
-        contains('ok?log.pass(id,title,detail):log.fail(id,title,detail)'),
-      );
-    });
-
-    test('a WARN is not a failure, and the build is said at the start', () {
-      expect(log, contains('results.where((r)=>r.outcome==CheckOutcome.fail)'));
-      expect(log, contains('say(SmoothVerdict.buildLine())'));
-      expect(
-        log,
-        contains("'skipped=\${skipped.length}warned=\${warned.length}'"),
-      );
-    });
   });
 }

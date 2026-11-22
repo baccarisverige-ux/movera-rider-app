@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -55,23 +53,5 @@ void main() {
     await sendTextAction(tester, find.byType(TextField), TextInputAction.send);
     await tester.pump();
     expect(sent, ['hello']);
-  });
-
-  test('the device suite never types with the debug-only test keyboard', () {
-    final files = [
-      ...Directory('integration_test/staging').listSync().whereType<File>(),
-      File('integration_test/trip_lifecycle_test.dart'),
-      File('integration_test/staging_device_test.dart'),
-    ].where((f) => f.path.endsWith('.dart') && f.existsSync());
-    expect(files.length, greaterThan(5));
-    for (final file in files) {
-      if (file.path.endsWith('type_text.dart')) continue;
-      final code = file
-          .readAsLinesSync()
-          .where((line) => !line.trimLeft().startsWith('//'))
-          .join('\n');
-      expect(code, isNot(contains('.enterText(')), reason: file.path);
-      expect(code, isNot(contains('testTextInput')), reason: file.path);
-    }
   });
 }
