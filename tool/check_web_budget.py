@@ -7,6 +7,20 @@ Fails when main.dart.js (the Dart program every visit downloads before the
 first frame) grows past its budget. The budgets in the CI workflow are the
 Phase 7 baseline plus about 10 %; raise them on purpose, in the same change
 that needs the bytes, never to make a red build green.
+
+Raised on purpose 2026-11-22. Reason: launch build: 11 launch sets merged
+(SMS sign-in, account deletion, Stripe fee sheet, change the ride, live
+location, load cuts, SOS by press time, admin sign-out, booked-ride screens,
+minimum app version, real-app address). Rule used (the driver app's,
+tool/web_budget.json there): the largest main.dart.js measured over the
+builds CI checks + 2 %, rounded up to the next KiB.
+  Old budget (Phase 7 baseline + about 10 %): raw 6,500,000, gzip 1,850,000.
+  Measured 2026-11-22 (raw / gzip -9):
+    ci.yml production build            6,502,531 / 1,852,212
+    publish-web-live.yml live  (/live/) 6,502,615 / 1,852,265
+    publish-web-live.yml real  (/app/)  6,502,620 / 1,852,269
+  (main before the launch sets, same real-app flags: 6,436,525 / 1,834,058.)
+  New budget: raw 6,633,472, gzip 1,890,304 (ci.yml and publish-web-live.yml).
 """
 import argparse
 import gzip
