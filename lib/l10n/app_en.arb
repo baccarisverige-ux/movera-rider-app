@@ -1622,6 +1622,44 @@
       }
     }
   },
+  "liveAdjustPickupTitle": "You're {meters} m from your pickup",
+  "@liveAdjustPickupTitle": {
+    "description": "Banner title: the rider is this many metres from the pickup (v0.18.144, owner OK pending).",
+    "placeholders": {
+      "meters": {
+        "type": "String"
+      }
+    }
+  },
+  "liveAdjustPickupBody": "Move the pickup to where you are now?",
+  "@liveAdjustPickupBody": {
+    "description": "Banner question (v0.18.144)."
+  },
+  "liveAdjustPickupButton": "Adjust pickup",
+  "@liveAdjustPickupButton": {
+    "description": "Banner button (v0.18.144)."
+  },
+  "liveAdjustPickupDone": "Pickup moved to your location",
+  "@liveAdjustPickupDone": {
+    "description": "Toast after the pickup moved to the GPS (v0.18.144)."
+  },
+  "liveShareSwitch": "Share my location",
+  "@liveShareSwitch": {
+    "description": "Share my location switch (v0.18.144)."
+  },
+  "liveRiderShareBody": "{driver} sees exactly where you are. Stops at pickup.",
+  "@liveRiderShareBody": {
+    "description": "Under the switch: the driver name (v0.18.144).",
+    "placeholders": {
+      "driver": {
+        "type": "String"
+      }
+    }
+  },
+  "livePrivacyNote": "Your live location is sent only to your driver until pickup and is not saved.",
+  "@livePrivacyNote": {
+    "description": "Consent / privacy line under the switch (v0.18.144, owner + legal OK pending)."
+  },
   "priceUpdated": "Price updated",
   "priceUpdatedBody": "The price for this pickup is now {now} (was {was}).",
   "@priceUpdatedBody": {

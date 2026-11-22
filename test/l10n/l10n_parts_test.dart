@@ -97,18 +97,20 @@ void main() {
     // v0.18.136 (Stripe rider fee): + 5 fee* card-payment texts.
     // v0.18.143 (change route while searching): + priceChangedTitle,
     // confirmNewPrice (general area).
+    // v0.18.144 (live location + adjust-pickup banner): + 7 live* texts
+    // (live_location area).
     const before = {
       'en': (
-        '8ce0e8319c366002b2a174e62486c5812c54a52015d6060c2f4c73ea83ff36d9',
-        2237,
+        '651deeb0dbac6aaa8a53627a627d467293d972a987e628e35e1fd7dfde704e83',
+        2251,
       ),
       'fr': (
-        '6bccf54b15e994c5017c28024a8507cfe894826a914a39772adc10633d9b87a5',
-        1773,
+        'dfa0cf4d76e91a3f064f6bec16165e201ea2c43d2465cf7dfc876275af787ebd',
+        1780,
       ),
       'sv': (
-        '2d42560164d018f17d85f46b7107156dcf9a6e7d6254557a6876cbee607e3b75',
-        1773,
+        '3a492cb5afffdfc31962eeb8e980c0338498f77c42931b693f9dce7c8f69be0a',
+        1780,
       ),
     };
     for (final lang in _langs) {

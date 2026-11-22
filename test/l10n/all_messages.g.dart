@@ -756,6 +756,13 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'termsBookedNoShow': l.termsBookedNoShow('<noShowAfter>', '<noShowFee>'),
   'termsBookedCancelAfterArrived': l.termsBookedCancelAfterArrived,
   'termsPickupMove': l.termsPickupMove('<meters>'),
+  'liveAdjustPickupTitle': l.liveAdjustPickupTitle('<meters>'),
+  'liveAdjustPickupBody': l.liveAdjustPickupBody,
+  'liveAdjustPickupButton': l.liveAdjustPickupButton,
+  'liveAdjustPickupDone': l.liveAdjustPickupDone,
+  'liveShareSwitch': l.liveShareSwitch,
+  'liveRiderShareBody': l.liveRiderShareBody('<driver>'),
+  'livePrivacyNote': l.livePrivacyNote,
   'priceUpdated': l.priceUpdated,
   'priceUpdatedBody': l.priceUpdatedBody('<now>', '<was>'),
   'priceUnavailableRefreshing': l.priceUnavailableRefreshing,
@@ -1895,6 +1902,8 @@ const messagePlaceholders = <String, List<String>>{
   'termsBookedIncludedWaiting': ['minutes'],
   'termsBookedNoShow': ['noShowAfter', 'noShowFee'],
   'termsPickupMove': ['meters'],
+  'liveAdjustPickupTitle': ['meters'],
+  'liveRiderShareBody': ['driver'],
   'priceUpdatedBody': ['now', 'was'],
   'cardExpires': ['date'],
   'walletWrongCurrency': ['wallet', 'ride'],
@@ -3549,6 +3558,20 @@ class _Exhaustive implements AppLocalizations {
   String get termsBookedCancelAfterArrived => '';
   @override
   String termsPickupMove(String meters) => '';
+  @override
+  String liveAdjustPickupTitle(String meters) => '';
+  @override
+  String get liveAdjustPickupBody => '';
+  @override
+  String get liveAdjustPickupButton => '';
+  @override
+  String get liveAdjustPickupDone => '';
+  @override
+  String get liveShareSwitch => '';
+  @override
+  String liveRiderShareBody(String driver) => '';
+  @override
+  String get livePrivacyNote => '';
   @override
   String get priceUpdated => '';
   @override
