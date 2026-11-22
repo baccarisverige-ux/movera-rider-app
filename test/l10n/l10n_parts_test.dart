@@ -93,18 +93,19 @@ void main() {
     // Real SMS sign-in codes (contract v0.18.133 smsSignIn.texts):
     // + errSmsNotSent, errSmsDailyLimit; textFourDigitCode 4 -> 6 (owner
     // 2026-11-20 "Yes, 4 → 6 only (Rec.)").
+    // Account deletion E1 (contract v0.18.134): + deleteOpenTrip, accountClosed (account area).
     const before = {
       'en': (
-        '595d699881bba1f8c39837eb2d6a30588d243ee3d16de9094e35ff264726ef23',
-        2221,
+        'ec2540519546ec1db7ee924927ed3f3ba7814da0557547572d21ac5218904dd0',
+        2225,
       ),
       'fr': (
-        '3f62687c0afa67c84ea5dad9365bc749b2728e5cce3cacfd720999a86a811748',
-        1764,
+        'fb6c19754ce94c5269c98df591f413be17cc4566f99d747731126f530c62cfd1',
+        1766,
       ),
       'sv': (
-        '30189ac4b4c0fb4d8dc1f13d43edf0c2ddebced9e7960bf023cfb06822864958',
-        1764,
+        'd1af55eda75820493755fc2dff1fc39c1e424c380d77d4379b453ed2d0c2fe3e',
+        1766,
       ),
     };
     for (final lang in _langs) {

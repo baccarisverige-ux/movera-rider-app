@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/auth/presentation/sign_out_flow.dart';
@@ -81,7 +82,9 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
       if (!mounted) return;
       setState(() {
         _sending = false;
-        _error = context.l10n.deleteSendFailed;
+        _error = deletionOpenTrip(error)
+            ? context.l10n.deleteOpenTrip
+            : context.l10n.deleteSendFailed;
       });
     }
   }
@@ -200,3 +203,9 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
     );
   }
 }
+
+/// v0.18.134 (`contract.json#accountDeletion.refused`): the server refuses a
+/// deletion only during an open ride (409 `deletion_open_trip`), never for a
+/// debt.
+bool deletionOpenTrip(Object error) =>
+    error is ApiError && error.reason == 'deletion_open_trip';
