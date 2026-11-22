@@ -100,18 +100,19 @@ void main() {
     // v0.18.144 (live location + adjust-pickup banner): + 7 live* texts
     // (live_location area).
     // v0.18.148 (sosPressTime): + sosNotSent (safety area, owner to confirm).
+    // Admin sign-out (contract v0.18.149): + signedOutByMovera (account area).
     const before = {
       'en': (
-        '6ee9a505a751bccd951e7cd87df1b1966de25b06d6d6620771f140850899a681',
-        2253,
+        'fbfc8380b539cb60f3b4d5b7df5e915f9a490227ea7ca22eb022de61416a4bfc',
+        2255,
       ),
       'fr': (
-        '071dcf5113c671c32ce387abbcb3cab2b007f5d7d95623f27da3a5ceae3dccfc',
-        1781,
+        '73a8827a3e45a99cc2ba8f135dc3c76094ea19a6249c4bc4edd3b6a86d2375c4',
+        1782,
       ),
       'sv': (
-        'd67e52f4f61a4c990fa3763d07fec91adfea8b5cf1c86299b9c5ba37cfacc2fb',
-        1781,
+        'c6ca029daa0dcc196e979b1249af1c6ec802616b81e670445aa758d1812a79b5',
+        1782,
       ),
     };
     for (final lang in _langs) {

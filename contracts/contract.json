@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.145",
+  "version": "0.18.149",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -1142,7 +1142,8 @@
         "session_ended": "revoked",
         "refresh_token_reused": "revoked",
         "refresh_token_unknown": "revoked",
-        "signed_in_elsewhere": "revoked"
+        "signed_in_elsewhere": "revoked",
+        "signed_out_by_movera": "revoked"
       },
       "kinds": {
         "expired": "not used for refreshExpiresDays (30 days)",
@@ -1177,6 +1178,12 @@
         "sv": "Inloggad på en annan telefon",
         "fr": "Connecté sur un autre téléphone",
         "en": "Signed in on another phone"
+      },
+      "byMoveraTexts": {
+        "note": "v0.18.149 (owner decisions/driver-g12.md Q6): reason signed_out_by_movera = an admin signed this phone out (adminSessions). The sign-in screen shows the revoked title with this line instead of detail.revoked, once (until the next sign-in). New text, owner to confirm.",
+        "sv": "Du loggades ut av Movera",
+        "fr": "Vous avez été déconnecté par Movera",
+        "en": "You were signed out by Movera"
       }
     },
     "signOutOnTrip": {
@@ -10562,13 +10569,65 @@
     "rider": "Not affected: the rider app has no offer feed; GET /rider/config/stream and the trip stream are unchanged.",
     "admin": "Admin › Dispatch, per zone: the switch 'One live connection per driver phone' (default off), with an 'i' text (what it does, what it saves, who it affects, when to turn it on, the way back, older apps). It is the way back without an app release."
   },
-  "loadCut": {
-    "note": "v0.18.145 (S4c load cut, Rules audits/impact/stress-s4b-2026-11-20.md 'S4c': all busy 503 were the pool-wait shed and about 70 % of the requests were app polling). Additive; X-Api-Version stays 0.5; no migration; no new user text; old endpoints stay. Follows v0.18.132 (0.18.133-0.18.144 are other open drafts; renumber at merge, tags only go up).",
-    "homeBadges": "GET /driver/home-badges answers Home's four badge reads in one request: { profile (= GET /driver/profile), notifications (= GET /notifications?unreadOnly=true, first page), reminders (= GET /driver/reminders), onboardingSettings (= GET /driver/onboarding/settings for the driver's own country, null when the account has no country yet) }. Same rules, texts and shed class as the four reads. The driver app sends it instead of the four (every 60 s while Home shows, on resume and back); on 404 (an older server) it falls back to the four.",
-    "airportQueueLive": "The server sends { eventId, kind: 'airport_queue_changed', areaId, occurredAt, serverTime } on GET /driver/config/stream (and GET /driver/stream) to every driver whose place in that airport line changed (joined, left, moved up, picked). No SSE id (not replayed). The driver app reads GET /driver/airport-queue again on it, at most once per 5 s; its timer becomes a fallback every fallbackSeconds (was 20 s), and on every stream reconnect it reads at once.",
-    "airportQueueFallbackSeconds": 60,
-    "riderTripWatch": "While GET /rider/config/stream is connected the rider app's trip watch (GET /rider/trips/active on Home, the booked-driver banner read on a ride screen) polls every streamUpSeconds instead of bookedRideSeen pollSeconds (8): rider_trip_changed already reads at once (bookedRideSeen.riderTripEvent), and a stream reconnect reads at once. While the stream is down the 8 s poll and its backoff stay as before. Server: no change.",
-    "riderTripWatchStreamUpSeconds": 60,
-    "nearbyCache": "GET /rider/nearby-vehicles: each server copy keeps the answer's cars per grid cell (0.005 degrees) for at most NEARBY_CACHE_MS (server env, default 2500, 0 = off). Only the already blurred, rounded positions, keys and headings are kept (never a driver id or a true position); each rider still gets only the cars within radiusMeters of his own point, nearest first, at most maxVehicles. A car may show up to that long late."
+  "adminSessions": {
+    "note": "v0.18.149 (owner decisions/driver-g12.md Q6 \"Real, riders + drivers (Recommended)\"): an admin sees the signed-in sessions (phones) of one rider or driver and signs one or all of them out with a reason. The person's next call and next POST /auth/refresh answer 401 unauthenticated, reason signed_out_by_movera; the app signs out and its sign-in screen shows auth.signedOut.byMoveraTexts once. Riders and drivers, SE / FR / TN alike.",
+    "routes": {
+      "listRider": "GET /admin/riders/{riderId}/sessions",
+      "listDriver": "GET /admin/drivers/{driverId}/sessions",
+      "signOutRider": "POST /admin/riders/{riderId}/sessions/sign-out",
+      "signOutDriver": "POST /admin/drivers/{driverId}/sessions/sign-out"
+    },
+    "permissions": {
+      "listRider": "riders.read",
+      "listDriver": "drivers.read",
+      "signOutRider": "riders.block",
+      "signOutDriver": "drivers.activate",
+      "note": "Existing permissions, no new one: who may read the person reads the list; who may block a rider / activate a driver signs out."
+    },
+    "scope": "Zone-scoped like the other admin people routes: a driver outside every zone of the admin, or a rider who never rode in the admin's zones, is 403 forbidden, reason zone_out_of_scope (all-zones admins see everyone). Unknown person: 404 rider_not_found / driver_not_found.",
+    "list": {
+      "fields": [
+        "sessionId",
+        "app",
+        "device",
+        "platform",
+        "appVersion",
+        "lastSeenAt",
+        "createdAt"
+      ],
+      "order": "Active sessions only (not ended, not expired), newest sign-in first, at most 50.",
+      "device": "A short label from the sign-in's user agent: iPhone, iPad, Android phone, Web browser, or null when the app sent nothing useful. platform ios | android | web | unknown (the push registration's platform wins). appVersion from the push registration, else null. lastSeenAt = the last token refresh, else the sign-in.",
+      "privacy": "Never the IP address, the raw user agent or any place: no city, country or position is kept per session, so none is shown."
+    },
+    "signOut": {
+      "body": "{ sessionId, reason } signs out one session; { all: true, reason } signs out every active session. Exactly one of sessionId / all, else 400 invalid_request reason session_or_all.",
+      "reason": "Required, 1-500 characters after trimming, else 400 invalid_request reason reason_required. Kept in the audit, never shown to the person.",
+      "effect": "The sessions end (auth_sessions.revoked_reason signed_out_by_movera), their refresh tokens expire and their push devices are forgotten. Every server copy refuses them at once (the revoke NOTIFY of the session check cache). A free online driver left with no session is set offline and his offers are withdrawn.",
+      "driverOnTrip": "A driver with a current trip (auth.signOutOnTrip) is refused: 409 conflict, reason sign_out_on_trip; nothing changes. He is signed out only after the trip ends (the admin tries again then).",
+      "notFound": "sessionId that is not an active session of this person: 404 not_found, reason session_not_found. all: true with no active session: 200 { signedOut: 0 }.",
+      "idempotency": "Idempotency-Key required; the same key replays the first answer and writes no second audit row.",
+      "answer": "200 AdminSessionSignOutResult { signedOut, items } (items = the sessions still active).",
+      "audit": "rider.sessions_sign_out / driver.sessions_sign_out, target the person, detail { reason, all, sessionIds }."
+    },
+    "apps": {
+      "reason": "signed_out_by_movera (auth.signedOut.reasons, kind revoked)",
+      "show": "Rider and driver apps: on a 401 with this reason (a call, then the refresh) the app signs out and the sign-in screen shows auth.signedOut.texts.revoked with byMoveraTexts as the detail line, once; no message after the person's own Sign out."
+    },
+    "errors": {
+      "reason_required": "400 invalid_request",
+      "session_or_all": "400 invalid_request",
+      "zone_out_of_scope": "403 forbidden",
+      "rider_not_found": "404 not_found",
+      "driver_not_found": "404 not_found",
+      "session_not_found": "404 not_found",
+      "sign_out_on_trip": "409 conflict",
+      "signed_out_by_movera": "401 unauthenticated (the signed-out phone)"
+    },
+    "scenario": {
+      "given": "Rider Sara is signed in on an iPhone and an Android phone; admin Ali (riders.block, Stockholm) opens her page.",
+      "when": "Ali opens Sessions, picks the iPhone, writes the reason \"Lost phone\" and confirms Sign out.",
+      "then": "The answer lists only the Android phone (signedOut 1); the audit has rider.sessions_sign_out { reason \"Lost phone\" }. The iPhone's next call is 401 signed_out_by_movera; it signs out and Sign in shows \"You were signed out – please sign in again\" / \"You were signed out by Movera\". The Android phone keeps working. Driver Omar on a trip: Sign out all is 409 sign_out_on_trip until the trip ends; afterwards it signs him out and sets him offline."
+    },
+    "admin": "Admin: a Sessions card on the rider and the driver detail page (admin.rider.signOut, admin.driver.signOut) with Sign out per phone and Sign out all, a confirm step with the required reason; the buttons only with the permission above. Texts in en / sv / fr (admin area c54)."
   }
 }

@@ -248,6 +248,8 @@
   "@signedOutDetailExpired": {"description": "Contract v0.18.5 auth.signedOut.detail.expired (G1-D3): reason line."},
   "signedOutDetailRevoked": "Movera ended your session.",
   "@signedOutDetailRevoked": {"description": "Contract v0.18.5 auth.signedOut.detail.revoked (G1-D3): reason line."},
+  "signedOutByMovera": "You were signed out by Movera",
+  "@signedOutByMovera": {"description": "Contract v0.18.149 auth.signedOut.byMoveraTexts (owner G12 Q6): an admin signed this phone out; reason line instead of signedOutDetailRevoked. Owner to confirm."},
   "authOr": "or",
   "@authOr": {"description": "G1-B5 divider 'or', same as the driver app (authOr)."},
   "authCodeFieldLabel": "Verification code",

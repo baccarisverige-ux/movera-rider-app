@@ -135,6 +135,7 @@
   "signedOutRevoked": "Du loggades ut – logga in igen",
   "signedOutDetailExpired": "Du har inte använt appen på 30 dagar.",
   "signedOutDetailRevoked": "Movera avslutade din session.",
+  "signedOutByMovera": "Du loggades ut av Movera",
   "authOr": "eller",
   "authCodeFieldLabel": "Verifieringskod",
   "accountOutstandingFees": "Obetalda avgifter",
