@@ -90,18 +90,31 @@ void main() {
     // walletDebtPaid, walletYouOwe (payments area, contract debtModel.texts).
     // Saved-places design (contract v0.18.129): + 7 places* texts.
     // R4 (2026-11-20): + pinDecidedByArea, pinStatusByArea (ride area).
+    // Real SMS sign-in codes (contract v0.18.133 smsSignIn.texts):
+    // + errSmsNotSent, errSmsDailyLimit; textFourDigitCode 4 -> 6 (owner
+    // 2026-11-20 "Yes, 4 → 6 only (Rec.)").
+    // Account deletion E1 (contract v0.18.134): + deleteOpenTrip, accountClosed (account area).
+    // v0.18.136 (Stripe rider fee): + 5 fee* card-payment texts.
+    // v0.18.143 (change route while searching): + priceChangedTitle,
+    // confirmNewPrice (general area).
+    // v0.18.144 (live location + adjust-pickup banner): + 7 live* texts
+    // (live_location area).
+    // v0.18.148 (sosPressTime): + sosNotSent (safety area, owner to confirm).
+    // Admin sign-out (contract v0.18.149): + signedOutByMovera (account area).
+    // P16c (contract v0.18.154 appUpdate.texts): + minVersionTitle,
+    // minVersionBody, minVersionUpdate (app_update area).
     const before = {
       'en': (
-        '30863f8c37293ffbfc60e1041ccbdd151afe870cecac888e69fa43bc795f0ae3',
-        2217,
+        'd073587dfe74faefad3361ef00995f14db087e34abe4d6b390f2637d10959da8',
+        2258,
       ),
       'fr': (
-        'f16f36c742316655f20b0697eada7116533bc0d215d43ca52ca69853f3ef15ee',
-        1762,
+        '1fbd0a980232997cf541041ff38b5fa1bdc1405d47e21cb309a3038a404c0b39',
+        1785,
       ),
       'sv': (
-        '599630fe295dc816eb322e17f40a42f961e26c79e143b4fffa97d07e89b0a382',
-        1762,
+        '59fba777083cff06c6d7e48bfd9c6c21a646f43d10abf5f2ca9a5bd8e2bb46d8',
+        1785,
       ),
     };
     for (final lang in _langs) {

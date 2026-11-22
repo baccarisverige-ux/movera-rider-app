@@ -65,6 +65,7 @@ Future<bool> showCancelSearchSheet(
   required bool takingLonger,
   required Future<bool> Function() commit,
   ValueListenable<bool>? driverMatched,
+  String? feeNote,
 }) async {
   SheetCoordinator.instance.open(RideSheet.cancel);
   final committed = await MoveraSheet.show<bool>(
@@ -76,6 +77,8 @@ Future<bool> showCancelSearchSheet(
       phase: CancelPhase.searching,
       onConfirm: commit,
       driverMatched: driverMatched,
+      // v0.18.152: a booked ride's cancel line (the server's preview).
+      feeNote: feeNote,
     ),
   );
   SheetCoordinator.instance.close(RideSheet.cancel);

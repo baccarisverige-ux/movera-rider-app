@@ -6,6 +6,7 @@ import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/on_trip.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/active_ride/application/pickup_move_controller.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/route_change_sheet.dart';
 import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
@@ -50,9 +51,11 @@ Future<RideSnapshot?> openRouteChange(
     );
     return null;
   }
-  // v0.18.9: the server prices from where the trip is; the pickup moves
-  // only through its own step (pickup move).
-  final lockPickup = pickupLocked || changes.contractWire;
+  // v0.18.9: once a driver has the trip the pickup moves only through its
+  // own step (pickup move). v0.18.143 (owner 2026-11-20 "must rider can
+  // change !!!!", contract onTrip.routeChange.whileSearching): while the
+  // ride is still searched the pickup may move to any place.
+  final lockPickup = pickupLocked || (changes.contractWire && driverAccepted);
   final places = HomePlacesController();
   await places.load();
   if (!context.mounted) return null;
@@ -73,12 +76,13 @@ Future<RideSnapshot?> openRouteChange(
           ],
           stopsSupported: true,
           pickupLocked: lockPickup,
+          driverOnTheWay: driverAccepted,
           openWithNewStop: entry == RouteChangeEntry.newStop,
           initialField: switch (entry) {
             RouteChangeEntry.pickup when !lockPickup => 'pickup',
             _ => 'destination',
           },
-          finishLabel: context.l10n.seeNewPrice,
+          finishLabel: context.l10n.done,
           capture: capture,
           here: GeoPoint(ride.pickupLat, ride.pickupLng),
           homeAddress: places.homeAddress,
@@ -114,6 +118,10 @@ Future<RideSnapshot?> openRouteChange(
           },
           onFinish: (selection) async {
             try {
+              if (changes.contractWire && !driverAccepted && !lockPickup) {
+                final moved = await _smallPickupMove(ride, selection);
+                if (moved != null) return {'ride': moved, 'differenceKr': 0.0};
+              }
               final quote = await changes.preview(
                 ride: ride,
                 pickupAddress: lockPickup ? null : selection.pickup,
@@ -133,6 +141,7 @@ Future<RideSnapshot?> openRouteChange(
                 quote: quote,
                 paymentMethod: ride.paymentMethod,
                 paymentMethodId: ride.paymentMethodId,
+                whileSearching: !driverAccepted,
               );
               if (!decision.confirmed || !context.mounted) return null;
               if (changes.contractWire) {
@@ -181,6 +190,53 @@ Future<RideSnapshot?> openRouteChange(
   } finally {
     capture.stop();
   }
+}
+
+/// v0.18.143 (whileSearching.smallMove): only the pickup moved, and at most
+/// the zone's `maxPickupMoveMeters`: the same-price pickup move
+/// (`PATCH { pickup }`) as before. Null when it does not apply (or the
+/// server says it is too far): the caller prices the change instead.
+Future<RideSnapshot?> _smallPickupMove(
+  RideSnapshot ride,
+  RoutePickerSelection selection,
+) async {
+  final point = selection.pickupPoint;
+  final id = ride.rideId;
+  if (point == null || id == null) return null;
+  if (!RouteChangeController.pickupMoved(ride, point)) return null;
+  final sameDestination =
+      selection.destination.trim() == ride.destinationAddress &&
+      selection.stops.where((s) => s.trim().isNotEmpty).toList().join('|') ==
+          [for (final stop in ride.stops) stop.address].join('|');
+  if (!sameDestination) return null;
+  final max = await _maxPickupMoveMeters(ride);
+  if (PickupMoveController.check(
+        bookedPickup: GeoPoint(ride.pickupLat, ride.pickupLng),
+        to: point,
+        maxMeters: max,
+      ) !=
+      null) {
+    return null;
+  }
+  try {
+    await PickupMoveController(
+      api: AppScope.instance.api,
+      session: AppScope.instance.ride,
+    ).move(tripId: id, address: selection.pickup, to: point);
+  } on PickupMoveException catch (error) {
+    // Reviewer R4: each pickup-move answer keeps its own meaning; too far
+    // (the server measured from the booked pickup) is priced instead.
+    final failure = switch (error.failure) {
+      PickupMoveFailure.tooFar => null,
+      PickupMoveFailure.fixedAfterArrival => RouteChangeFailure.pickupLocked,
+      PickupMoveFailure.stale => RouteChangeFailure.stale,
+      PickupMoveFailure.rideFinished => RouteChangeFailure.rideFinished,
+      PickupMoveFailure.network => RouteChangeFailure.network,
+    };
+    if (failure == null) return null;
+    throw RouteChangeException(failure);
+  }
+  return RouteChangeController.adoptMovedPickup(ride, selection.pickup, point);
 }
 
 /// v0.18.9 (driver group 7): a controller with the trip zone's
@@ -329,12 +385,18 @@ void showRouteUpdated(
   double differenceKr = 0,
   String currency = Money.defaultCurrency,
   RefundDestination? refundTo,
+  double? newPrice,
 }) {
   final parts = <String>[
     driverAssigned
         ? context.l10n.routeUpdatedDriverTold
         : context.l10n.routeUpdated,
   ];
+  // v0.18.143 (approved mockup screen 5a): while searching, pay in car,
+  // the new price follows "Route updated" (the amount only, no new words).
+  if (!driverAssigned && newPrice != null && isCashPayment(paymentMethod)) {
+    parts.add(formatMajor(newPrice, currency));
+  }
   // rider-u43: any change in minor units is told, not only half a unit.
   if (!isCashPayment(paymentMethod) &&
       Money.fromLegacyMajor(differenceKr, currency).amountMinor != 0) {

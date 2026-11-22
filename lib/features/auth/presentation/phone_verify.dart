@@ -17,12 +17,13 @@ import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.da
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scaffold.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/slow_server_note.dart';
-import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 import 'package:pinput/pinput.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
-/// Step 2: enter the 4-digit code. Verify unlocks at four digits; resend
-/// unlocks when the server's retry window has passed.
+/// Step 2: enter the code. It has as many boxes as the server says
+/// ([OtpChallenge.codeLength]: 4 for a test number's code, 6 for a code
+/// sent by SMS, contract v0.18.133). Verify unlocks at the last digit;
+/// resend unlocks when the server's retry window has passed.
 class PhoneVerification extends StatefulWidget {
   /// Whether this build runs in a browser (tests set it).
   @visibleForTesting
@@ -81,6 +82,13 @@ class _PhoneVerificationState extends State<PhoneVerification> {
 
   String? get _phone => _challenge?.phone ?? widget.phoneNumber;
 
+  /// How many boxes: the challenge's code length (4 with no challenge).
+  int get _codeLength =>
+      _challenge?.codeLength ?? OtpChallenge.defaultCodeLength;
+
+  bool _complete(String code) =>
+      RegExp('^[0-9]{$_codeLength}\$').hasMatch(code);
+
   @override
   void initState() {
     super.initState();
@@ -109,7 +117,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
 
   void _pinChanged() {
     if (_clearingWrongCode) return;
-    if (!RidePin.isValidFormat(_pin.text.trim())) _autoSent = null;
+    if (!_complete(_pin.text.trim())) _autoSent = null;
     setState(() {
       // v0.18.5 G1-B3: "Too many wrong tries" stays until a new code.
       if (_error != null && !_tooManyWrong) _error = null;
@@ -123,10 +131,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
   void _codeCompleted(String value) {
     final code = value.trim();
     setState(() {});
-    if (!RidePin.isValidFormat(code) ||
-        _submitting ||
-        _tooManyWrong ||
-        _autoSent == code) {
+    if (!_complete(code) || _submitting || _tooManyWrong || _autoSent == code) {
       return;
     }
     _autoSent = code;
@@ -220,7 +225,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
     }
     // rider-u73: no device-clock expiry check; the server answers 410 for
     // an expired code and authErrorMessage says so.
-    if (!RidePin.isValidFormat(code)) return;
+    if (!_complete(code)) return;
     setState(() {
       _submitting = true;
       _error = null;
@@ -255,7 +260,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
   @override
   Widget build(BuildContext context) {
     final phone = _phone;
-    final complete = RidePin.isValidFormat(_pin.text.trim());
+    final complete = _complete(_pin.text.trim());
     // rider-r3-10: no way back while the code is being checked. Leaving
     // here unmounted the screen that opens the app (or the new-rider name
     // step) once the verify signs the rider in, so a signed-in rider was
@@ -295,25 +300,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
           MergeSemantics(
             child: Semantics(
               label: context.l10n.authCodeFieldLabel,
-              child: Pinput(
-                key: const ValueKey('auth-code'),
-                length: 4,
-                controller: _pin,
-                focusNode: _pinFocus,
-                autofocus: PhoneVerification.autofocusCode,
-                onTap: _refocus,
-                // Owner decision 7: one-time-code autofill (iOS, the web's
-                // autocomplete="one-time-code", Android autofill services).
-                autofillHints: const [AutofillHints.oneTimeCode],
-                keyboardType: TextInputType.number,
-                forceErrorState: _error != null,
-                onCompleted: _codeCompleted,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                defaultPinTheme: _box(),
-                focusedPinTheme: _box(focused: true),
-                submittedPinTheme: _box(),
-                errorPinTheme: _box(error: true),
-              ),
+              child: _codeBoxes(),
             ),
           ),
           if (_error != null) AuthErrorText(_error!),
@@ -359,6 +346,45 @@ class _PhoneVerificationState extends State<PhoneVerification> {
     );
   }
 
+  /// The width of one code box. Four boxes keep their 68 (as before); six
+  /// share the row, at most 68 and never under 36 each.
+  static const _boxWidth = 68.0;
+  static const _boxGap = 8.0;
+
+  /// The code boxes: [_codeLength] of them, one row.
+  Widget _codeBoxes() {
+    final length = _codeLength;
+    // The card is edge to edge with [AuthScaffold.cardSidePadding] on each
+    // side, so the row is that much narrower than the screen. (No
+    // LayoutBuilder: the page measures the card's height first.)
+    final room =
+        MediaQuery.sizeOf(context).width - 2 * AuthScaffold.cardSidePadding;
+    final width = length <= OtpChallenge.defaultCodeLength
+        ? _boxWidth
+        : ((room - (length - 1) * _boxGap) / length)
+              .clamp(36.0, _boxWidth)
+              .toDouble();
+    return Pinput(
+      key: const ValueKey('auth-code'),
+      length: length,
+      controller: _pin,
+      focusNode: _pinFocus,
+      autofocus: PhoneVerification.autofocusCode,
+      onTap: _refocus,
+      // Owner decision 7: one-time-code autofill (iOS, the web's
+      // autocomplete="one-time-code", Android autofill services).
+      autofillHints: const [AutofillHints.oneTimeCode],
+      keyboardType: TextInputType.number,
+      forceErrorState: _error != null,
+      onCompleted: _codeCompleted,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      defaultPinTheme: _box(width: width),
+      focusedPinTheme: _box(width: width, focused: true),
+      submittedPinTheme: _box(width: width),
+      errorPinTheme: _box(width: width, error: true),
+    );
+  }
+
   void _refocus() {
     if (!PhoneVerification.refocusOnTap || !_pinFocus.hasFocus) return;
     // Both changes are applied at once, not in the next microtask, so the
@@ -372,9 +398,13 @@ class _PhoneVerificationState extends State<PhoneVerification> {
   }
 
   /// Owner round 3: each digit on its own underline, ink while focused.
-  PinTheme _box({bool focused = false, bool error = false}) {
+  PinTheme _box({
+    double width = _boxWidth,
+    bool focused = false,
+    bool error = false,
+  }) {
     return PinTheme(
-      width: 68,
+      width: width,
       height: 66,
       textStyle: GoogleFonts.urbanist(
         fontSize: 26,

@@ -155,6 +155,7 @@ extension _WaitingSheet on _WaitingForDriverState {
             onMore: _moreAction,
           ),
           const SizedBox(height: 12),
+          _locationTools(driver),
           if (_tracking.showPin) ...[
             TripPinCard(pin: _tracking.pickupPin!),
             const SizedBox(height: 12),

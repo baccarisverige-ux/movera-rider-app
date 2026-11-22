@@ -3,10 +3,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/app_update/ride_live_signal.dart';
+import 'package:movera_rider/features/fee_payment/presentation/pay_fee_button.dart';
 import 'package:movera_rider/core/config/live_data_only.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
+import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_fee_counter.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
@@ -37,6 +40,10 @@ import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/active_ride/application/pickup_move_controller.dart';
+import 'package:movera_rider/features/active_ride/application/live_location_share.dart'
+    show liveLocationSenders;
+import 'package:movera_rider/features/active_ride/application/adjust_pickup.dart';
+import 'package:movera_rider/features/active_ride/presentation/ride_location_tools.dart';
 import 'package:movera_rider/features/active_ride/presentation/cancel_fee_texts.dart';
 import 'package:movera_rider/features/active_ride/presentation/trip_terms_note.dart';
 import 'package:movera_rider/features/active_ride/presentation/cancel_preview_note.dart';
@@ -106,6 +113,7 @@ part 'waiting_for_driver_details.dart';
 part 'waiting_for_driver_feed.dart';
 part 'waiting_for_driver_layout.dart';
 part 'waiting_for_driver_live.dart';
+part 'waiting_for_driver_location.dart';
 part 'waiting_for_driver_map.dart';
 part 'waiting_for_driver_research.dart';
 part 'waiting_for_driver_screen.dart';
@@ -120,7 +128,8 @@ part 'waiting_for_driver_widgets.dart';
 /// ([WaitingForDriver.detailsAction]).
 enum DetailsAction { routeScreen, movePickup, refused }
 
-class _WaitingForDriverState extends State<WaitingForDriver> {
+class _WaitingForDriverState extends State<WaitingForDriver>
+    with RideScreenLive<WaitingForDriver> {
   late final ActiveRideController _ride =
       widget.controller ?? ActiveRideController();
   late final DriverTrackingController _tracking = DriverTrackingController(

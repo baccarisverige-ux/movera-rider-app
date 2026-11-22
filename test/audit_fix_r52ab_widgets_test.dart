@@ -347,6 +347,12 @@ void main() {
     // the driver (standing still) sends no new fix.
     await tester.tap(find.byIcon(Icons.more_horiz_rounded).first);
     await tester.pumpAndSettle(const Duration(milliseconds: 250));
+    // v0.18.143: the dots open Ride details; its destination pencil opens
+    // Change route.
+    await tester.tap(
+      find.byKey(const ValueKey('ride-details-edit-destination')),
+    );
+    await tester.pumpAndSettle(const Duration(milliseconds: 250));
     expect(find.byType(RoutePickerPage), findsOneWidget);
     Navigator.of(tester.element(find.byType(RoutePickerPage))).pop();
     await tester.pumpAndSettle(const Duration(milliseconds: 250));

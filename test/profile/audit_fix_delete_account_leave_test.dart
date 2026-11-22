@@ -13,6 +13,7 @@ import 'package:movera_rider/features/profile/application/account_deletion_contr
 import 'package:movera_rider/features/profile/presentation/delete_account.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/presentation/ride_restore_gate.dart';
+import 'package:movera_rider/features/safety/data/sos_sender.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// rider-u152: leaving Delete account while the request was in flight
@@ -94,7 +95,11 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  setUp(() {
+  setUp(() async {
+    // Launch build: SosSender keeps its write chain in a static (rider #680,
+    // contract v0.18.148); one left by the test before sits in that test's
+    // fake clock and the next sign-out would wait on it forever.
+    await SosSender.resetForTesting();
     FlutterSecureStorage.setMockInitialValues(<String, String>{});
     SharedPreferences.setMockInitialValues(<String, Object>{
       'movera_profile_v1': '{"name":"Rider A"}',

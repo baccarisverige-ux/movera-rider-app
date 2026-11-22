@@ -62,7 +62,9 @@ class _WalletScreenState extends State<WalletScreen> {
   /// Q7/Q8: the rider's current zone decides which wallet balance and
   /// which payment methods (its config's) are listed.
   String _currency = Money.defaultCurrency;
-  List<String> _zoneMethods = ZoneDefaults.paymentMethods;
+
+  /// Rule D: until the config arrives a live build lists pay in car only.
+  List<String> _zoneMethods = UnservedPaymentMethods.current;
   WalletController get _wallet => _homeWallet.forCurrency(_currency);
 
   /// v0.18.10 `paymentOptions` (owner G8 item 2): null from an older

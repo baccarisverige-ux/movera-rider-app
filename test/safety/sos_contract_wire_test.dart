@@ -69,7 +69,10 @@ void main() {
     SafetyController.resetShared();
     SafetyController.locateForSos = () async => gps;
   });
-  tearDown(() => SafetyController.locateForSos = lastSosPosition);
+  tearDown(() async {
+    SafetyController.locateForSos = lastSosPosition;
+    await SosSender.resetForTesting();
+  });
 
   test('sends at and the phone GPS once, to the rider SOS endpoint', () async {
     final ok = await SosSender(api()).send('trp_0001', position: gps);
@@ -107,7 +110,11 @@ void main() {
     () async {
       answers = [503, 503, 503, 503];
       await expectLater(
-        SosSender(api(), sleep: (_) async {}).send('trp_0001'),
+        SosSender(
+          api(),
+          sleep: (_) async {},
+          retryInBackground: false,
+        ).send('trp_0001'),
         throwsA(anything),
       );
       expect(sent, hasLength(4));

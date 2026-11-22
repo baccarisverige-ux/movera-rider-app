@@ -1,4 +1,5 @@
 import 'package:movera_rider/core/config/dont_match_again.dart';
+import 'package:movera_rider/core/app_update/min_app_version.dart';
 import 'package:movera_rider/core/config/emergency_numbers.dart';
 
 import 'dart:async';
@@ -149,8 +150,24 @@ class ApiRiderConfigRepository extends ChangeNotifier
 
   bool _connectedOnce = false;
 
+  /// v0.18.145 `loadCut.riderTripWatch`: told `true` when the stream is
+  /// connected (R3: an event, or [streamConnectedAfter] up) and `false`
+  /// when it ends, fails or stops; once per change.
+  final List<void Function(bool up)> streamUpTaps = [];
+
+  bool _up = false;
+
+  void _setUp(bool up) {
+    if (up == _up) return;
+    _up = up;
+    for (final tap in List.of(streamUpTaps)) {
+      tap(up);
+    }
+  }
+
+  /// Rule D: on a live build the stand-in offers pay in car only.
   static RiderAppConfig _seed(String zoneId) =>
-      SeedRiderConfigRepository.seedFor(zoneId);
+      SeedRiderConfigRepository.unservedFor(zoneId);
 
   @override
   Future<RiderAppConfig> current() => forZone(homeZoneId);
@@ -210,6 +227,10 @@ class ApiRiderConfigRepository extends ChangeNotifier
       }
       _keep(zoneId, parsed, replaceEqual: true);
       if (_documents[zoneId] == parsed) {
+        // v0.18.154 P16c (contract.json#appUpdate): the zone's minimum app
+        // version and store links of the document now in use.
+        _appUpdate[zoneId] = raw['appUpdate'];
+        _applyMinVersion(fresh: zoneId == activeZoneId);
         _served[zoneId] = encoded;
         try {
           await _cache.write(zoneId, Map<String, Object?>.from(raw));
@@ -249,6 +270,17 @@ class ApiRiderConfigRepository extends ChangeNotifier
     if (!_disposed) notifyListeners();
   }
 
+  /// v0.18.154 P16c: each zone's `appUpdate` as the server sent it.
+  final Map<String, Object?> _appUpdate = {};
+
+  /// v0.18.154 P16c: the rule of the zone the app follows ([activeZoneId]).
+  void _applyMinVersion({bool fresh = false}) {
+    final zone = activeZoneId;
+    if (_appUpdate.containsKey(zone)) {
+      MinAppVersion.accept(_appUpdate[zone], fresh: fresh);
+    }
+  }
+
   /// The zone whose switches the app follows: the watched one, else home.
   String get activeZoneId => _watching ?? homeZoneId;
 
@@ -262,6 +294,7 @@ class ApiRiderConfigRepository extends ChangeNotifier
     } else {
       ServerFeatures.apply(document.features);
     }
+    _applyMinVersion();
   }
 
   Future<RiderAppConfig> _fallback(String zoneId) async {
@@ -270,6 +303,11 @@ class ApiRiderConfigRepository extends ChangeNotifier
       final parsed = RiderAppConfig.fromJson(cached, fallback: _seed(zoneId));
       if (parsed != null) {
         _keep(zoneId, parsed);
+        // v0.18.154 P16c: the kept document's minimum, offline too.
+        if (_documents[zoneId] == parsed && cached != null) {
+          _appUpdate[zoneId] = cached['appUpdate'];
+          _applyMinVersion();
+        }
         return _documents[zoneId]!;
       }
     } catch (error) {
@@ -306,7 +344,10 @@ class ApiRiderConfigRepository extends ChangeNotifier
       _renewTried = false;
       // R3: the 200 alone is not connected; an event or 30 s up is.
       _connectedTimer?.cancel();
-      _connectedTimer = Timer(streamConnectedAfter, () => _failures = 0);
+      _connectedTimer = Timer(streamConnectedAfter, () {
+        _failures = 0;
+        _setUp(true);
+      });
       if (_connectedOnce) {
         for (final tap in List.of(reconnectTaps)) {
           tap();
@@ -320,6 +361,7 @@ class ApiRiderConfigRepository extends ChangeNotifier
           if (data == null) return;
           // A real event: the stream is connected (R3).
           _failures = 0;
+          _setUp(true);
           for (final tap in List.of(eventTaps)) {
             tap(data);
           }
@@ -360,6 +402,7 @@ class ApiRiderConfigRepository extends ChangeNotifier
   /// until [watch] is called again after sign-in.
   Future<void> _afterUnauthorized(String zoneId) async {
     _stream = null;
+    _setUp(false);
     if (_disposed || _watching != zoneId) return;
     if (!_renewTried) {
       _renewTried = true;
@@ -389,6 +432,7 @@ class ApiRiderConfigRepository extends ChangeNotifier
     // Not awaited: cancelling a dead socket may never complete.
     final old = _stream;
     _stream = null;
+    _setUp(false);
     unawaited(old?.cancel());
     unawaited(refresh(zoneId));
     await _connect(zoneId);
@@ -396,6 +440,7 @@ class ApiRiderConfigRepository extends ChangeNotifier
 
   void _reconnect(String zoneId) {
     _stream = null;
+    _setUp(false);
     _connectedTimer?.cancel();
     _connectedTimer = null;
     if (_disposed || _watching != zoneId) return;
@@ -414,6 +459,7 @@ class ApiRiderConfigRepository extends ChangeNotifier
     _connectedTimer = null;
     final stream = _stream;
     _stream = null;
+    _setUp(false);
     await stream?.cancel();
   }
 
