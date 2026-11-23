@@ -4,6 +4,20 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:movera_rider/features/finding_driver/presentation/searching_radar.dart';
+import 'package:movera_rider/features/finding_driver/presentation/searching_services.dart';
+import 'package:movera_rider/features/finding_driver/presentation/searching_map_marks.dart';
+import 'package:movera_rider/features/finding_driver/presentation/share_location_sheet.dart';
+import 'package:movera_rider/features/finding_driver/presentation/pickup_edit_card.dart';
+import 'package:movera_rider/features/saved_places/presentation/saved_places.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/core/location/location_repository.dart';
+import 'package:movera_rider/core/maps/geo_distance.dart';
+import 'package:movera_rider/shared/design_system/tokens.dart';
+import 'package:movera_rider/core/constants/appcolors.dart';
+import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/features/active_ride/application/route_change_controller.dart'
+    show RouteChangeQuote;
 import 'package:movera_rider/core/app_update/ride_live_signal.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
@@ -71,6 +85,7 @@ import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/widgets/approximate_route_badge.dart';
 
 part 'finding_drivers_map_panel.dart';
+part 'finding_drivers_pickup_edit.dart';
 
 class FindingDrivers extends StatefulWidget {
   const FindingDrivers({
@@ -92,7 +107,15 @@ class FindingDrivers extends StatefulWidget {
     this.createdAt,
     @visibleForTesting this.controller,
     @visibleForTesting this.booking,
+    @visibleForTesting this.riderLocation,
+    @visibleForTesting this.pickupEditor,
   });
+
+  /// Owner 2026-11-23: where the rider is (their marker); tests fake it.
+  final SearchingRiderLocation? riderLocation;
+
+  /// Owner 2026-11-23 ("Justera"): the pickup edit services; tests fake it.
+  final SearchingPickupEditor? pickupEditor;
 
   /// v0.18.152: the clock a booked ride's cancel line is read at (the
   /// server's preview is a clock compare); tests move it.
@@ -216,6 +239,27 @@ class _FindingDriversState extends State<FindingDrivers>
   late LatLng _destinationPosition;
   late List<RouteStop> _stops;
 
+  // Owner 2026-11-23 (search screen): the rider's marker.
+  late final SearchingRiderLocation _riderLocation =
+      widget.riderLocation ?? const SearchingRiderLocation();
+  GeoPoint? _riderFix;
+  BitmapDescriptor? _riderKnownIcon;
+  final List<BitmapDescriptor?> _riderOffIcons = List.filled(4, null);
+  int _pulseStep = 0;
+  Timer? _pulseTimer;
+  bool _shareSheetOpen = false;
+
+  // Owner 2026-11-23 ("Justera"): the locked pickup and its edit mode.
+  late final SearchingPickupEditor _pickupEditor =
+      widget.pickupEditor ?? const SearchingPickupEditor();
+  BitmapDescriptor? _adjustIcon;
+  bool _editingPickup = false;
+  LatLng _editTarget = const LatLng(0, 0);
+  String _editAddress = '';
+  RouteChangeQuote? _editQuote;
+  bool _editBusy = false;
+  int _editSeq = 0;
+
   @override
   void initState() {
     super.initState();
@@ -229,6 +273,8 @@ class _FindingDriversState extends State<FindingDrivers>
     setWebOverlayOpen(false);
     _loadMapBits();
     unawaited(_prepareMapVisuals());
+    unawaited(_prepareSearchMarks());
+    unawaited(_readRiderFix());
     _startMatching(
       price: widget.price,
       searchStartedAt: widget.searchStartedAt,
@@ -343,6 +389,7 @@ class _FindingDriversState extends State<FindingDrivers>
         !_routeIsCurrent ||
         _cancelSheetOpen ||
         _pickupEditOpen ||
+        _shareSheetOpen ||
         _detailsSheetOpen) {
       return;
     }
@@ -589,6 +636,7 @@ class _FindingDriversState extends State<FindingDrivers>
   Future<void> _openWaiting() async {
     if (!mounted || _leaving) return;
     _leaving = true;
+    _editingPickup = false;
 
     // Freeze and detach this map before the next map-heavy ride stage. Keeping
     // Finding alive but parked prevents SelectRide/Home from resuming their maps
@@ -864,7 +912,14 @@ class _FindingDriversState extends State<FindingDrivers>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncPulse();
+  }
+
+  @override
   void dispose() {
+    _pulseTimer?.cancel();
     if (_configSource case final Listenable source) {
       source.removeListener(_onConfigChanged);
     }
@@ -1016,6 +1071,10 @@ class _FindingDriversState extends State<FindingDrivers>
                       ),
                       markers: _markers,
                       polylines: _polylines,
+                      circles: _editCircles,
+                      polygons: _editPolygons,
+                      onCameraMove: _onEditCameraMove,
+                      onCameraIdle: () => unawaited(_onEditCameraIdle()),
                       myLocationEnabled: false,
                       myLocationButtonEnabled: false,
                       zoomControlsEnabled: false,
@@ -1048,51 +1107,53 @@ class _FindingDriversState extends State<FindingDrivers>
                 bottom: mapReserve + 24,
                 child: const ApproximateRouteBadge(),
               ),
-            Positioned(
-              top: media.padding.top + 8,
-              left: 12,
-              right: 12,
-              child: PointerInterceptor(
-                child: Row(
-                  children: [
-                    // AUD-3: cancelling has its own labelled control; the
-                    // chevron only ever collapses the sheet.
-                    MoveraIconButton.round(
-                      icon: Icons.close_rounded,
-                      onPressed: _confirmCancel,
-                      label: context.l10n.cancelRequest,
-                    ),
-                    if (_sheetExpanded) ...[
-                      const SizedBox(width: 8),
+            if (_editingPickup) ..._editLayers(media, mapReserve),
+            if (!_editingPickup)
+              Positioned(
+                top: media.padding.top + 8,
+                left: 12,
+                right: 12,
+                child: PointerInterceptor(
+                  child: Row(
+                    children: [
+                      // AUD-3: cancelling has its own labelled control; the
+                      // chevron only ever collapses the sheet.
                       MoveraIconButton.round(
-                        icon: Icons.keyboard_arrow_down_rounded,
-                        onPressed: () {
-                          if (!_sheetController.hasClient) return;
-                          _sheetController.animateTo(
-                            SheetOffset.absolute(_minSheet(media)),
-                            duration: MoveraDurations.large,
-                            curve: MoveraCurves.close,
-                          );
-                        },
-                        label: context.l10n.collapse,
+                        icon: Icons.close_rounded,
+                        onPressed: _confirmCancel,
+                        label: context.l10n.cancelRequest,
                       ),
-                    ],
-                    // UI-10: the Safety Kit button gets the rest of the row
-                    // (right-aligned) and never pushes past the screen edge.
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: SafetyKitMapButton(
-                          rideId: _match.ride.rideId,
-                          // G14: no driver yet, no trip: Call 112 only.
-                          driverAssigned: false,
+                      if (_sheetExpanded) ...[
+                        const SizedBox(width: 8),
+                        MoveraIconButton.round(
+                          icon: Icons.keyboard_arrow_down_rounded,
+                          onPressed: () {
+                            if (!_sheetController.hasClient) return;
+                            _sheetController.animateTo(
+                              SheetOffset.absolute(_minSheet(media)),
+                              duration: MoveraDurations.large,
+                              curve: MoveraCurves.close,
+                            );
+                          },
+                          label: context.l10n.collapse,
+                        ),
+                      ],
+                      // UI-10: the Safety Kit button gets the rest of the row
+                      // (right-aligned) and never pushes past the screen edge.
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: SafetyKitMapButton(
+                            rideId: _match.ride.rideId,
+                            // G14: no driver yet, no trip: Call 112 only.
+                            driverAssigned: false,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
             // The banner follows the trip's live connection; once the
             // search is over (a committed cancel on its way Home) the
             // transport lets go of the trip, which is not a lost
@@ -1111,91 +1172,107 @@ class _FindingDriversState extends State<FindingDrivers>
                   ),
                 ),
               ),
-            Positioned(
-              right: 12,
-              bottom: mapReserve + 16,
-              child: PointerInterceptor(
-                child: MoveraIconButton.round(
-                  icon: Icons.my_location_rounded,
-                  onPressed: () {
-                    AppScope.instance.camera.focusOnPickup(
-                      GeoPoint(
-                        _pickupPosition.latitude,
-                        _pickupPosition.longitude,
-                      ),
-                    );
-                  },
-                  label: context.l10n.recenterMap,
+            if (!_editingPickup)
+              Positioned(
+                right: 12,
+                bottom: mapReserve + 16,
+                child: PointerInterceptor(
+                  child: MoveraIconButton.round(
+                    icon: Icons.my_location_rounded,
+                    onPressed: () {
+                      AppScope.instance.camera.focusOnPickup(
+                        GeoPoint(
+                          _pickupPosition.latitude,
+                          _pickupPosition.longitude,
+                        ),
+                      );
+                    },
+                    label: context.l10n.recenterMap,
+                  ),
                 ),
               ),
-            ),
-            SheetViewport(
-              child: Sheet(
-                controller: _sheetController,
-                initialOffset: SheetOffset.absolute(_minSheet(media)),
-                physics: MoveraSheetMotion.physics,
-                snapGrid: SheetSnapGrid(
-                  snaps: [
-                    SheetOffset.absolute(_minSheet(media)),
-                    SheetOffset.absolute(_maxSheet(media)),
-                  ],
-                  minFlingSpeed: 520,
-                ),
-                // N4: a drag on the sheet body moves the sheet (and scrolls
-                // the body once the sheet is up). Disabled, the body's scroll
-                // view swallowed every swipe and only the 22 px handle could
-                // open the sheet, so the raise card's Confirm stayed off
-                // screen.
-                scrollConfiguration: const SheetScrollConfiguration(),
-                child: PointerInterceptor(
-                  child: SizedBox(
-                    height: _maxSheet(media),
-                    width: double.infinity,
-                    child: Material(
-                      color: Colors.white,
-                      elevation: 18,
-                      shadowColor: const Color(
-                        0xFF162C36,
-                      ).withValues(alpha: 0.14),
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(28),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: Column(
-                        children: [
-                          const SizedBox(
-                            width: double.infinity,
-                            height: 22,
-                            child: Center(
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: Color(0xFFE7EBEE),
-                                  borderRadius: BorderRadius.all(
-                                    Radius.circular(99),
+            if (!_editingPickup)
+              SheetViewport(
+                child: Sheet(
+                  controller: _sheetController,
+                  initialOffset: SheetOffset.absolute(_minSheet(media)),
+                  physics: MoveraSheetMotion.physics,
+                  snapGrid: SheetSnapGrid(
+                    snaps: [
+                      SheetOffset.absolute(_minSheet(media)),
+                      SheetOffset.absolute(_maxSheet(media)),
+                    ],
+                    minFlingSpeed: 520,
+                  ),
+                  // N4: a drag on the sheet body moves the sheet (and scrolls
+                  // the body once the sheet is up). Disabled, the body's scroll
+                  // view swallowed every swipe and only the 22 px handle could
+                  // open the sheet, so the raise card's Confirm stayed off
+                  // screen.
+                  scrollConfiguration: const SheetScrollConfiguration(),
+                  child: PointerInterceptor(
+                    child: SizedBox(
+                      height: _maxSheet(media),
+                      width: double.infinity,
+                      // Owner 2026-11-23: full width, 28 px top, a soft
+                      // upward shadow.
+                      child: DecoratedBox(
+                        key: const ValueKey('finding-sheet-card'),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(28),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Color(0x1F162C36),
+                              blurRadius: 24,
+                              offset: Offset(0, -6),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          type: MaterialType.transparency,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(28),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: Column(
+                            children: [
+                              const SizedBox(
+                                width: double.infinity,
+                                height: 22,
+                                child: Center(
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: Color(0xFFE7EBEE),
+                                      borderRadius: BorderRadius.all(
+                                        Radius.circular(99),
+                                      ),
+                                    ),
+                                    child: SizedBox(width: 36, height: 4),
                                   ),
                                 ),
-                                child: SizedBox(width: 36, height: 4),
                               ),
-                            ),
+                              if (!_match.showPriceBump)
+                                // Owner 2026-11-23: the approved radar in the
+                                // car picture's place (same 96 px).
+                                const SearchingRadar(),
+                              Expanded(
+                                child: _panelBody(
+                                  progress,
+                                  copy.headline,
+                                  copy.subtitle,
+                                ),
+                              ),
+                            ],
                           ),
-                          if (!_match.showPriceBump)
-                            // Owner 2026-11-23: the approved radar in the
-                            // car picture's place (same 96 px).
-                            const SearchingRadar(),
-                          Expanded(
-                            child: _panelBody(
-                              progress,
-                              copy.headline,
-                              copy.subtitle,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
             if (_rebooking)
               const Positioned.fill(
                 child: ColoredBox(
