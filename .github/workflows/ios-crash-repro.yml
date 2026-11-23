@@ -6,6 +6,7 @@ on:
     branches: [claude/laund-rule-review-j04dj5-ios]
 permissions:
   contents: read
+  actions: read
 env:
   APP_BUNDLE_ID: com.movera.rider
 jobs:
@@ -28,6 +29,29 @@ jobs:
           key="$RUNNER_TEMP/AuthKey.p8"
           if printf '%s' "$ASC_KEY_P8" | grep -q 'BEGIN PRIVATE KEY'; then printf '%s\n' "$ASC_KEY_P8" > "$key"; else printf '%s' "$ASC_KEY_P8" | base64 --decode > "$key"; fi
           { echo "ASC_KEY_ID=$id"; echo "ASC_ISSUER_ID=$issuer"; echo "ASC_KEY_PATH=$key"; } >> "$GITHUB_ENV"
+      - name: Inspect TestFlight build 6 IPA (dylibs, entitlements, plist)
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-ipa-6
+          run-id: 45274550887
+          github-token: ${{ github.token }}
+          path: ipa6
+      - name: Check every linked framework is inside the app
+        run: |
+          set +e
+          cd ipa6 && unzip -q -o ./*.ipa && app=Payload/Runner.app
+          echo "--- frameworks"; ls "$app/Frameworks"
+          echo "--- linked by Runner"; otool -L "$app/Runner" | tail -n +2
+          echo "--- missing @rpath dylibs"
+          for bin in "$app/Runner" "$app"/Frameworks/*.framework/*; do
+            [ -f "$bin" ] && file "$bin" | grep -q Mach-O || continue
+            otool -L "$bin" | awk 'NR>1{print $1}' | grep '^@rpath/' | while read -r l; do
+              n="${l#@rpath/}"; [ -e "$app/Frameworks/$n" ] || echo "MISSING $n (needed by ${bin#$app/})"
+            done
+          done
+          echo "--- entitlements"; codesign -d --entitlements - --xml "$app" 2>/dev/null | plutil -p - 
+          echo "--- plist"; plutil -p "$app/Info.plist" | grep -v GMSApiKey
+          echo "--- GMSApiKey length"; /usr/libexec/PlistBuddy -c 'Print :GMSApiKey' "$app/Info.plist" | wc -c
       - name: TestFlight crash reports (App Store Connect API)
         continue-on-error: true
         env:
