@@ -123,5 +123,14 @@
   "rateShowFirstNameOff": "Your review is shown as Anonymous.",
   "@rateShowFirstNameOff": {
     "description": "v0.18.155 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
+  },
+  "dpFromDriver": "From {name}",
+  "@dpFromDriver": {
+    "description": "Inline driver message card on the driver-on-the-way sheet: who wrote it (owner 2026-11-23).",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   }
 }

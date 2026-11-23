@@ -276,6 +276,7 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'rateReviewHint': l.rateReviewHint,
   'rateShowFirstName': l.rateShowFirstName,
   'rateShowFirstNameOff': l.rateShowFirstNameOff,
+  'dpFromDriver': l.dpFromDriver('<name>'),
   'gameQuizTitle': l.gameQuizTitle,
   'gameQuizBody': l.gameQuizBody,
   'gameStart': l.gameStart,
@@ -1943,6 +1944,7 @@ const messagePlaceholders = <String, List<String>>{
   'freeRuleHours': [],
   'dpTripsSince': ['trips', 'year'],
   'dpSince': ['month'],
+  'dpFromDriver': ['name'],
   'gameQuizScore': ['right', 'total'],
   'gamePuzzleMoves': ['moves'],
   'gamePuzzleTile': ['number'],
@@ -2702,6 +2704,8 @@ class _Exhaustive implements AppLocalizations {
   String get rateShowFirstName => '';
   @override
   String get rateShowFirstNameOff => '';
+  @override
+  String dpFromDriver(String name) => '';
   @override
   String get gameQuizTitle => '';
   @override

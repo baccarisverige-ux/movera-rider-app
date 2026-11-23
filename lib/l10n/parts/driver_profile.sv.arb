@@ -26,5 +26,6 @@
   "rateReviewLabel": "Kort omdöme (valfritt)",
   "rateReviewHint": "Visas på förarens profil när Movera har granskat det.",
   "rateShowFirstName": "Visa mitt förnamn",
-  "rateShowFirstNameOff": "Ditt omdöme visas som Anonym."
+  "rateShowFirstNameOff": "Ditt omdöme visas som Anonym.",
+  "dpFromDriver": "Från {name}"
 }

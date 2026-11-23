@@ -270,6 +270,7 @@
   "rateReviewHint": "Affiché sur le profil du chauffeur après vérification par Movera.",
   "rateShowFirstName": "Afficher mon prénom",
   "rateShowFirstNameOff": "Votre avis s'affiche comme Anonyme.",
+  "dpFromDriver": "De {name}",
   "gameQuizTitle": "Quiz Stockholm",
   "gameQuizBody": "5 questions tranquilles sur la ville. Sans pression.",
   "gameStart": "Commencer",
