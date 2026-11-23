@@ -60,6 +60,21 @@ Future<bool> showDriverProfileSheet(
   return true;
 }
 
+/// Owner 2026-11-23 (P1v2): an outline icon for each compliment.
+IconData complimentIcon(String code) => switch (code) {
+  'great_service' => Icons.star_border_rounded,
+  'clean_car' => Icons.auto_awesome_outlined,
+  'knew_the_way' => Icons.map_outlined,
+  'friendly' => Icons.sentiment_satisfied_alt_outlined,
+  'safe_driving' => Icons.shield_outlined,
+  'good_music' => Icons.music_note_outlined,
+  _ => Icons.thumb_up_alt_outlined,
+};
+
+/// Owner 2026-11-23 (profile P1v2): the same information on a white sheet —
+/// a plain photo with a soft shadow, name and since line, language and
+/// city pills, one stats card, compliment chips with icons, the milestone
+/// row and the latest review in a quote card.
 class DriverProfileSheet extends StatelessWidget {
   const DriverProfileSheet({super.key, required this.profile, this.driver});
 
@@ -70,12 +85,11 @@ class DriverProfileSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final p = profile;
+    final tag = Localizations.localeOf(context).toLanguageTag();
     final langs = p.languages
         .map((c) => profileLanguageNames[c] ?? c)
         .join(' · ');
-    final number = NumberFormat.decimalPattern(
-      Localizations.localeOf(context).toLanguageTag(),
-    );
+    final number = NumberFormat.decimalPattern(tag);
     return Container(
       key: const ValueKey('driver-profile-sheet'),
       constraints: BoxConstraints(
@@ -86,82 +100,67 @@ class DriverProfileSheet extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: SingleChildScrollView(
-        padding: EdgeInsets.only(
-          bottom: 24 + MediaQuery.paddingOf(context).bottom,
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          24 + MediaQuery.paddingOf(context).bottom,
         ),
         child: Column(
           children: [
-            Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.topCenter,
-              children: [
-                Container(
-                  height: 120,
-                  decoration: const BoxDecoration(
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(28),
-                    ),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [dpNavy, Color(0xFF173A6B), dpBlue],
-                    ),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: Material(
+                color: const Color(0xFFF1F5F7),
+                shape: const CircleBorder(),
+                child: IconButton(
+                  onPressed: () => Navigator.maybePop(context),
+                  tooltip: l.close,
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    size: 20,
+                    color: dpNavy,
                   ),
                 ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: IconButton(
-                    onPressed: () => Navigator.maybePop(context),
-                    tooltip: l.close,
-                    icon: const Icon(Icons.close_rounded, color: Colors.white),
-                  ),
-                ),
-                Positioned(
-                  top: 64,
-                  child: Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [Color(0xFFE9C766), dpGold],
-                      ),
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white,
-                      ),
-                      child: DriverPhotoAvatar(
-                        driver: driver,
-                        radius: 42,
-                        fallback: Text(
-                          p.firstName.isEmpty
-                              ? '?'
-                              : p.firstName.characters.first,
-                          style: const TextStyle(
-                            fontSize: 30,
-                            fontWeight: FontWeight.w700,
-                            color: dpNavy,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-            const SizedBox(height: 70),
+            Container(
+              key: const ValueKey('dp-photo'),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x1F061B44),
+                    blurRadius: 18,
+                    offset: Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: DriverPhotoAvatar(
+                driver: driver,
+                radius: 50,
+                fallback: Text(
+                  p.firstName.isEmpty ? '?' : p.firstName.characters.first,
+                  style: const TextStyle(
+                    fontSize: 38,
+                    fontWeight: FontWeight.w700,
+                    color: dpNavy,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  p.firstName,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: dpNavy,
+                Flexible(
+                  child: Text(
+                    p.firstName,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: dpNavy,
+                    ),
                   ),
                 ),
                 if (p.verified)
@@ -181,53 +180,60 @@ class DriverProfileSheet extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
                   l.dpSince(profileMonth(context, p.sinceMonth)),
-                  style: const TextStyle(fontSize: 13, color: dpMuted),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14, color: dpMuted),
                 ),
               ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               alignment: WrapAlignment.center,
               children: [
-                if (langs.isNotEmpty) _pill(Icons.translate_rounded, langs),
+                if (langs.isNotEmpty) _pill(Icons.language_rounded, langs),
                 if (p.city != null) _pill(Icons.place_outlined, p.city!),
               ],
             ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  _kpi(number.format(p.tripCount), l.dpTrips),
-                  _kpi(
-                    p.rating == null
-                        ? '–'
-                        : '${NumberFormat('0.0', Localizations.localeOf(context).toLanguageTag()).format(p.rating)} ★',
-                    l.dpRating,
-                  ),
-                  // Contract: years 0 shows only the since month.
-                  if ((p.years ?? 0) > 0) _kpi('${p.years}', l.dpYears),
-                ],
+            const SizedBox(height: 18),
+            Container(
+              key: const ValueKey('dp-stats-card'),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE7EBEE)),
+              ),
+              child: IntrinsicHeight(
+                child: Row(
+                  children: [
+                    _kpi(number.format(p.tripCount), l.dpTrips),
+                    const VerticalDivider(width: 1, color: Color(0xFFE7EBEE)),
+                    _kpi(
+                      p.rating == null
+                          ? '–'
+                          : NumberFormat('0.0', tag).format(p.rating),
+                      l.dpRating,
+                      star: p.rating != null,
+                    ),
+                    // Contract: years 0 shows only the since month.
+                    if ((p.years ?? 0) > 0) ...[
+                      const VerticalDivider(width: 1, color: Color(0xFFE7EBEE)),
+                      _kpi('${p.years}', l.dpYears),
+                    ],
+                  ],
+                ),
               ),
             ),
             if (p.compliments.isNotEmpty) ...[
               _title(l.dpWhatRidersSay),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
                     for (final c in p.compliments)
-                      SizedBox(
-                        width: 104,
-                        child: ComplimentTile(
-                          emoji: complimentEmoji[c.code]!,
-                          label: complimentLabel(l, c.code),
-                          count: c.count,
-                        ),
-                      ),
+                      _compliment(c.code, complimentLabel(l, c.code), c.count),
                   ],
                 ),
               ),
@@ -235,48 +241,103 @@ class DriverProfileSheet extends StatelessWidget {
             if (p.milestones.isNotEmpty) ...[
               _title(l.dpMilestones),
               for (final m in p.milestones)
-                ListTile(
-                  dense: true,
-                  leading: Text(
-                    m == 'trips_1000' ? '\u{1F3C6}' : '\u{1F31F}',
-                    style: const TextStyle(fontSize: 24),
+                Padding(
+                  key: ValueKey('dp-milestone-$m'),
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFFEAF2F8),
+                          border: Border.all(color: const Color(0xFFBFD7EA)),
+                        ),
+                        child: Icon(
+                          m == 'trips_1000'
+                              ? Icons.emoji_events_outlined
+                              : Icons.star_outline_rounded,
+                          size: 20,
+                          color: dpNavy,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              m == 'trips_1000'
+                                  ? l.dpMilestoneTrips1000
+                                  : l.dpMilestoneTopRating,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                color: dpNavy,
+                              ),
+                            ),
+                            if (m == 'top_rating')
+                              Text(
+                                l.dpMilestoneTopRatingSub,
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  color: dpMuted,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  title: Text(
-                    m == 'trips_1000'
-                        ? l.dpMilestoneTrips1000
-                        : l.dpMilestoneTopRating,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  subtitle: m == 'top_rating'
-                      ? Text(l.dpMilestoneTopRatingSub)
-                      : null,
                 ),
             ],
             if (p.reviewText != null) ...[
               _title(l.dpLatestReview),
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.all(14),
+                key: const ValueKey('dp-quote'),
+                padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: dpSoft,
-                  borderRadius: BorderRadius.circular(16),
+                  color: const Color(0xFFF3F7FA),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                child: Column(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '“${p.reviewText}”',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        color: dpNavy,
-                        height: 1.35,
+                    const ExcludeSemantics(
+                      child: Text(
+                        '“',
+                        style: TextStyle(
+                          fontSize: 44,
+                          height: 0.9,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFFC9D8E4),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${p.reviewName ?? l.dpAnonymous} · ${profileMonth(context, p.reviewMonth)}',
-                      style: const TextStyle(fontSize: 12, color: dpMuted),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            p.reviewText!,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: dpNavy,
+                              height: 1.35,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${p.reviewName ?? l.dpAnonymous} · ${profileMonth(context, p.reviewMonth)}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: dpMuted,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -289,63 +350,117 @@ class DriverProfileSheet extends StatelessWidget {
   }
 
   Widget _title(String text) => Padding(
-    padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+    padding: const EdgeInsets.fromLTRB(2, 22, 2, 10),
     child: Align(
       alignment: AlignmentDirectional.centerStart,
       child: Text(
         text,
         style: const TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.w800,
-          color: dpNavy,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: dpMuted,
         ),
       ),
     ),
   );
 
   Widget _pill(IconData icon, String text) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
     decoration: BoxDecoration(
-      color: dpSoft,
+      color: Colors.white,
       borderRadius: BorderRadius.circular(99),
+      border: Border.all(color: const Color(0xFFE7EBEE)),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 15, color: dpMuted),
+        Icon(icon, size: 16, color: dpNavy),
         const SizedBox(width: 6),
         Flexible(
           child: Text(
             text,
-            style: const TextStyle(fontSize: 13, color: dpNavy),
+            style: const TextStyle(fontSize: 14, color: dpNavy),
           ),
         ),
       ],
     ),
   );
 
-  Widget _kpi(String value, String label) => Expanded(
-    child: Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        color: dpSoft,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
+  Widget _compliment(String code, String label, int count) => Container(
+    key: ValueKey('dp-compliment-$code'),
+    padding: const EdgeInsets.fromLTRB(5, 5, 6, 5),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(99),
+      border: Border.all(color: const Color(0xFFE7EBEE)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: Color(0xFFF1F5F7),
+          ),
+          child: Icon(complimentIcon(code), size: 17, color: dpNavy),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 14, color: dpNavy),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F7),
+            borderRadius: BorderRadius.circular(99),
+          ),
+          child: Text(
+            '$count',
             style: const TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.w800,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
               color: dpNavy,
             ),
           ),
-          const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 12, color: dpMuted)),
-        ],
-      ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _kpi(String value, String label, {bool star = false}) => Expanded(
+    child: Column(
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: dpNavy,
+              ),
+            ),
+            if (star)
+              const Padding(
+                padding: EdgeInsets.only(left: 4),
+                child: Icon(
+                  Icons.star_rounded,
+                  size: 18,
+                  color: Color(0xFF055B95),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(fontSize: 13, color: dpMuted)),
+      ],
     ),
   );
 }
