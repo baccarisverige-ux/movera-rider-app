@@ -6,6 +6,8 @@ on:
     branches: [claude/laund-rule-review-j04dj5-ios]
 permissions:
   contents: read
+env:
+  APP_BUNDLE_ID: com.movera.rider
 jobs:
   repro:
     runs-on: macos-26
@@ -33,6 +35,19 @@ jobs:
         run: |
           command -v fastlane >/dev/null || gem install fastlane --no-document
           ruby -I"$(dirname "$(gem which spaceship)")" ios/ci/asc_crashes.rb || ruby ios/ci/asc_crashes.rb
+      - name: iOS Maps key accepts this bundle id (never printed)
+        env:
+          KEY: ${{ secrets.IOS_MAPS_API_KEY }}
+        run: |
+          KEY="$(printf '%s' "${KEY:-}" | tr -d '[:space:]')"
+          [ -n "$KEY" ] || { echo "::error::Secret IOS_MAPS_API_KEY is missing."; exit 1; }
+          echo "::add-mask::$KEY"
+          for bid in "$APP_BUNDLE_ID" com.example.notmovera; do
+            for api in "geocode/json?address=Stockholm" "place/textsearch/json?query=Stockholm" "directions/json?origin=Stockholm&destination=Uppsala"; do
+              r="$(curl -s -H "X-Ios-Bundle-Identifier: $bid" "https://maps.googleapis.com/maps/api/$api&key=$KEY" | python3 -c 'import json,sys;d=json.load(sys.stdin);print(d.get("status"),"|",(d.get("error_message") or "")[:160])')"
+              echo "bundle=$bid api=${api%%/*}: $r"
+            done
+          done
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -41,7 +56,7 @@ jobs:
       - name: Build for the simulator (same defines as TestFlight)
         env:
           PROD_API: ${{ vars.MOVERA_PROD_API_URL }}
-          MAPS_KEY: ${{ secrets.IOS_MAPS_API_KEY || secrets.MAPS_API_KEY || secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS1 || secrets.MAPS }}
+          MAPS_KEY: ${{ secrets.IOS_MAPS_API_KEY }}
         run: |
           set -euo pipefail
           PROD_API="$(printf '%s' "$PROD_API" | tr -d '[:space:][:cntrl:]')"
@@ -61,11 +76,12 @@ jobs:
           xcrun simctl install "$dev" build/ios/iphonesimulator/Runner.app
           xcrun simctl spawn "$dev" log stream --level debug --predicate 'process == "Runner"' > "$RUNNER_TEMP/runner.log" 2>&1 &
           xcrun simctl launch --console-pty "$dev" com.movera.rider > "$RUNNER_TEMP/console.log" 2>&1 &
-          sleep 60
+          sleep 90
           xcrun simctl io "$dev" screenshot "$RUNNER_TEMP/shot.png" || true
           echo "--- running?"; xcrun simctl spawn "$dev" launchctl list | grep -i movera || echo "NOT RUNNING"
           echo "--- console"; tail -120 "$RUNNER_TEMP/console.log"
           echo "--- log (errors/faults)"; grep -iE "fault|error|exception|terminat|crash|movera\]" "$RUNNER_TEMP/runner.log" | tail -80
+          echo "--- maps"; grep -iE "Google Maps|GMS|APIKey|API key|maps_config|maps are disabled" "$RUNNER_TEMP/runner.log" | grep -v "found no value" | tail -30
           echo "--- crash reports"; ls -t ~/Library/Logs/DiagnosticReports/ 2>/dev/null | head; f="$(ls -t ~/Library/Logs/DiagnosticReports/Runner* 2>/dev/null | head -1)"; [ -n "$f" ] && head -150 "$f"
           mkdir -p out; cp "$RUNNER_TEMP"/*.log "$RUNNER_TEMP/shot.png" out/ 2>/dev/null; cp crash-*.txt out/ 2>/dev/null; cp ~/Library/Logs/DiagnosticReports/Runner* out/ 2>/dev/null; true
       - uses: actions/upload-artifact@v4

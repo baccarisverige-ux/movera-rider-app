@@ -13,10 +13,6 @@ on:
         description: 'Upload to TestFlight (off = build and sign only)'
         type: boolean
         default: true
-      allow_no_maps:
-        description: 'Allow a build without a Google Maps key (map disabled). Never for testers.'
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -98,9 +94,8 @@ jobs:
         env:
           PROD_API: ${{ vars.MOVERA_PROD_API_URL }}
           LIVE_API: ${{ vars.MOVERA_LIVE_API_URL }}
-          MAPS_KEY: ${{ secrets.IOS_MAPS_API_KEY || secrets.MAPS_API_KEY || secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS1 || secrets.MAPS }}
+          MAPS_KEY: ${{ secrets.IOS_MAPS_API_KEY }}
           MAP_ID: ${{ vars.RIDER_MAP_ID || '9fdc5d9e56d4a0916c77a424' }}
-          ALLOW_NO_MAPS: ${{ inputs.allow_no_maps }}
         run: |
           set -euo pipefail
           # A pasted line break or space in the repository variable must never reach the build or a check.
@@ -114,18 +109,12 @@ jobs:
             echo "::error::Invalid map id (letters and digits only)."; exit 1
           fi
           MAPS_KEY="$(printf '%s' "${MAPS_KEY:-}" | tr -d '[:space:]')"
-          if [ -z "$MAPS_KEY" ]; then
-            if [ "$ALLOW_NO_MAPS" = true ]; then
-              echo "::warning::No Google Maps key secret: this build has no map."
-              echo 'MOVERA_ALLOW_MISSING_MAPS_KEY = YES' > ios/Flutter/Secrets.xcconfig
-            else
-              echo "::error::No Google Maps key secret (IOS_MAPS_API_KEY / MAPS_API_KEY / GOOGLE_MAPS_API_KEY)."; exit 1
-            fi
-          else
-            echo "::add-mask::$MAPS_KEY"
-            printf 'GOOGLE_MAPS_API_KEY = %s\n' "$MAPS_KEY" > ios/Flutter/Secrets.xcconfig
-            export GOOGLE_MAPS_API_KEY="$MAPS_KEY" MOVERA_REQUIRE_MAPS_KEY=true
-          fi
+          # Only the iOS-restricted key (Maps SDK for iOS, bundle ids com.movera.rider / se.movera.driver).
+          # Never ship a blank map: no key, no build.
+          [ -n "$MAPS_KEY" ] || { echo "::error::Repository secret IOS_MAPS_API_KEY is missing (Google Maps key restricted to iOS apps)."; exit 1; }
+          echo "::add-mask::$MAPS_KEY"
+          printf 'GOOGLE_MAPS_API_KEY = %s\n' "$MAPS_KEY" > ios/Flutter/Secrets.xcconfig
+          export GOOGLE_MAPS_API_KEY="$MAPS_KEY" MOVERA_REQUIRE_MAPS_KEY=true
           # Only this CI copy: every Release build reads the (untracked) secrets file.
           grep -q 'Secrets.xcconfig' ios/Flutter/Release.xcconfig || echo '#include? "Secrets.xcconfig"' >> ios/Flutter/Release.xcconfig
           name="$(sed -n 's/^version: *//p' pubspec.yaml)"; name="${name%%+*}"
