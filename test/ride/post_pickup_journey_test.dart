@@ -47,7 +47,9 @@ void main() {
       expect(find.text('Destination'), findsNothing);
       expect(find.text('Safety Kit'), findsOneWidget);
       expect(find.text('Show this PIN to your driver'), findsNothing);
-      expect(find.text('End trip here'), findsOneWidget);
+      // Owner 2026-11-23 (screen 3): with the ⋯ menu the end action is its
+      // last row, not a bottom button.
+      expect(find.text('End trip here'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
