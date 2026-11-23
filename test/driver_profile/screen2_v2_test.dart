@@ -573,4 +573,43 @@ void main() {
       );
     });
   }
+
+  testWidgets('owner 2026-11-23: the menu holds "Flytta upphämtning" where '
+      'the pickup may move; cancel stays the last red row', (tester) async {
+    _phone(tester);
+    var moved = 0;
+    await tester.pumpWidget(
+      _app(
+        Scaffold(
+          body: Align(
+            alignment: Alignment.bottomCenter,
+            child: RideDetailsSheet(
+              pickupAddress: 'Sveavägen 44, Stockholm',
+              destinationAddress: 'Stockholm Centralstation',
+              rideType: 'Movera',
+              price: 263,
+              paymentMethod: 'cash',
+              notes: RideNotes.empty,
+              onCancelTrip: () {},
+              onMovePickup: () => moved++,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final move = find.byKey(const ValueKey('ride-details-move-pickup'));
+    expect(
+      find.descendant(of: move, matching: find.text('Flytta upphämtning')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getRect(move).bottom,
+      lessThanOrEqualTo(
+        tester.getRect(find.byKey(const ValueKey('ride-details-cancel'))).top,
+      ),
+    );
+    await tester.tap(move);
+    expect(moved, 1);
+  });
 }

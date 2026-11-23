@@ -183,16 +183,52 @@ void main() {
     expect(find.byKey(const ValueKey('cancel-ride-confirm')), findsOneWidget);
   });
 
-  testWidgets('on trip without the menu (no route changes): the end button '
-      'stays at the bottom', (tester) async {
-    await _pumpWaiting(
-      tester,
-      status: RideStatus.tripInProgress,
-      routeChange: false,
-    );
-    expect(
-      find.byKey(const ValueKey('active-trip-cancel'), skipOffstage: false),
-      findsOneWidget,
-    );
-  });
+  // Owner 2026-11-23: the driver card's ⋯ ALWAYS opens the ride details
+  // menu, whose last red row cancels / ends; the top-left ✕ is gone.
+  for (final (name, status, routeChange, label) in [
+    ('on the way', RideStatus.driverAssigned, true, 'Avboka resan'),
+    ('arrived', RideStatus.driverWaiting, true, 'Avboka resan'),
+    ('on trip', RideStatus.tripInProgress, true, 'Avsluta resan här'),
+    (
+      'on the way, route changes off',
+      RideStatus.driverAssigned,
+      false,
+      'Avboka resan',
+    ),
+    (
+      'on trip, route changes off',
+      RideStatus.tripInProgress,
+      false,
+      'Avsluta resan här',
+    ),
+  ]) {
+    testWidgets('$name: no top-left ✕; ⋯ reaches "$label"', (tester) async {
+      await _pumpWaiting(tester, status: status, routeChange: routeChange);
+      // The arrived popup (if any) is closed first.
+      final arrivedPop = find.byKey(const ValueKey('driver-arrived-on-way'));
+      if (arrivedPop.evaluate().isNotEmpty) {
+        Navigator.of(tester.element(arrivedPop)).pop();
+        await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      }
+      expect(find.bySemanticsLabel('Avbryt resan'), findsNothing);
+      expect(find.bySemanticsLabel('Avsluta resan'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('active-trip-cancel'), skipOffstage: false),
+        findsNothing,
+      );
+      final more = find.byKey(const ValueKey('waiting-more'));
+      expect(more, findsOneWidget);
+      await tester.ensureVisible(more);
+      await tester.tap(more);
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      final row = find.byKey(const ValueKey('ride-details-cancel'));
+      expect(
+        find.descendant(of: row, matching: find.text(label)),
+        findsOneWidget,
+      );
+      await tester.tap(row);
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      expect(find.text('Behåll resan'), findsOneWidget);
+    });
+  }
 }

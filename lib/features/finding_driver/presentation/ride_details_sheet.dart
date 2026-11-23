@@ -25,6 +25,7 @@ class RideDetailsSheet extends StatelessWidget {
     this.allowCancel = true,
     required this.onCancelTrip,
     this.cancelLabel,
+    this.onMovePickup,
     this.onEditPickup,
     this.onEditDestination,
     this.onAddStop,
@@ -46,6 +47,10 @@ class RideDetailsSheet extends StatelessWidget {
   /// Owner 2026-11-23 (screen 3): the red row's words; on board "Avsluta
   /// resan här" (end early), else "Avboka resan".
   final String? cancelLabel;
+
+  /// Owner 2026-11-23: "Flytta upphämtning" as a row of the menu where the
+  /// pickup may move (null hides it).
+  final VoidCallback? onMovePickup;
 
   /// v0.18.143 (approved mockup screen 2): the pencil on the pickup, only
   /// while the ride is still searched (null hides it).
@@ -73,6 +78,7 @@ class RideDetailsSheet extends StatelessWidget {
     bool allowCancel = true,
     required void Function(BuildContext sheet) onCancelTrip,
     String? cancelLabel,
+    void Function(BuildContext sheet)? onMovePickup,
     void Function(BuildContext sheet)? onEditPickup,
     void Function(BuildContext sheet)? onEditDestination,
     void Function(BuildContext sheet)? onAddStop,
@@ -90,6 +96,7 @@ class RideDetailsSheet extends StatelessWidget {
       allowCancel: allowCancel,
       onCancelTrip: () => onCancelTrip(sheet),
       cancelLabel: cancelLabel,
+      onMovePickup: onMovePickup == null ? null : () => onMovePickup(sheet),
       onEditPickup: onEditPickup == null ? null : () => onEditPickup(sheet),
       onEditDestination: onEditDestination == null
           ? null
@@ -183,6 +190,40 @@ class RideDetailsSheet extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: 8),
+            if (onMovePickup != null) ...[
+              _divider(),
+              InkWell(
+                key: const ValueKey('ride-details-move-pickup'),
+                onTap: onMovePickup,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.open_with_rounded,
+                        size: 20,
+                        color: Color(0xFF055B95),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          context.l10n.movePickup,
+                          style: GoogleFonts.poppins(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF055B95),
+                          ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Color(0xFF9AA3A9),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             _divider(),
             _kv(rideNameFor(rideType), formatMajor(price, currency)),
             _divider(),

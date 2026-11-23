@@ -1,3 +1,4 @@
+import '../fixtures/open_cancel_via_menu.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -15,7 +16,6 @@ import 'package:movera_rider/features/ride_booking/domain/entities/matched_drive
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
-import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _Feed implements RideRealtime {
@@ -154,13 +154,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
       }
     }
-    final close = tester.widget<MoveraIconButton>(
-      find.ancestor(
-        of: find.byIcon(Icons.close_rounded).first,
-        matching: find.byType(MoveraIconButton),
-      ),
-    );
-    close.onPressed();
+    await openCancelViaMenu(tester);
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }

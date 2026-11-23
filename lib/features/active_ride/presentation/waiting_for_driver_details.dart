@@ -53,7 +53,16 @@ extension _WaitingDetails on _WaitingForDriverState {
         Navigator.pop(sheet);
         unawaited(_confirmCancel());
       },
-      onEditPickup: pencils.pickup
+      // As before: the pencil only where route changes are on.
+      onEditPickup: pencils.pickup && widget.routeChangeSupported
+          ? (sheet) {
+              Navigator.pop(sheet);
+              unawaited(_movePickup());
+            }
+          : null,
+      // Owner 2026-11-23: on the server's pickup move (before the driver
+      // is there) a "Flytta upphämtning" row in the menu.
+      onMovePickup: _serverPickupMove && _pickupEditable && !_isInTrip
           ? (sheet) {
               Navigator.pop(sheet);
               unawaited(_movePickup());

@@ -1,3 +1,4 @@
+import '../fixtures/open_cancel_via_menu.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -209,7 +210,15 @@ void main() {
 
       testWidgets('driver card dots open the pickup move', (tester) async {
         await show(tester, build());
+        // Owner 2026-11-23: the dots open the menu; the pickup move is its
+        // "Move pickup" row.
         await tester.tap(find.bySemanticsLabel('More options').first);
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        await tester.tap(
+          find.byKey(const ValueKey('ride-details-move-pickup')),
+        );
         await tester.pumpAndSettle();
         expect(find.byType(ConfirmPickupSpot), findsOneWidget);
         expect(find.text('Change route'), findsNothing);
@@ -217,7 +226,7 @@ void main() {
 
       testWidgets('cancel sheet: no Change route', (tester) async {
         await show(tester, build());
-        await tester.tap(find.byIcon(Icons.close_rounded));
+        await openCancelViaMenu(tester);
         await tester.pumpAndSettle();
         await tester.tap(find.text('Cancel ride'));
         await tester.pumpAndSettle();
