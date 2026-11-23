@@ -107,18 +107,19 @@ void main() {
     // Owner 2026-11-23: + dpChat (short chat button word, driver_profile).
     // Owner 2026-11-23 (approved search screen): + 8 fd* texts in the
     // searching_screen area (Justera, edit subtitle, share-location sheet).
+    // Owner 2026-11-23 (raise card R2): + bumpSubtitle, bumpSliderHint.
     const before = {
       'en': (
-        'f3a9b9456325d645f3e038b8a8b4804c8edab368cc8ea94a2d558ce508387be1',
-        2330,
+        'f1db9f7a356ed9dfd36cf0dd3b516578598b0a90d1b00986cfc158edc9883265',
+        2334,
       ),
       'fr': (
-        'd801fa53152d27f337d84cdc2e2970cda2398b1991dad27fadc3002ff33621b6',
-        1821,
+        'b87548fa7ea6d6e41d3e1a216d51e93ec0aff419b8f7efd0f81c68379b6052fd',
+        1823,
       ),
       'sv': (
-        '93f074d6c1c3cf41bf5b35f348a2b713420ba4012c22e58a2d7da55bfde14cc5',
-        1821,
+        '265f61e7312985ec1fac252094a924866ebb098ad11bfeaba1fd2b19c948c36f',
+        1823,
       ),
     };
     for (final lang in _langs) {
