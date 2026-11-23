@@ -328,5 +328,10 @@ void main() {
       expect(find.byKey(ValueKey(key), skipOffstage: false), findsOneWidget);
     }
     expect(find.text('Add stop', skipOffstage: false), findsOneWidget);
+    // Owner 2026-11-23: the two games swipe row under the round buttons.
+    expect(
+      find.byKey(const ValueKey('search-games-row'), skipOffstage: false),
+      findsOneWidget,
+    );
   });
 }
