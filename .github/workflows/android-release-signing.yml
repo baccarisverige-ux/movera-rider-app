@@ -46,6 +46,11 @@ jobs:
             *) echo "::error::GOOGLE_CLIENT_ID_IOS must end with .apps.googleusercontent.com"; exit 1 ;;
           esac
 
+      # Gradle 8.14 cannot run on the runner's default Java 25 (run 45163948389); same JDK as android-test-apk.yml.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
