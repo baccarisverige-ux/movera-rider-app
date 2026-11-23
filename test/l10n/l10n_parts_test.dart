@@ -105,18 +105,20 @@ void main() {
     // minVersionBody, minVersionUpdate (app_update area).
     // v0.18.155 driver profile: + 27 texts in the driver_profile area.
     // Owner 2026-11-23: + dpChat (short chat button word, driver_profile).
+    // Owner 2026-11-23 (approved search screen): + 8 fd* texts in the
+    // searching_screen area (Justera, edit subtitle, share-location sheet).
     const before = {
       'en': (
-        'e281a807580fad477295c681bc16cc16b12f7279f529c131ea90822da2d18efd',
-        2314,
+        'f3a9b9456325d645f3e038b8a8b4804c8edab368cc8ea94a2d558ce508387be1',
+        2330,
       ),
       'fr': (
-        'acdcc3947f2f62cd026ca1b40c0c7e78f1deb38111a95a41e16d6be8b02f6e57',
-        1813,
+        'd801fa53152d27f337d84cdc2e2970cda2398b1991dad27fadc3002ff33621b6',
+        1821,
       ),
       'sv': (
-        '94c4c097ad8f8959217ec767d81a4e4addb6210603262324353b6a939438184c',
-        1813,
+        '93f074d6c1c3cf41bf5b35f348a2b713420ba4012c22e58a2d7da55bfde14cc5',
+        1821,
       ),
     };
     for (final lang in _langs) {
