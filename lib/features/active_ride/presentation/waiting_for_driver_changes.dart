@@ -49,10 +49,12 @@ extension _WaitingChanges on _WaitingForDriverState {
   /// The three dots on the driver card and the ride card: the route
   /// screen (demo), or the pickup move until the driver is there (hidden
   /// after arrival, `pickupWaiting.pickupMove`).
-  VoidCallback? get _moreAction {
-    if (_serverPickupMove) return _pickupEditable ? _movePickup : null;
-    return widget.routeChangeSupported ? _openDetails : null;
-  }
+  ///
+  /// Owner 2026-11-23: the driver card's ⋯ ALWAYS opens the ride details
+  /// menu (live too, after arrival too, with route changes off too); the
+  /// pickup move is a row inside it where it is allowed, and cancelling /
+  /// ending is always its last red row.
+  VoidCallback get _moreAction => _openDetails;
 
   /// G7 live fix 2: the ride card's three dots. On the server wire they
   /// follow the zone's `routeChange.beforePickup` ([_openDetails]: the

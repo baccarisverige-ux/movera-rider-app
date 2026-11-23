@@ -509,19 +509,9 @@ class _WaitingForDriverState extends State<WaitingForDriver>
               child: PointerInterceptor(
                 child: Row(
                   children: [
-                    // Always the cancel action, never "collapse" — the
-                    // chevron this used to show pre-trip is Finding's icon
-                    // for collapsing its own sheet, and sharing it here made
-                    // a rider trying to minimise the sheet land in the
-                    // cancel flow instead.
-                    MoveraIconButton.round(
-                      icon: Icons.close_rounded,
-                      onPressed: _confirmCancel,
-                      // UI-01: on board this ends the trip early.
-                      label: _isInTrip
-                          ? context.l10n.endTrip
-                          : context.l10n.cancelRide,
-                    ),
+                    // Owner 2026-11-23: no top-left ✕ on screens 2 and 3;
+                    // cancelling / ending is the last red row of the ⋯ menu
+                    // (always reachable, tested in every state).
                     const Spacer(),
                     SafetyKitMapButton(rideId: _rideId),
                   ],

@@ -245,7 +245,9 @@ class RiderInTripPanel extends StatelessWidget {
           ),
           // Owner 2026-11-23 (screen 3): "Avsluta resan här" lives in the
           // ⋯ menu as its last red row; without that menu it stays here.
-          if (onMore == null) ...[
+          // Without a driver card (no driver data) the ⋯ is not shown,
+          // so the end button stays reachable here.
+          if (onMore == null || driver == null) ...[
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,

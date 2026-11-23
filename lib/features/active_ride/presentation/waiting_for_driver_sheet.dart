@@ -131,7 +131,8 @@ extension _WaitingSheet on _WaitingForDriverState {
         onCall: _callDriver,
         // v0.18.9 (G7 decision 3): the destination and the stops change
         // on board too (the server prices it, the driver answers).
-        onMore: widget.routeChangeSupported ? _openDetails : null,
+        // Owner 2026-11-23: the menu is always there (end-trip row).
+        onMore: _openDetails,
         stopNote: _stops.isEmpty || _tracking.terms == null
             ? null
             : TripTermsLines.stopWaitLine(_tracking.terms!),

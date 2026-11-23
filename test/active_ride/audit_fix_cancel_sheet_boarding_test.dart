@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import '../fixtures/open_cancel_via_menu.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
@@ -45,7 +45,7 @@ void main() {
       final realtime = AppScope.instance.rideRealtime as MockRideRealtime;
       realtime.holdAssignment();
 
-      await tester.tap(find.byIcon(Icons.close_rounded));
+      await openCancelViaMenu(tester);
       await tester.pumpAndSettle();
       expect(find.text('Cancel ride?'), findsOneWidget);
       await tester.tap(find.text('Cancel ride'));
