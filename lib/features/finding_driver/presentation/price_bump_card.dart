@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
@@ -330,19 +332,25 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
               const inset = 16.0;
               final track = box.maxWidth - 2 * inset;
               final thumbX = inset + track * fraction(chosen);
-              // Labels never overlap (close steps on a small fare).
+              // Close labels (steps on a small fare) get narrower tap
+              // boxes; their text never wraps.
               final xs = [
                 inset,
                 for (final step in steps)
                   inset + track * fraction(_sliderMin + step),
                 inset + track,
               ];
-              var gap = 56.0;
-              for (var k = 1; k < xs.length; k++) {
-                final d = xs[k] - xs[k - 1];
-                if (d < gap) gap = d;
+              double widthAt(int k) {
+                var w = 56.0;
+                if (k > 0) w = min(w, xs[k] - xs[k - 1]);
+                if (k < xs.length - 1) w = min(w, xs[k + 1] - xs[k]);
+                return w.clamp(16.0, 56.0);
               }
-              final labelW = gap.clamp(24.0, 56.0);
+
+              // The ceiling's own label gives way when the last step sits
+              // right next to it.
+              final showEnd =
+                  steps.isEmpty || xs.last - xs[xs.length - 2] >= 36;
               const bubbleW = 184.0;
               final bubbleLeft = (thumbX - bubbleW / 2).clamp(
                 0.0,
@@ -350,11 +358,12 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
               );
               Widget label(
                 String text,
-                double x, {
+                int k, {
                 VoidCallback? onTap,
                 bool bold = false,
               }) {
-                final w = labelW;
+                final x = xs[k];
+                final w = widthAt(k);
                 return Positioned(
                   left: (x - w / 2).clamp(0.0, box.maxWidth - w),
                   top: 92,
@@ -367,6 +376,9 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
                       child: Text(
                         text,
                         textAlign: TextAlign.center,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.visible,
                         style: GoogleFonts.poppins(
                           fontSize: 13,
                           fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
@@ -447,15 +459,16 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
                             ),
                           ),
                         ),
-                    label(_whole(widget.currentPrice), inset),
-                    for (final step in steps)
+                    label(_whole(widget.currentPrice), 0),
+                    for (var i = 0; i < steps.length; i++)
                       label(
-                        '+${_whole(step)}',
-                        inset + track * fraction(_sliderMin + step),
-                        bold: _selectedStep == step,
-                        onTap: () => _selectStep(step),
+                        '+${_whole(steps[i])}',
+                        i + 1,
+                        bold: _selectedStep == steps[i],
+                        onTap: () => _selectStep(steps[i]),
                       ),
-                    label(_whole(_maxMinor / _unitMinor), inset + track),
+                    if (showEnd)
+                      label(_whole(_maxMinor / _unitMinor), xs.length - 1),
                   ],
                 ),
               );
