@@ -137,9 +137,8 @@ class _SlotSceneState extends State<SlotScene>
     );
     if (!widget.fullWidth) return scene(SlotScene.width);
     return LayoutBuilder(
-      builder: (context, c) => scene(
-        c.hasBoundedWidth ? c.maxWidth : SlotScene.width,
-      ),
+      builder: (context, c) =>
+          scene(c.hasBoundedWidth ? c.maxWidth : SlotScene.width),
     );
   }
 }
