@@ -19,7 +19,12 @@ abstract final class SlotMotion {
 /// edges faded into the white panel, the map's small car picture loaded
 /// once. Still when [SlotMotion.moves] is false.
 class SlotScene extends StatefulWidget {
-  const SlotScene({super.key, required this.painter, required this.fadeStops});
+  const SlotScene({
+    super.key,
+    required this.painter,
+    required this.fadeStops,
+    this.fullWidth = false,
+  });
 
   static const double width = 240;
   static const double height = 96;
@@ -27,6 +32,10 @@ class SlotScene extends StatefulWidget {
 
   /// Builds the frame for [seconds] since start (the car may still load).
   final CustomPainter Function(double seconds, ui.Image? car) painter;
+
+  /// Owner 2026-11-23 (approved radar-longer): fill the whole card width and
+  /// fade only at the top and bottom (no left/right fade).
+  final bool fullWidth;
 
   /// Where the soft fade to the edges starts and ends (0..1 of the ellipse).
   final List<double> fadeStops;
@@ -83,35 +92,53 @@ class _SlotSceneState extends State<SlotScene>
 
   @override
   Widget build(BuildContext context) {
-    return ExcludeSemantics(
+    Widget scene(double width) => ExcludeSemantics(
       child: SizedBox(
-        width: SlotScene.width,
+        width: width,
         height: SlotScene.height,
         // Clip: the radar sweep is larger than the slot.
         child: ClipRect(
           child: ShaderMask(
             blendMode: BlendMode.dstIn,
-            shaderCallback: (rect) => RadialGradient(
-              colors: const [
-                Color(0xFF000000),
-                Color(0xFF000000),
-                Color(0x00000000),
-              ],
-              stops: [0, ...widget.fadeStops],
-              radius: 0.5 * math.sqrt2,
-              transform: _EllipseTransform(rect.width / rect.height),
-            ).createShader(rect),
+            shaderCallback: (rect) => widget.fullWidth
+                ? const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0x00000000),
+                      Color(0xFF000000),
+                      Color(0xFF000000),
+                      Color(0x00000000),
+                    ],
+                    stops: [0, 0.22, 0.7, 1],
+                  ).createShader(rect)
+                : RadialGradient(
+                    colors: const [
+                      Color(0xFF000000),
+                      Color(0xFF000000),
+                      Color(0x00000000),
+                    ],
+                    stops: [0, ...widget.fadeStops],
+                    radius: 0.5 * math.sqrt2,
+                    transform: _EllipseTransform(rect.width / rect.height),
+                  ).createShader(rect),
             child: RepaintBoundary(
               child: AnimatedBuilder(
                 animation: _clock,
                 builder: (context, _) => CustomPaint(
-                  size: const Size(SlotScene.width, SlotScene.height),
+                  size: Size(width, SlotScene.height),
                   painter: widget.painter(_clock.value * 3600, _car),
                 ),
               ),
             ),
           ),
         ),
+      ),
+    );
+    if (!widget.fullWidth) return scene(SlotScene.width);
+    return LayoutBuilder(
+      builder: (context, c) => scene(
+        c.hasBoundedWidth ? c.maxWidth : SlotScene.width,
       ),
     );
   }

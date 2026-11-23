@@ -15,6 +15,7 @@ class SearchingRadar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SlotScene(
     fadeStops: const [0.45, 0.72],
+    fullWidth: true,
     painter: (seconds, car) => _RadarPainter(seconds: seconds, car: car),
   );
 }
@@ -28,21 +29,46 @@ class _RadarPainter extends CustomPainter {
   static const _acc = Color(0xFF1E3A8A);
 
   static final Path _ra = Path()
-    ..moveTo(-20, 70)
+    ..moveTo(-180, 88)
+    ..lineTo(-20, 70)
     ..cubicTo(50, 62, 90, 52, 130, 50)
-    ..cubicTo(170, 48, 210, 34, 260, 28);
+    ..cubicTo(170, 48, 210, 34, 260, 28)
+    ..lineTo(420, 8);
   static final Path _rb = Path()
     ..moveTo(70, -10)
     ..cubicTo(80, 30, 100, 60, 104, 110);
   static final Path _rc = Path()
-    ..moveTo(260, 80)
+    ..moveTo(420, 92)
+    ..lineTo(260, 80)
     ..cubicTo(200, 76, 170, 60, 150, 40)
     ..cubicTo(130, 20, 120, 0, 110, -10);
+
+  // Lengths of the roads in the 240x96 design (for the cars' speed).
+  static final Map<Path, double> _designLength = {
+    _ra: _len(
+      Path()
+        ..moveTo(-20, 70)
+        ..cubicTo(50, 62, 90, 52, 130, 50)
+        ..cubicTo(170, 48, 210, 34, 260, 28),
+    ),
+    _rb: _len(_rb),
+    _rc: _len(
+      Path()
+        ..moveTo(260, 80)
+        ..cubicTo(200, 76, 170, 60, 150, 40)
+        ..cubicTo(130, 20, 120, 0, 110, -10),
+    ),
+  };
+  static double _len(Path p) => p.computeMetrics().first.length;
 
   @override
   void paint(Canvas canvas, Size size) {
     canvas.save();
-    canvas.scale(size.width / 240, size.height / 96);
+    // Same scale as the 240x96 design; the card is wider, so the map is
+    // centred and the roads run on out to the left and right edges.
+    final k = size.height / 96;
+    canvas.translate((size.width - 240 * k) / 2, 0);
+    canvas.scale(k, k);
     _map(canvas);
     _cars(canvas);
     canvas.restore();
@@ -52,19 +78,20 @@ class _RadarPainter extends CustomPainter {
   void _map(Canvas canvas) {
     // The map is see-through (0.55) so it stays faint.
     canvas.saveLayer(
-      const Rect.fromLTWH(0, 0, 240, 96),
+      const Rect.fromLTWH(-200, 0, 640, 96),
       Paint()..color = const Color(0x8C000000),
     );
     canvas.drawRect(
-      const Rect.fromLTWH(0, 0, 240, 96),
+      const Rect.fromLTWH(-200, 0, 640, 96),
       Paint()..color = const Color(0xFFF6F7F4),
     );
     canvas.drawPath(
       Path()
-        ..moveTo(0, 0)
+        ..moveTo(-200, 0)
         ..lineTo(60, 0)
         ..lineTo(60, 26)
         ..relativeCubicTo(-20, 6, -40, -4, -60, -10)
+        ..lineTo(-200, 16)
         ..close(),
       Paint()..color = const Color(0xFFE3EFE4),
     );
@@ -72,6 +99,8 @@ class _RadarPainter extends CustomPainter {
       Path()
         ..moveTo(190, 70)
         ..relativeCubicTo(20, -6, 40, 0, 50, 6)
+        ..lineTo(440, 76)
+        ..lineTo(440, 96)
         ..lineTo(240, 96)
         ..lineTo(180, 96)
         ..close(),
@@ -84,8 +113,8 @@ class _RadarPainter extends CustomPainter {
       ..strokeWidth = w;
     canvas
       ..drawLine(
-        const Offset(0, 22),
-        const Offset(240, 22),
+        const Offset(-200, 22),
+        const Offset(440, 22),
         road(const Color(0xFFE4E6EA), 3),
       )
       ..drawLine(
@@ -121,6 +150,8 @@ class _RadarPainter extends CustomPainter {
     bool backwards,
   ) {
     final metric = road.computeMetrics().first;
+    // The roads are longer now; keep the cars' speed as before.
+    period *= metric.length / _designLength[road]!;
     var t = ((seconds + offset) % period) / period;
     if (backwards) t = 1 - t;
     final tan = metric.getTangentForOffset(metric.length * t);
