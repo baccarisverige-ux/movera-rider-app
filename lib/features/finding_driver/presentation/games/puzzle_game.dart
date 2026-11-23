@@ -426,7 +426,10 @@ class _PuzzleGameState extends State<PuzzleGame> {
                 builder: (context, box) => FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: SizedBox(width: max(box.maxWidth, 116), child: _side()),
+                  child: SizedBox(
+                    width: max(box.maxWidth, 116),
+                    child: _side(),
+                  ),
                 ),
               ),
             ),
