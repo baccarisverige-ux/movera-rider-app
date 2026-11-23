@@ -3743,6 +3743,38 @@
   "@searchStepNoDriverFound": {"description": "v0.18.39 §63 (P17): a booked ride the server ended with no driver at pickup + 15 min; no fee"},
   "dropoffTooClose": "Drop-off is too close to pickup",
   "@dropoffTooClose": {"description": "v0.18.44 §67 (same-address fix, boss answer decisions/driver-g15.md): the server refused the quote with dropoff_too_close (drop-off closer than the zone's minTripMeters, default 300 m); the rider stays on the destination step"},
+  "fdAdjustPill": "Adjust",
+  "@fdAdjustPill": {
+    "description": "Small pill next to the locked pickup pin on the searching map; opens the pickup edit mode (owner 2026-11-23)."
+  },
+  "fdAdjustSubtitle": "Move the map to move the pin",
+  "@fdAdjustSubtitle": {
+    "description": "Subtitle of the pickup edit card while searching (owner 2026-11-23)."
+  },
+  "fdSearchAddress": "Search address",
+  "@fdSearchAddress": {
+    "description": "Screen reader label of the search icon in the pickup edit card."
+  },
+  "fdShareTitle": "Share your location",
+  "@fdShareTitle": {
+    "description": "Title of the share-location sheet on the searching screen (owner 2026-11-23, version B)."
+  },
+  "fdShareBody": "Then the driver sees exactly where you are and finds you faster.",
+  "@fdShareBody": {
+    "description": "One line under the share-location title."
+  },
+  "fdShareButton": "Share location",
+  "@fdShareButton": {
+    "description": "Main button of the share-location sheet: asks for location permission."
+  },
+  "fdYourLocation": "Your location",
+  "@fdYourLocation": {
+    "description": "Screen reader label of the rider's own marker on the searching map."
+  },
+  "fdLocationNotShared": "Your location is not shared. Tap to share it.",
+  "@fdLocationNotShared": {
+    "description": "Screen reader label of the grey rider marker (no location)."
+  },
   "swTripStatusDraft": "Draft",
   "@swTripStatusDraft": {"description": "Contract status word statusWords.families.tripStatus.draft (tool/gen_status_words.py)."},
   "swTripStatusQuoted": "Quoted",
