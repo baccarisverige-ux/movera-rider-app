@@ -178,12 +178,12 @@ jobs:
           retention-days: 7
 
       - name: App Store Connect app record exists
-        if: ${{ inputs.upload != false }}
+        if: ${{ github.event_name == 'push' || inputs.upload }}
         working-directory: ios
         run: fastlane ios check_app_record
 
       - name: "4. Upload to TestFlight (no review submission)"
-        if: ${{ inputs.upload != false }}
+        if: ${{ github.event_name == 'push' || inputs.upload }}
         working-directory: ios
         run: fastlane ios upload
 
