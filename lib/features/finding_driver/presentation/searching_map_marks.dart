@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart'
@@ -98,12 +99,12 @@ abstract final class SearchingRiderMarker {
         ..drawCircle(b, 8, Paint()..color = Colors.white)
         ..drawCircle(b, 6.5, Paint()..color = SearchingMarkColors.badge);
       final text = TextPainter(
-        text: const TextSpan(
+        text: TextSpan(
           text: '!',
-          style: TextStyle(
+          style: GoogleFonts.poppins(
             color: Colors.white,
             fontSize: 10,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -130,53 +131,60 @@ abstract final class AdjustPillMarker {
     return _create(label).then((icon) => _cache[label] = icon);
   }
 
-  static Future<BitmapDescriptor> _create(String label) {
-    final text = TextPainter(
-      text: TextSpan(
-        text: label,
-        style: const TextStyle(
-          color: AppColor.navy,
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-        ),
+  static TextPainter _label(String label) => TextPainter(
+    text: TextSpan(
+      text: label,
+      style: GoogleFonts.poppins(
+        color: AppColor.navy,
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
       ),
-      textDirection: TextDirection.ltr,
-    )..layout();
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+
+  /// The bitmap's size for [label], in logical points.
+  static Size sizeFor(String label) =>
+      Size(gap + 10 + 15 + 6 + _label(label).width + 12 + 4, height + 6);
+
+  /// Paints the pill for [label] (origin top left of [sizeFor]).
+  static void paint(Canvas canvas, String label) {
+    final text = _label(label);
     final pillW = 10 + 15 + 6 + text.width + 12;
-    final size = Size(gap + pillW + 4, height + 6);
-    return _bitmap(size, (canvas) {
-      final pill = RRect.fromRectAndRadius(
-        Rect.fromLTWH(gap, 3, pillW, height),
-        const Radius.circular(height / 2),
+    final pill = RRect.fromRectAndRadius(
+      Rect.fromLTWH(gap, 3, pillW, height),
+      const Radius.circular(height / 2),
+    );
+    canvas
+      ..drawRRect(
+        pill.shift(const Offset(0, 1)),
+        Paint()
+          ..color = const Color(0x2E1B2733)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+      )
+      ..drawRRect(pill, Paint()..color = Colors.white)
+      ..drawRRect(
+        pill,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = const Color(0xFFE7EBEE),
       );
-      canvas
-        ..drawRRect(
-          pill.shift(const Offset(0, 1)),
-          Paint()
-            ..color = const Color(0x2E1B2733)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
-        )
-        ..drawRRect(pill, Paint()..color = Colors.white)
-        ..drawRRect(
-          pill,
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1
-            ..color = const Color(0xFFE7EBEE),
-        );
-      _glyph(
-        canvas,
-        Icons.lock_outline_rounded,
-        Offset(gap + 10 + 7.5, 3 + height / 2),
-        15,
-        AppColor.navy,
-      );
-      text.paint(
-        canvas,
-        Offset(gap + 10 + 15 + 6, 3 + (height - text.height) / 2),
-      );
-    });
+    _glyph(
+      canvas,
+      Icons.lock_outline_rounded,
+      const Offset(gap + 10 + 7.5, 3 + height / 2),
+      15,
+      AppColor.navy,
+    );
+    text.paint(
+      canvas,
+      Offset(gap + 10 + 15 + 6, 3 + (height - text.height) / 2),
+    );
   }
+
+  static Future<BitmapDescriptor> _create(String label) =>
+      _bitmap(sizeFor(label), (canvas) => paint(canvas, label));
 }
 
 void _glyph(Canvas canvas, IconData icon, Offset centre, double size, Color c) {

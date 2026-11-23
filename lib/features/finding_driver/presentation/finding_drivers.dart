@@ -1101,7 +1101,10 @@ class _FindingDriversState extends State<FindingDrivers>
               ),
             ),
             // Owner N2/A14: a leg without road (direct line): say so.
-            if (!_mapParked && _roadRoutePoints != null && _roadApproximate)
+            if (!_mapParked &&
+                !_editingPickup &&
+                _roadRoutePoints != null &&
+                _roadApproximate)
               Positioned(
                 left: 12,
                 bottom: mapReserve + 24,
