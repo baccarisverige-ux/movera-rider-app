@@ -89,10 +89,10 @@ void main() {
       ),
       onRaise: (increase) => raised = increase,
     );
-    for (final label in ['+2,00 €', '+4,00 €', '+6,00 €', '+8,00 €']) {
+    for (final label in ['+2', '+4', '+6', '+8']) {
       expect(find.text(label), findsOneWidget);
     }
-    await tester.tap(find.text('+4,00 €'));
+    await tester.tap(find.text('+4'));
     await tester.pump();
     await tester.tap(find.text('Confirm 28,60 €'));
     expect(raised, const Money(400, 'EUR'));
@@ -107,11 +107,11 @@ void main() {
       steps: PriceBumpCard.stepsFor(null, 'TND'),
       onRaise: (increase) => raised = increase,
     );
-    for (final label in ['+2.000 DT', '+4.000 DT', '+6.000 DT', '+8.000 DT']) {
+    for (final label in ['+2', '+4', '+6', '+8']) {
       expect(find.text(label), findsOneWidget);
     }
     expect(find.textContaining('kr'), findsNothing);
-    await tester.tap(find.text('+2.000 DT'));
+    await tester.tap(find.text('+2'));
     await tester.pump();
     await tester.tap(find.text('Confirm 20.000 DT'));
     expect(raised, const Money(2000, 'TND'));

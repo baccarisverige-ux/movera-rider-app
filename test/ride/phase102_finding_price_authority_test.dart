@@ -249,7 +249,7 @@ void main() {
       find.byKey(const ValueKey('price-bump-server-confirms')),
       findsNothing,
     );
-    await tester.tap(find.text('+20,00 kr'));
+    await tester.tap(find.text('+20'));
     await tester.pump();
     expect(
       find.byKey(const ValueKey('price-bump-server-confirms')),
