@@ -72,7 +72,7 @@ jobs:
           MOVERA_RELEASE_STORE_PASSWORD: ${{ secrets.MOVERA_RELEASE_STORE_PASSWORD }}
           MOVERA_RELEASE_KEY_ALIAS: ${{ secrets.MOVERA_RELEASE_KEY_ALIAS }}
           MOVERA_RELEASE_KEY_PASSWORD: ${{ secrets.MOVERA_RELEASE_KEY_PASSWORD }}
-          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
+          MAPS_API_KEY: ${{ secrets.ANDROID_MAPS_API_KEY || secrets.MAPS_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
         run: |
           set -euo pipefail
           if [ -z "${MAPS_API_KEY:-}" ]; then
@@ -119,7 +119,7 @@ jobs:
           MOVERA_RELEASE_STORE_PASSWORD: ${{ secrets.MOVERA_RELEASE_STORE_PASSWORD }}
           MOVERA_RELEASE_KEY_ALIAS: ${{ secrets.MOVERA_RELEASE_KEY_ALIAS }}
           MOVERA_RELEASE_KEY_PASSWORD: ${{ secrets.MOVERA_RELEASE_KEY_PASSWORD }}
-          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
+          MAPS_API_KEY: ${{ secrets.ANDROID_MAPS_API_KEY || secrets.MAPS_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
         run: |
           set -euo pipefail
           app_version="$(sed -n 's/^version: *//p' pubspec.yaml)"
