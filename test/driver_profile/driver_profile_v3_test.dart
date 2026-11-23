@@ -195,7 +195,11 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Vad resenärer säger'), findsOneWidget);
-      expect(find.text('⭐'), findsOneWidget);
+      // Owner 2026-11-23 (P1v2): compliment chips with icons, not emoji.
+      expect(
+        find.byKey(const ValueKey('dp-compliment-great_service')),
+        findsOneWidget,
+      );
       expect(find.text('Svenska · العربية · English'), findsOneWidget);
       expect(find.textContaining('Sara · '), findsOneWidget);
       await tester.tap(find.byTooltip('Stäng'));
