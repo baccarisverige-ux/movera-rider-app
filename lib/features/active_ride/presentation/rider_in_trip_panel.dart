@@ -1,3 +1,4 @@
+import 'package:movera_rider/features/finding_driver/presentation/games/search_games.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/features/active_ride/presentation/ride_slot_animations.dart';
@@ -242,25 +243,32 @@ class RiderInTripPanel extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              key: const ValueKey<String>('active-trip-cancel'),
-              onPressed: onCancel,
-              icon: const Icon(Icons.close_rounded, size: 18),
-              // UI-01: on board the trip ends early (paid by distance).
-              label: Text(context.l10n.endTripHere),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFB42318),
-                side: const BorderSide(color: Color(0xFFE4B8B4)),
-                minimumSize: const Size.fromHeight(50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+          // Owner 2026-11-23 (screen 3): "Avsluta resan här" lives in the
+          // ⋯ menu as its last red row; without that menu it stays here.
+          if (onMore == null) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: const ValueKey<String>('active-trip-cancel'),
+                onPressed: onCancel,
+                icon: const Icon(Icons.close_rounded, size: 18),
+                // UI-01: on board the trip ends early (paid by distance).
+                label: Text(context.l10n.endTripHere),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFB42318),
+                  side: const BorderSide(color: Color(0xFFE4B8B4)),
+                  minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
+          // Owner 2026-11-23: the games row at the bottom of the sheet.
+          const SizedBox(height: 16),
+          const SearchGamesRow(),
         ],
       ),
     );
