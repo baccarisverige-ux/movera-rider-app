@@ -37,6 +37,15 @@ const _dataFiles = {
 };
 
 const _allowed = <String, Set<String>>{
+  // Owner 2026-11-23 (games): Stockholm place names in quiz answers, the
+  // same in every app language (lib/.../games/quiz_game.dart).
+  'Stockholm quiz place names (owner 2026-11-23)': {
+    'Södermalm',
+    'Kronan',
+    'Friends Arena',
+    'Vänern',
+    'Humlegården',
+  },
   // v0.18.155 driver profile: each language in its own language (endonyms,
   // the same in every app language; contract.json#driverProfile.languages).
   'language endonyms (v0.18.155)': {

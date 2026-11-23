@@ -25,30 +25,24 @@ class SearchGamesRow extends StatefulWidget {
 }
 
 class _SearchGamesRowState extends State<SearchGamesRow> {
-  PageController? _pages;
-  double _forWidth = 0;
+  final ScrollController _scroll = ScrollController();
   int _page = 0;
+
+  static const double _extent = SearchGamesRow.cardWidth + SearchGamesRow.gap;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(() {
+      final page = (_scroll.offset / _extent).round();
+      if (page != _page) setState(() => _page = page);
+    });
+  }
 
   @override
   void dispose() {
-    _pages?.dispose();
+    _scroll.dispose();
     super.dispose();
-  }
-
-  PageController _controllerFor(double width) {
-    if (_pages == null || _forWidth != width) {
-      _pages?.dispose();
-      _forWidth = width;
-      _pages = PageController(
-        initialPage: _page,
-        viewportFraction:
-            ((SearchGamesRow.cardWidth + SearchGamesRow.gap) / width).clamp(
-              0.1,
-              1.0,
-            ),
-      );
-    }
-    return _pages!;
   }
 
   @override
@@ -58,6 +52,9 @@ class _SearchGamesRowState extends State<SearchGamesRow> {
       QuizGame(active: widget.active),
       PuzzleGame(active: widget.active),
     ];
+    // The last card can come to the same left edge as the first.
+    final trailing = (screen - SearchGamesRow.edge - SearchGamesRow.cardWidth)
+        .clamp(SearchGamesRow.edge, screen);
     return Column(
       key: const ValueKey('search-games-row'),
       mainAxisSize: MainAxisSize.min,
@@ -69,29 +66,25 @@ class _SearchGamesRowState extends State<SearchGamesRow> {
           child: OverflowBox(
             maxWidth: screen,
             minWidth: screen,
-            child: PageView(
-              controller: _controllerFor(screen),
-              padEnds: false,
+            child: ListView.separated(
+              key: const ValueKey('search-games-list'),
+              controller: _scroll,
+              scrollDirection: Axis.horizontal,
               clipBehavior: Clip.none,
-              onPageChanged: (page) => setState(() => _page = page),
-              children: [
-                for (final card in cards)
-                  OverflowBox(
-                    alignment: Alignment.topLeft,
-                    maxWidth: SearchGamesRow.cardWidth + SearchGamesRow.edge,
-                    child: Padding(
-                      padding: const EdgeInsets.only(
-                        left: SearchGamesRow.edge,
-                        bottom: 16,
-                      ),
-                      child: SizedBox(
-                        width: SearchGamesRow.cardWidth,
-                        height: SearchGamesRow.cardHeight,
-                        child: card,
-                      ),
-                    ),
-                  ),
-              ],
+              physics: const _CardSnapPhysics(_extent),
+              padding: EdgeInsets.only(
+                left: SearchGamesRow.edge,
+                right: trailing,
+                bottom: 16,
+              ),
+              itemCount: cards.length,
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: SearchGamesRow.gap),
+              itemBuilder: (_, i) => SizedBox(
+                width: SearchGamesRow.cardWidth,
+                height: SearchGamesRow.cardHeight,
+                child: cards[i],
+              ),
             ),
           ),
         ),
@@ -117,6 +110,50 @@ class _SearchGamesRowState extends State<SearchGamesRow> {
       ],
     );
   }
+}
+
+/// Snaps a horizontal list to one card ([extent] = card + gap) per swipe.
+class _CardSnapPhysics extends ScrollPhysics {
+  const _CardSnapPhysics(this.extent, {super.parent});
+
+  final double extent;
+
+  @override
+  _CardSnapPhysics applyTo(ScrollPhysics? ancestor) =>
+      _CardSnapPhysics(extent, parent: buildParent(ancestor));
+
+  @override
+  Simulation? createBallisticSimulation(
+    ScrollMetrics position,
+    double velocity,
+  ) {
+    if ((velocity <= 0 && position.pixels <= position.minScrollExtent) ||
+        (velocity >= 0 && position.pixels >= position.maxScrollExtent)) {
+      return super.createBallisticSimulation(position, velocity);
+    }
+    final tol = toleranceFor(position);
+    var page = position.pixels / extent;
+    if (velocity < -tol.velocity) {
+      page -= 0.5;
+    } else if (velocity > tol.velocity) {
+      page += 0.5;
+    }
+    final target = (page.roundToDouble() * extent).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if ((target - position.pixels).abs() < tol.distance) return null;
+    return ScrollSpringSimulation(
+      spring,
+      position.pixels,
+      target,
+      velocity,
+      tolerance: tol,
+    );
+  }
+
+  @override
+  bool get allowImplicitScrolling => false;
 }
 
 /// The shell of a game card: white, 24 px corners, a hair border and a
@@ -176,6 +213,8 @@ class GamePill extends StatelessWidget {
       ),
       child: Text(
         label,
+        maxLines: 1,
+        softWrap: false,
         style: gameText(
           small ? 15 : 16,
           weight: FontWeight.w600,

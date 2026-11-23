@@ -99,6 +99,10 @@ class _PuzzleGameState extends State<PuzzleGame> {
 
   bool get _still => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
 
+  /// For screenshots and tests: the board of this card.
+  @visibleForTesting
+  SlidingPuzzle get debugPuzzle => _puzzle;
+
   @override
   void initState() {
     super.initState();
@@ -411,18 +415,18 @@ class _PuzzleGameState extends State<PuzzleGame> {
     return GameCard(
       color: const Color(0xFFF9FBFC),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 0, 10, 0),
+        padding: const EdgeInsets.fromLTRB(12, 0, 8, 0),
         child: Row(
           children: [
             _boardView(),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             // Large text sizes scale the side column down, never overflow.
             Expanded(
               child: LayoutBuilder(
                 builder: (context, box) => FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: SizedBox(width: box.maxWidth, child: _side()),
+                  child: SizedBox(width: max(box.maxWidth, 116), child: _side()),
                 ),
               ),
             ),
