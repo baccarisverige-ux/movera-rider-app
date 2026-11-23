@@ -246,10 +246,12 @@ class _QuizGameState extends State<QuizGame>
     final l = context.l10n;
     return Column(
       children: [
-        _hero(150),
-        Expanded(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
+        // The picture gives way to the text (large text sizes); buttons
+        // keep their full tap size.
+        Flexible(child: _hero(150)),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Center(
             child: SizedBox(
               width: 340,
               child: Column(
@@ -513,10 +515,12 @@ class _QuizGameState extends State<QuizGame>
         : l.gameQuizTryAgain;
     return Column(
       children: [
-        _hero(92),
-        Expanded(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
+        // The picture gives way to the text (large text sizes); buttons
+        // keep their full tap size.
+        Flexible(child: _hero(92)),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Center(
             child: SizedBox(
               width: 340,
               child: Column(
