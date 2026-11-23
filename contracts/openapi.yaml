@@ -1,11 +1,11 @@
-# Movera API v0.18.154 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.156 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.154
+  version: 0.18.156
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.154 in this folder; this file must agree with them.
+    v0.18.156 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.154
+  version: 0.18.156
   source: contract.json
 paths:
   /auth/otp/request:
@@ -28187,7 +28187,15 @@ components:
               type: integer
               minimum: 0
               description: 'How far the rider may move the pickup after accept; further = cancel and rebook. v0.18.7: default
-                200, range 0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}.'
+                200, range 0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}.
+                v0.18.156: default 300 (was 200; the rider moves the pickup up to 300 m for free); v0.18.156 (owner 2026-11-23,
+                Rules decisions/session-2026-11-06.md "2026-11-23 OWNER DECISION": the rider can adjust the pickup up to 300
+                m for free, same price): the default is 300 m (was 200 from v0.18.7, 500 before); the range stays 0–2000 and
+                the admin can still set any zone. Server migration 0133 moves every published rider and driver document (and
+                draft) still on 200 to 300, as the next version with a history row; a zone the admin set to another value
+                keeps it. A trip already booked keeps the value of its booking time (bookingSnapshot, TripTerms.maxPickupMoveMeters);
+                only trips booked after the change get 300. In the note above, 200 is the old default (Rule 21: kept word
+                for word).'
             samePointWarnMeters:
               type: integer
               minimum: 0
@@ -28447,7 +28455,15 @@ components:
               type: integer
               minimum: 0
               description: 'Pickup move limit after accept; the driver is notified of a move. v0.18.7: default 200, range
-                0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}.'
+                0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}. v0.18.156:
+                default 300 (was 200; the rider moves the pickup up to 300 m for free); v0.18.156 (owner 2026-11-23, Rules
+                decisions/session-2026-11-06.md "2026-11-23 OWNER DECISION": the rider can adjust the pickup up to 300 m for
+                free, same price): the default is 300 m (was 200 from v0.18.7, 500 before); the range stays 0–2000 and the
+                admin can still set any zone. Server migration 0133 moves every published rider and driver document (and draft)
+                still on 200 to 300, as the next version with a history row; a zone the admin set to another value keeps it.
+                A trip already booked keeps the value of its booking time (bookingSnapshot, TripTerms.maxPickupMoveMeters);
+                only trips booked after the change get 300. In the note above, 200 is the old default (Rule 21: kept word
+                for word).'
             samePointWarnMeters:
               type: integer
               minimum: 0

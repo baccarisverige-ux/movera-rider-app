@@ -641,7 +641,7 @@ def pickup_move(case):
     return 'moved' if case['meters'] <= case['maxMeters'] else 'pickup_move_too_far'
 for case in _pwf['pickupMove']:
     if pickup_move(case) != case['expect']: bad += 1; print('PICKUP MOVE', case['id'])
-if not (c['configDefaults']['maxPickupMoveMeters'] == _pw['pickupMove']['default'] == rcfg['booking']['maxPickupMoveMeters'] == dcfg['booking']['maxPickupMoveMeters'] == 200) \
+if not (c['configDefaults']['maxPickupMoveMeters'] == _pw['pickupMove']['default'] == rcfg['booking']['maxPickupMoveMeters'] == dcfg['booking']['maxPickupMoveMeters'] == 300) \
         or not (_pw['pickupMove']['range'][0] <= _pw['pickupMove']['default'] <= _pw['pickupMove']['range'][1]): bad += 1; print('PICKUP MOVE default')
 if not (c['configDefaults']['cancelAfterArrivedIsNoShow'] is _pw['servedConfig']['cancelAfterArrivedIsNoShow']['default'] is rcfg['waiting']['cancelAfterArrivedIsNoShow'] is dcfg['waiting']['cancelAfterArrivedIsNoShow'] is True): bad += 1; print('CANCEL AFTER ARRIVED default')
 if 'pickup_moved' not in c['realtime']['kinds'] or 'pickup_moved' in c['realtime']['afterTerminal'] or 'eta' not in c['realtime']['optional']: bad += 1; print('REALTIME pickup_moved / eta')

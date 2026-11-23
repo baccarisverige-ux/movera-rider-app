@@ -122,7 +122,7 @@ void main() {
       expect(config.paymentMethods, ZoneDefaults.paymentMethods);
       expect(config.promoCap, isNull);
       expect(config.walletUsedFirst, isTrue);
-      expect(config.maxPickupMoveMeters, 200);
+      expect(config.maxPickupMoveMeters, 300); // v0.18.156
     });
 
     test('v0.3 payment ids: aliases read, swish and wallet dropped', () {
@@ -215,7 +215,7 @@ void main() {
       expect(_minor(config.enabledRaiseSteps), [2000, 4000, 6000, 8000]);
       expect(config.promoCap, isNull, reason: 'another currency');
       expect(config.walletUsedFirst, isTrue);
-      expect(config.maxPickupMoveMeters, 200);
+      expect(config.maxPickupMoveMeters, 300); // v0.18.156
       final waiting = config.waiting!;
       expect(waiting.byCategory.keys, unorderedEquals(['xl', 'premium']));
       expect(waiting.forCategory('xl').freeWaitMin, 3);

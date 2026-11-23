@@ -113,7 +113,8 @@ void main() {
   });
 
   test(
-    'the pickup move default is 200 m (was 500) when the document says nothing',
+    // v0.18.156 (owner 2026-11-23): free pickup move up to 300 m (was 200).
+    'the pickup move default is 300 m (was 200) when the document says nothing',
     () {
       final config = RiderAppConfig.fromJson({
         'version': 1,
@@ -121,9 +122,10 @@ void main() {
         'currency': 'SEK',
         'cancelFees': {'live': {}, 'reservation': {}},
       })!;
-      expect(config.maxPickupMoveMeters, 200);
-      expect(RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters, 200);
-      expect(TripTerms.defaultMaxPickupMoveMeters, 200);
+      expect(config.maxPickupMoveMeters, 300);
+      expect(RiderAppConfig.defaultMaxPickupMoveAfterAcceptMeters, 300);
+      expect(TripTerms.defaultMaxPickupMoveMeters, 300);
+      expect(ZoneDefaults.maxPickupMoveMeters, 300);
     },
   );
 

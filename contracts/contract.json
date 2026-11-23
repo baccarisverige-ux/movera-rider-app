@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.154",
+  "version": "0.18.156",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -3108,7 +3108,7 @@
   "configDefaults": {
     "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge. v0.5.1 adds pricing (SE, the admin's Stockholm prices) and dispatch (the admin's zone defaults). v0.5.6: missedExclusiveBeforeOffline (DriverAppConfig.offers.autoOffline.missedExclusive) goes from 3 to 10 (owner decision 35, 2026-10-26). v0.18.6: raiseMaxFactor (DispatchDocument.raisePrice.maxFactor, RiderAppConfig.raisePrice.maxFactor) 2 and offerCardRiderRating (DriverAppConfig.offers.offerCard.riderRating) true. v0.18.7: maxPickupMoveMeters 500 → 200 (owner 2026-10-29 '200 m default, admin can change'; server migration moves published documents still on 500) and cancelAfterArrivedIsNoShow true (Q2). v0.18.8: pickupPin (off, 5 tries, 5 min lock), waitingRules (the admin's far pickup / airport / event / scheduled defaults) and stopFreeWaitMin 0 (contract.json#arrivedWaiting). v0.18.9: rideCheck (on, stopMinutes 2, offRouteKm 3 → 2, endFarMeters 500, noAnswerSeconds 120, repeatMinutes 10, noAnswerAlarm false) and routeChange (on, driverCanRefuse, answerSeconds 60) per zone in the driver document (contract.json#onTrip); maxStops 3 now enforced by the server. v0.18.9 (owner rule 16, 2026-11-01): routeChange.beforePickup true and routeChange.fixedPriceTrips \"block\". v0.18.10 (contract.json#finish): earlyEnd (DriverAppConfig.cancelFees.earlyEnd: repriceOverKm 2, repriceOverMin 8, owner G8 Q2), tips per country (countries.SE.tips 10 / 20 / 30 kr, countries.FR.tips 1 / 2 / 5 €; the sample documents no longer convert Swedish tips to euro), paymentMethods cash, card, apple_pay (no google_pay). v0.18.10 (builder questions resolved 2026-11-01): tipRules (RiderAppConfig.tipRules: cashAfterTrip false, cashInCarMinutes 5, customAmount false, customMax SE 200 kr / FR 20 €). v0.18.10 checker: driverPayChangeMax (CountryRules.driverPayChangeMax, SE 1000 kr / FR 100 €).",
     "maxStops": 3,
-    "maxPickupMoveMeters": 200,
+    "maxPickupMoveMeters": 300,
     "samePointWarnMeters": 100,
     "freeWaitMin": {
       "default": 5,
@@ -6674,7 +6674,8 @@
       "note": "Status item 4 + note check (owner '200 m default, admin can change'): the rider moves the pickup with PATCH /trips/{tripId} { expectedVersion, pickup } while the trip is requested, searching, offered, accepted or driver_to_pickup. The server measures the straight-line distance from the BOOKED pickup (the first one) to the new one and refuses more than the zone's booking.maxPickupMoveMeters (the zone's driver document, admin Dispatch › Booking 'Pickup move after accept'; default 200, range 0–2000; server migration sets every published document still on the old 500 to 200): 400 invalid_request, reason pickup_move_too_far, details [\"maxMeters=200\", \"meters=…\"]. After the driver arrived: 409 invalid_transition, reason pickup_fixed_after_arrival. A move changes pickup, version + 1, and sends one event of kind pickup_moved (new realtime kind, with the projection, before terminal only) to the rider, the driver and the admin; the driver app re-routes and shows texts.island on the island; open offers show the new pickup on their next read; the fare does not change (≤ 200 m). The other UpdateTripRequest fields (dropoff, stops, routeQuoteId, payment method) are not served yet: 400 invalid_request, reason route_change_not_available (destination change is the next job, decision 5).",
       "route": "PATCH /trips/{tripId}",
       "configPath": "DriverAppConfig.booking.maxPickupMoveMeters (RiderAppConfig.booking.maxPickupMoveMeters shows the same number)",
-      "default": 200,
+      "default": 300,
+      "freeMoveNote": "v0.18.156 (owner 2026-11-23, Rules decisions/session-2026-11-06.md \"2026-11-23 OWNER DECISION\": the rider can adjust the pickup up to 300 m for free, same price): the default is 300 m (was 200 from v0.18.7, 500 before); the range stays 0–2000 and the admin can still set any zone. Server migration 0133 moves every published rider and driver document (and draft) still on 200 to 300, as the next version with a history row; a zone the admin set to another value keeps it. A trip already booked keeps the value of its booking time (bookingSnapshot, TripTerms.maxPickupMoveMeters); only trips booked after the change get 300. In the note above, 200 is the old default (Rule 21: kept word for word).",
       "range": [
         0,
         2000
