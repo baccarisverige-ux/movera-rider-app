@@ -80,10 +80,15 @@ class _SearchGamesRowState extends State<SearchGamesRow> {
               itemCount: cards.length,
               separatorBuilder: (_, __) =>
                   const SizedBox(width: SearchGamesRow.gap),
+              // The cards have a fixed size; very large text is held at
+              // 1.3× inside them so their buttons keep their tap size.
               itemBuilder: (_, i) => SizedBox(
                 width: SearchGamesRow.cardWidth,
                 height: SearchGamesRow.cardHeight,
-                child: cards[i],
+                child: MediaQuery.withClampedTextScaling(
+                  maxScaleFactor: 1.3,
+                  child: cards[i],
+                ),
               ),
             ),
           ),
