@@ -87,24 +87,27 @@ class _SlotSceneState extends State<SlotScene>
       child: SizedBox(
         width: SlotScene.width,
         height: SlotScene.height,
-        child: ShaderMask(
-          blendMode: BlendMode.dstIn,
-          shaderCallback: (rect) => RadialGradient(
-            colors: const [
-              Color(0xFF000000),
-              Color(0xFF000000),
-              Color(0x00000000),
-            ],
-            stops: [0, ...widget.fadeStops],
-            radius: 0.5 * math.sqrt2,
-            transform: _EllipseTransform(rect.width / rect.height),
-          ).createShader(rect),
-          child: RepaintBoundary(
-            child: AnimatedBuilder(
-              animation: _clock,
-              builder: (context, _) => CustomPaint(
-                size: const Size(SlotScene.width, SlotScene.height),
-                painter: widget.painter(_clock.value * 3600, _car),
+        // Clip: the radar sweep is larger than the slot.
+        child: ClipRect(
+          child: ShaderMask(
+            blendMode: BlendMode.dstIn,
+            shaderCallback: (rect) => RadialGradient(
+              colors: const [
+                Color(0xFF000000),
+                Color(0xFF000000),
+                Color(0x00000000),
+              ],
+              stops: [0, ...widget.fadeStops],
+              radius: 0.5 * math.sqrt2,
+              transform: _EllipseTransform(rect.width / rect.height),
+            ).createShader(rect),
+            child: RepaintBoundary(
+              child: AnimatedBuilder(
+                animation: _clock,
+                builder: (context, _) => CustomPaint(
+                  size: const Size(SlotScene.width, SlotScene.height),
+                  painter: widget.painter(_clock.value * 3600, _car),
+                ),
               ),
             ),
           ),
