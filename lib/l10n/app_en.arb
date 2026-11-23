@@ -3775,6 +3775,19 @@
   "@fdLocationNotShared": {
     "description": "Screen reader label of the grey rider marker (no location)."
   },
+  "bumpSubtitle": "Nearby drivers see the new price first.",
+  "@bumpSubtitle": {
+    "description": "Raise card (design R2, owner 2026-11-23): line under the title."
+  },
+  "bumpSliderHint": "Drag to choose. At most {amount}. Movera confirms your final price.",
+  "@bumpSliderHint": {
+    "description": "Raise card (design R2): line under the slider with the zone ceiling.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "swTripStatusDraft": "Draft",
   "@swTripStatusDraft": {"description": "Contract status word statusWords.families.tripStatus.draft (tool/gen_status_words.py)."},
   "swTripStatusQuoted": "Quoted",

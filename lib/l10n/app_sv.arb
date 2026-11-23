@@ -1672,6 +1672,8 @@
   "fdShareButton": "Dela plats",
   "fdYourLocation": "Din plats",
   "fdLocationNotShared": "Din plats delas inte. Tryck för att dela den.",
+  "bumpSubtitle": "Förare i närheten ser det nya priset först.",
+  "bumpSliderHint": "Dra för att välja. Högst {amount}. Movera bekräftar ditt slutliga pris.",
   "swTripStatusDraft": "Utkast",
   "swTripStatusQuoted": "Offererad",
   "swTripStatusRequested": "Begärd",
