@@ -1,5 +1,7 @@
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/config/driver_profile_settings.dart';
+import 'package:movera_rider/features/driver_profile/presentation/driver_on_way_card.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
@@ -183,13 +185,25 @@ class RiderInTripPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          WaitingDriverCard(
-            driver: driver,
-            rideId: rideId,
-            onOpenProfile: onOpenProfile,
-            onCall: onCall,
-            onMore: onMore,
-          ),
+          // Owner 2026-11-23: the same driver card as before pickup during
+          // the trip (contract.json#driverProfile; the profile read works
+          // until 24 h after the end). Zone switch off: the old block.
+          if (DriverProfileSettings.current.on)
+            DriverOnWayCard(
+              driver: driver,
+              rideId: rideId,
+              onOpenProfile: onOpenProfile,
+              onCall: onCall,
+              onMore: onMore,
+            )
+          else
+            WaitingDriverCard(
+              driver: driver,
+              rideId: rideId,
+              onOpenProfile: onOpenProfile,
+              onCall: onCall,
+              onMore: onMore,
+            ),
           const SizedBox(height: 14),
           Container(
             width: double.infinity,

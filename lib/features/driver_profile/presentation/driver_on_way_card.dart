@@ -299,51 +299,63 @@ class _DriverOnWayCardState extends State<DriverOnWayCard> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: FilledButton.tonalIcon(
-                  key: const ValueKey('waiting-chat'),
-                  onPressed: () => _openChat(d.displayFirstName),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFE8F0FE),
-                    foregroundColor: dpNavy,
-                    minimumSize: const Size.fromHeight(50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                // Owner 2026-11-23: the short word ("Chatt") so Ring, Chatt
+                // and ⋯ fit in one row at 390 px; screen readers still hear
+                // the full word, as before.
+                child: Semantics(
+                  button: true,
+                  label: l.message,
+                  child: FilledButton.tonalIcon(
+                    key: const ValueKey('waiting-chat'),
+                    onPressed: () => _openChat(d.displayFirstName),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFE8F0FE),
+                      foregroundColor: dpNavy,
+                      minimumSize: const Size.fromHeight(50),
+                      // Narrow side padding: the word keeps its full width
+                      // on small phones and large text.
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
-                  ),
-                  icon: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      const Icon(Icons.chat_rounded, size: 20, color: dpBlue),
-                      if (unread > 0)
-                        Positioned(
-                          right: -3,
-                          top: -3,
-                          child: Semantics(
-                            label: l.dpUnreadMessages,
-                            child: Container(
-                              key: const ValueKey('waiting-chat-unread'),
-                              width: 10,
-                              height: 10,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE5484D),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 1.5,
+                    icon: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        const Icon(Icons.chat_rounded, size: 20, color: dpBlue),
+                        if (unread > 0)
+                          Positioned(
+                            right: -3,
+                            top: -3,
+                            child: Semantics(
+                              label: l.dpUnreadMessages,
+                              child: Container(
+                                key: const ValueKey('waiting-chat-unread'),
+                                width: 10,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE5484D),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 1.5,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
+                      ],
+                    ),
+                    label: ExcludeSemantics(
+                      child: Text(
+                        l.dpChat,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
                         ),
-                    ],
-                  ),
-                  label: Text(
-                    l.message,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),

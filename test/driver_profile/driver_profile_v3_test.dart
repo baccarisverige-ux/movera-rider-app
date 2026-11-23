@@ -185,7 +185,7 @@ void main() {
       expect(find.text('Toyota Corolla · Vit'), findsOneWidget);
       expect(find.text('1284 resor · Sedan 2023'), findsOneWidget);
       expect(find.text('Ring'), findsOneWidget);
-      expect(find.text('Meddelande'), findsOneWidget);
+      expect(find.text('Chatt'), findsOneWidget);
       await tester.tap(
         find.byKey(const ValueKey('driver-on-way-open-profile')),
       );
