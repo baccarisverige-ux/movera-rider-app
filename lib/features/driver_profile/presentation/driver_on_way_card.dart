@@ -1,4 +1,10 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/features/messages/domain/chat_options.dart';
+import 'package:movera_rider/features/messages/domain/messages.dart';
 import 'package:movera_rider/app/deferred_screens.dart';
 import 'package:movera_rider/features/driver_arriving/presentation/driver_photo_avatar.dart';
 import 'package:movera_rider/features/driver_profile/presentation/driver_profile_sheet.dart';
@@ -27,7 +33,12 @@ class DriverOnWayCard extends StatefulWidget {
     this.onMore,
     this.verified = true,
     this.now,
+    @visibleForTesting this.messages,
   });
+
+  /// Test seam: the trip's conversation (production: the shared one of
+  /// [rideId], on the app's chat transport).
+  final MessagesController? messages;
 
   final MatchedDriver? driver;
   final String? rideId;
@@ -44,27 +55,47 @@ class DriverOnWayCard extends StatefulWidget {
 }
 
 class _DriverOnWayCardState extends State<DriverOnWayCard> {
-  late MessagesController _messages = MessagesController.forRide(widget.rideId);
+  late MessagesController _messages = _controllerFor(widget.rideId);
   bool _opening = false;
+
+  /// Driver messages the rider dismissed with a quick reply (by id).
+  final Set<String> _dismissed = <String>{};
+
+  bool get _ownsMessages => widget.messages == null;
+
+  MessagesController _controllerFor(String? rideId) {
+    final given = widget.messages;
+    if (given != null) return given;
+    final id = rideId?.trim() ?? '';
+    return MessagesController.forRide(
+      id,
+      transport: id.isEmpty ? null : AppScope.instance.tripMessages,
+    );
+  }
 
   @override
   void initState() {
     super.initState();
     _messages.addListener(_changed);
+    // Owner 2026-11-23: the server's quick replies (chat options) for the
+    // inline message card.
+    unawaited(_messages.loadOptions());
   }
 
   @override
   void didUpdateWidget(DriverOnWayCard old) {
     super.didUpdateWidget(old);
     if (old.rideId == widget.rideId) return;
-    _messages.dispose();
-    _messages = MessagesController.forRide(widget.rideId)
-      ..addListener(_changed);
+    _messages.removeListener(_changed);
+    if (_ownsMessages) _messages.dispose();
+    _messages = _controllerFor(widget.rideId)..addListener(_changed);
+    unawaited(_messages.loadOptions());
   }
 
   @override
   void dispose() {
-    _messages.dispose();
+    _messages.removeListener(_changed);
+    if (_ownsMessages) _messages.dispose();
     super.dispose();
   }
 
@@ -92,8 +123,31 @@ class _DriverOnWayCardState extends State<DriverOnWayCard> {
     await Navigator.push(
       context,
       BottomToTopTransition(
-        chatScreen(driverName: name, rideId: widget.rideId),
+        chatScreen(
+          driverName: name,
+          rideId: widget.rideId,
+          driver: widget.driver,
+        ),
       ),
+    );
+  }
+
+  /// The driver's latest unread message, unless dismissed.
+  ChatMessage? get _inlineMessage {
+    if (_messages.unreadCount == 0) return null;
+    for (final m in _messages.messages.reversed) {
+      if (m.sender == ChatMessageSender.rider || m.isSystem) continue;
+      final id = m.messageId ?? m.localId ?? m.text;
+      return _dismissed.contains(id) ? null : m;
+    }
+    return null;
+  }
+
+  void _reply(ChatMessage message, ChatQuickReply reply) {
+    if (!_messages.sendQuickReply(reply)) return;
+    setState(
+      () =>
+          _dismissed.add(message.messageId ?? message.localId ?? message.text),
     );
   }
 
@@ -111,6 +165,11 @@ class _DriverOnWayCardState extends State<DriverOnWayCard> {
       d.vehicleMake,
       d.vehicleModel,
     ].whereType<String>().where((s) => s.trim().isNotEmpty).join(' ');
+    final carLine = [
+      if (car.isNotEmpty) car,
+      if ((d.vehicleColor ?? '').isNotEmpty) d.vehicleColor!,
+    ].join(' · ');
+    final inline = _inlineMessage;
     return Container(
       key: const ValueKey('driver-on-way-card'),
       decoration: BoxDecoration(
@@ -127,255 +186,494 @@ class _DriverOnWayCardState extends State<DriverOnWayCard> {
       ),
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Semantics(
-            button: true,
-            label: l.dpOpenProfile,
-            child: InkWell(
-              key: const ValueKey('driver-on-way-open-profile'),
-              onTap: _openProfile,
-              borderRadius: BorderRadius.circular(14),
-              child: Row(
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    alignment: Alignment.bottomCenter,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: dpGold,
-                        ),
-                        child: DriverPhotoAvatar(
-                          driver: d,
-                          radius: 28,
-                          fallback: Text(
-                            d.initial,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: dpNavy,
-                            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Semantics(
+                  button: true,
+                  label: l.dpOpenProfile,
+                  child: InkWell(
+                    key: const ValueKey('driver-on-way-open-profile'),
+                    onTap: _openProfile,
+                    borderRadius: BorderRadius.circular(14),
+                    child: Row(
+                      children: [
+                        DriverRatedPhoto(driver: d, radius: 30),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      d.displayFirstName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w800,
+                                        color: dpNavy,
+                                      ),
+                                    ),
+                                  ),
+                                  if (widget.verified)
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 4),
+                                      child: Icon(
+                                        Icons.verified_rounded,
+                                        size: 18,
+                                        color: dpBlue,
+                                        semanticLabel: l.dpVerified,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              if (d.tripCount != null && sinceYear != null)
+                                Text(
+                                  l.dpTripsSince(
+                                    '${d.tripCount}',
+                                    '$sinceYear',
+                                  ),
+                                  maxLines: 2,
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    color: dpMuted,
+                                  ),
+                                )
+                              else if (d.tripCount != null)
+                                Text(
+                                  l.driverTripCount(d.tripCount!),
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    color: dpMuted,
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                      ),
-                      if (d.ratingLabel != null)
-                        Positioned(
-                          bottom: -9,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (d.plate != null || carLine.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 150),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (d.plate != null)
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: SwedishPlate(text: d.plate!),
+                        ),
+                      if (carLine.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          carLine,
+                          maxLines: 2,
+                          textAlign: TextAlign.end,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                            color: dpNavy,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Same spoken label as the old block's Call chip.
+              _RoundAction(
+                buttonKey: const ValueKey('waiting-call'),
+                semantics: l.callDriver,
+                label: l.dpCall,
+                icon: const Icon(Icons.call_outlined, size: 22, color: dpNavy),
+                onTap: widget.onCall,
+              ),
+              const SizedBox(width: 18),
+              // Owner 2026-11-23: "Chatt"; screen readers hear the full word.
+              _RoundAction(
+                buttonKey: const ValueKey('waiting-chat'),
+                semantics: l.message,
+                label: l.dpChat,
+                icon: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      size: 21,
+                      color: dpNavy,
+                    ),
+                    if (unread > 0)
+                      Positioned(
+                        right: -6,
+                        top: -8,
+                        child: Semantics(
+                          label: l.dpUnreadMessages,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 2,
-                            ),
+                            key: const ValueKey('waiting-chat-unread'),
+                            width: 10,
+                            height: 10,
                             decoration: BoxDecoration(
-                              color: dpNavy,
-                              borderRadius: BorderRadius.circular(99),
+                              color: const Color(0xFFE5484D),
+                              shape: BoxShape.circle,
                               border: Border.all(
                                 color: Colors.white,
                                 width: 1.5,
                               ),
                             ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                onTap: () => _openChat(d.displayFirstName),
+              ),
+              const Spacer(),
+              if (widget.onMore != null)
+                // Same label as the old block's ⋯ chip (screen readers and
+                // the route tests find it by this label).
+                _RoundAction(
+                  buttonKey: const ValueKey('waiting-more'),
+                  semantics: l.moreOptions,
+                  tooltip: l.moreOptions,
+                  icon: const Icon(
+                    Icons.more_horiz_rounded,
+                    size: 24,
+                    color: dpNavy,
+                  ),
+                  onTap: widget.onMore!,
+                ),
+            ],
+          ),
+          if (inline != null) ...[
+            const SizedBox(height: 14),
+            DriverMessageCard(
+              from: l.dpFromDriver(d.displayFirstName),
+              text: inline.text,
+              replies: _messages.canSendMessages
+                  ? _messages.options.shownQuickReplies
+                  : const [],
+              language: l.localeName,
+              onOpen: () => _openChat(d.displayFirstName),
+              onReply: (reply) => _reply(inline, reply),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A round white button with a hair border and an optional small label
+/// under it (Ring / Chatt / ⋯, owner 2026-11-23 B2).
+class _RoundAction extends StatelessWidget {
+  const _RoundAction({
+    required this.buttonKey,
+    required this.semantics,
+    required this.icon,
+    required this.onTap,
+    this.label,
+    this.tooltip,
+  });
+
+  final Key buttonKey;
+  final String semantics;
+  final String? label;
+  final String? tooltip;
+  final Widget icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = Semantics(
+      button: true,
+      label: semantics,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.white,
+        shape: const CircleBorder(side: BorderSide(color: Color(0xFFE7EBEE))),
+        child: InkWell(
+          key: buttonKey,
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: SizedBox.square(dimension: 48, child: Center(child: icon)),
+        ),
+      ),
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (tooltip != null)
+          Tooltip(message: tooltip!, child: button)
+        else
+          button,
+        if (label != null) ...[
+          const SizedBox(height: 6),
+          ExcludeSemantics(
+            child: Text(
+              label!,
+              maxLines: 1,
+              style: const TextStyle(fontSize: 13, color: dpNavy),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// The driver's photo, plain round (no ring), with the ★ rating badge.
+class DriverRatedPhoto extends StatelessWidget {
+  const DriverRatedPhoto({
+    super.key,
+    required this.driver,
+    this.radius = 30,
+    this.photoKey,
+  });
+
+  final MatchedDriver driver;
+  final double radius;
+  final Key? photoKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = driver;
+    return Padding(
+      padding: EdgeInsets.only(bottom: d.ratingLabel != null ? 8 : 0),
+      child: Stack(
+        key: photoKey,
+        clipBehavior: Clip.none,
+        alignment: Alignment.bottomCenter,
+        children: [
+          DriverPhotoAvatar(
+            driver: d,
+            radius: radius,
+            fallback: Text(
+              d.initial,
+              style: TextStyle(
+                fontSize: radius * 0.6,
+                fontWeight: FontWeight.w700,
+                color: dpNavy,
+              ),
+            ),
+          ),
+          if (d.ratingLabel != null)
+            Positioned(
+              bottom: -9,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: dpNavy,
+                  borderRadius: BorderRadius.circular(99),
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: Text(
+                  '★ ${d.ratingLabel}',
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Owner 2026-11-23: a new driver message, inline under the buttons — the
+/// driver app's TripChatCard look (#202A30, `Från <name>`, two lines, an
+/// arrow that opens the chat) with the server's quick replies as dark
+/// chips that send and dismiss.
+class DriverMessageCard extends StatelessWidget {
+  const DriverMessageCard({
+    super.key,
+    required this.from,
+    required this.text,
+    required this.replies,
+    required this.language,
+    required this.onOpen,
+    required this.onReply,
+  });
+
+  final String from;
+  final String text;
+  final List<ChatQuickReply> replies;
+  final String language;
+  final VoidCallback onOpen;
+  final ValueChanged<ChatQuickReply> onReply;
+
+  static const Color background = Color(0xFF202A30);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('driver-msg-card'),
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            key: const ValueKey('driver-msg-open'),
+            onTap: onOpen,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        from,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFAEB7BE),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        text,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          color: Colors.white,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(Icons.arrow_forward_rounded, color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+          if (replies.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final reply in replies)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Material(
+                        color: const Color(0xFF34404A),
+                        shape: const StadiumBorder(),
+                        child: InkWell(
+                          customBorder: const StadiumBorder(),
+                          onTap: () => onReply(reply),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                             child: Text(
-                              '★ ${d.ratingLabel}',
+                              reply.textIn(language),
                               style: const TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
                                 color: Colors.white,
                               ),
                             ),
                           ),
                         ),
-                    ],
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                d.displayFirstName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                  color: dpNavy,
-                                ),
-                              ),
-                            ),
-                            if (widget.verified)
-                              Padding(
-                                padding: const EdgeInsets.only(left: 4),
-                                child: Icon(
-                                  Icons.verified_rounded,
-                                  size: 18,
-                                  color: dpBlue,
-                                  semanticLabel: l.dpVerified,
-                                ),
-                              ),
-                          ],
-                        ),
-                        if (d.tripCount != null && sinceYear != null)
-                          Text(
-                            l.dpTripsSince('${d.tripCount}', '$sinceYear'),
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              color: dpMuted,
-                            ),
-                          )
-                        else if (d.tripCount != null)
-                          Text(
-                            l.driverTripCount(d.tripCount!),
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              color: dpMuted,
-                            ),
-                          ),
-                      ],
+                      ),
                     ),
-                  ),
-                  const Icon(Icons.chevron_right_rounded, color: dpMuted),
                 ],
               ),
             ),
-          ),
-          if (d.plate != null || car.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            Row(
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A Swedish plate in the EU style (owner 2026-11-23): white with a black
+/// border, the blue EU strip on the left with the ring of stars and "S".
+/// Our own drawing, no image file.
+class SwedishPlate extends StatelessWidget {
+  const SwedishPlate({super.key, required this.text, this.small = false});
+  final String text;
+  final bool small;
+
+  @override
+  Widget build(BuildContext context) {
+    final h = small ? 22.0 : 30.0;
+    return Container(
+      key: const ValueKey('swedish-plate'),
+      height: h,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(small ? 4 : 5),
+        border: Border.all(color: const Color(0xFF111111), width: 1.4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: h * 0.5,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1C3FAA),
+              borderRadius: BorderRadius.horizontal(
+                left: Radius.circular(small ? 2.5 : 3.5),
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                if (d.plate != null) SwedishPlate(text: d.plate!),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    [
-                      if (car.isNotEmpty) car,
-                      if ((d.vehicleColor ?? '').isNotEmpty) d.vehicleColor!,
-                    ].join(' · '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                      color: dpNavy,
-                    ),
+                SizedBox.square(
+                  key: const ValueKey('eu-stars'),
+                  dimension: h * 0.36,
+                  child: const CustomPaint(painter: _EuStars()),
+                ),
+                Text(
+                  'S',
+                  style: TextStyle(
+                    fontSize: h * 0.3,
+                    height: 1,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
                   ),
                 ),
               ],
             ),
-          ],
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                // Same spoken label as the old block's Call chip.
-                child: Semantics(
-                  button: true,
-                  label: l.callDriver,
-                  excludeSemantics: true,
-                  child: FilledButton.icon(
-                    key: const ValueKey('waiting-call'),
-                    onPressed: widget.onCall,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: dpBlue,
-                      minimumSize: const Size.fromHeight(50),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    icon: const Icon(Icons.call_rounded, size: 20),
-                    label: Text(
-                      l.dpCall,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: small ? 6 : 9),
+            child: Text(
+              text.toUpperCase(),
+              style: TextStyle(
+                fontSize: small ? 12 : 16,
+                fontWeight: FontWeight.w700,
+                letterSpacing: small ? 0.8 : 1.4,
+                color: const Color(0xFF111111),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                // Owner 2026-11-23: the short word ("Chatt") so Ring, Chatt
-                // and ⋯ fit in one row at 390 px; screen readers still hear
-                // the full word, as before.
-                child: Semantics(
-                  button: true,
-                  label: l.message,
-                  child: FilledButton.tonalIcon(
-                    key: const ValueKey('waiting-chat'),
-                    onPressed: () => _openChat(d.displayFirstName),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFE8F0FE),
-                      foregroundColor: dpNavy,
-                      minimumSize: const Size.fromHeight(50),
-                      // Narrow side padding: the word keeps its full width
-                      // on small phones and large text.
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    icon: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        const Icon(Icons.chat_rounded, size: 20, color: dpBlue),
-                        if (unread > 0)
-                          Positioned(
-                            right: -3,
-                            top: -3,
-                            child: Semantics(
-                              label: l.dpUnreadMessages,
-                              child: Container(
-                                key: const ValueKey('waiting-chat-unread'),
-                                width: 10,
-                                height: 10,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFE5484D),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 1.5,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    label: ExcludeSemantics(
-                      child: Text(
-                        l.dpChat,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              if (widget.onMore != null) ...[
-                const SizedBox(width: 10),
-                // Same label as the old block's ⋯ chip (screen readers and
-                // the route tests find it by this label).
-                Semantics(
-                  button: true,
-                  label: l.moreOptions,
-                  excludeSemantics: true,
-                  child: IconButton.filledTonal(
-                    onPressed: widget.onMore,
-                    tooltip: l.moreOptions,
-                    icon: const Icon(Icons.more_horiz_rounded),
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
         ],
       ),
@@ -383,44 +681,25 @@ class _DriverOnWayCardState extends State<DriverOnWayCard> {
   }
 }
 
-/// A plate in the Swedish style: white, black border, a blue strip on the
-/// left. Our own drawing, no image file.
-class SwedishPlate extends StatelessWidget {
-  const SwedishPlate({super.key, required this.text});
-  final String text;
+/// The EU ring of twelve yellow stars (dots at this size).
+class _EuStars extends CustomPainter {
+  const _EuStars();
 
   @override
-  Widget build(BuildContext context) => Container(
-    key: const ValueKey('swedish-plate'),
-    height: 30,
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(5),
-      border: Border.all(color: const Color(0xFF1B1B1B), width: 1.4),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 12,
-          decoration: const BoxDecoration(
-            color: Color(0xFF1C4FB8),
-            borderRadius: BorderRadius.horizontal(left: Radius.circular(3.5)),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Text(
-            text.toUpperCase(),
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-              color: Color(0xFF111111),
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = size.shortestSide * 0.42;
+    final p = Paint()..color = const Color(0xFFFFCC00);
+    for (var i = 0; i < 12; i++) {
+      final a = i * math.pi / 6;
+      canvas.drawCircle(
+        c + Offset(math.cos(a) * r, math.sin(a) * r),
+        size.shortestSide * 0.07,
+        p,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

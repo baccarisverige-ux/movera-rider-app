@@ -119,8 +119,10 @@ void main() {
     await settle(tester);
     final full = sheetTop(tester);
     expect(full, lessThan(middle));
-    // Not pinned under the status bar: the map still shows above it.
-    expect(full, greaterThan(80));
+    // Not pinned under the status bar: the map still shows above it. Owner
+    // 2026-11-23: with the games row the content reaches the sheet's
+    // ceiling (72 px of map kept, as on the searching screen).
+    expect(full, greaterThanOrEqualTo(72));
     // The recenter button is gone while the sheet is fully up.
     final fade = tester.widget<Opacity>(
       find

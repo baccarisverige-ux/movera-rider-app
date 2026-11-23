@@ -143,6 +143,8 @@ extension _WaitingSheet on _WaitingForDriverState {
     }
 
     return SingleChildScrollView(
+      // The sheet's own scroll controller, so the drag is shared.
+      primary: true,
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,6 +198,10 @@ extension _WaitingSheet on _WaitingForDriverState {
             TripTermsNote(lines: lines),
           ],
           WaitingNotesAndPin(notes: widget.notes, rideId: _rideId),
+          // Owner 2026-11-23: the games row at the bottom of this sheet too
+          // (stops when the trip starts or ends).
+          const SizedBox(height: 16),
+          SearchGamesRow(active: !_tracking.status.isTerminal),
         ],
       ),
     );

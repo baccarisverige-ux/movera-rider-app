@@ -85,8 +85,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final button = find.byKey(const ValueKey('waiting-chat'));
-    final label = find.descendant(of: button, matching: find.byType(Text));
+    // Owner 2026-11-23 (B2): the label sits under the round button.
+    final label = find.descendant(
+      of: find.byKey(const ValueKey('driver-on-way-card')),
+      matching: find.text('Chatt'),
+    );
     expect(tester.widget<Text>(label).data, 'Chatt');
     final paragraph = tester.renderObject<RenderParagraph>(
       find.descendant(of: label, matching: find.byType(RichText)),
