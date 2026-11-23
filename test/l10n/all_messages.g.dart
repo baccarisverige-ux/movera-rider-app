@@ -1675,6 +1675,14 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'searchStepNoDriverNearby': l.searchStepNoDriverNearby,
   'searchStepNoDriverFound': l.searchStepNoDriverFound,
   'dropoffTooClose': l.dropoffTooClose,
+  'fdAdjustPill': l.fdAdjustPill,
+  'fdAdjustSubtitle': l.fdAdjustSubtitle,
+  'fdSearchAddress': l.fdSearchAddress,
+  'fdShareTitle': l.fdShareTitle,
+  'fdShareBody': l.fdShareBody,
+  'fdShareButton': l.fdShareButton,
+  'fdYourLocation': l.fdYourLocation,
+  'fdLocationNotShared': l.fdLocationNotShared,
   'swTripStatusDraft': l.swTripStatusDraft,
   'swTripStatusQuoted': l.swTripStatusQuoted,
   'swTripStatusRequested': l.swTripStatusRequested,
@@ -5434,6 +5442,22 @@ class _Exhaustive implements AppLocalizations {
   String get searchStepNoDriverFound => '';
   @override
   String get dropoffTooClose => '';
+  @override
+  String get fdAdjustPill => '';
+  @override
+  String get fdAdjustSubtitle => '';
+  @override
+  String get fdSearchAddress => '';
+  @override
+  String get fdShareTitle => '';
+  @override
+  String get fdShareBody => '';
+  @override
+  String get fdShareButton => '';
+  @override
+  String get fdYourLocation => '';
+  @override
+  String get fdLocationNotShared => '';
   @override
   String get swTripStatusDraft => '';
   @override
