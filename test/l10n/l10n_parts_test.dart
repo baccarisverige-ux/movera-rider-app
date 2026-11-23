@@ -108,18 +108,19 @@ void main() {
     // Owner 2026-11-23 (approved search screen): + 8 fd* texts in the
     // searching_screen area (Justera, edit subtitle, share-location sheet).
     // Owner 2026-11-23 (raise card R2): + bumpSubtitle, bumpSliderHint.
+    // Owner 2026-11-23 (games): + the games area (quiz and puzzle texts).
     const before = {
       'en': (
-        'f1db9f7a356ed9dfd36cf0dd3b516578598b0a90d1b00986cfc158edc9883265',
-        2334,
+        'e4c8c44307a0b539e227aa45dde3e7d0dc21dd79400306ee95fa018bb1793de4',
+        2428,
       ),
       'fr': (
-        'b87548fa7ea6d6e41d3e1a216d51e93ec0aff419b8f7efd0f81c68379b6052fd',
-        1823,
+        '16eb5395465ae10acb28bb20119765d135566f6d037085e9887e78d786799940',
+        1870,
       ),
       'sv': (
-        '265f61e7312985ec1fac252094a924866ebb098ad11bfeaba1fd2b19c948c36f',
-        1823,
+        '07c21803c103ac7853459a15d85330d6c087fc63e64583216b546ee9acf06494',
+        1870,
       ),
     };
     for (final lang in _langs) {

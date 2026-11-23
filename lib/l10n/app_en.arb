@@ -733,6 +733,212 @@
   "@rateShowFirstNameOff": {
     "description": "v0.18.155 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
   },
+  "gameQuizTitle": "Stockholm quiz",
+  "@gameQuizTitle": {
+    "description": "Quiz card title (owner 2026-11-23, games while searching)."
+  },
+  "gameQuizBody": "5 calm questions about the city. No time pressure.",
+  "@gameQuizBody": {
+    "description": "Quiz start card line."
+  },
+  "gameStart": "Start",
+  "@gameStart": {
+    "description": "Start button of a game card."
+  },
+  "gameRight": "Right!",
+  "@gameRight": {
+    "description": "Quiz: shown before the fact after a right answer."
+  },
+  "gameNotQuite": "Not quite.",
+  "@gameNotQuite": {
+    "description": "Quiz: shown before the fact after a wrong answer."
+  },
+  "gameQuizAllRight": "All right – impressive!",
+  "@gameQuizAllRight": {
+    "description": "Quiz end: 5 of 5."
+  },
+  "gameQuizGood": "Well done!",
+  "@gameQuizGood": {
+    "description": "Quiz end: 3 or 4 right."
+  },
+  "gameQuizTryAgain": "Try again – new questions are waiting.",
+  "@gameQuizTryAgain": {
+    "description": "Quiz end: 0 to 2 right."
+  },
+  "gamePlayAgain": "Play again",
+  "@gamePlayAgain": {
+    "description": "Button to play a game again."
+  },
+  "gamePuzzleTitle": "Puzzle",
+  "@gamePuzzleTitle": {
+    "description": "Sliding puzzle card title."
+  },
+  "gamePuzzleBody": "Slide the tiles and build Stockholm.",
+  "@gamePuzzleBody": {
+    "description": "Puzzle start card line."
+  },
+  "gamePuzzleGoal": "Goal",
+  "@gamePuzzleGoal": {
+    "description": "Label over the small picture of the finished puzzle."
+  },
+  "gamePuzzleMovesLabel": "Moves",
+  "@gamePuzzleMovesLabel": {
+    "description": "Label over the move counter."
+  },
+  "gamePuzzleShuffle": "Shuffle",
+  "@gamePuzzleShuffle": {
+    "description": "Button: shuffle the puzzle again."
+  },
+  "gamePuzzleDone": "Done!",
+  "@gamePuzzleDone": {
+    "description": "Puzzle finished."
+  },
+  "gameQuizScore": "{right} of {total} right!",
+  "@gameQuizScore": {
+    "description": "Quiz end score.",
+    "placeholders": {
+      "right": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "gamePuzzleMoves": "{moves} moves",
+  "@gamePuzzleMoves": {
+    "description": "Puzzle finished: number of moves.",
+    "placeholders": {
+      "moves": {
+        "type": "String"
+      }
+    }
+  },
+  "gamePuzzleTile": "Tile {number}",
+  "@gamePuzzleTile": {
+    "description": "Screen reader label of a puzzle tile.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "gameQuizQ1": "Which building has three crowns on top of its tower?",
+  "@gameQuizQ1": {
+    "description": "Stockholm quiz question 1."
+  },
+  "gameQuizQ1A1": "City Hall",
+  "@gameQuizQ1A1": {
+    "description": "Quiz question 1, answer 1 (the right one)."
+  },
+  "gameQuizQ1A2": "The Royal Palace",
+  "@gameQuizQ1A2": {
+    "description": "Quiz question 1, answer 2."
+  },
+  "gameQuizQ1A3": "The Parliament House",
+  "@gameQuizQ1A3": {
+    "description": "Quiz question 1, answer 3."
+  },
+  "gameQuizQ1Fact": "City Hall was completed in 1923. The Nobel banquet is held here.",
+  "@gameQuizQ1Fact": {
+    "description": "Quiz question 1: fact shown after answering."
+  },
+  "gameQuizQ2": "What is Stockholm's oldest district called?",
+  "@gameQuizQ2": {
+    "description": "Stockholm quiz question 2."
+  },
+  "gameQuizQ2Fact": "Gamla stan grew up in the 13th century.",
+  "@gameQuizQ2Fact": {
+    "description": "Quiz question 2: fact shown after answering."
+  },
+  "gameQuizQ3": "Which ship sank on its maiden voyage in 1628?",
+  "@gameQuizQ3": {
+    "description": "Stockholm quiz question 3."
+  },
+  "gameQuizQ3Fact": "Vasa was raised in 1961 and is now in the Vasa Museum.",
+  "@gameQuizQ3Fact": {
+    "description": "Quiz question 3: fact shown after answering."
+  },
+  "gameQuizQ4": "What is the round arena south of the city called?",
+  "@gameQuizQ4": {
+    "description": "Stockholm quiz question 4."
+  },
+  "gameQuizQ4Fact": "Globen opened in 1989 and is 85 metres tall.",
+  "@gameQuizQ4Fact": {
+    "description": "Quiz question 4: fact shown after answering."
+  },
+  "gameQuizQ5": "How tall is the Kaknäs Tower?",
+  "@gameQuizQ5": {
+    "description": "Stockholm quiz question 5."
+  },
+  "gameQuizQ5A1": "155 metres",
+  "@gameQuizQ5A1": {
+    "description": "Quiz question 5, answer 1 (the right one)."
+  },
+  "gameQuizQ5A2": "85 metres",
+  "@gameQuizQ5A2": {
+    "description": "Quiz question 5, answer 2."
+  },
+  "gameQuizQ5A3": "255 metres",
+  "@gameQuizQ5A3": {
+    "description": "Quiz question 5, answer 3."
+  },
+  "gameQuizQ5Fact": "The Kaknäs Tower opened in 1967.",
+  "@gameQuizQ5Fact": {
+    "description": "Quiz question 5: fact shown after answering."
+  },
+  "gameQuizQ6": "How many islands is Stockholm built on?",
+  "@gameQuizQ6": {
+    "description": "Stockholm quiz question 6."
+  },
+  "gameQuizQ6Fact": "The city lies on 14 islands between Lake Mälaren and the Baltic Sea.",
+  "@gameQuizQ6Fact": {
+    "description": "Quiz question 6: fact shown after answering."
+  },
+  "gameQuizQ7": "In which year did the Stockholm metro open?",
+  "@gameQuizQ7": {
+    "description": "Stockholm quiz question 7."
+  },
+  "gameQuizQ7Fact": "The first line ran between Slussen and Hökarängen.",
+  "@gameQuizQ7Fact": {
+    "description": "Quiz question 7: fact shown after answering."
+  },
+  "gameQuizQ8": "Which lake meets the Baltic Sea in Stockholm?",
+  "@gameQuizQ8": {
+    "description": "Stockholm quiz question 8."
+  },
+  "gameQuizQ8Fact": "Mälaren is Sweden's third largest lake.",
+  "@gameQuizQ8Fact": {
+    "description": "Quiz question 8: fact shown after answering."
+  },
+  "gameQuizQ9": "Which park is next to the City Library?",
+  "@gameQuizQ9": {
+    "description": "Stockholm quiz question 9."
+  },
+  "gameQuizQ9Fact": "The City Library was designed by Gunnar Asplund and opened in 1928.",
+  "@gameQuizQ9Fact": {
+    "description": "Quiz question 9: fact shown after answering."
+  },
+  "gameQuizQ10": "In which building is the Nobel banquet held on 10 December?",
+  "@gameQuizQ10": {
+    "description": "Stockholm quiz question 10."
+  },
+  "gameQuizQ10A1": "City Hall",
+  "@gameQuizQ10A1": {
+    "description": "Quiz question 10, answer 1 (the right one)."
+  },
+  "gameQuizQ10A2": "The Concert Hall",
+  "@gameQuizQ10A2": {
+    "description": "Quiz question 10, answer 2."
+  },
+  "gameQuizQ10A3": "The Royal Palace",
+  "@gameQuizQ10A3": {
+    "description": "Quiz question 10, answer 3."
+  },
+  "gameQuizQ10Fact": "The banquet is held in City Hall. The prize itself is handed out at the Concert Hall by Hötorget.",
+  "@gameQuizQ10Fact": {
+    "description": "Quiz question 10: fact shown after answering."
+  },
   "setLocation": "Set location",
   "choosePickup": "Choose pickup",
   "setHomeAddress": "Set Home address",
