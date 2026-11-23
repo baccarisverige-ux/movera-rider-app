@@ -115,8 +115,8 @@ void main() {
   testWidgets('the whole raise card, Confirm and Keep waiting included, is on '
       'screen when it appears', (tester) async {
     await openFinding(tester);
-    expect(find.text('Want to improve your chances?'), findsOneWidget);
-    for (final label in ['+50,00 kr', 'Set new price', 'Keep waiting']) {
+    expect(find.text('Raise your offer'), findsOneWidget);
+    for (final label in ['+50', 'Set new price', 'Keep waiting']) {
       final rect = tester.getRect(find.text(label));
       expect(
         rect.bottom,
@@ -126,7 +126,7 @@ void main() {
     }
 
     // A step, then the confirm button, both tappable where they are.
-    await tester.tap(find.text('+50,00 kr'));
+    await tester.tap(find.text('+50'));
     await tester.pump(const Duration(milliseconds: 300));
     final confirm = find.textContaining('Confirm');
     expect(confirm, findsOneWidget);
@@ -145,19 +145,13 @@ void main() {
 
   testWidgets('a drag on the sheet body moves the sheet', (tester) async {
     await openFinding(tester);
-    final before = tester.getRect(find.text('Want to improve your chances?'));
+    final before = tester.getRect(find.text('Raise your offer'));
     // Pull the sheet down by its text (not the handle), then back up.
-    await tester.drag(
-      find.text('Want to improve your chances?'),
-      const Offset(0, 220),
-    );
+    await tester.drag(find.text('Raise your offer'), const Offset(0, 220));
     await tester.pump(const Duration(milliseconds: 600));
-    final down = tester.getRect(find.text('Want to improve your chances?'));
+    final down = tester.getRect(find.text('Raise your offer'));
     expect(down.top, greaterThan(before.top + 100));
-    await tester.drag(
-      find.text('Want to improve your chances?'),
-      const Offset(0, -400),
-    );
+    await tester.drag(find.text('Raise your offer'), const Offset(0, -400));
     await tester.pump(const Duration(milliseconds: 600));
     expect(
       tester.getRect(find.text('Keep waiting')).bottom,
