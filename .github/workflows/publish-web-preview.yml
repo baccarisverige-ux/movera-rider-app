@@ -11,6 +11,9 @@ name: Publish Rider Web Preview (test server only)
 on:
   push:
     branches: [claude/laund-rule-review-j04dj5-dprofile]
+  # Manual re-run of the preview (a re-run attempt of run 45169937408 could not
+  # find its own github-pages artifact at the deploy step).
+  workflow_dispatch:
 
 permissions:
   contents: read
