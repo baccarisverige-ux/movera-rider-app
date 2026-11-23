@@ -7,6 +7,9 @@ name: iOS TestFlight (real app)
 # Secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (Admin key). The app record in App Store Connect
 # must be created by the owner once (an API key cannot); without it the upload step stops with the steps.
 on:
+  # PROOF ONLY (remove before ready): runs on pushes to this branch, since a dispatch needs the file on main.
+  push:
+    branches: [claude/laund-rule-review-j04dj5-ios]
   workflow_dispatch:
     inputs:
       upload:
@@ -200,17 +203,17 @@ jobs:
           retention-days: 7
 
       - name: App Store Connect app record exists
-        if: ${{ inputs.upload }}
+        if: ${{ github.event_name == 'push' || inputs.upload }}
         working-directory: ios
         run: fastlane ios check_app_record
 
       - name: "4. Upload to TestFlight (no review submission)"
-        if: ${{ inputs.upload }}
+        if: ${{ github.event_name == 'push' || inputs.upload }}
         working-directory: ios
         run: fastlane ios upload
 
       - name: Builds App Store Connect knows (wait up to 15 min for this run's build)
-        if: ${{ inputs.upload }}
+        if: ${{ github.event_name == 'push' || inputs.upload }}
         working-directory: ios
         run: |
           for i in $(seq 1 15); do
@@ -219,6 +222,13 @@ jobs:
             sleep 60
           done
           echo "::warning::Build $GITHUB_RUN_NUMBER is not listed yet; check the e-mail from Apple (ITMS errors)."
+
+      - name: TestFlight crash reports testers shared (read only)
+        if: always()
+        continue-on-error: true
+        env:
+          APP_APPLE_ID: '6838441599'
+        run: ruby ios/ci/asc_crashes.rb
 
       - name: Remove the key
         if: always()
