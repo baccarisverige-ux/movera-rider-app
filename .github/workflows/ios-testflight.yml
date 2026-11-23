@@ -7,6 +7,9 @@ name: iOS TestFlight (real app)
 # Secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (Admin key). The app record in App Store Connect
 # must be created by the owner once (an API key cannot); without it the upload step stops with the steps.
 on:
+  # PROOF ONLY (remove before ready): runs on pushes to this branch, since a dispatch needs the file on main.
+  push:
+    branches: [claude/laund-rule-review-j04dj5-ios]
   workflow_dispatch:
     inputs:
       upload:
@@ -146,6 +149,32 @@ jobs:
           grep -aqF "${PROD_API%/}" build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/Frameworks/App.framework/App \
             || { echo "::error::The built app does not contain the real server address."; exit 1; }
 
+      - name: Every permission the code references has a purpose string (ITMS-90683)
+        run: |
+          set -euo pipefail
+          app=build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app
+          bins="$(find "$app" -type f -perm -u+x ! -name '*.sh'; find "$app/Frameworks" -type f -path '*.framework/*' ! -name '*.plist' 2>/dev/null)"
+          missing=0
+          check() { # check <symbol> <Info.plist key>
+            if printf '%s\n' "$bins" | sort -u | while read -r b; do [ -f "$b" ] && grep -aqF "$1" "$b" && echo hit && break; done | grep -q hit; then
+              if /usr/libexec/PlistBuddy -c "Print :$2" "$app/Info.plist" >/dev/null 2>&1; then echo "ok   $2 ($1)"; else echo "::error::Code references $1 but Info.plist has no $2."; missing=1; fi
+            fi
+          }
+          check requestAlwaysAuthorization NSLocationAlwaysAndWhenInUseUsageDescription
+          check requestAlwaysAuthorization NSLocationAlwaysUsageDescription
+          check requestWhenInUseAuthorization NSLocationWhenInUseUsageDescription
+          check AVCaptureDevice NSCameraUsageDescription
+          check requestRecordPermission NSMicrophoneUsageDescription
+          check PHPhotoLibrary NSPhotoLibraryUsageDescription
+          check MPMediaLibrary NSAppleMusicUsageDescription
+          check CBCentralManager NSBluetoothAlwaysUsageDescription
+          check CNContactStore NSContactsUsageDescription
+          check CMMotionActivityManager NSMotionUsageDescription
+          check EKEventStore NSCalendarsUsageDescription
+          check SFSpeechRecognizer NSSpeechRecognitionUsageDescription
+          check LAContext NSFaceIDUsageDescription
+          exit "$missing"
+
       - name: "2. Sign for the App Store (certificate + profile from the API key)"
         env:
           TEAM_ID: ${{ steps.bundle.outputs.team_id }}
@@ -185,12 +214,12 @@ jobs:
           retention-days: 7
 
       - name: App Store Connect app record exists
-        if: ${{ inputs.upload }}
+        if: ${{ github.event_name == 'push' || inputs.upload }}
         working-directory: ios
         run: fastlane ios check_app_record
 
       - name: "4. Upload to TestFlight (no review submission)"
-        if: ${{ inputs.upload }}
+        if: ${{ github.event_name == 'push' || inputs.upload }}
         working-directory: ios
         run: fastlane ios upload
 
