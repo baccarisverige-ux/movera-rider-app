@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/features/finding_driver/presentation/searching_radar.dart';
 import 'package:movera_rider/core/app_update/ride_live_signal.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
@@ -17,7 +18,6 @@ import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
-import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
@@ -1179,16 +1179,9 @@ class _FindingDriversState extends State<FindingDrivers>
                             ),
                           ),
                           if (!_match.showPriceBump)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2, bottom: 6),
-                              child: Image.asset(
-                                excludeFromSemantics: true,
-                                AppAssets.scheduleRideCar,
-                                height: 88,
-                                fit: BoxFit.contain,
-                                filterQuality: FilterQuality.high,
-                              ),
-                            ),
+                            // Owner 2026-11-23: the approved radar in the
+                            // car picture's place (same 96 px).
+                            const SearchingRadar(),
                           Expanded(
                             child: _panelBody(
                               progress,
