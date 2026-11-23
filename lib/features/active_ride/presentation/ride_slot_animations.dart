@@ -139,3 +139,74 @@ class _ComingPainter extends CustomPainter {
   bool shouldRepaint(_ComingPainter old) =>
       old.seconds != seconds || old.car != car;
 }
+
+/// Owner 2026-11-23, approved on-trip-animation.html (LAUNCH-RULE.md: all
+/// three panel animations approved): the same slot at the top of the trip
+/// panel. The route from pickup to destination: the driven part turns solid
+/// blue, the rest stays dotted; the car drives toward a small flag.
+/// Reduce motion: still.
+class OnTripAnimation extends StatelessWidget {
+  const OnTripAnimation({super.key});
+
+  @override
+  Widget build(BuildContext context) => SlotScene(
+    fadeStops: const [0.48, 0.74],
+    painter: (seconds, car) => _TripPainter(seconds: seconds, car: car),
+  );
+}
+
+class _TripPainter extends CustomPainter {
+  _TripPainter({required this.seconds, required this.car});
+
+  final double seconds;
+  final ui.Image? car;
+
+  static final Path _route = Path()
+    ..moveTo(34, 74)
+    ..cubicTo(70, 70, 92, 50, 124, 52)
+    ..cubicTo(156, 54, 168, 42, 200, 40);
+  static const _flag = Offset(200, 40);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.scale(size.width / 240, size.height / 96);
+    _paintBaseMap(canvas, _route);
+    _dashed(canvas, _route, _stroke(const Color(0xFF93A3C8), 2), 3, 5);
+    // One trip every 8 s: the driven part and the car move together.
+    final t = (seconds % 8) / 8;
+    final m = _route.computeMetrics().first;
+    canvas.drawPath(m.extractPath(0, m.length * t), _stroke(_acc, 3));
+    canvas.drawCircle(const Offset(34, 74), 4, Paint()..color = _green);
+    canvas.drawCircle(const Offset(34, 74), 4, _stroke(Colors.white, 2));
+    // The flag waves a little (0 to -6 degrees and back, 1.6 s each way).
+    final w = (seconds % 3.2) / 1.6;
+    final wave = Curves.easeInOut.transform(w <= 1 ? w : 2 - w);
+    canvas.save();
+    canvas.translate(_flag.dx, 34);
+    canvas.rotate(-6 * math.pi / 180 * wave);
+    canvas.translate(-_flag.dx, -34);
+    canvas.drawLine(
+      _flag,
+      const Offset(200, 24),
+      _stroke(const Color(0xFF111111), 1.6)..strokeCap = StrokeCap.butt,
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(200, 24)
+        ..relativeLineTo(11, 0)
+        ..relativeLineTo(-3, 4)
+        ..relativeLineTo(3, 4)
+        ..relativeLineTo(-11, 0)
+        ..close(),
+      Paint()..color = const Color(0xFF111111),
+    );
+    canvas.restore();
+    _carAlong(canvas, car, _route, t);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_TripPainter old) =>
+      old.seconds != seconds || old.car != car;
+}

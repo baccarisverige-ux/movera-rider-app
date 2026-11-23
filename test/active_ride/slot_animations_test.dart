@@ -101,6 +101,33 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     expect(tester.binding.hasScheduledFrame, isFalse);
   });
+
+  // On trip: on-trip-animation.html (approved, LAUNCH-RULE.md).
+  testWidgets('on trip: the animation is at the top of the trip panel', (
+    tester,
+  ) async {
+    final realtime = await pumpWaiting(tester, RideStatus.tripInProgress);
+    final anim = find.byType(OnTripAnimation);
+    expect(anim, findsOneWidget);
+    expect(find.byType(DriverComingAnimation), findsNothing);
+    expect(tester.getSize(anim).height, SlotScene.height);
+    expect(
+      tester.getRect(anim).bottom,
+      lessThanOrEqualTo(tester.getRect(find.byType(DriverOnWayCard)).top),
+    );
+    await done(tester, realtime);
+  });
+
+  testWidgets('on trip: moves, and stands still with reduce motion', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(const OnTripAnimation(), still: false));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(tester.binding.hasScheduledFrame, isTrue);
+    await tester.pumpWidget(host(const OnTripAnimation(), still: true));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(tester.binding.hasScheduledFrame, isFalse);
+  });
 }
 
 const _driver = MatchedDriver(

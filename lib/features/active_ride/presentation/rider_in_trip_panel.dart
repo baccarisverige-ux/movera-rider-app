@@ -1,5 +1,6 @@
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:flutter/material.dart';
+import 'package:movera_rider/features/active_ride/presentation/ride_slot_animations.dart';
 import 'package:movera_rider/core/config/driver_profile_settings.dart';
 import 'package:movera_rider/features/driver_profile/presentation/driver_on_way_card.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
@@ -75,6 +76,10 @@ class RiderInTripPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Owner 2026-11-23 (on-trip-animation.html): the approved
+          // animation at the top of the panel.
+          const Center(child: OnTripAnimation()),
+          const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
