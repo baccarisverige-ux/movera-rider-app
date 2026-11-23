@@ -223,6 +223,17 @@ jobs:
         working-directory: ios
         run: fastlane ios upload
 
+      - name: Builds App Store Connect knows (wait up to 15 min for this run's build)
+        if: ${{ github.event_name == 'push' || inputs.upload }}
+        working-directory: ios
+        run: |
+          for i in $(seq 1 15); do
+            out="$(fastlane ios list_builds 2>&1)"; echo "$out" | grep -E 'build |no build' || true
+            echo "$out" | grep -q "build $GITHUB_RUN_NUMBER " && exit 0
+            sleep 60
+          done
+          echo "::warning::Build $GITHUB_RUN_NUMBER is not listed yet; check the e-mail from Apple (ITMS errors)."
+
       - name: Remove the key
         if: always()
         run: rm -rf "$HOME/.appstoreconnect/private_keys" "$RUNNER_TEMP/ipa"

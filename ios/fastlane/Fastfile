@@ -85,4 +85,16 @@ platform :ios do
       skip_submission: true
     )
   end
+
+  # After an upload: list the newest builds App Store Connect knows (processing state included).
+  lane :list_builds do
+    movera_api_key
+    app = Spaceship::ConnectAPI::App.find(ENV.fetch('APP_BUNDLE_ID'))
+    UI.user_error!('No app record.') unless app
+    builds = Spaceship::ConnectAPI::Build.all(app_id: app.id, sort: '-uploadedDate', limit: 10)
+    UI.important('App Store Connect has no build yet (processing can take a few minutes).') if builds.empty?
+    builds.each do |b|
+      UI.message("build #{b.version} uploaded #{b.uploaded_date} state #{b.processing_state} expired #{b.expired}")
+    end
+  end
 end
