@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:flutter/services.dart';
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/messages/application/messages_controller.dart';
@@ -28,7 +28,12 @@ class Chat extends StatefulWidget {
     this.rideId,
     this.controller,
     this.callTransport,
+    this.driver,
   });
+
+  /// Owner 2026-11-23 (chat v2): the driver, for the photo and the plate
+  /// in the header. Null: the name only.
+  final MatchedDriver? driver;
 
   final String? driverName;
   final String? rideId;
@@ -175,11 +180,12 @@ class _ChatState extends State<Chat> {
     final closed = _chat.isClosed;
     final canSend = _chat.canSendMessages;
     return Scaffold(
-      backgroundColor: const Color(0xffFAFAFA),
+      backgroundColor: Colors.white,
       appBar: PreferredSize(
         preferredSize: Size.fromHeight(ResSize.h * 75),
         child: ChatAppBar(
           driverName: widget.driverName,
+          driver: widget.driver,
           onCall: () => callTripPeer(
             context,
             rideId: widget.rideId,
@@ -301,14 +307,15 @@ class _ChatState extends State<Chat> {
                         child: KeyedSubtree(
                           key: const ValueKey('chat-field'),
                           child: customTextfield(
-                            borderColor: Colors.transparent,
-                            borderWidth: 0,
+                            // Owner 2026-11-23 (chat v2): white, outlined.
+                            borderColor: const Color(0xFFDDE3E8),
+                            borderWidth: 1,
                             textColor: AppColor.black,
                             controller: _messageController,
                             enabled: !closed,
                             fontSize: 14,
                             hint: context.l10n.chatSendHint,
-                            fillColor: const Color(0xffF6F6F6),
+                            fillColor: Colors.white,
                             borderRadius: 32,
                             hintTextColor: const Color(0xff969696),
                             contentHorizPadding: 14,
@@ -337,8 +344,8 @@ class _ChatState extends State<Chat> {
                         child: ExcludeSemantics(
                           child: Material(
                             color: canSend
-                                ? AppColor.primary
-                                : const Color(0xffF6F6F6),
+                                ? const Color(0xFF111614)
+                                : const Color(0xFFE7EBEE),
                             shape: const CircleBorder(),
                             child: InkWell(
                               key: const ValueKey('chat-send'),
@@ -347,13 +354,12 @@ class _ChatState extends State<Chat> {
                               child: SizedBox(
                                 height: ResSize.h * 48,
                                 width: ResSize.w * 48,
-                                child: Padding(
-                                  padding: EdgeInsets.all(ResSize.w * 12),
-                                  child: Image.asset(
-                                    AppAssets.send,
-                                    color: canSend ? AppColor.whiteText : null,
-                                    excludeFromSemantics: true,
-                                  ),
+                                child: Icon(
+                                  Icons.arrow_upward_rounded,
+                                  size: 24,
+                                  color: canSend
+                                      ? Colors.white
+                                      : const Color(0xFF9AA3A9),
                                 ),
                               ),
                             ),
@@ -407,24 +413,42 @@ class RiderMessageBubble extends StatelessWidget {
             child: InkWell(
               onTap: failed ? onRetry : null,
               borderRadius: BorderRadius.circular(14),
+              // Owner 2026-11-23 (chat v2): navy, white text, the time inside.
               child: Container(
-                padding: EdgeInsets.fromLTRB(
-                  ResSize.w * 12,
-                  ResSize.h * 9,
-                  ResSize.w * 12,
-                  ResSize.h * 11,
+                key: ValueKey(
+                  'chat-bubble-${message.messageId ?? message.localId}',
                 ),
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
                 decoration: BoxDecoration(
                   color: failed
-                      ? AppColor.primary.withValues(alpha: 0.55)
-                      : AppColor.primary,
-                  borderRadius: BorderRadius.circular(14),
+                      ? _riderBubble.withValues(alpha: 0.55)
+                      : _riderBubble,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(18),
+                    topRight: Radius.circular(18),
+                    bottomLeft: Radius.circular(18),
+                    bottomRight: Radius.circular(6),
+                  ),
                 ),
-                child: TextWidget(
-                  text: message.text,
-                  color: AppColor.whiteText,
-                  fontSize: 14,
-                  fontWeight: fwNormal,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    TextWidget(
+                      text: message.text,
+                      color: AppColor.whiteText,
+                      fontSize: 15,
+                      fontWeight: fwNormal,
+                    ),
+                    if (!failed && time != null) ...[
+                      2.height,
+                      TextWidget(
+                        text: time,
+                        color: const Color(0xB3FFFFFF),
+                        fontSize: 11.5,
+                        fontWeight: fwNormal,
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -437,20 +461,16 @@ class RiderMessageBubble extends StatelessWidget {
               fontSize: 12,
               fontWeight: fwMedium,
             ),
-          ] else if (time != null) ...[
-            5.height,
-            TextWidget(
-              text: time,
-              color: const Color(0xff858F94),
-              fontSize: 12,
-              fontWeight: fwNormal,
-            ),
           ],
         ],
       ),
     );
   }
 }
+
+/// Owner 2026-11-23 (chat v2) bubble colours.
+const Color _riderBubble = Color(0xFF061B44);
+const Color _driverBubble = Color(0xFFF1F5F7);
 
 class DriverMessageBubble extends StatelessWidget {
   const DriverMessageBubble({
@@ -498,21 +518,39 @@ class DriverMessageBubble extends StatelessWidget {
             4.height,
           ],
           Container(
-            padding: EdgeInsets.fromLTRB(
-              ResSize.w * 12,
-              ResSize.h * 9,
-              ResSize.w * 12,
-              ResSize.h * 11,
+            key: ValueKey(
+              'chat-bubble-${message.messageId ?? message.localId}',
             ),
-            decoration: BoxDecoration(
-              color: const Color(0xffF1F3F4),
-              borderRadius: BorderRadius.circular(14),
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+            decoration: const BoxDecoration(
+              color: _driverBubble,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(18),
+                topRight: Radius.circular(18),
+                bottomLeft: Radius.circular(6),
+                bottomRight: Radius.circular(18),
+              ),
             ),
-            child: TextWidget(
-              text: translated ?? message.text,
-              fontSize: 14,
-              color: AppColor.title,
-              fontWeight: fwNormal,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextWidget(
+                  text: translated ?? message.text,
+                  fontSize: 15,
+                  color: AppColor.title,
+                  fontWeight: fwNormal,
+                ),
+                if (time != null) ...[
+                  2.height,
+                  TextWidget(
+                    text: time,
+                    color: const Color(0xff858F94),
+                    fontSize: 11.5,
+                    fontWeight: fwNormal,
+                  ),
+                ],
+              ],
             ),
           ),
           if (translated != null)
@@ -527,15 +565,6 @@ class DriverMessageBubble extends StatelessWidget {
               text: context.l10n.chatTranslate,
               onTap: translating ? null : onTranslate,
             ),
-          if (time != null) ...[
-            5.height,
-            TextWidget(
-              text: time,
-              color: const Color(0xff858F94),
-              fontSize: 12,
-              fontWeight: fwNormal,
-            ),
-          ],
         ],
       ),
     );
