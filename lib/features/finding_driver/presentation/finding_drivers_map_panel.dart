@@ -328,6 +328,10 @@ extension _FindingDriversMapPanel on _FindingDriversState {
           // Owner 2026-11-23: the round quick actions (pulled-up sheet).
           const SizedBox(height: 16),
           _quickActions(),
+          // Owner 2026-11-23: the two games, side by side (stop once a
+          // driver accepts).
+          const SizedBox(height: 16),
+          SearchGamesRow(active: _match.matchCount == 0),
           const SizedBox(height: 12),
           SafetyKitSheetRow(rideId: _match.ride.rideId, driverAssigned: false),
         ],
