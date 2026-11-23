@@ -102,11 +102,14 @@ void main() {
     await pump(tester, const SearchGamesRow());
     expect(find.byKey(const ValueKey('search-games-row')), findsOneWidget);
     expect(find.byType(QuizGame), findsOneWidget);
-    expect(find.byType(PageView), findsOneWidget);
+    final list = find.byKey(const ValueKey('search-games-list'));
+    expect(list, findsOneWidget);
     expect(find.byKey(const ValueKey('search-games-dots')), findsOneWidget);
-    await tester.drag(find.byType(PageView), const Offset(-300, 0));
+    await tester.drag(list, const Offset(-300, 0));
     await tester.pumpAndSettle();
     expect(find.byType(PuzzleGame), findsOneWidget);
+    // Snapped: the second card sits where the first one did.
+    expect(tester.getTopLeft(find.byType(PuzzleGame)).dx, 16);
   });
 
   testWidgets('a driver accepting stops a running game', (tester) async {
