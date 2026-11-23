@@ -24,6 +24,7 @@ class RideDetailsSheet extends StatelessWidget {
     required this.notes,
     this.allowCancel = true,
     required this.onCancelTrip,
+    this.cancelLabel,
     this.onEditPickup,
     this.onEditDestination,
     this.onAddStop,
@@ -41,6 +42,10 @@ class RideDetailsSheet extends StatelessWidget {
   final RideNotes notes;
   final bool allowCancel;
   final VoidCallback onCancelTrip;
+
+  /// Owner 2026-11-23 (screen 3): the red row's words; on board "Avsluta
+  /// resan här" (end early), else "Avboka resan".
+  final String? cancelLabel;
 
   /// v0.18.143 (approved mockup screen 2): the pencil on the pickup, only
   /// while the ride is still searched (null hides it).
@@ -67,6 +72,7 @@ class RideDetailsSheet extends StatelessWidget {
     required RideNotes notes,
     bool allowCancel = true,
     required void Function(BuildContext sheet) onCancelTrip,
+    String? cancelLabel,
     void Function(BuildContext sheet)? onEditPickup,
     void Function(BuildContext sheet)? onEditDestination,
     void Function(BuildContext sheet)? onAddStop,
@@ -83,6 +89,7 @@ class RideDetailsSheet extends StatelessWidget {
       notes: notes,
       allowCancel: allowCancel,
       onCancelTrip: () => onCancelTrip(sheet),
+      cancelLabel: cancelLabel,
       onEditPickup: onEditPickup == null ? null : () => onEditPickup(sheet),
       onEditDestination: onEditDestination == null
           ? null
@@ -106,26 +113,33 @@ class RideDetailsSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                const SizedBox(width: 48),
-                Expanded(
-                  child: Text(
-                    context.l10n.rideDetails,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: _ink,
+            // Owner 2026-11-23 (menu-open): the title on the left, a soft
+            // round close button on the right.
+            Padding(
+              padding: const EdgeInsets.only(top: 6, bottom: 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.l10n.rideDetails,
+                      style: GoogleFonts.poppins(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: _ink,
+                      ),
                     ),
                   ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded),
-                  tooltip: context.l10n.close,
-                ),
-              ],
+                  Material(
+                    color: const Color(0xFFF1F5F7),
+                    shape: const CircleBorder(),
+                    child: IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                      tooltip: context.l10n.close,
+                    ),
+                  ),
+                ],
+              ),
             ),
             _RouteRow(
               key: const ValueKey('ride-details-pickup'),
@@ -156,14 +170,22 @@ class RideDetailsSheet extends StatelessWidget {
                 alignment: AlignmentDirectional.centerStart,
                 child: TextButton.icon(
                   key: const ValueKey('ride-details-add-stop'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF055B95),
+                    textStyle: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   onPressed: onAddStop,
                   icon: const Icon(Icons.add_rounded, size: 18),
                   label: Text(context.l10n.addAStop),
                 ),
               ),
-            const SizedBox(height: 16),
-            _kv(rideNameFor(rideType), formatMajor(price, currency)),
             const SizedBox(height: 8),
+            _divider(),
+            _kv(rideNameFor(rideType), formatMajor(price, currency)),
+            _divider(),
             // Pay in car shown in the app language (rider-u231).
             _kv(context.l10n.navPayment, paymentLabelFor(paymentMethod)),
             if (!notes.isEmpty) ...[
@@ -194,41 +216,45 @@ class RideDetailsSheet extends StatelessWidget {
                 ],
               ),
             ],
-            const SizedBox(height: 20),
+            // Owner 2026-11-23: cancelling is the last row, red text with
+            // a chevron (same action and confirm as before).
             if (allowCancel) ...[
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: TextButton(
-                  onPressed: onCancelTrip,
-                  style: TextButton.styleFrom(
-                    backgroundColor: const Color(0xFFF4F5F6),
-                    foregroundColor: const Color(0xFFB42318),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: Text(
-                    context.l10n.cancelTrip,
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                    ),
+              _divider(),
+              InkWell(
+                key: const ValueKey('ride-details-cancel'),
+                onTap: onCancelTrip,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          cancelLabel ?? context.l10n.cancelTrip,
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            color: const Color(0xFFB42318),
+                          ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Color(0xFF9AA3A9),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
             ],
+            const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               height: 54,
               child: FilledButton(
                 onPressed: () => Navigator.pop(context),
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF11181D),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+                  backgroundColor: const Color(0xFF111614),
+                  shape: const StadiumBorder(),
                 ),
                 child: Text(
                   context.l10n.close,
@@ -246,6 +272,8 @@ class RideDetailsSheet extends StatelessWidget {
     );
   }
 
+  Widget _divider() => const Divider(height: 1, color: _line);
+
   Widget _connector() => Container(
     width: 2,
     height: 16,
@@ -254,27 +282,30 @@ class RideDetailsSheet extends StatelessWidget {
   );
 
   Widget _kv(String left, String right, {bool muted = false}) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            left,
-            style: GoogleFonts.poppins(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: _ink,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 13),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              left,
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                fontWeight: FontWeight.w400,
+                color: _muted,
+              ),
             ),
           ),
-        ),
-        Text(
-          right,
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: muted ? _muted : _ink,
+          Text(
+            right,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: muted ? _muted : _ink,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -300,10 +331,13 @@ class _RouteRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final icon = switch (kind) {
-      _RowKind.pickup => const Icon(
-        Icons.radio_button_checked,
-        size: 18,
-        color: Color(0xFF079A60),
+      _RowKind.pickup => Container(
+        width: 16,
+        height: 16,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: const Color(0xFF061B44), width: 4),
+        ),
       ),
       _RowKind.stop => Container(
         width: 14,
@@ -314,10 +348,13 @@ class _RouteRow extends StatelessWidget {
           border: Border.all(color: RideDetailsSheet._ink, width: 2),
         ),
       ),
-      _RowKind.destination => const Icon(
-        Icons.square,
-        size: 14,
-        color: Color(0xFF1769E8),
+      _RowKind.destination => Container(
+        width: 14,
+        height: 14,
+        decoration: BoxDecoration(
+          color: const Color(0xFF055B95),
+          borderRadius: BorderRadius.circular(3),
+        ),
       ),
     };
     return Padding(
@@ -344,7 +381,7 @@ class _RouteRow extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 14,
+                    fontSize: 15,
                     fontWeight: FontWeight.w500,
                     color: RideDetailsSheet._ink,
                   ),
