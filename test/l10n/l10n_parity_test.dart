@@ -40,6 +40,8 @@ void main() {
       'refundIban',
       // Owner 2026-11-23: "Chat" is the same word in French.
       'dpChat',
+      // Owner 2026-11-23 (games): "Puzzle" is the same word in French.
+      'gamePuzzleTitle',
     },
     'sv': {
       // v0.18.15 (owner QO-2): the brand line "<first name> · Movera Support".
