@@ -1,0 +1,189 @@
+name: iOS TestFlight (real app)
+
+# Owner 2026-11-23 (Rules LAUNCH-RULE.md 7.13, audits/stores/app-store-readiness-2026-11-23.md):
+# builds the REAL app (MOVERA_PROD_API_URL, same defines as the real web build) for iPhone only,
+# signs it with the App Store Connect API key only (Xcode cloud signing; no Mac, no match) and uploads
+# it to TestFlight. Nothing is ever submitted for App Store review. Manual runs only.
+# Secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (Admin key). The app record in App Store Connect
+# must be created by the owner once (an API key cannot); without it the upload step stops with the steps.
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: 'Upload to TestFlight (off = build and sign only)'
+        type: boolean
+        default: true
+      allow_no_maps:
+        description: 'Allow a build without a Google Maps key (map disabled). Never for testers.'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: '3.47.7'
+  APP_BUNDLE_ID: com.movera.rider
+  APP_NAME: Movera
+  APP_SKU: movera-rider
+
+jobs:
+  testflight:
+    name: Build, sign and upload (${{ github.ref_name }})
+    runs-on: macos-15
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: App Store Connect key (never printed)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          for v in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
+            [ -n "${!v:-}" ] || { echo "::error::Repository secret $v is missing."; exit 1; }
+          done
+          id="$(printf '%s' "$ASC_KEY_ID" | tr -d '[:space:]')"
+          issuer="$(printf '%s' "$ASC_ISSUER_ID" | tr -d '[:space:]')"
+          echo "::add-mask::$id"; echo "::add-mask::$issuer"
+          dir="$HOME/.appstoreconnect/private_keys"; mkdir -p "$dir"; chmod 700 "$dir"
+          key="$dir/AuthKey_$id.p8"
+          if printf '%s' "$ASC_KEY_P8" | grep -q 'BEGIN PRIVATE KEY'; then
+            printf '%s\n' "$ASC_KEY_P8" > "$key"
+          else
+            printf '%s' "$ASC_KEY_P8" | base64 --decode > "$key"
+          fi
+          chmod 600 "$key"
+          grep -q 'BEGIN PRIVATE KEY' "$key" || { echo "::error::ASC_KEY_P8 is not a .p8 private key (raw or base64)."; exit 1; }
+          { echo "ASC_KEY_ID=$id"; echo "ASC_ISSUER_ID=$issuer"; echo "ASC_KEY_PATH=$key"; } >> "$GITHUB_ENV"
+
+      - name: Set up fastlane
+        run: |
+          set -euo pipefail
+          command -v fastlane >/dev/null || gem install fastlane --no-document
+          fastlane --version | tail -1
+
+      - name: "1. Bundle id + Sign in with Apple + Push Notifications"
+        id: bundle
+        working-directory: ios
+        run: fastlane ios ensure_bundle_id
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get --enforce-lockfile
+
+      - name: "3. Build the real app archive (live defines, iPhone only)"
+        env:
+          PROD_API: ${{ vars.MOVERA_PROD_API_URL }}
+          LIVE_API: ${{ vars.MOVERA_LIVE_API_URL }}
+          MAPS_KEY: ${{ secrets.IOS_MAPS_API_KEY || secrets.MAPS_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
+          MAP_ID: ${{ vars.RIDER_MAP_ID || '9fdc5d9e56d4a0916c77a424' }}
+          ALLOW_NO_MAPS: ${{ inputs.allow_no_maps }}
+        run: |
+          set -euo pipefail
+          # A pasted line break or space in the repository variable must never reach the build or a check.
+          PROD_API="$(printf '%s' "$PROD_API" | tr -d '[:space:][:cntrl:]')"
+          LIVE_API="$(printf '%s' "$LIVE_API" | tr -d '[:space:][:cntrl:]')"
+          case "$PROD_API" in https://*) ;; *) echo "::error::Repository variable MOVERA_PROD_API_URL must be set (https://...)."; exit 1 ;; esac
+          if [ "${PROD_API%/}" = "${LIVE_API%/}" ] || [ "${PROD_API%/}" = "https://movera-server.onrender.com" ]; then
+            echo "::error::MOVERA_PROD_API_URL is the test server."; exit 1
+          fi
+          if [ -n "${MAP_ID:-}" ] && ! printf '%s' "$MAP_ID" | grep -Eq '^[A-Za-z0-9]+$'; then
+            echo "::error::Invalid map id (letters and digits only)."; exit 1
+          fi
+          MAPS_KEY="$(printf '%s' "${MAPS_KEY:-}" | tr -d '[:space:]')"
+          if [ -z "$MAPS_KEY" ]; then
+            if [ "$ALLOW_NO_MAPS" = true ]; then
+              echo "::warning::No Google Maps key secret: this build has no map."
+              echo 'MOVERA_ALLOW_MISSING_MAPS_KEY = YES' > ios/Flutter/Secrets.xcconfig
+            else
+              echo "::error::No Google Maps key secret (IOS_MAPS_API_KEY / MAPS_API_KEY / GOOGLE_MAPS_API_KEY)."; exit 1
+            fi
+          else
+            echo "::add-mask::$MAPS_KEY"
+            printf 'GOOGLE_MAPS_API_KEY = %s\n' "$MAPS_KEY" > ios/Flutter/Secrets.xcconfig
+            export GOOGLE_MAPS_API_KEY="$MAPS_KEY" MOVERA_REQUIRE_MAPS_KEY=true
+          fi
+          # Only this CI copy: every Release build reads the (untracked) secrets file.
+          grep -q 'Secrets.xcconfig' ios/Flutter/Release.xcconfig || echo '#include? "Secrets.xcconfig"' >> ios/Flutter/Release.xcconfig
+          name="$(sed -n 's/^version: *//p' pubspec.yaml)"; name="${name%%+*}"
+          flutter build ipa --release --no-codesign \
+            -t lib/main_staging.dart \
+            --build-name="$name" --build-number="$GITHUB_RUN_NUMBER" \
+            --dart-define=MOVERA_FLAVOR=staging \
+            --dart-define=MOVERA_API_BASE_URL="$PROD_API" \
+            --dart-define=MOVERA_AUTH_REQUIRED=true \
+            --dart-define=MOVERA_APP_VERSION="$name+$GITHUB_RUN_NUMBER" \
+            --dart-define=MOVERA_GOOGLE_MAP_ID="${MAP_ID:-}"
+          rm -f ios/Flutter/Secrets.xcconfig
+          plist=build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/Info.plist
+          echo "Built: $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist") $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist") ($(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist"))"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :ITSAppUsesNonExemptEncryption' "$plist")" = false
+          test "$(/usr/libexec/PlistBuddy -c 'Print :UIDeviceFamily:0' "$plist")" = 1
+          ! /usr/libexec/PlistBuddy -c 'Print :UIDeviceFamily:1' "$plist" 2>/dev/null
+          strings build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/Frameworks/App.framework/App | grep -qF "${PROD_API%/}" \
+            || { echo "::error::The built app does not contain the real server address."; exit 1; }
+
+      - name: "2. Sign for the App Store (certificate + profile from the API key)"
+        env:
+          TEAM_ID: ${{ steps.bundle.outputs.team_id }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/export.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>export</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -exportPath build/ios/ipa \
+            -exportOptionsPlist "$RUNNER_TEMP/export.plist" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          ipa="$(ls build/ios/ipa/*.ipa | head -1)"
+          unzip -q -o "$ipa" -d "$RUNNER_TEMP/ipa"
+          codesign -dvv "$RUNNER_TEMP/ipa/Payload/Runner.app" 2>&1 | grep -E '^(Authority|TeamIdentifier|Identifier)=' || true
+          codesign -d --entitlements - --xml "$RUNNER_TEMP/ipa/Payload/Runner.app" 2>/dev/null | plutil -p - || true
+          echo "IPA_PATH=$PWD/$ipa" >> "$GITHUB_ENV"
+
+      - name: Keep the IPA (7 days)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa-${{ github.run_number }}
+          path: build/ios/ipa/*.ipa
+          retention-days: 7
+
+      - name: App Store Connect app record exists
+        if: ${{ inputs.upload }}
+        working-directory: ios
+        run: fastlane ios check_app_record
+
+      - name: "4. Upload to TestFlight (no review submission)"
+        if: ${{ inputs.upload }}
+        working-directory: ios
+        run: fastlane ios upload
+
+      - name: Remove the key
+        if: always()
+        run: rm -rf "$HOME/.appstoreconnect/private_keys" "$RUNNER_TEMP/ipa"
