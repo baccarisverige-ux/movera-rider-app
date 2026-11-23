@@ -26,5 +26,6 @@
   "rateReviewLabel": "Court avis (facultatif)",
   "rateReviewHint": "Affiché sur le profil du chauffeur après vérification par Movera.",
   "rateShowFirstName": "Afficher mon prénom",
-  "rateShowFirstNameOff": "Votre avis s'affiche comme Anonyme."
+  "rateShowFirstNameOff": "Votre avis s'affiche comme Anonyme.",
+  "dpFromDriver": "De {name}"
 }

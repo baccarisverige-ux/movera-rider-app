@@ -270,6 +270,7 @@
   "rateReviewHint": "Visas på förarens profil när Movera har granskat det.",
   "rateShowFirstName": "Visa mitt förnamn",
   "rateShowFirstNameOff": "Ditt omdöme visas som Anonym.",
+  "dpFromDriver": "Från {name}",
   "gameQuizTitle": "Stockholmsquiz",
   "gameQuizBody": "5 lugna frågor om staden. Ingen tidspress.",
   "gameStart": "Starta",
