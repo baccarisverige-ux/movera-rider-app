@@ -6,5 +6,7 @@
   "fdShareBody": "Då ser föraren exakt var du står och hittar dig snabbare.",
   "fdShareButton": "Dela plats",
   "fdYourLocation": "Din plats",
-  "fdLocationNotShared": "Din plats delas inte. Tryck för att dela den."
+  "fdLocationNotShared": "Din plats delas inte. Tryck för att dela den.",
+  "bumpSubtitle": "Förare i närheten ser det nya priset först.",
+  "bumpSliderHint": "Dra för att välja. Högst {amount}. Movera bekräftar ditt slutliga pris."
 }

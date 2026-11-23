@@ -6,5 +6,7 @@
   "fdShareBody": "Le chauffeur voit alors exactement où vous êtes et vous trouve plus vite.",
   "fdShareButton": "Partager la position",
   "fdYourLocation": "Votre position",
-  "fdLocationNotShared": "Votre position n'est pas partagée. Touchez pour la partager."
+  "fdLocationNotShared": "Votre position n'est pas partagée. Touchez pour la partager.",
+  "bumpSubtitle": "Les chauffeurs à proximité voient le nouveau prix en premier.",
+  "bumpSliderHint": "Glissez pour choisir. Au maximum {amount}. Movera confirme votre prix final."
 }

@@ -1683,6 +1683,8 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'fdShareButton': l.fdShareButton,
   'fdYourLocation': l.fdYourLocation,
   'fdLocationNotShared': l.fdLocationNotShared,
+  'bumpSubtitle': l.bumpSubtitle,
+  'bumpSliderHint': l.bumpSliderHint('<amount>'),
   'swTripStatusDraft': l.swTripStatusDraft,
   'swTripStatusQuoted': l.swTripStatusQuoted,
   'swTripStatusRequested': l.swTripStatusRequested,
@@ -2074,6 +2076,7 @@ const messagePlaceholders = <String, List<String>>{
   'homeRideCount': [],
   'homeYourMonth': ['month'],
   'homeCo2Kg': ['kg'],
+  'bumpSliderHint': ['amount'],
   'feePayByCard': ['amount'],
   'supportNoMailApp': ['email'],
   'supportPriceCancelled': ['price'],
@@ -5458,6 +5461,10 @@ class _Exhaustive implements AppLocalizations {
   String get fdYourLocation => '';
   @override
   String get fdLocationNotShared => '';
+  @override
+  String get bumpSubtitle => '';
+  @override
+  String bumpSliderHint(String amount) => '';
   @override
   String get swTripStatusDraft => '';
   @override
