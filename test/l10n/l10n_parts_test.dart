@@ -104,18 +104,19 @@ void main() {
     // P16c (contract v0.18.154 appUpdate.texts): + minVersionTitle,
     // minVersionBody, minVersionUpdate (app_update area).
     // v0.18.155 driver profile: + 27 texts in the driver_profile area.
+    // Owner 2026-11-23: + dpChat (short chat button word, driver_profile).
     const before = {
       'en': (
-        'c83a200eabd05c4b6823ba68bbb5fed81e15f380509842a3b6f77b62286f1914',
-        2312,
+        'e281a807580fad477295c681bc16cc16b12f7279f529c131ea90822da2d18efd',
+        2314,
       ),
       'fr': (
-        '9c954a33bb388c0e585fe2c39de6e63dcdebd77f7c1437e7e673a7ada77da749',
-        1812,
+        'acdcc3947f2f62cd026ca1b40c0c7e78f1deb38111a95a41e16d6be8b02f6e57',
+        1813,
       ),
       'sv': (
-        'bd07291c97763834cef8b8028ecf201f465cfaef07de7f8c66834c215c47869a',
-        1812,
+        '94c4c097ad8f8959217ec767d81a4e4addb6210603262324353b6a939438184c',
+        1813,
       ),
     };
     for (final lang in _langs) {

@@ -64,6 +64,10 @@
   "@dpVerified": {
     "description": "v0.18.155 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
   },
+  "dpChat": "Chat",
+  "@dpChat": {
+    "description": "Short text on the driver card's message button (owner 2026-11-23: Ring + Chatt + more fit in one row at 390 px). The spoken label stays the full word."
+  },
   "dpCall": "Call",
   "@dpCall": {
     "description": "v0.18.155 driver profile (owner 2026-11-20 \"Now build all\"): driver card, profile sheet, rating."
