@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart';
+import 'package:movera_rider/features/active_ride/presentation/ride_slot_animations.dart';
 import 'package:movera_rider/core/app_update/ride_live_signal.dart';
 import 'package:movera_rider/features/fee_payment/presentation/pay_fee_button.dart';
 import 'package:movera_rider/core/config/live_data_only.dart';

@@ -284,7 +284,9 @@ extension _WaitingChanges on _WaitingForDriverState {
   /// Low stop: the handle and one compact row (ETA, driver, plate).
   double _collapsedSheet(MediaQueryData media) => 118 + media.padding.bottom;
 
-  double _minSheet(MediaQueryData media) => 390 + media.padding.bottom;
+  /// Owner 2026-11-23: + the approved panel animation's slot (96 + 8 px)
+  /// at the top, so the driver card shows as before.
+  double _minSheet(MediaQueryData media) => 494 + media.padding.bottom;
 
   double _maxSheet(MediaQueryData media) {
     final minH = _minSheet(media);

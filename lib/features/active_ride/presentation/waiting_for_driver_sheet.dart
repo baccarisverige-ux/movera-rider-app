@@ -147,6 +147,10 @@ extension _WaitingSheet on _WaitingForDriverState {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Owner 2026-11-23 (APPROVED-driver-coming.html): the approved
+          // animation at the top of the panel.
+          const Center(child: DriverComingAnimation()),
+          const SizedBox(height: 8),
           // v0.18.155 (contract.json#driverProfile, owner 2026-11-20 "Add
           // card like that"): the new card in the same place; a tap opens
           // the profile sheet. Zone switch off: the old block, as before.
