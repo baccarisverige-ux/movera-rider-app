@@ -169,6 +169,7 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
     final inTrip = phase == CancelPhase.inTrip;
     // UI-01: on board this is the contract's end-early, not a cancel: the
     // trip ends here and the rider pays for the distance driven.
+    final driverPhase = matched || inTrip;
     final body = inTrip
         ? context.l10n.cancelBodyInTrip
         : matched
@@ -184,11 +185,11 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
         children: [
           Row(
             children: [
-              const SizedBox(width: 40),
+              if (!driverPhase) const SizedBox(width: 40),
               Expanded(
                 child: Text(
                   inTrip ? context.l10n.endTripHereQ : context.l10n.cancelRideQ,
-                  textAlign: TextAlign.center,
+                  textAlign: driverPhase ? TextAlign.start : TextAlign.center,
                   style: GoogleFonts.poppins(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -196,10 +197,16 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
                   ),
                 ),
               ),
-              IconButton(
-                onPressed: _busy ? null : () => _close(false),
-                icon: const Icon(Icons.close_rounded),
-                tooltip: context.l10n.close,
+              Material(
+                color: driverPhase
+                    ? const Color(0xFFF1F5F7)
+                    : Colors.transparent,
+                shape: const CircleBorder(),
+                child: IconButton(
+                  onPressed: _busy ? null : () => _close(false),
+                  icon: const Icon(Icons.close_rounded),
+                  tooltip: context.l10n.close,
+                ),
               ),
             ],
           ),
@@ -237,84 +244,174 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
             ),
           ],
           const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: TextButton(
-              onPressed: _busy ? null : _confirm,
-              style: TextButton.styleFrom(
-                backgroundColor: const Color(0xFFF4F5F6),
-                foregroundColor: const Color(0xFFB42318),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+          // Owner 2026-11-23: with a driver on the ride (screens 2 and 3)
+          // the black "Behåll resan" pill comes first and the cancel / end
+          // action is red text below it; searching keeps today's order.
+          if (driverPhase) ...[
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: FilledButton(
+                onPressed: _busy ? null : () => _close(false),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF111614),
+                  shape: driverPhase
+                      ? const StadiumBorder()
+                      : RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                ),
+                child: Text(
+                  (matched || inTrip)
+                      ? context.l10n.keepRide
+                      : takingLonger
+                      ? context.l10n.keepSearching
+                      : context.l10n.waitForDriver,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    color: Colors.white,
+                  ),
                 ),
               ),
-              child: _busy
-                  ? Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Color(0xFFB42318),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: TextButton(
+                key: const ValueKey('cancel-ride-confirm'),
+                onPressed: _busy ? null : _confirm,
+                style: TextButton.styleFrom(
+                  backgroundColor: driverPhase ? null : const Color(0xFFF4F5F6),
+                  foregroundColor: const Color(0xFFB42318),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: _busy
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFFB42318),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          inTrip
-                              ? context.l10n.endingTrip
-                              : context.l10n.cancelling,
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                            color: const Color(0xFFB42318),
+                          const SizedBox(width: 10),
+                          Text(
+                            inTrip
+                                ? context.l10n.endingTrip
+                                : context.l10n.cancelling,
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                              color: const Color(0xFFB42318),
+                            ),
                           ),
+                        ],
+                      )
+                    : Text(
+                        // Owner 2026-11-07: once a driver is on the ride it
+                        // is the ride the rider cancels, not a request.
+                        inTrip
+                            ? context.l10n.endTripHere
+                            : matched
+                            ? context.l10n.cancelRide
+                            : context.l10n.cancelRequest,
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
                         ),
-                      ],
-                    )
-                  : Text(
-                      // Owner 2026-11-07: once a driver is on the ride it
-                      // is the ride the rider cancels, not a request.
-                      inTrip
-                          ? context.l10n.endTripHere
-                          : matched
-                          ? context.l10n.cancelRide
-                          : context.l10n.cancelRequest,
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
                       ),
-                    ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            height: 54,
-            child: FilledButton(
-              onPressed: _busy ? null : () => _close(false),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF11181D),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: Text(
-                (matched || inTrip)
-                    ? context.l10n.keepRide
-                    : takingLonger
-                    ? context.l10n.keepSearching
-                    : context.l10n.waitForDriver,
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                  color: Colors.white,
-                ),
               ),
             ),
-          ),
+          ] else ...[
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: TextButton(
+                key: const ValueKey('cancel-ride-confirm'),
+                onPressed: _busy ? null : _confirm,
+                style: TextButton.styleFrom(
+                  backgroundColor: driverPhase ? null : const Color(0xFFF4F5F6),
+                  foregroundColor: const Color(0xFFB42318),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: _busy
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFFB42318),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            inTrip
+                                ? context.l10n.endingTrip
+                                : context.l10n.cancelling,
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                              color: const Color(0xFFB42318),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Text(
+                        // Owner 2026-11-07: once a driver is on the ride it
+                        // is the ride the rider cancels, not a request.
+                        inTrip
+                            ? context.l10n.endTripHere
+                            : matched
+                            ? context.l10n.cancelRide
+                            : context.l10n.cancelRequest,
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: FilledButton(
+                onPressed: _busy ? null : () => _close(false),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF111614),
+                  shape: driverPhase
+                      ? const StadiumBorder()
+                      : RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                ),
+                child: Text(
+                  (matched || inTrip)
+                      ? context.l10n.keepRide
+                      : takingLonger
+                      ? context.l10n.keepSearching
+                      : context.l10n.waitForDriver,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
