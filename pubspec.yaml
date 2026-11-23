@@ -97,6 +97,7 @@ flutter:
   assets:
     - assets/flags/
     - assets/icons/
+    - assets/games/
     - assets/images/
     - assets/images/rides/
     - assets/images/menu/
