@@ -332,8 +332,9 @@ extension _FindingDriversMapPanel on _FindingDriversState {
           // driver accepts).
           const SizedBox(height: 16),
           SearchGamesRow(active: _match.matchCount == 0),
-          const SizedBox(height: 12),
-          SafetyKitSheetRow(rideId: _match.ride.rideId, driverAssigned: false),
+          // Owner 2026-11-24: the old safety kit row is not shown while
+          // searching (the round quick action and the top-right button
+          // open the safety kit). The row widget stays for the other screens.
         ],
       ),
     );
