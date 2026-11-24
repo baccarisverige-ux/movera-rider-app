@@ -15,6 +15,8 @@ import 'package:movera_rider/features/destination_search/presentation/route_pick
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/finding_driver/presentation/searching_services.dart';
+import 'package:movera_rider/features/finding_driver/presentation/games/search_games.dart';
+import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/finding_driver/presentation/share_location_sheet.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
@@ -182,6 +184,13 @@ void main() {
       const BorderRadius.vertical(top: Radius.circular(28)),
     );
     expect(box.boxShadow!.single.offset.dy, lessThan(0));
+  });
+
+  testWidgets('owner 2026-11-24: the searching sheet shows no old safety '
+      'kit row (quick action + top-right button stay)', (tester) async {
+    await pumpFinding(tester, location: _Location(null));
+    expect(find.byType(SearchGamesRow, skipOffstage: false), findsOneWidget);
+    expect(find.byType(SafetyKitSheetRow, skipOffstage: false), findsNothing);
   });
 
   testWidgets('known location: blue walking-man marker at the fix', (
