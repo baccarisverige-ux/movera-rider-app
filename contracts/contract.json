@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.154",
+  "version": "0.18.160",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -967,7 +967,8 @@
           "deepLink": "Notification.deepLink when it has one, else empty"
         },
         "riderConsent": "A rider with consents.rideUpdates false gets no OPTIONAL push (driver found, almost there); the bell notice is always stored. v0.18.53 §75 (owner Q36-Q39): arrived, a new driver, cancelled, no driver found, trip failed, the booked-ride no-driver kinds and support answers are always pushed (riderTripPush.consent, support.answerPush). Drivers have no push consent: the operating system's permission is the switch.",
-        "tap": "A tap on the push opens the app at data.deepLink (the bell list when empty)."
+        "tap": "A tap on the push opens the app at data.deepLink (the bell list when empty).",
+        "apns": "v0.18.160: every FCM message to an ios device carries an apns block, so an iPhone shows it as an Android phone does: headers apns-push-type alert and apns-priority 10 (Android is always priority HIGH), apns-expiration from the offer's time to live as before; payload aps.alert { title, body } (the notice's, the same as notification), aps.sound (a loud driver offer: driverOffers.push.native.iosSound with interruption-level time-sensitive, a quiet Radar offer none, every other push default), aps.thread-id = data.kind (iOS groups the notices by kind). The server never sets aps.badge and never sends content-available (no silent background push); Android sets no collapse key, so no apns-collapse-id either. data stays the same on every platform."
       },
       "config": {
         "note": "v0.18.3 (R7): GET /push/config?app=driver|rider needs no token and gives the public Firebase web settings so no key is kept in the apps' code: { provider: fcm, enabled, projectId?, webConfig? { apiKey, appId, messagingSenderId, projectId, authDomain? } }. The server reads the web app (display name 'Movera Driver web' / 'Movera Rider web') from the Firebase Management API with its service account once and keeps it in memory. enabled false (no projectId, no webConfig) when the server has no Firebase settings; the app then skips push. v0.18.105: &platform=android gives androidConfig instead (auth.devices.config.android).",
@@ -1000,6 +1001,15 @@
             "Driver app": "Android: firebase_core + firebase_messaging, NativePushPlatform (lib/core/push/native_push_platform.dart) started from androidConfig, the two offer channels and res/raw/movera_offer in MainActivity.kt. iOS: off until the APNs key.",
             "Rider app": "unchanged in this version: its native builds start Firebase from build settings (MOVERA_FIREBASE_*); it may read androidConfig the same way later (no change needed to keep working)."
           }
+        },
+        "ios": {
+          "note": "v0.18.160 (owner 2026-11-24 \"Notifications doesn't work on iPhones?\"; the owner uploaded the team APNs auth key (sandbox + production) in Firebase Cloud Messaging for both iOS apps, Rules LAUNCH-RULE.md 2026-11-24; Rule 0; X-Api-Version stays `0.5`; additive, optional; no migration; follows v0.18.154): GET /push/config?app=driver|rider&platform=ios gives { provider: fcm, enabled, projectId?, iosConfig? { apiKey, appId, messagingSenderId, projectId, iosBundleId } }: the public settings of the project's Firebase iOS app with the app's bundle id (iosBundleIds), read once with the server's service account from the Firebase Management API (the app's GoogleService-Info.plist: GOOGLE_APP_ID, API_KEY, GCM_SENDER_ID, PROJECT_ID, BUNDLE_ID) and kept in memory, the same way as androidConfig. They are public (inside every IPA), never a secret, so no GoogleService-Info.plist and no key is kept in any app repository or CI. iosConfig.appId always names an iOS app (`1:<sender>:ios:<id>`). enabled false (no iosConfig) when the server has no Firebase settings or the project has no iOS app with that bundle id; the app then skips push and says so in its log. A failed read is tried again after 5 minutes. This replaces the v0.18.105 rule that platform=ios is always enabled false (auth.devices.config.android.ios, kept as history).",
+          "iosBundleIds": {
+            "driver": "se.movera.driver",
+            "rider": "com.movera.rider"
+          },
+          "appStart": "The iPhone app starts Firebase at run time with iosConfig (FirebaseOptions apiKey, appId, messagingSenderId, projectId, iosBundleId) and never with settings of another platform (native Firebase on iOS aborts the app for a web or Android app id). Then it follows appFlow at the same moment and with the same texts as on Android (driver: Go online; rider: after sign-in), asks the iOS notification permission (alert, sound, badge), waits for the APNs token, gets the FCM token, POST /push/devices { provider: fcm, platform: ios }, registers again when FCM changes the token and unregisters on sign-out. A push that comes while the app is open is not shown by the app (the offer stream and the bell list show it). A tap opens data.deepLink as on Android, from the background and from a closed app.",
+          "apps": "The iOS apps carry UIBackgroundModes remote-notification and the aps-environment entitlement (production in TestFlight / App Store builds; the bundle ids have the Push Notifications capability)."
         }
       },
       "appFlow": "v0.18.3 (R7): after sign-in the app explains why (sv / fr / en) before the operating system asks for the notification permission once; when allowed it gets the FCM token (on the web with the settings from GET /push/config and the service worker firebase-messaging-sw.js, which loads the same settings), registers it with POST /push/devices, registers again when the token changes and unregisters it on sign-out."
