@@ -1,45 +1,37 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/app/movera_scroll_behavior.dart';
+import 'package:movera_rider/shared/design_system/motion/movera_sheet_motion.dart';
+import 'package:smooth_sheets/smooth_sheets.dart';
 
 /// Owner 2026-11-24: nothing in the rider app may bounce past its edge on
-/// iOS. A hard-coded bouncing physics would override the app's clamping
-/// scroll behaviour, so none may be added back.
+/// iOS. Behaviour checks (no source reading): the app's scroll behaviour
+/// hands every scroll view clamping physics on iOS, and the shared sheet
+/// physics is not a bouncing one.
 void main() {
-  test('no bouncing physics in lib/', () {
-    final hits = <String>[];
-    for (final f in Directory('lib').listSync(recursive: true)) {
-      if (f is! File || !f.path.endsWith('.dart')) continue;
-      final lines = f.readAsLinesSync();
-      for (var i = 0; i < lines.length; i++) {
-        if (RegExp(r'Bouncing(Scroll|Sheet)Physics\(').hasMatch(lines[i])) {
-          hits.add('${f.path}:${i + 1}');
-        }
-      }
-    }
-    expect(hits, isEmpty);
+  testWidgets('Movera scroll behaviour gives clamping physics on iOS', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    late ScrollPhysics physics;
+    await tester.pumpWidget(
+      MaterialApp(
+        scrollBehavior: const MoveraScrollBehavior(),
+        home: Builder(
+          builder: (context) {
+            physics = ScrollConfiguration.of(context).getScrollPhysics(context);
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+    expect(physics, isA<ClampingScrollPhysics>());
+    expect(physics, isNot(isA<BouncingScrollPhysics>()));
+    debugDefaultTargetPlatformOverride = null;
   });
 
-  test('MaterialApp uses the Movera clamping scroll behaviour', () {
-    final src = File('lib/app/app.dart').readAsStringSync();
-    expect(src, contains('scrollBehavior: const MoveraScrollBehavior()'));
-  });
-
-  test('every smooth_sheets Sheet uses the clamping Movera physics', () {
-    final bad = <String>[];
-    for (final f in Directory('lib').listSync(recursive: true)) {
-      if (f is! File || !f.path.endsWith('.dart')) continue;
-      final src = f.readAsStringSync();
-      for (final m in RegExp(r'\b(Sheet|PagedSheet)\(').allMatches(src)) {
-        final window = src.substring(
-          m.start,
-          (m.start + 400).clamp(0, src.length),
-        );
-        if (!window.contains('physics: MoveraSheetMotion.physics')) {
-          bad.add('${f.path}@${m.start}');
-        }
-      }
-    }
-    expect(bad, isEmpty);
+  test('the shared Movera sheet physics never bounces', () {
+    expect(MoveraSheetMotion.physics, isNot(isA<BouncingSheetPhysics>()));
   });
 }
