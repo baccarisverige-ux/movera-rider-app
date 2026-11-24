@@ -234,7 +234,7 @@ extension _HomeAddressPickers on _HomeState {
                           Flexible(
                             child: ListView.separated(
                               shrinkWrap: true,
-                              physics: const BouncingScrollPhysics(),
+                              physics: const ClampingScrollPhysics(),
                               itemCount: filteredRecent.length,
                               separatorBuilder: (_, __) => const Divider(
                                 color: Color(0xFFE7EBEE),
