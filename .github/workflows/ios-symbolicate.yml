@@ -1,0 +1,135 @@
+name: TEMP symbolicate rider crash
+# TEMPORARY (branch only, removed before ready): rebuild the build-7 commit and name the crash frames.
+on:
+  push:
+    branches: [claude/laund-rule-review-j04dj5-ios]
+permissions:
+  contents: read
+env:
+  FLUTTER_VERSION: '3.47.7'
+jobs:
+  testflight:
+    name: Build, sign and upload (${{ github.ref_name }})
+    # App Store Connect accepts only builds made with the iOS 26 SDK or later (Xcode 26+); April 2027: iOS 27 SDK.
+    runs-on: macos-26
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8bf306f3914922b68724e44b69f346cbcde2eb5f
+
+      - name: Select Xcode 26 or later (App Store upload rule)
+        run: |
+          set -euo pipefail
+          x="$(ls -d /Applications/Xcode_2[6-9]*.app 2>/dev/null | grep -v -i beta | sort -V | tail -1 || true)"
+          [ -n "$x" ] || { echo "::error::No Xcode 26+ on this runner; App Store Connect refuses older SDKs."; ls -d /Applications/Xcode*; exit 1; }
+          sudo xcode-select -s "$x/Contents/Developer"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: App Store Connect key (never printed)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          for v in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
+            [ -n "${!v:-}" ] || { echo "::error::Repository secret $v is missing."; exit 1; }
+          done
+          id="$(printf '%s' "$ASC_KEY_ID" | tr -d '[:space:]')"
+          issuer="$(printf '%s' "$ASC_ISSUER_ID" | tr -d '[:space:]')"
+          echo "::add-mask::$id"; echo "::add-mask::$issuer"
+          dir="$HOME/.appstoreconnect/private_keys"; mkdir -p "$dir"; chmod 700 "$dir"
+          key="$dir/AuthKey_$id.p8"
+          if printf '%s' "$ASC_KEY_P8" | grep -q 'BEGIN PRIVATE KEY'; then
+            printf '%s\n' "$ASC_KEY_P8" > "$key"
+          else
+            printf '%s' "$ASC_KEY_P8" | base64 --decode > "$key"
+          fi
+          chmod 600 "$key"
+          grep -q 'BEGIN PRIVATE KEY' "$key" || { echo "::error::ASC_KEY_P8 is not a .p8 private key (raw or base64)."; exit 1; }
+          { echo "ASC_KEY_ID=$id"; echo "ASC_ISSUER_ID=$issuer"; echo "ASC_KEY_PATH=$key"; } >> "$GITHUB_ENV"
+
+      - name: Set up fastlane
+        run: |
+          set -euo pipefail
+          command -v fastlane >/dev/null || gem install fastlane --no-document
+          fastlane --version | tail -1
+
+      - name: "1. Bundle id + Sign in with Apple + Push Notifications"
+        id: bundle
+        working-directory: ios
+        run: fastlane ios ensure_bundle_id
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get --enforce-lockfile
+
+      - name: "3. Build the real app archive (live defines, iPhone only)"
+        env:
+          PROD_API: ${{ vars.MOVERA_PROD_API_URL }}
+          LIVE_API: ${{ vars.MOVERA_LIVE_API_URL }}
+          MAPS_KEY: ${{ secrets.IOS_MAPS_API_KEY }}
+          MAP_ID: ${{ vars.RIDER_MAP_ID || '9fdc5d9e56d4a0916c77a424' }}
+        run: |
+          set -euo pipefail
+          # A pasted line break or space in the repository variable must never reach the build or a check.
+          PROD_API="$(printf '%s' "$PROD_API" | tr -d '[:space:][:cntrl:]')"
+          LIVE_API="$(printf '%s' "$LIVE_API" | tr -d '[:space:][:cntrl:]')"
+          case "$PROD_API" in https://*) ;; *) echo "::error::Repository variable MOVERA_PROD_API_URL must be set (https://...)."; exit 1 ;; esac
+          if [ "${PROD_API%/}" = "${LIVE_API%/}" ] || [ "${PROD_API%/}" = "https://movera-server.onrender.com" ]; then
+            echo "::error::MOVERA_PROD_API_URL is the test server."; exit 1
+          fi
+          if [ -n "${MAP_ID:-}" ] && ! printf '%s' "$MAP_ID" | grep -Eq '^[A-Za-z0-9]+$'; then
+            echo "::error::Invalid map id (letters and digits only)."; exit 1
+          fi
+          MAPS_KEY="$(printf '%s' "${MAPS_KEY:-}" | tr -d '[:space:]')"
+          # Only the iOS-restricted key (Maps SDK for iOS, bundle ids com.movera.rider / se.movera.driver).
+          # Never ship a blank map: no key, no build.
+          [ -n "$MAPS_KEY" ] || { echo "::error::Repository secret IOS_MAPS_API_KEY is missing (Google Maps key restricted to iOS apps)."; exit 1; }
+          echo "::add-mask::$MAPS_KEY"
+          printf 'GOOGLE_MAPS_API_KEY = %s\n' "$MAPS_KEY" > ios/Flutter/Secrets.xcconfig
+          export GOOGLE_MAPS_API_KEY="$MAPS_KEY" MOVERA_REQUIRE_MAPS_KEY=true
+          # Only this CI copy: every Release build reads the (untracked) secrets file.
+          grep -q 'Secrets.xcconfig' ios/Flutter/Release.xcconfig || echo '#include? "Secrets.xcconfig"' >> ios/Flutter/Release.xcconfig
+          name="$(sed -n 's/^version: *//p' pubspec.yaml)"; name="${name%%+*}"
+          flutter build ipa --release --no-codesign \
+            -t lib/main_staging.dart \
+            --build-name="$name" --build-number=7 \
+            --dart-define=MOVERA_FLAVOR=staging \
+            --dart-define=MOVERA_API_BASE_URL="$PROD_API" \
+            --dart-define=MOVERA_AUTH_REQUIRED=true \
+            --dart-define=MOVERA_APP_VERSION="$name+7" \
+            --dart-define=MOVERA_GOOGLE_MAP_ID="${MAP_ID:-}"
+          rm -f ios/Flutter/Secrets.xcconfig
+          plist=build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/Info.plist
+          echo "Built: $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist") $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist") ($(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist"))"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :ITSAppUsesNonExemptEncryption' "$plist")" = false
+          test "$(/usr/libexec/PlistBuddy -c 'Print :UIDeviceFamily:0' "$plist")" = 1
+          ! /usr/libexec/PlistBuddy -c 'Print :UIDeviceFamily:1' "$plist" 2>/dev/null
+          grep -aqF "${PROD_API%/}" build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/Frameworks/App.framework/App \
+            || { echo "::error::The built app does not contain the real server address."; exit 1; }
+
+      - name: Symbolicate the crash frames
+        run: |
+          set +e
+          a=build/ios/archive/Runner.xcarchive
+          ls $a/dSYMs
+          echo "--- UUIDs (crash: DC37A585-F2A4-3778-A729-BBC91E06EE0B)"
+          dwarfdump --uuid $a/Products/Applications/Runner.app/Runner
+          d=$a/dSYMs/Runner.app.dSYM/Contents/Resources/DWARF/Runner
+          dwarfdump --uuid $d
+          echo "--- frames"
+          atos -o $d -arch arm64 -l 0x100000000 0x100039910 0x10003910C 0x100013724 0x100016D94 0x100016E6C
+          echo "--- nearest symbols (nm)"
+          for off in 235792 233740 79652 93588 93804; do
+            a2=$(printf '%x' $((0x100000000+off)))
+            nm -n $d | awk -v t=$a2 'BEGIN{t=strtonum("0x" t)} {v=strtonum("0x"$1); if(v<=t){l=$0} else {print l; exit}}'
+          done
