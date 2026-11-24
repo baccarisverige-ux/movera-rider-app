@@ -139,10 +139,18 @@ jobs:
         run: |
           set -euo pipefail
           app=build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app
-          bins="$(find "$app" -type f -perm -u+x ! -name '*.sh'; find "$app/Frameworks" -type f -path '*.framework/*' ! -name '*.plist' 2>/dev/null)"
+          bins_file="$RUNNER_TEMP/purpose-bins.txt"
+          { find "$app" -type f -perm -u+x ! -name '*.sh'; find "$app/Frameworks" -type f -path '*.framework/*' ! -name '*.plist' 2>/dev/null || true; } | sort -u > "$bins_file"
           missing=0
+          uses() { # uses <symbol>: 0 when any bundled binary contains it (no pipe, so no SIGPIPE under pipefail)
+            local b
+            while IFS= read -r b; do
+              if [ -f "$b" ] && grep -aqF "$1" "$b"; then return 0; fi
+            done < "$bins_file"
+            return 1
+          }
           check() { # check <symbol> <Info.plist key>
-            if printf '%s\n' "$bins" | sort -u | while read -r b; do [ -f "$b" ] && grep -aqF "$1" "$b" && echo hit && break; done | grep -q hit; then
+            if uses "$1"; then
               if /usr/libexec/PlistBuddy -c "Print :$2" "$app/Info.plist" >/dev/null 2>&1; then echo "ok   $2 ($1)"; else echo "::error::Code references $1 but Info.plist has no $2."; missing=1; fi
             fi
           }
