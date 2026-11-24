@@ -23,6 +23,44 @@ abstract final class CrashReport {
   static const kindCrash = 'crash';
   static const kindError = 'error';
 
+  /// v0.18.157 (`contract.json#crashCatcher.kinds`): an uncaught Dart error,
+  /// an unclean end found at the next launch, a frozen screen.
+  static const kindDartError = 'dart_error';
+  static const kindNativeCrash = 'native_crash';
+  static const kindFreeze = 'freeze';
+  static const kinds = {
+    kindCrash,
+    kindError,
+    kindDartError,
+    kindNativeCrash,
+    kindFreeze,
+  };
+
+  /// v0.18.157 `crashReports.on`: the zone's switch (last known value; true
+  /// until a document says otherwise). Off: no crash report leaves the phone.
+  static bool reportingEnabled = true;
+
+  /// v0.18.157: the fields every report carries (device, OS, breadcrumbs),
+  /// given by the crash catcher once it runs.
+  static Map<String, Object?> Function()? context;
+
+  /// v0.18.157: the trip on screen and the zone the app is in, when known.
+  static String? currentTripId;
+  static String? currentZoneId;
+
+  /// Keys of `extra` that are report fields, not free extra values.
+  static const fieldKeys = {
+    'screen',
+    'kind',
+    'osVersion',
+    'deviceModel',
+    'tripId',
+    'zoneId',
+    'breadcrumbs',
+    'nativeReason',
+    'freezeMs',
+  };
+
   /// The route name of the screen on top, kept by the navigator observer so
   /// a crash with no screen of its own still says where it happened.
   static String? currentScreen;
@@ -90,12 +128,49 @@ abstract final class CrashReport {
     String? screen,
     String kind = kindCrash,
     required DateTime occurredAt,
+    String? osVersion,
+    String? deviceModel,
+    String? tripId,
+    String? zoneId,
+    List<Map<String, Object?>>? breadcrumbs,
+    Map<String, String>? nativeReason,
+    int? freezeMs,
   }) {
     final cleanExtra = Observability.sanitize({
       for (final entry in extra.entries)
-        if (entry.key != 'screen' && entry.key != 'kind')
-          entry.key: entry.value,
+        if (!fieldKeys.contains(entry.key)) entry.key: entry.value,
     });
+    String? short(String? value, int max) {
+      if (value == null) return null;
+      final text = Observability.scrubText(value).trim();
+      if (text.isEmpty) return null;
+      return text.length > max ? text.substring(0, max) : text;
+    }
+
+    final os = short(osVersion, 60);
+    final model = short(deviceModel, 80);
+    final trip =
+        tripId != null && RegExp(r'^[A-Za-z0-9_-]{1,64}$').hasMatch(tripId)
+        ? tripId
+        : null;
+    final zone =
+        zoneId != null && RegExp(r'^[A-Za-z0-9_-]{1,64}$').hasMatch(zoneId)
+        ? zoneId
+        : null;
+    var crumbs = [
+      for (final crumb in breadcrumbs ?? const <Map<String, Object?>>[])
+        if (crumb['at'] is String &&
+            crumb['type'] is String &&
+            crumb['message'] is String)
+          {
+            'at': crumb['at'],
+            'type': crumb['type'],
+            'message': short(crumb['message']! as String, 200) ?? '',
+          },
+    ];
+    if (crumbs.length > 30) crumbs = crumbs.sublist(crumbs.length - 30);
+    final reasonName = short(nativeReason?['name'], 200);
+    final reasonText = short(nativeReason?['reason'], 1000);
     var errorText = _cut(
       Observability.scrubText(_cut(error.toString(), maxError)),
       maxError,
@@ -115,11 +190,25 @@ abstract final class CrashReport {
       if (appVersion != null && appVersion.isNotEmpty) 'appVersion': appVersion,
       if (build != null && build.isNotEmpty) 'build': build,
       if (cleanScreen(screen) case final s?) 'screen': s,
-      'kind': kind == kindError ? kindError : kindCrash,
+      'kind': kinds.contains(kind) ? kind : kindCrash,
       'occurredAt': occurredAt.toUtc().toIso8601String(),
+      'osVersion': ?os,
+      'deviceModel': ?model,
+      'tripId': ?trip,
+      'zoneId': ?zone,
+      if (crumbs.isNotEmpty) 'breadcrumbs': crumbs,
+      if (reasonName != null)
+        'nativeReason': {'name': reasonName, 'reason': ?reasonText},
+      if (freezeMs != null && freezeMs >= 0) 'freezeMs': freezeMs,
     };
     var result = build0();
     int size() => utf8.encode(jsonEncode(result)).length;
+    while (size() > maxBytes && crumbs.isNotEmpty) {
+      crumbs = crumbs.sublist(
+        crumbs.length ~/ 2 + (crumbs.length == 1 ? 1 : 0),
+      );
+      result = build0();
+    }
     while (size() > maxBytes && stack.isNotEmpty) {
       stack = stack.substring(0, stack.length ~/ 2);
       result = build0();

@@ -21,6 +21,7 @@ import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/maps/native_maps_config.dart';
+import 'package:movera_rider/app/crash_catcher_start.dart';
 import 'package:movera_rider/core/observability/crash_report.dart';
 import 'package:movera_rider/core/observability/restart_watch.dart';
 import 'package:movera_rider/core/web/web_ride_pagehide.dart';
@@ -187,6 +188,10 @@ Future<void> _bootSteps() async {
     AppScope.instance.crashes.record(error, stack, fatal: true);
     return true;
   };
+  // v0.18.157 (owner 2026-11-24 "Add to admin all kind of crash"): the
+  // last run's unclean end, the running marker, the freeze watch, the main
+  // isolate's errors, the unsent reports and the zone's crashReports.on.
+  await bootStep('crash_catcher', startCrashCatcher);
 
   // Owner 2026-11-07 ("5. Mouchard redémarrage"): proof of a page that iOS
   // restarts from zero (live web builds only: the sink is release-only).

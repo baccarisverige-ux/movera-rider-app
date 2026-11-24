@@ -228,17 +228,20 @@ void main() {
     expect(CrashReport.cleanScreen('z' * 200)!.length, 80);
   });
 
-  test('CrashReporter: fatal is crash, a caught error is error', () {
-    final seen = <Map<String, Object?>>[];
-    Observability.configure(crashSink: _Recording(seen));
-    addTearDown(Observability.reset);
-    const reporter = CrashReporter();
-    reporter.record(StateError('a'), StackTrace.empty, fatal: true);
-    reporter.record(StateError('b'), StackTrace.empty, screen: 'wallet');
-    expect(seen[0]['kind'], 'crash');
-    expect(seen[1]['kind'], 'error');
-    expect(seen[1]['screen'], 'wallet');
-  });
+  test(
+    'CrashReporter: fatal is dart_error (v0.18.157, was crash), a caught error is error',
+    () {
+      final seen = <Map<String, Object?>>[];
+      Observability.configure(crashSink: _Recording(seen));
+      addTearDown(Observability.reset);
+      const reporter = CrashReporter();
+      reporter.record(StateError('a'), StackTrace.empty, fatal: true);
+      reporter.record(StateError('b'), StackTrace.empty, screen: 'wallet');
+      expect(seen[0]['kind'], 'dart_error');
+      expect(seen[1]['kind'], 'error');
+      expect(seen[1]['screen'], 'wallet');
+    },
+  );
 }
 
 class _Exploding {

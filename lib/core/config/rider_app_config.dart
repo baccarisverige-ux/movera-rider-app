@@ -116,6 +116,7 @@ class RiderAppConfig {
     this.freeChangeBeforeMin = defaultFreeChangeBeforeMin,
     this.reservationsOn = true,
     this.pickupSpotsOn = true,
+    this.crashReportsOn = true,
     this.maxPickupMoveMeters = defaultMaxPickupMoveAfterAcceptMeters,
     this.country = 'SE',
     this.languages = const AppLanguages(rider: 'sv', driver: 'sv', admin: 'sv'),
@@ -196,6 +197,11 @@ class RiderAppConfig {
   /// entrance / Parking) on Set pickup. A document without it (an older
   /// server) reads as on.
   final bool pickupSpotsOn;
+
+  /// Contract v0.18.157 `crashReports.on` (owner 2026-11-24 "Add to admin
+  /// all kind of crash"): the zone lets the rider app send crash reports.
+  /// A document without it (an older server) reads as on.
+  final bool crashReportsOn;
 
   /// `booking.maxPickupMoveMeters`: how far the pickup may move after
   /// accept (Q40).
@@ -458,6 +464,10 @@ class RiderAppConfig {
       liveLocation: LiveLocationSettings.fromWire(raw['liveLocation']),
       pickupSpotsOn: switch (booking) {
         {'pickupSpots': {'on': final bool on}} => on,
+        _ => true,
+      },
+      crashReportsOn: switch (raw['crashReports']) {
+        {'on': final bool on} => on,
         _ => true,
       },
       liveCancelFees: table('live', base?.liveCancelFees ?? const {}),
