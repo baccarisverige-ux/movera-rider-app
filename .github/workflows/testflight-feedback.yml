@@ -1,0 +1,78 @@
+name: TestFlight feedback (read only)
+
+# Owner 2026-11-24: lets Claude read what TestFlight testers sent (text + screenshots) for both apps
+# (rider 6838441599, driver 6838442381). App Store Connect API key only, read only, manual runs only.
+# The key file lives in a 700 dir under RUNNER_TEMP (mode 600), ids are masked, the key is removed
+# in an always() step. Tester e-mails are replaced by [email]. Screenshots: artifact, 3 days.
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'How many days back'
+        type: string
+        default: '7'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  feedback:
+    name: Read TestFlight feedback
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: App Store Connect key (never printed)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          for v in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
+            [ -n "${!v:-}" ] || { echo "::error::Repository secret $v is missing."; exit 1; }
+          done
+          id="$(printf '%s' "$ASC_KEY_ID" | tr -d '[:space:]')"
+          issuer="$(printf '%s' "$ASC_ISSUER_ID" | tr -d '[:space:]')"
+          echo "::add-mask::$id"; echo "::add-mask::$issuer"
+          dir="$RUNNER_TEMP/asc_keys"; mkdir -p "$dir"; chmod 700 "$dir"
+          key="$dir/AuthKey_$id.p8"
+          if printf '%s' "$ASC_KEY_P8" | grep -q 'BEGIN PRIVATE KEY'; then
+            printf '%s\n' "$ASC_KEY_P8" > "$key"
+          else
+            printf '%s' "$ASC_KEY_P8" | base64 --decode > "$key"
+          fi
+          chmod 600 "$key"
+          grep -q 'BEGIN PRIVATE KEY' "$key" || { echo "::error::ASC_KEY_P8 is not a .p8 private key (raw or base64)."; exit 1; }
+          { echo "ASC_KEY_ID=$id"; echo "ASC_ISSUER_ID=$issuer"; echo "ASC_KEY_PATH=$key"; } >> "$GITHUB_ENV"
+
+      - name: Print feedback and save screenshots
+        env:
+          DAYS: ${{ inputs.days }}
+          APP_IDS: 'rider=6838441599,driver=6838442381'
+          OUT_DIR: ${{ runner.temp }}/testflight-feedback
+        run: |
+          set -euo pipefail
+          DAYS="$(printf '%s' "$DAYS" | tr -cd '0-9')"; DAYS="${DAYS:-7}"
+          export DAYS
+          ruby ios/ci/asc_feedback.rb
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testflight-feedback
+          path: ${{ runner.temp }}/testflight-feedback
+          retention-days: 3
+          if-no-files-found: ignore
+
+      - name: Remove the key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/asc_keys"
