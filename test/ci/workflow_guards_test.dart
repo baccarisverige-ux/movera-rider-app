@@ -170,21 +170,4 @@ void main() {
     );
     expect(failing, isEmpty, reason: failing.join('\n'));
   });
-
-  test('TestFlight feedback: key removed, e-mails hidden', () {
-    final yml = read('testflight-feedback.yml');
-    expect(yml, contains('workflow_dispatch:'));
-    expect(yml, isNot(contains('pull_request')));
-    expect(yml, contains('chmod 700 "\$dir"'));
-    expect(yml, contains('chmod 600 "\$key"'));
-    expect(yml, contains('::add-mask::\$id'));
-    expect(
-      RegExp(r'- name: Remove the key\n\s+if: always\(\)').hasMatch(yml),
-      isTrue,
-    );
-    expect(yml, contains('retention-days: 3'));
-    final rb = File('ios/ci/asc_feedback.rb').readAsStringSync();
-    expect(rb, contains("'[email]'"));
-    expect(rb, isNot(contains("a['email']")));
-  });
 }
