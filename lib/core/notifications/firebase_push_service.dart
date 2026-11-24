@@ -32,11 +32,11 @@ Future<void> moveraFirebaseMessagingBackgroundHandler(
 ) async {
   final environment = AppEnv.current;
   if (!environment.hasFirebaseConfig) return;
-  if (!kIsWeb) {
-    final platform = defaultTargetPlatform == TargetPlatform.iOS
-        ? 'ios'
-        : 'android';
-    if (!environment.firebaseAppId.contains(':$platform:')) return;
+  // An iPhone aborts on another platform's app id (TestFlight crash 2026-11-24).
+  if (!kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.iOS &&
+      !environment.firebaseAppId.contains(':ios:')) {
+    return;
   }
   if (Firebase.apps.isEmpty) {
     await Firebase.initializeApp(options: _firebaseOptions(environment));
@@ -261,11 +261,12 @@ class FirebasePushService implements PushService {
     return runtime;
   }
 
-  /// A Firebase app id names its platform (`1:123:ios:abc`). On a phone,
-  /// settings for another platform must never reach native Firebase.
+  /// A Firebase app id names its platform (`1:123:ios:abc`). On an iPhone,
+  /// native Firebase aborts the app for an id of another platform, so such
+  /// settings never reach it (Android only gives no token, it does not crash).
   static void _requireAppIdFor(String platform, String appId) {
-    if (platform == 'web') return;
-    if (!appId.contains(':$platform:')) {
+    if (platform != 'ios') return;
+    if (!appId.contains(':ios:')) {
       throw PushConfigurationException(
         'Push settings are not for $platform; push stays off.',
       );
