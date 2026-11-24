@@ -144,10 +144,21 @@ void main() {
     expect(gateway.initializedWith, isNull);
   });
 
-  test('no Firebase defines (iOS/web path): the server web settings start '
-      'Firebase, the token registers against the real server answer', () async {
+  test('iOS: asks platform=ios and starts Firebase only with the iOS app '
+      'settings; the token registers against the real server answer', () async {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    config = {
+      'provider': 'fcm',
+      'enabled': true,
+      'projectId': 'movera-test',
+      'iosConfig': {
+        'apiKey': 'public-ios-key',
+        'appId': '1:42:ios:rider',
+        'messagingSenderId': '42',
+        'projectId': 'movera-test',
+      },
+    };
     final gateway = _Gateway();
     final service = FirebasePushService(
       api: api(),
@@ -158,10 +169,10 @@ void main() {
     await service.register();
     expect(
       seen.first.url.toString(),
-      endsWith('/api/v1/push/config?app=rider'),
+      endsWith('/api/v1/push/config?app=rider&platform=ios'),
     );
-    expect(gateway.initializedWith?.firebaseApiKey, 'public-web-key');
-    expect(gateway.initializedWith?.firebaseAppId, '1:42:web:rider');
+    expect(gateway.initializedWith?.firebaseApiKey, 'public-ios-key');
+    expect(gateway.initializedWith?.firebaseAppId, '1:42:ios:rider');
     expect(gateway.initializedWith?.firebaseProjectId, 'movera-test');
     expect(gateway.vapidAsked, isNull);
     final register = seen.firstWhere(
@@ -174,6 +185,62 @@ void main() {
     });
     await service.unregister();
     expect(seen.last.url.path, '/api/v1/push/devices/unregister');
+  });
+
+  // TestFlight crash 2026-11-24 (rider build 7): the web app id reached
+  // native Firebase on an iPhone and +[FIRApp addAppToAppDictionary:] raised.
+  test('iOS: a server with only web settings leaves push off and never '
+      'starts Firebase (no launch crash)', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    config['iosConfig'] = {
+      'apiKey': 'k',
+      'appId': '1:42:web:rider',
+      'messagingSenderId': '42',
+      'projectId': 'movera-test',
+    };
+    final gateway = _Gateway();
+    final service = FirebasePushService(
+      api: api(),
+      environment: _live,
+      gateway: gateway,
+    );
+    addTearDown(service.dispose);
+    await expectLater(
+      service.register(),
+      throwsA(isA<PushConfigurationException>()),
+    );
+    config.remove('iosConfig');
+    await expectLater(
+      service.register(),
+      throwsA(isA<PushConfigurationException>()),
+    );
+    expect(gateway.initializedWith, isNull);
+    expect(gateway.tokenCalls, 0);
+  });
+
+  test('iOS: build defines with a web app id never start Firebase', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final gateway = _Gateway();
+    final service = FirebasePushService(
+      api: api(),
+      environment: const AppEnv(
+        flavor: AppFlavor.production,
+        apiBaseUrl: 'https://api.movera.example',
+        firebaseApiKey: 'k',
+        firebaseAppId: '1:42:web:rider',
+        firebaseMessagingSenderId: '42',
+        firebaseProjectId: 'movera-test',
+      ),
+      gateway: gateway,
+    );
+    addTearDown(service.dispose);
+    await expectLater(
+      service.register(),
+      throwsA(isA<PushConfigurationException>()),
+    );
+    expect(gateway.initializedWith, isNull);
   });
 
   test('push off on the server: nothing is asked of the browser', () async {

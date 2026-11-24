@@ -32,6 +32,12 @@ Future<void> moveraFirebaseMessagingBackgroundHandler(
 ) async {
   final environment = AppEnv.current;
   if (!environment.hasFirebaseConfig) return;
+  if (!kIsWeb) {
+    final platform = defaultTargetPlatform == TargetPlatform.iOS
+        ? 'ios'
+        : 'android';
+    if (!environment.firebaseAppId.contains(':$platform:')) return;
+  }
   if (Firebase.apps.isEmpty) {
     await Firebase.initializeApp(options: _firebaseOptions(environment));
   }
@@ -209,22 +215,34 @@ class FirebasePushService implements PushService {
   /// as the driver app does). The web settings carry a web app id, with
   /// which Firebase on an Android phone gives no usable token, so rider
   /// phone push stayed off. No key in the repository or in GitHub.
+  ///
+  /// iOS (TestFlight crash 2026-11-24): an iPhone asks `&platform=ios` and
+  /// uses only `iosConfig` (contract v0.18.105: push off on iOS until the APNs
+  /// key is in Firebase). Native Firebase on iOS raises an Objective-C
+  /// exception for a web app id (+[FIRApp addAppToAppDictionary:]); Dart
+  /// cannot catch it and the app closed ~1 s after launch. A phone therefore
+  /// never starts Firebase with settings that are not for its own platform.
   Future<AppEnv> _firebaseEnvironment() async {
-    if (_environment.hasFirebaseConfig) return _environment;
-    final android = _platformName == 'android';
+    final platform = _platformName;
+    if (_environment.hasFirebaseConfig) {
+      _requireAppIdFor(platform, _environment.firebaseAppId);
+      return _environment;
+    }
+    final native = platform != 'web';
     final Map<String, dynamic> answer;
     try {
       answer = await _api.get(
-        android ? '$configPath&platform=android' : configPath,
+        native ? '$configPath&platform=$platform' : configPath,
       );
     } catch (error) {
       throw PushConfigurationException(
         'Push settings could not be read (${error.runtimeType}).',
       );
     }
-    final web = answer[android ? 'androidConfig' : 'webConfig'];
-    String text(String key) =>
-        web is Map && web[key] is String ? web[key] as String : '';
+    final settings = answer[native ? '${platform}Config' : 'webConfig'];
+    String text(String key) => settings is Map && settings[key] is String
+        ? settings[key] as String
+        : '';
     final runtime = AppEnv(
       flavor: _environment.flavor,
       apiBaseUrl: _environment.apiBaseUrl,
@@ -239,7 +257,19 @@ class FirebasePushService implements PushService {
         'Push is off on the server (no Firebase settings).',
       );
     }
+    _requireAppIdFor(platform, runtime.firebaseAppId);
     return runtime;
+  }
+
+  /// A Firebase app id names its platform (`1:123:ios:abc`). On a phone,
+  /// settings for another platform must never reach native Firebase.
+  static void _requireAppIdFor(String platform, String appId) {
+    if (platform == 'web') return;
+    if (!appId.contains(':$platform:')) {
+      throw PushConfigurationException(
+        'Push settings are not for $platform; push stays off.',
+      );
+    }
   }
 
   @override
