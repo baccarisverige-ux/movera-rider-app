@@ -105,7 +105,9 @@ class FlutterFirebasePushGateway implements FirebasePushGateway {
             defaultTargetPlatform != TargetPlatform.macOS)) {
       return;
     }
-    for (var attempt = 0; attempt < 10; attempt += 1) {
+    // v0.18.156: up to 10 s (was 2 s): right after the permission APNs can
+    // take several seconds to give the first token on a real iPhone.
+    for (var attempt = 0; attempt < 50; attempt += 1) {
       final token = await _messaging.getAPNSToken();
       if (token != null && token.trim().isNotEmpty) return;
       await Future<void>.delayed(const Duration(milliseconds: 200));

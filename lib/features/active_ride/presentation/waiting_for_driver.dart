@@ -1,11 +1,15 @@
+import 'package:movera_rider/features/finding_driver/presentation/games/search_games.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart';
+import 'package:movera_rider/features/active_ride/presentation/ride_slot_animations.dart';
 import 'package:movera_rider/core/app_update/ride_live_signal.dart';
 import 'package:movera_rider/features/fee_payment/presentation/pay_fee_button.dart';
 import 'package:movera_rider/core/config/live_data_only.dart';
+import 'package:movera_rider/core/config/driver_profile_settings.dart';
+import 'package:movera_rider/features/driver_profile/presentation/driver_on_way_card.dart';
 import 'package:movera_rider/core/config/rider_app_config.dart';
 import 'package:movera_rider/core/config/rider_zones.dart';
 import 'package:movera_rider/core/config/trip_zone_config.dart';
@@ -505,19 +509,9 @@ class _WaitingForDriverState extends State<WaitingForDriver>
               child: PointerInterceptor(
                 child: Row(
                   children: [
-                    // Always the cancel action, never "collapse" — the
-                    // chevron this used to show pre-trip is Finding's icon
-                    // for collapsing its own sheet, and sharing it here made
-                    // a rider trying to minimise the sheet land in the
-                    // cancel flow instead.
-                    MoveraIconButton.round(
-                      icon: Icons.close_rounded,
-                      onPressed: _confirmCancel,
-                      // UI-01: on board this ends the trip early.
-                      label: _isInTrip
-                          ? context.l10n.endTrip
-                          : context.l10n.cancelRide,
-                    ),
+                    // Owner 2026-11-23: no top-left ✕ on screens 2 and 3;
+                    // cancelling / ending is the last red row of the ⋯ menu
+                    // (always reachable, tested in every state).
                     const Spacer(),
                     SafetyKitMapButton(rideId: _rideId),
                   ],
@@ -605,74 +599,91 @@ class _WaitingForDriverState extends State<WaitingForDriver>
                   ],
                   minFlingSpeed: 520,
                 ),
-                scrollConfiguration: SheetScrollConfiguration.disabled,
+                // Owner 2026-11-23: the sheet now holds more (games row);
+                // a drag on the body moves the sheet first, then scrolls
+                // the body (as on the searching screen, N4).
+                scrollConfiguration: const SheetScrollConfiguration(),
                 child: PointerInterceptor(
                   child: SizedBox(
                     height: _maxSheet(media),
                     width: double.infinity,
-                    child: Material(
-                      key: const ValueKey<String>('waiting-panel'),
-                      color: Colors.white,
-                      elevation: 18,
-                      shadowColor: const Color(
-                        0xFF162C36,
-                      ).withValues(alpha: 0.14),
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(28),
+                    // Owner 2026-11-23: full width, 28 px top, a soft
+                    // upward shadow (as on the searching screen).
+                    child: DecoratedBox(
+                      key: const ValueKey<String>('waiting-sheet-card'),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(28),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x1F162C36),
+                            blurRadius: 24,
+                            offset: Offset(0, -6),
+                          ),
+                        ],
                       ),
-                      clipBehavior: Clip.antiAlias,
-                      child: Stack(
-                        children: [
-                          Column(
-                            children: [
-                              const SizedBox(
-                                width: double.infinity,
-                                height: _handleHeight,
-                                child: Center(
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: Color(0xFFE7EBEE),
-                                      borderRadius: BorderRadius.all(
-                                        Radius.circular(99),
+                      child: Material(
+                        key: const ValueKey<String>('waiting-panel'),
+                        color: Colors.white,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(28),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Stack(
+                          children: [
+                            Column(
+                              children: [
+                                const SizedBox(
+                                  width: double.infinity,
+                                  height: _handleHeight,
+                                  child: Center(
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: Color(0xFFE7EBEE),
+                                        borderRadius: BorderRadius.all(
+                                          Radius.circular(99),
+                                        ),
+                                      ),
+                                      child: SizedBox(width: 36, height: 4),
+                                    ),
+                                  ),
+                                ),
+                                KeyedSubtree(
+                                  key: ValueKey<String>(
+                                    'waiting-stage-${_tracking.status.name}',
+                                  ),
+                                  child: const SizedBox.shrink(),
+                                ),
+                                if (!_isInTrip)
+                                  _reveal(
+                                    media,
+                                    start: 0.15,
+                                    child: KeyedSubtree(
+                                      key: _headerKey,
+                                      child: _fixedPickupHeader(
+                                        driver,
+                                        headline,
+                                        subtitle,
                                       ),
                                     ),
-                                    child: SizedBox(width: 36, height: 4),
                                   ),
-                                ),
-                              ),
-                              KeyedSubtree(
-                                key: ValueKey<String>(
-                                  'waiting-stage-${_tracking.status.name}',
-                                ),
-                                child: const SizedBox.shrink(),
-                              ),
-                              if (!_isInTrip)
-                                _reveal(
-                                  media,
-                                  start: 0.15,
+                                Expanded(
                                   child: KeyedSubtree(
-                                    key: _headerKey,
-                                    child: _fixedPickupHeader(
-                                      driver,
-                                      headline,
-                                      subtitle,
+                                    key: _panelKey,
+                                    child: _reveal(
+                                      media,
+                                      start: 0.3,
+                                      child: _panel(driver),
                                     ),
                                   ),
                                 ),
-                              Expanded(
-                                child: KeyedSubtree(
-                                  key: _panelKey,
-                                  child: _reveal(
-                                    media,
-                                    start: 0.3,
-                                    child: _panel(driver),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          _compactRow(media, driver, headline),
-                        ],
+                              ],
+                            ),
+                            _compactRow(media, driver, headline),
+                          ],
+                        ),
                       ),
                     ),
                   ),

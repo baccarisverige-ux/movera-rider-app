@@ -1,11 +1,11 @@
-# Movera API v0.18.154 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.156 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.154
+  version: 0.18.156
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.154 in this folder; this file must agree with them.
+    v0.18.156 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.154
+  version: 0.18.156
   source: contract.json
 paths:
   /auth/otp/request:
@@ -539,7 +539,13 @@ paths:
         with consents.rideUpdates false gets no OPTIONAL push (driver found, almost there); the bell notice is always stored.
         v0.18.53 §75 (owner Q36-Q39): arrived, a new driver, cancelled, no driver found, trip failed, the booked-ride no-driver
         kinds and support answers are always pushed (riderTripPush.consent, support.answerPush). Drivers have no push consent:
-        the operating system''s permission is the switch.'
+        the operating system''s permission is the switch. v0.18.156: every FCM message to an ios device carries an apns block,
+        so an iPhone shows it as an Android phone does: headers apns-push-type alert and apns-priority 10 (Android is always
+        priority HIGH), apns-expiration from the offer''s time to live as before; payload aps.alert { title, body } (the notice''s,
+        the same as notification), aps.sound (a loud driver offer: driverOffers.push.native.iosSound with interruption-level
+        time-sensitive, a quiet Radar offer none, every other push default), aps.thread-id = data.kind (iOS groups the notices
+        by kind). The server never sets aps.badge and never sends content-available (no silent background push); Android sets
+        no collapse key, so no apns-collapse-id either. data stays the same on every platform.'
       tags:
       - Auth
       x-actor:
@@ -11876,7 +11882,17 @@ paths:
         shows a push that comes while it is open (the offer stream and the bell list show it). The offer channels driverOffers.push.native.androidChannel
         / androidQuietChannel (sound soundFile) are made by the app at start; a channel the driver changed in Android settings
         keeps his choice. The in-app Vibrate setting cannot change a notice Android shows (the channel decides): a known gap
-        on native, the web keeps E6 in full.'
+        on native, the web keeps E6 in full. v0.18.156: The iPhone app starts Firebase at run time with iosConfig (FirebaseOptions
+        apiKey, appId, messagingSenderId, projectId, iosBundleId) and never with settings of another platform (native Firebase
+        on iOS aborts the app for a web or Android app id). Then it follows appFlow at the same moment and with the same texts
+        as on Android (driver: Go online; rider: after sign-in), asks the iOS notification permission (alert, sound, badge),
+        waits for the APNs token, gets the FCM token, POST /push/devices { provider: fcm, platform: ios }, registers again
+        when FCM changes the token and unregisters on sign-out. A push that comes while the app is open is not shown by the
+        app (the offer stream and the bell list show it). A tap opens data.deepLink as on Android, from the background and
+        from a closed app. The iOS apps carry UIBackgroundModes remote-notification and the aps-environment entitlement (production
+        in TestFlight / App Store builds; the bundle ids have the Push Notifications capability). The driver app also carries
+        com.apple.developer.usernotifications.time-sensitive (Time Sensitive Notifications capability) so a loud offer (interruption-level
+        time-sensitive) breaks through Focus.'
       tags:
       - Auth
       x-actor:
@@ -11899,7 +11915,14 @@ paths:
         description: 'v0.18.105: web (default) gives webConfig, android gives androidConfig, ios is enabled false for now.
           v0.18.105: platform=ios answers enabled false for now: iOS push needs the Apple Developer account and an APNs auth
           key uploaded to Firebase (Rules plan/REMINDERS.md 7, at store launch). Then a later version adds iosConfig the same
-          way.'
+          way. v0.18.156: ios gives iosConfig (enabled true once the project has the iOS app). The iPhone app starts Firebase
+          at run time with iosConfig (FirebaseOptions apiKey, appId, messagingSenderId, projectId, iosBundleId) and never
+          with settings of another platform (native Firebase on iOS aborts the app for a web or Android app id). Then it follows
+          appFlow at the same moment and with the same texts as on Android (driver: Go online; rider: after sign-in), asks
+          the iOS notification permission (alert, sound, badge), waits for the APNs token, gets the FCM token, POST /push/devices
+          { provider: fcm, platform: ios }, registers again when FCM changes the token and unregisters on sign-out. A push
+          that comes while the app is open is not shown by the app (the offer stream and the bell list show it). A tap opens
+          data.deepLink as on Android, from the background and from a closed app.'
         schema:
           type: string
           enum:
@@ -20903,6 +20926,282 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /rider/trips/{tripId}/driver-profile:
+    get:
+      operationId: riderTripDriverProfile
+      summary: The trip driver's profile
+      description: 'v0.18.155 (contract.json#driverProfile): GET /rider/trips/{tripId}/driver-profile (rider of that trip;
+        from accepted until 24 h after the trip ended) -> DriverPublicProfile. Not the trip''s rider or another state: 404
+        not_found. The zone''s profile switch off: 404 not_found, reason driver_profile_off (the card still opens the old
+        simple page). LOAD RULE (owner): no new polling. The rider app reads the profile once when the sheet opens (and again
+        only after 5 min); the answer carries Cache-Control: private, max-age=300 and an ETag, and If-None-Match gets 304.
+        The driver app reads GET /driver/public-profile when Min profil opens. Counts are aggregated on the server.'
+      tags:
+      - Rider · Trips
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverPublicProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '304':
+          description: Not modified (If-None-Match matched the ETag).
+  /driver/public-profile:
+    get:
+      operationId: getDriverPublicProfile
+      summary: 'Min profil: what riders see'
+      description: 'v0.18.155 (contract.json#driverProfile): GET /driver/public-profile -> DriverOwnPublicProfile: the settings,
+        the preview exactly as a rider sees it, the compliment counts and the driver''s reviews (newest first, at most 50,
+        with status).'
+      tags:
+      - Driver · Account
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverOwnPublicProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    patch:
+      operationId: updateDriverPublicProfile
+      summary: 'Min profil: languages and what to show'
+      description: 'v0.18.155 (contract.json#driverProfile): PATCH /driver/public-profile { languages?, showCity?, showYears?
+        } -> DriverOwnPublicProfile. An unknown code or too many: 400 invalid_request, reason invalid_language.'
+      tags:
+      - Driver · Account
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverPublicProfilePatch'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverOwnPublicProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/driver-reviews:
+    get:
+      operationId: adminListDriverReviews
+      summary: Driver reviews to moderate
+      description: 'v0.18.155 (contract.json#driverProfile): GET /admin/driver-reviews?status=pending|approved|hidden&zoneId&cursor
+        (settings.read, the admin''s zones) -> AdminDriverReviewPage, oldest pending first. Each item: reviewId, driverId,
+        driver first name, zoneId, stars, text, name (or null), month, status, createdAt. No rider id or contact.'
+      tags:
+      - Admin · Reviews
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - pending
+          - approved
+          - hidden
+      - $ref: '#/components/parameters/ListZoneId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDriverReviewPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/driver-reviews/{reviewId}/approve:
+    post:
+      operationId: adminApproveDriverReview
+      summary: Show a driver review
+      description: 'v0.18.155 (contract.json#driverProfile): POST /admin/driver-reviews/{reviewId}/approve | /hide (settings.publish)
+        -> AdminDriverReview; written to the audit log.'
+      tags:
+      - Admin · Reviews
+      x-actor:
+      - admin
+      x-permission: settings.publish
+      parameters:
+      - name: reviewId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDriverReview'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/driver-reviews/{reviewId}/hide:
+    post:
+      operationId: adminHideDriverReview
+      summary: Hide a driver review
+      description: 'v0.18.155 (contract.json#driverProfile): POST /admin/driver-reviews/{reviewId}/approve | /hide (settings.publish)
+        -> AdminDriverReview; written to the audit log.'
+      tags:
+      - Admin · Reviews
+      x-actor:
+      - admin
+      x-permission: settings.publish
+      parameters:
+      - name: reviewId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDriverReview'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -24051,6 +24350,7 @@ components:
     RatingTag:
       type: string
       enum:
+      - great_service
       - clean_car
       - friendly
       - safe_driving
@@ -28383,6 +28683,8 @@ components:
               maximum: 10
               default: 8
           additionalProperties: false
+        driverProfile:
+          $ref: '#/components/schemas/DriverProfileSettings'
     DriverAppConfig:
       type: object
       description: Per-zone driver document built by Admin exporters. Unknown keys are ignored; missing keys fall back to
@@ -28794,6 +29096,8 @@ components:
                   description: Minutes on the two old streams before the next reconnect asks GET /driver/stream again (or
                     at app restart).
               additionalProperties: false
+        driverProfile:
+          $ref: '#/components/schemas/DriverProfileSettings'
     CategoryPricingWaiting:
       type: object
       description: Waiting at pickup for one category; RiderAppConfig / DriverAppConfig waiting.byCategory carry the same
@@ -31957,6 +32261,7 @@ components:
           items:
             type: string
             pattern: ^[a-z][a-z0-9_]{0,63}$
+          maxItems: 6
         comment:
           type: string
           maxLength: 2000
@@ -31981,6 +32286,25 @@ components:
           allOf:
           - $ref: '#/components/schemas/TipMethod'
           description: 'v0.18.10: with tip; default cash.'
+        review:
+          type: string
+          minLength: 1
+          maxLength: 280
+          description: 'v0.18.155 (contract.json#driverProfile): RatingRequest.review (string, 1-280 characters after trim,
+            rider only): the short text the rider allows to show on the driver''s profile. RatingRequest.comment stays private
+            (admin only) as before. A review with stars < minStarsShown is never stored as a review (the text is kept as a
+            private comment instead).'
+        reviewName:
+          type: string
+          enum:
+          - first_name
+          - anonymous
+          description: 'v0.18.155 (contract.json#driverProfile): RatingRequest.reviewName: first_name (default) | anonymous.
+            first_name: the review shows the rider''s first name as it was at rating time (first word of the profile name,
+            at most 20 characters); anonymous: no name. Nothing else about the rider is ever stored on or sent with a review:
+            no rider id, phone, photo, e-mail, trip id, address or exact date; the month (YYYY-MM, the trip''s zone time)
+            only.'
+          default: first_name
     AvailabilityRequest:
       type: object
       required:
@@ -34414,6 +34738,22 @@ components:
             false (no androidConfig) when the server has no Firebase settings or the project has no Android app with that
             package; the app then skips push and says so in its log. Without platform, or platform=web, the answer is the
             v0.18.3 one (webConfig), unchanged. A failed read is tried again after 5 minutes.'
+        iosConfig:
+          allOf:
+          - $ref: '#/components/schemas/PushIosConfig'
+          description: 'v0.18.156: only with platform=ios. v0.18.156 (owner 2026-11-24 "Notifications doesn''t work on iPhones?";
+            the owner uploaded the team APNs auth key (sandbox + production) in Firebase Cloud Messaging for both iOS apps,
+            Rules LAUNCH-RULE.md 2026-11-24; Rule 0; X-Api-Version stays `0.5`; additive, optional; no migration; follows
+            v0.18.155): GET /push/config?app=driver|rider&platform=ios gives { provider: fcm, enabled, projectId?, iosConfig?
+            { apiKey, appId, messagingSenderId, projectId, iosBundleId } }: the public settings of the project''s Firebase
+            iOS app with the app''s bundle id (iosBundleIds), read once with the server''s service account from the Firebase
+            Management API (the app''s GoogleService-Info.plist: GOOGLE_APP_ID, API_KEY, GCM_SENDER_ID, PROJECT_ID, BUNDLE_ID)
+            and kept in memory, the same way as androidConfig. They are public (inside every IPA), never a secret, so no GoogleService-Info.plist
+            and no key is kept in any app repository or CI. iosConfig.appId always names an iOS app (`1:<sender>:ios:<id>`).
+            enabled false (no iosConfig) when the server has no Firebase settings or the project has no iOS app with that
+            bundle id; the app then skips push and says so in its log. A failed read is tried again after 5 minutes. This
+            replaces the v0.18.105 rule that platform=ios is always enabled false (auth.devices.config.android.ios, kept as
+            history).'
     AdminVehicleUpdate:
       type: object
       description: 'PATCH /admin/vehicles/{vehicleId} { expectedVersion, make?, model?, year?, color?, plate?, seats?, fuel?,
@@ -41629,3 +41969,423 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DriverIncomeRow'
+    DriverCompliment:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): The server keeps one count per driver and code, raised in the
+        same transaction as the rating (never counted on read); a hidden rating (ratings.moderation) takes its codes off again.
+        Only ratings with stars >= minStars add to the counts. The profile sends only the codes with count >= 1, in list order.'
+      required:
+      - code
+      - count
+      properties:
+        code:
+          type: string
+          enum:
+          - great_service
+          - knew_the_way
+          - friendly
+          - clean_car
+          - safe_driving
+          - good_music
+        count:
+          type: integer
+          minimum: 1
+      additionalProperties: false
+    DriverMilestone:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): The server works them out when the profile is read (from the
+        stored counts, no extra job). Each item: { code, reachedAt (YYYY-MM) }. Shown only when reached.'
+      required:
+      - code
+      - reachedAt
+      properties:
+        code:
+          type: string
+          enum:
+          - trips_1000
+          - top_rating
+        reachedAt:
+          type: string
+          pattern: ^[0-9]{4}-[0-1][0-9]$
+          description: YYYY-MM in the trip zone's time zone.
+      additionalProperties: false
+    DriverReviewShown:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): RatingRequest.reviewName: first_name (default) | anonymous. first_name:
+        the review shows the rider''s first name as it was at rating time (first word of the profile name, at most 20 characters);
+        anonymous: no name. Nothing else about the rider is ever stored on or sent with a review: no rider id, phone, photo,
+        e-mail, trip id, address or exact date; the month (YYYY-MM, the trip''s zone time) only.'
+      required:
+      - text
+      - name
+      - month
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 280
+        name:
+          oneOf:
+          - type: string
+            maxLength: 20
+          - type: 'null'
+        month:
+          type: string
+          pattern: ^[0-9]{4}-[0-1][0-9]$
+          description: YYYY-MM in the trip zone's time zone.
+      additionalProperties: false
+    DriverPublicProfile:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): DriverPublicProfile: tripCount (completed trips), rating (1 decimal,
+        null with fewer than 5 ratings), years (whole years since the first approved day, 0 shown as the since month only),
+        sinceMonth (YYYY-MM). LOAD RULE (owner): no new polling. The rider app reads the profile once when the sheet opens
+        (and again only after 5 min); the answer carries Cache-Control: private, max-age=300 and an ETag, and If-None-Match
+        gets 304. The driver app reads GET /driver/public-profile when Min profil opens. Counts are aggregated on the server.'
+      required:
+      - driverId
+      - firstName
+      - verified
+      - photoUrl
+      - languages
+      - city
+      - sinceMonth
+      - years
+      - tripCount
+      - rating
+      - compliments
+      - milestones
+      - latestReview
+      properties:
+        driverId:
+          $ref: '#/components/schemas/Id'
+        firstName:
+          type: string
+          minLength: 1
+        verified:
+          type: boolean
+          description: verified true when the driver's account is approved and his profile photo is approved.
+        photoUrl:
+          oneOf:
+          - type: string
+            format: uri-reference
+          - type: 'null'
+          description: The same driver-photo path as DriverSummary.photoUrl, or null.
+        languages:
+          type: array
+          items:
+            type: string
+            enum:
+            - sv
+            - en
+            - ar
+            - fr
+            - fi
+            - es
+            - de
+            - fa
+            - so
+            - ti
+            - tr
+            - pl
+            - ru
+            - ku
+            - bs
+            - uk
+          maxItems: 6
+          uniqueItems: true
+        city:
+          oneOf:
+          - type: string
+            maxLength: 80
+          - type: 'null'
+          description: null when the driver hides it (showCity false).
+        sinceMonth:
+          oneOf:
+          - type: string
+            pattern: ^[0-9]{4}-[0-1][0-9]$
+            description: YYYY-MM in the trip zone's time zone.
+          - type: 'null'
+          description: null when the driver hides it (showYears false).
+        years:
+          oneOf:
+          - type: integer
+            minimum: 0
+          - type: 'null'
+          description: null when the driver hides it.
+        tripCount:
+          type: integer
+          minimum: 0
+        rating:
+          oneOf:
+          - type: number
+            minimum: 0
+            maximum: 5
+          - type: 'null'
+        compliments:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverCompliment'
+          maxItems: 6
+        milestones:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverMilestone'
+          maxItems: 2
+        latestReview:
+          oneOf:
+          - $ref: '#/components/schemas/DriverReviewShown'
+          - type: 'null'
+      additionalProperties: false
+    DriverOwnReview:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): Every review starts pending. It shows on the profile only after
+        an admin approves it (POST /admin/driver-reviews/{reviewId}/approve). Hide (POST /admin/driver-reviews/{reviewId}/hide)
+        takes it off at once; approve again shows it again. The driver sees his own reviews with their status in GET /driver/public-profile;
+        the rider never sees pending or hidden ones.'
+      required:
+      - reviewId
+      - text
+      - name
+      - month
+      - stars
+      - status
+      properties:
+        reviewId:
+          $ref: '#/components/schemas/Id'
+        text:
+          type: string
+          maxLength: 280
+        name:
+          oneOf:
+          - type: string
+            maxLength: 20
+          - type: 'null'
+        month:
+          type: string
+          pattern: ^[0-9]{4}-[0-1][0-9]$
+          description: YYYY-MM in the trip zone's time zone.
+        stars:
+          type: integer
+          minimum: 4
+          maximum: 5
+        status:
+          type: string
+          enum:
+          - pending
+          - approved
+          - hidden
+      additionalProperties: false
+    DriverOwnPublicProfile:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): GET /driver/public-profile -> DriverOwnPublicProfile: the settings,
+        the preview exactly as a rider sees it, the compliment counts and the driver''s reviews (newest first, at most 50,
+        with status).'
+      required:
+      - languages
+      - showCity
+      - showYears
+      - profileOn
+      - reviewsOn
+      - preview
+      - compliments
+      - reviews
+      properties:
+        languages:
+          type: array
+          items:
+            type: string
+            enum:
+            - sv
+            - en
+            - ar
+            - fr
+            - fi
+            - es
+            - de
+            - fa
+            - so
+            - ti
+            - tr
+            - pl
+            - ru
+            - ku
+            - bs
+            - uk
+          maxItems: 6
+          uniqueItems: true
+        showCity:
+          type: boolean
+        showYears:
+          type: boolean
+        profileOn:
+          type: boolean
+          description: The zone's driver profile switch.
+        reviewsOn:
+          type: boolean
+          description: The zone's written reviews switch.
+        preview:
+          $ref: '#/components/schemas/DriverPublicProfile'
+        compliments:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverCompliment'
+        reviews:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverOwnReview'
+          maxItems: 50
+      additionalProperties: false
+    DriverPublicProfilePatch:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): PATCH /driver/public-profile { languages?, showCity?, showYears?
+        } -> DriverOwnPublicProfile. An unknown code or too many: 400 invalid_request, reason invalid_language.'
+      properties:
+        languages:
+          type: array
+          items:
+            type: string
+            enum:
+            - sv
+            - en
+            - ar
+            - fr
+            - fi
+            - es
+            - de
+            - fa
+            - so
+            - ti
+            - tr
+            - pl
+            - ru
+            - ku
+            - bs
+            - uk
+          maxItems: 6
+          uniqueItems: true
+        showCity:
+          type: boolean
+        showYears:
+          type: boolean
+      additionalProperties: false
+      minProperties: 1
+    AdminDriverReview:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): GET /admin/driver-reviews?status=pending|approved|hidden&zoneId&cursor
+        (settings.read, the admin''s zones) -> AdminDriverReviewPage, oldest pending first. Each item: reviewId, driverId,
+        driver first name, zoneId, stars, text, name (or null), month, status, createdAt. No rider id or contact.'
+      required:
+      - reviewId
+      - driverId
+      - driverFirstName
+      - zoneId
+      - text
+      - name
+      - month
+      - stars
+      - status
+      - createdAt
+      properties:
+        reviewId:
+          $ref: '#/components/schemas/Id'
+        driverId:
+          $ref: '#/components/schemas/Id'
+        driverFirstName:
+          type: string
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        text:
+          type: string
+          maxLength: 280
+        name:
+          oneOf:
+          - type: string
+            maxLength: 20
+          - type: 'null'
+        month:
+          type: string
+          pattern: ^[0-9]{4}-[0-1][0-9]$
+          description: YYYY-MM in the trip zone's time zone.
+        stars:
+          type: integer
+          minimum: 4
+          maximum: 5
+        status:
+          type: string
+          enum:
+          - pending
+          - approved
+          - hidden
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    AdminDriverReviewPage:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): GET /admin/driver-reviews?status=pending|approved|hidden&zoneId&cursor
+        (settings.read, the admin''s zones) -> AdminDriverReviewPage, oldest pending first. Each item: reviewId, driverId,
+        driver first name, zoneId, stars, text, name (or null), month, status, createdAt. No rider id or contact.'
+      required:
+      - items
+      - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminDriverReview'
+        nextCursor:
+          type:
+          - string
+          - 'null'
+    DriverProfileSettings:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): Per zone: rider_app_config carries driverProfile { on (default
+        configDefaults.driverProfileOn = true), reviews (default configDefaults.driverReviewsOn = false) }; the server serves
+        the same object in GET /driver/config (DriverAppConfig.driverProfile). Not an object, or a value that is not true
+        / false: 400 invalid_request, reason invalid_document. reviews off: no review box after the trip, no latestReview;
+        stored reviews stay for the admin.'
+      properties:
+        'on':
+          type: boolean
+          description: The zone's driver profile switch.
+          default: true
+        reviews:
+          type: boolean
+          description: The zone's written reviews switch.
+          default: false
+    PushIosConfig:
+      type: object
+      description: 'v0.18.156: the Firebase iOS app''s public settings. v0.18.156 (owner 2026-11-24 "Notifications doesn''t
+        work on iPhones?"; the owner uploaded the team APNs auth key (sandbox + production) in Firebase Cloud Messaging for
+        both iOS apps, Rules LAUNCH-RULE.md 2026-11-24; Rule 0; X-Api-Version stays `0.5`; additive, optional; no migration;
+        follows v0.18.155): GET /push/config?app=driver|rider&platform=ios gives { provider: fcm, enabled, projectId?, iosConfig?
+        { apiKey, appId, messagingSenderId, projectId, iosBundleId } }: the public settings of the project''s Firebase iOS
+        app with the app''s bundle id (iosBundleIds), read once with the server''s service account from the Firebase Management
+        API (the app''s GoogleService-Info.plist: GOOGLE_APP_ID, API_KEY, GCM_SENDER_ID, PROJECT_ID, BUNDLE_ID) and kept in
+        memory, the same way as androidConfig. They are public (inside every IPA), never a secret, so no GoogleService-Info.plist
+        and no key is kept in any app repository or CI. iosConfig.appId always names an iOS app (`1:<sender>:ios:<id>`). enabled
+        false (no iosConfig) when the server has no Firebase settings or the project has no iOS app with that bundle id; the
+        app then skips push and says so in its log. A failed read is tried again after 5 minutes. This replaces the v0.18.105
+        rule that platform=ios is always enabled false (auth.devices.config.android.ios, kept as history).'
+      required:
+      - apiKey
+      - appId
+      - messagingSenderId
+      - projectId
+      - iosBundleId
+      properties:
+        apiKey:
+          type: string
+          description: Public Firebase iOS API key (not a secret).
+        appId:
+          type: string
+          pattern: ':ios:'
+          description: The Firebase iOS app id (1:<sender>:ios:<id>).
+        messagingSenderId:
+          type: string
+        projectId:
+          type: string
+        iosBundleId:
+          type: string
+          enum:
+          - com.movera.rider
+          - se.movera.driver

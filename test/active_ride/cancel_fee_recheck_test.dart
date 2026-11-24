@@ -1,3 +1,4 @@
+import '../fixtures/open_cancel_via_menu.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -62,7 +63,7 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 50));
 
-    await tester.tap(find.byIcon(Icons.close_rounded));
+    await openCancelViaMenu(tester);
     await tester.pumpAndSettle();
     expect(find.textContaining('less than a minute'), findsOneWidget);
     offset = const Duration(seconds: 150);

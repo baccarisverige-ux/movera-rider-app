@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/features/driver_profile/presentation/driver_on_way_card.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -8,7 +9,6 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/presentation/rider_in_trip_panel.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
-import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -153,7 +153,8 @@ void main() {
 
   testWidgets('waiting driver call is explicitly unavailable', (tester) async {
     final realtime = await pumpWaiting(tester, RideStatus.driverAssigned);
-    expect(find.byType(WaitingDriverCard), findsOneWidget);
+    // v0.18.155: the driver card (driverProfile.on, default) holds Call.
+    expect(find.byType(DriverOnWayCard), findsOneWidget);
     await expectCallUnavailable(tester, realtime);
   });
 

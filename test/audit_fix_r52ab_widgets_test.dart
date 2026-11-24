@@ -325,7 +325,24 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.byType(WaitingForDriver), findsOneWidget);
-    expect(find.byIcon(Icons.more_horiz_rounded), findsNothing);
+    // Owner 2026-11-23: the driver card's ⋯ always opens the menu (it holds
+    // the cancel row); on a scheduled ride it offers no route change.
+    final more = find.byKey(const ValueKey('waiting-more'));
+    await tester.ensureVisible(more);
+    await tester.tap(more);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byKey(const ValueKey('ride-details-cancel')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('ride-details-edit-destination')),
+      findsNothing,
+    );
+    expect(find.byKey(const ValueKey('ride-details-add-stop')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('ride-details-edit-pickup')),
+      findsNothing,
+    );
   });
 
   testWidgets('rider-u59: the map rebuilt after Change route shows the car '

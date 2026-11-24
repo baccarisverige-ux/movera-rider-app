@@ -103,18 +103,25 @@ void main() {
     // Admin sign-out (contract v0.18.149): + signedOutByMovera (account area).
     // P16c (contract v0.18.154 appUpdate.texts): + minVersionTitle,
     // minVersionBody, minVersionUpdate (app_update area).
+    // v0.18.155 driver profile: + 27 texts in the driver_profile area.
+    // Owner 2026-11-23: + dpChat (short chat button word, driver_profile).
+    // Owner 2026-11-23 (approved search screen): + 8 fd* texts in the
+    // searching_screen area (Justera, edit subtitle, share-location sheet).
+    // Owner 2026-11-23 (raise card R2): + bumpSubtitle, bumpSliderHint.
+    // Owner 2026-11-23 (games): + the games area (quiz and puzzle texts).
+    // Owner 2026-11-23 (screen 2): + dpFromDriver (inline driver message).
     const before = {
       'en': (
-        'd073587dfe74faefad3361ef00995f14db087e34abe4d6b390f2637d10959da8',
-        2258,
+        '0a81f0646f35dde15bc75631471618decab1998362361b15e3306955ec145555',
+        2430,
       ),
       'fr': (
-        '1fbd0a980232997cf541041ff38b5fa1bdc1405d47e21cb309a3038a404c0b39',
-        1785,
+        'd3de1905a3fd4582bdeb8a638986adaf134b62d6d815a4ec60d0ace0a2b092f6',
+        1871,
       ),
       'sv': (
-        '59fba777083cff06c6d7e48bfd9c6c21a646f43d10abf5f2ca9a5bd8e2bb46d8',
-        1785,
+        '653d490a417aa0b069774667d716125ff2c44e5dc4b401aa9b333e6b4b0e391c',
+        1871,
       ),
     };
     for (final lang in _langs) {

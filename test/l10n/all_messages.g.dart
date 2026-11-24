@@ -248,6 +248,82 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'cancelledNoFee': l.cancelledNoFee,
   'freeRuleHours': l.freeRuleHours(37),
   'cancelFreeChained': l.cancelFreeChained,
+  'dpTripsSince': l.dpTripsSince('<trips>', '<year>'),
+  'dpSince': l.dpSince('<month>'),
+  'dpTrips': l.dpTrips,
+  'dpRating': l.dpRating,
+  'dpYears': l.dpYears,
+  'dpWhatRidersSay': l.dpWhatRidersSay,
+  'dpMilestones': l.dpMilestones,
+  'dpMilestoneTrips1000': l.dpMilestoneTrips1000,
+  'dpMilestoneTopRating': l.dpMilestoneTopRating,
+  'dpMilestoneTopRatingSub': l.dpMilestoneTopRatingSub,
+  'dpLatestReview': l.dpLatestReview,
+  'dpAnonymous': l.dpAnonymous,
+  'dpVerified': l.dpVerified,
+  'dpChat': l.dpChat,
+  'dpCall': l.dpCall,
+  'dpUnreadMessages': l.dpUnreadMessages,
+  'dpOpenProfile': l.dpOpenProfile,
+  'complimentGreatService': l.complimentGreatService,
+  'complimentKnewTheWay': l.complimentKnewTheWay,
+  'complimentFriendly': l.complimentFriendly,
+  'complimentCleanCar': l.complimentCleanCar,
+  'complimentSafeDriving': l.complimentSafeDriving,
+  'complimentGoodMusic': l.complimentGoodMusic,
+  'rateComplimentsTitle': l.rateComplimentsTitle,
+  'rateReviewLabel': l.rateReviewLabel,
+  'rateReviewHint': l.rateReviewHint,
+  'rateShowFirstName': l.rateShowFirstName,
+  'rateShowFirstNameOff': l.rateShowFirstNameOff,
+  'dpFromDriver': l.dpFromDriver('<name>'),
+  'gameQuizTitle': l.gameQuizTitle,
+  'gameQuizBody': l.gameQuizBody,
+  'gameStart': l.gameStart,
+  'gameRight': l.gameRight,
+  'gameNotQuite': l.gameNotQuite,
+  'gameQuizAllRight': l.gameQuizAllRight,
+  'gameQuizGood': l.gameQuizGood,
+  'gameQuizTryAgain': l.gameQuizTryAgain,
+  'gamePlayAgain': l.gamePlayAgain,
+  'gamePuzzleTitle': l.gamePuzzleTitle,
+  'gamePuzzleBody': l.gamePuzzleBody,
+  'gamePuzzleGoal': l.gamePuzzleGoal,
+  'gamePuzzleMovesLabel': l.gamePuzzleMovesLabel,
+  'gamePuzzleShuffle': l.gamePuzzleShuffle,
+  'gamePuzzleDone': l.gamePuzzleDone,
+  'gameQuizScore': l.gameQuizScore('<right>', '<total>'),
+  'gamePuzzleMoves': l.gamePuzzleMoves('<moves>'),
+  'gamePuzzleTile': l.gamePuzzleTile('<number>'),
+  'gameQuizQ1': l.gameQuizQ1,
+  'gameQuizQ1A1': l.gameQuizQ1A1,
+  'gameQuizQ1A2': l.gameQuizQ1A2,
+  'gameQuizQ1A3': l.gameQuizQ1A3,
+  'gameQuizQ1Fact': l.gameQuizQ1Fact,
+  'gameQuizQ2': l.gameQuizQ2,
+  'gameQuizQ2Fact': l.gameQuizQ2Fact,
+  'gameQuizQ3': l.gameQuizQ3,
+  'gameQuizQ3Fact': l.gameQuizQ3Fact,
+  'gameQuizQ4': l.gameQuizQ4,
+  'gameQuizQ4Fact': l.gameQuizQ4Fact,
+  'gameQuizQ5': l.gameQuizQ5,
+  'gameQuizQ5A1': l.gameQuizQ5A1,
+  'gameQuizQ5A2': l.gameQuizQ5A2,
+  'gameQuizQ5A3': l.gameQuizQ5A3,
+  'gameQuizQ5Fact': l.gameQuizQ5Fact,
+  'gameQuizQ6': l.gameQuizQ6,
+  'gameQuizQ6Fact': l.gameQuizQ6Fact,
+  'gameQuizQ7': l.gameQuizQ7,
+  'gameQuizQ7Fact': l.gameQuizQ7Fact,
+  'gameQuizQ8': l.gameQuizQ8,
+  'gameQuizQ8Fact': l.gameQuizQ8Fact,
+  'gameQuizQ9': l.gameQuizQ9,
+  'gameQuizQ9Fact': l.gameQuizQ9Fact,
+  'gameQuizQ10': l.gameQuizQ10,
+  'gameQuizQ10A1': l.gameQuizQ10A1,
+  'gameQuizQ10A2': l.gameQuizQ10A2,
+  'gameQuizQ10A3': l.gameQuizQ10A3,
+  'gameQuizQ10Fact': l.gameQuizQ10Fact,
   'setLocation': l.setLocation,
   'choosePickup': l.choosePickup,
   'setHomeAddress': l.setHomeAddress,
@@ -1642,6 +1718,16 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'searchStepNoDriverNearby': l.searchStepNoDriverNearby,
   'searchStepNoDriverFound': l.searchStepNoDriverFound,
   'dropoffTooClose': l.dropoffTooClose,
+  'fdAdjustPill': l.fdAdjustPill,
+  'fdAdjustSubtitle': l.fdAdjustSubtitle,
+  'fdSearchAddress': l.fdSearchAddress,
+  'fdShareTitle': l.fdShareTitle,
+  'fdShareBody': l.fdShareBody,
+  'fdShareButton': l.fdShareButton,
+  'fdYourLocation': l.fdYourLocation,
+  'fdLocationNotShared': l.fdLocationNotShared,
+  'bumpSubtitle': l.bumpSubtitle,
+  'bumpSliderHint': l.bumpSliderHint('<amount>'),
   'swTripStatusDraft': l.swTripStatusDraft,
   'swTripStatusQuoted': l.swTripStatusQuoted,
   'swTripStatusRequested': l.swTripStatusRequested,
@@ -1848,6 +1934,12 @@ const messagePlaceholders = <String, List<String>>{
   'cancelledFeeCharged': ['amount'],
   'cancelledNoShowFee': ['amount'],
   'freeRuleHours': [],
+  'dpTripsSince': ['trips', 'year'],
+  'dpSince': ['month'],
+  'dpFromDriver': ['name'],
+  'gameQuizScore': ['right', 'total'],
+  'gamePuzzleMoves': ['moves'],
+  'gamePuzzleTile': ['number'],
   'setPlaceAddress': ['place'],
   'arriveBy': ['time'],
   'ctaSchedule': ['category'],
@@ -2028,6 +2120,7 @@ const messagePlaceholders = <String, List<String>>{
   'homeRideCount': [],
   'homeYourMonth': ['month'],
   'homeCo2Kg': ['kg'],
+  'bumpSliderHint': ['amount'],
   'feePayByCard': ['amount'],
   'supportNoMailApp': ['email'],
   'supportPriceCancelled': ['price'],
@@ -2547,6 +2640,158 @@ class _Exhaustive implements AppLocalizations {
   String freeRuleHours(int count) => '';
   @override
   String get cancelFreeChained => '';
+  @override
+  String dpTripsSince(String trips, String year) => '';
+  @override
+  String dpSince(String month) => '';
+  @override
+  String get dpTrips => '';
+  @override
+  String get dpRating => '';
+  @override
+  String get dpYears => '';
+  @override
+  String get dpWhatRidersSay => '';
+  @override
+  String get dpMilestones => '';
+  @override
+  String get dpMilestoneTrips1000 => '';
+  @override
+  String get dpMilestoneTopRating => '';
+  @override
+  String get dpMilestoneTopRatingSub => '';
+  @override
+  String get dpLatestReview => '';
+  @override
+  String get dpAnonymous => '';
+  @override
+  String get dpVerified => '';
+  @override
+  String get dpChat => '';
+  @override
+  String get dpCall => '';
+  @override
+  String get dpUnreadMessages => '';
+  @override
+  String get dpOpenProfile => '';
+  @override
+  String get complimentGreatService => '';
+  @override
+  String get complimentKnewTheWay => '';
+  @override
+  String get complimentFriendly => '';
+  @override
+  String get complimentCleanCar => '';
+  @override
+  String get complimentSafeDriving => '';
+  @override
+  String get complimentGoodMusic => '';
+  @override
+  String get rateComplimentsTitle => '';
+  @override
+  String get rateReviewLabel => '';
+  @override
+  String get rateReviewHint => '';
+  @override
+  String get rateShowFirstName => '';
+  @override
+  String get rateShowFirstNameOff => '';
+  @override
+  String dpFromDriver(String name) => '';
+  @override
+  String get gameQuizTitle => '';
+  @override
+  String get gameQuizBody => '';
+  @override
+  String get gameStart => '';
+  @override
+  String get gameRight => '';
+  @override
+  String get gameNotQuite => '';
+  @override
+  String get gameQuizAllRight => '';
+  @override
+  String get gameQuizGood => '';
+  @override
+  String get gameQuizTryAgain => '';
+  @override
+  String get gamePlayAgain => '';
+  @override
+  String get gamePuzzleTitle => '';
+  @override
+  String get gamePuzzleBody => '';
+  @override
+  String get gamePuzzleGoal => '';
+  @override
+  String get gamePuzzleMovesLabel => '';
+  @override
+  String get gamePuzzleShuffle => '';
+  @override
+  String get gamePuzzleDone => '';
+  @override
+  String gameQuizScore(String right, String total) => '';
+  @override
+  String gamePuzzleMoves(String moves) => '';
+  @override
+  String gamePuzzleTile(String number) => '';
+  @override
+  String get gameQuizQ1 => '';
+  @override
+  String get gameQuizQ1A1 => '';
+  @override
+  String get gameQuizQ1A2 => '';
+  @override
+  String get gameQuizQ1A3 => '';
+  @override
+  String get gameQuizQ1Fact => '';
+  @override
+  String get gameQuizQ2 => '';
+  @override
+  String get gameQuizQ2Fact => '';
+  @override
+  String get gameQuizQ3 => '';
+  @override
+  String get gameQuizQ3Fact => '';
+  @override
+  String get gameQuizQ4 => '';
+  @override
+  String get gameQuizQ4Fact => '';
+  @override
+  String get gameQuizQ5 => '';
+  @override
+  String get gameQuizQ5A1 => '';
+  @override
+  String get gameQuizQ5A2 => '';
+  @override
+  String get gameQuizQ5A3 => '';
+  @override
+  String get gameQuizQ5Fact => '';
+  @override
+  String get gameQuizQ6 => '';
+  @override
+  String get gameQuizQ6Fact => '';
+  @override
+  String get gameQuizQ7 => '';
+  @override
+  String get gameQuizQ7Fact => '';
+  @override
+  String get gameQuizQ8 => '';
+  @override
+  String get gameQuizQ8Fact => '';
+  @override
+  String get gameQuizQ9 => '';
+  @override
+  String get gameQuizQ9Fact => '';
+  @override
+  String get gameQuizQ10 => '';
+  @override
+  String get gameQuizQ10A1 => '';
+  @override
+  String get gameQuizQ10A2 => '';
+  @override
+  String get gameQuizQ10A3 => '';
+  @override
+  String get gameQuizQ10Fact => '';
   @override
   String get setLocation => '';
   @override
@@ -5335,6 +5580,26 @@ class _Exhaustive implements AppLocalizations {
   String get searchStepNoDriverFound => '';
   @override
   String get dropoffTooClose => '';
+  @override
+  String get fdAdjustPill => '';
+  @override
+  String get fdAdjustSubtitle => '';
+  @override
+  String get fdSearchAddress => '';
+  @override
+  String get fdShareTitle => '';
+  @override
+  String get fdShareBody => '';
+  @override
+  String get fdShareButton => '';
+  @override
+  String get fdYourLocation => '';
+  @override
+  String get fdLocationNotShared => '';
+  @override
+  String get bumpSubtitle => '';
+  @override
+  String bumpSliderHint(String amount) => '';
   @override
   String get swTripStatusDraft => '';
   @override

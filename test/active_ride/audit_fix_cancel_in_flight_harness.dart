@@ -1,3 +1,4 @@
+import '../fixtures/open_cancel_via_menu.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -103,7 +104,7 @@ Future<GlobalKey<NavigatorState>> pumpWaitingWithGate(
 /// Confirms a cancel on Waiting (close, Cancel ride, Skip) and
 /// returns once the request is held by [gate].
 Future<void> confirmCancel(WidgetTester tester, CancelGate gate) async {
-  await tester.tap(find.byIcon(Icons.close_rounded));
+  await openCancelViaMenu(tester);
   await tester.pumpAndSettle();
   await tester.tap(find.text('Cancel ride'));
   await tester.pumpAndSettle();

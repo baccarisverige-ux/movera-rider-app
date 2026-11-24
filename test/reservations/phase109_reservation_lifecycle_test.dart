@@ -1,3 +1,4 @@
+import '../fixtures/open_cancel_via_menu.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -386,7 +387,7 @@ void main() {
         }
       }
 
-      await tester.tap(find.byIcon(Icons.close_rounded).first);
+      await openCancelViaMenu(tester);
       await frames();
       await tester.tap(find.text('Cancel ride'));
       await frames();
