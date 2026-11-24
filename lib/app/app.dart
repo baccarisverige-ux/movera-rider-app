@@ -15,6 +15,7 @@ import 'package:movera_rider/features/account_status/presentation/account_status
 import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in.dart';
 import 'package:movera_rider/features/ride_booking/presentation/ride_restore_gate.dart';
+import 'package:movera_rider/app/movera_scroll_behavior.dart';
 
 /// Lets the DI container send the rider to Sign in on session expiry without
 /// importing presentation (ARCH-17). Idempotent.
@@ -57,6 +58,8 @@ class MoveraApp extends StatelessWidget {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           debugShowCheckedModeBanner: false,
+          // Owner 2026-11-24: nothing bounces past its edge on iOS.
+          scrollBehavior: const MoveraScrollBehavior(),
           theme: moveraTheme(),
           // v0.10.0 Content: update block, terms and update messages.
           // Owner 2026-10-30 "Map under the strip": on the web the page's

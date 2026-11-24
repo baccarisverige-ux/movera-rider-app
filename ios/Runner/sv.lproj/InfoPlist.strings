@@ -3,3 +3,8 @@
 "NSMicrophoneUsageDescription" = "Movera använder mikrofonen bara när du väljer att spela in ljud under en resa.";
 /* rider-u114: the temporary precise location prompt (purpose key in Info.plist). */
 "PickupPrecision" = "Movera behöver din exakta plats för att ange upphämtningen där du är, så att föraren hittar dig.";
+/* 2026-11-23 App Store purpose strings (ITMS-90683). */
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "Movera använder din plats bara medan du använder appen, för att ange upphämtningsplatsen och visa föraren var ni ska mötas. Movera spårar dig inte i bakgrunden.";
+"NSLocationAlwaysUsageDescription" = "Movera använder din plats bara medan du använder appen, för att ange upphämtningsplatsen och visa föraren var ni ska mötas. Movera spårar dig inte i bakgrunden.";
+"NSCameraUsageDescription" = "Movera använder kameran bara om du väljer att skanna ett betalkort eller slår på video i ett samtal i appen.";
+"NSBluetoothAlwaysUsageDescription" = "Movera kan använda Bluetooth bara för att ansluta ljudheadset under samtal i appen med din förare.";
