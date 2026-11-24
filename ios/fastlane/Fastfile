@@ -1,0 +1,100 @@
+# App Store Connect helper lanes for the iOS TestFlight workflow (.github/workflows/ios-testflight.yml).
+# Everything uses only the App Store Connect API key (no Apple ID, no Mac, no fastlane match).
+# Env: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH (the .p8 file), APP_BUNDLE_ID, APP_NAME, APP_SKU.
+default_platform(:ios)
+
+platform :ios do
+  def movera_api_key
+    key = app_store_connect_api_key(
+      key_id: ENV.fetch('ASC_KEY_ID'),
+      issuer_id: ENV.fetch('ASC_ISSUER_ID'),
+      key_filepath: ENV.fetch('ASC_KEY_PATH'),
+      in_house: false
+    )
+    Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from(hash: key)
+    key
+  end
+
+  def gh_output(name, value)
+    out = ENV['GITHUB_OUTPUT']
+    File.open(out, 'a') { |f| f.puts("#{name}=#{value}") } if out
+  end
+
+  # Step 1: the bundle id exists, with Sign in with Apple + Push Notifications.
+  lane :ensure_bundle_id do
+    movera_api_key
+    id = ENV.fetch('APP_BUNDLE_ID')
+    name = ENV.fetch('APP_NAME')
+    bundle = Spaceship::ConnectAPI::BundleId.find(id)
+    if bundle
+      UI.message("Bundle id #{id} already registered.")
+    else
+      UI.message("Registering bundle id #{id} (#{name}).")
+      bundle = Spaceship::ConnectAPI::BundleId.create(
+        name: name,
+        platform: Spaceship::ConnectAPI::BundleIdPlatform::IOS,
+        identifier: id
+      )
+    end
+    types = Spaceship::ConnectAPI::BundleIdCapability::Type
+    have = bundle.get_capabilities.map(&:capability_type)
+    UI.message("Capabilities before: #{have.sort.join(', ')}")
+    {
+      types::APPLE_ID_AUTH => [{
+        key: Spaceship::ConnectAPI::BundleIdCapability::Settings::APPLE_ID_AUTH_APP_CONSENT,
+        options: [{ key: Spaceship::ConnectAPI::BundleIdCapability::Options::PRIMARY_APP_CONSENT }]
+      }],
+      types::PUSH_NOTIFICATIONS => []
+    }.each do |type, settings|
+      next if have.include?(type)
+      UI.message("Adding capability #{type}.")
+      bundle.create_capability(type, settings: settings)
+    end
+    have = Spaceship::ConnectAPI::BundleId.find(id).get_capabilities.map(&:capability_type)
+    UI.message("Capabilities now: #{have.sort.join(', ')}")
+    [types::APPLE_ID_AUTH, types::PUSH_NOTIFICATIONS].each do |type|
+      UI.user_error!("Capability #{type} is missing on #{id}.") unless have.include?(type)
+    end
+    # The team id is the bundle id's seed id; xcodebuild export needs it (not a secret).
+    gh_output('team_id', bundle.seed_id)
+    UI.success("Bundle id #{id} ready (team #{bundle.seed_id}).")
+  end
+
+  # Step 4 gate: the App Store Connect app record cannot be created with an API key.
+  lane :check_app_record do
+    movera_api_key
+    id = ENV.fetch('APP_BUNDLE_ID')
+    app = Spaceship::ConnectAPI::App.find(id)
+    unless app
+      UI.user_error!(
+        "No App Store Connect app record for #{id}. The API key cannot create it. " \
+        "Owner: open appstoreconnect.apple.com > Apps > + > New App: platform iOS, " \
+        "name '#{ENV.fetch('APP_NAME')}', primary language, bundle id #{id}, SKU '#{ENV.fetch('APP_SKU')}', " \
+        "user access Full Access. Then run this workflow again."
+      )
+    end
+    UI.success("App record found: #{app.name} (Apple id #{app.id}).")
+  end
+
+  lane :upload do
+    key = movera_api_key
+    upload_to_testflight(
+      api_key: key,
+      ipa: ENV.fetch('IPA_PATH'),
+      skip_waiting_for_build_processing: true,
+      skip_submission: true
+    )
+  end
+
+  # After an upload: list the newest builds App Store Connect knows (processing state included).
+  lane :list_builds do
+    movera_api_key
+    app = Spaceship::ConnectAPI::App.find(ENV.fetch('APP_BUNDLE_ID'))
+    UI.user_error!('No app record.') unless app
+    builds = Spaceship::ConnectAPI::Build.all(app_id: app.id, sort: '-uploadedDate', limit: 10)
+    UI.important('App Store Connect has no build yet (processing can take a few minutes).') if builds.empty?
+    builds.each do |b|
+      UI.message("build #{b.version} uploaded #{b.uploaded_date} state #{b.processing_state} expired #{b.expired}")
+    end
+  end
+end
