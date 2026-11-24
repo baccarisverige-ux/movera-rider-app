@@ -186,6 +186,15 @@ jobs:
             <key>manageAppVersionAndBuildNumber</key><false/>
           </dict></plist>
           PLIST
+          # iOS push (contract v0.18.160): the archive is built with --no-codesign, so it carries no entitlements and
+          # the exported app had no aps-environment (rider build 10: none). Sign the archived app ad hoc with
+          # Runner.entitlements (aps-environment production for TestFlight / App Store) so the export keeps them.
+          app=build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app
+          ent="$RUNNER_TEMP/Runner.entitlements"
+          cp ios/Runner/Runner.entitlements "$ent"
+          /usr/libexec/PlistBuddy -c 'Set :aps-environment production' "$ent"
+          find "$app/Frameworks" -maxdepth 1 \( -name '*.framework' -o -name '*.dylib' \) -exec codesign --force --sign - --timestamp=none {} \; 2>/dev/null || true
+          codesign --force --sign - --timestamp=none --entitlements "$ent" "$app"
           xcodebuild -exportArchive \
             -archivePath build/ios/archive/Runner.xcarchive \
             -exportPath build/ios/ipa \
@@ -198,6 +207,8 @@ jobs:
           unzip -q -o "$ipa" -d "$RUNNER_TEMP/ipa"
           codesign -dvv "$RUNNER_TEMP/ipa/Payload/Runner.app" 2>&1 | grep -E '^(Authority|TeamIdentifier|Identifier)=' || true
           codesign -d --entitlements - --xml "$RUNNER_TEMP/ipa/Payload/Runner.app" 2>/dev/null | plutil -p - || true
+          aps="$(codesign -d --entitlements - --xml "$RUNNER_TEMP/ipa/Payload/Runner.app" 2>/dev/null | plutil -extract aps-environment raw -o - - 2>/dev/null || true)"
+          [ "$aps" = production ] || { echo "::error::The signed app has no aps-environment production (push would never reach this iPhone)."; exit 1; }
           echo "IPA_PATH=$PWD/$ipa" >> "$GITHUB_ENV"
 
       - name: Keep the IPA (7 days)
