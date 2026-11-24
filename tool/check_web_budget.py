@@ -21,6 +21,13 @@ builds CI checks + 2 %, rounded up to the next KiB.
     publish-web-live.yml real  (/app/)  6,502,620 / 1,852,269
   (main before the launch sets, same real-app flags: 6,436,525 / 1,834,058.)
   New budget: raw 6,633,472, gzip 1,890,304 (ci.yml and publish-web-live.yml).
+
+Raised on purpose 2026-11-24 (same rule). Reason: rider redesign 2026-11-23
+(search radar, pickup edit, raise card R2, games, driver card B2, arrived
+popup C1, driver profile P1v2, chat v2) + driver profile v0.18.155.
+  Measured 2026-11-24, ci.yml production build: 6,635,903 / 1,892,001
+  (2,431 / 1,697 bytes over the old budget).
+  New budget: raw 6,769,664, gzip 1,930,240 (ci.yml and publish-web-live.yml).
 """
 import argparse
 import gzip
