@@ -1,5 +1,9 @@
+import 'package:movera_rider/features/finding_driver/presentation/games/search_games.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:flutter/material.dart';
+import 'package:movera_rider/features/active_ride/presentation/ride_slot_animations.dart';
+import 'package:movera_rider/core/config/driver_profile_settings.dart';
+import 'package:movera_rider/features/driver_profile/presentation/driver_on_way_card.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
@@ -73,6 +77,10 @@ class RiderInTripPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Owner 2026-11-23 (on-trip-animation.html): the approved
+          // animation at the top of the panel.
+          const Center(child: OnTripAnimation()),
+          const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -183,13 +191,25 @@ class RiderInTripPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          WaitingDriverCard(
-            driver: driver,
-            rideId: rideId,
-            onOpenProfile: onOpenProfile,
-            onCall: onCall,
-            onMore: onMore,
-          ),
+          // Owner 2026-11-23: the same driver card as before pickup during
+          // the trip (contract.json#driverProfile; the profile read works
+          // until 24 h after the end). Zone switch off: the old block.
+          if (DriverProfileSettings.current.on)
+            DriverOnWayCard(
+              driver: driver,
+              rideId: rideId,
+              onOpenProfile: onOpenProfile,
+              onCall: onCall,
+              onMore: onMore,
+            )
+          else
+            WaitingDriverCard(
+              driver: driver,
+              rideId: rideId,
+              onOpenProfile: onOpenProfile,
+              onCall: onCall,
+              onMore: onMore,
+            ),
           const SizedBox(height: 14),
           Container(
             width: double.infinity,
@@ -223,25 +243,34 @@ class RiderInTripPanel extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              key: const ValueKey<String>('active-trip-cancel'),
-              onPressed: onCancel,
-              icon: const Icon(Icons.close_rounded, size: 18),
-              // UI-01: on board the trip ends early (paid by distance).
-              label: Text(context.l10n.endTripHere),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFB42318),
-                side: const BorderSide(color: Color(0xFFE4B8B4)),
-                minimumSize: const Size.fromHeight(50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+          // Owner 2026-11-23 (screen 3): "Avsluta resan här" lives in the
+          // ⋯ menu as its last red row; without that menu it stays here.
+          // Without a driver card (no driver data) the ⋯ is not shown,
+          // so the end button stays reachable here.
+          if (onMore == null || driver == null) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: const ValueKey<String>('active-trip-cancel'),
+                onPressed: onCancel,
+                icon: const Icon(Icons.close_rounded, size: 18),
+                // UI-01: on board the trip ends early (paid by distance).
+                label: Text(context.l10n.endTripHere),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFB42318),
+                  side: const BorderSide(color: Color(0xFFE4B8B4)),
+                  minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
+          // Owner 2026-11-23: the games row at the bottom of the sheet.
+          const SizedBox(height: 16),
+          const SearchGamesRow(),
         ],
       ),
     );

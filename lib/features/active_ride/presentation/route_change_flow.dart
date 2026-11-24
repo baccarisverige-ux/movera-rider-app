@@ -239,6 +239,99 @@ Future<RideSnapshot?> _smallPickupMove(
   return RouteChangeController.adoptMovedPickup(ride, selection.pickup, point);
 }
 
+/// Owner 2026-11-23 (search screen, "Justera"): prices moving the pickup of
+/// a ride still being searched to [point], with the same route change the
+/// route screen uses. Null when route changes are off for the trip.
+Future<RouteChangeQuote?> previewSearchingPickup({
+  required RideSnapshot ride,
+  required String address,
+  required GeoPoint point,
+}) async {
+  final changes = await _controllerFor(ride);
+  if (!changes.available) return null;
+  return changes.preview(
+    ride: ride,
+    pickupAddress: address,
+    pickupPoint: point,
+    destinationAddress: ride.destinationAddress,
+    destinationPoint: GeoPoint(ride.destinationLat, ride.destinationLng),
+    stops: [for (final stop in ride.stops) stop.address],
+    stopPoints: [
+      for (final stop in ride.stops) GeoPoint(stop.latitude, stop.longitude),
+    ],
+  );
+}
+
+/// Owner 2026-11-23 ("Justera" edit mode while searching): moves the pickup
+/// with the existing flow. A move within the zone's `maxPickupMoveMeters`
+/// is the same-price pickup move (`PATCH { pickup }`); a bigger one uses
+/// [quote] (the new price the card showed and the rider confirmed with
+/// "Bekräfta nytt pris"). A lower price on a card trip still asks where the
+/// refund goes. Returns the saved ride, or null when nothing changed.
+Future<RideSnapshot?> applySearchingPickup(
+  BuildContext context, {
+  required RideSnapshot ride,
+  required String address,
+  required GeoPoint point,
+  RouteChangeQuote? quote,
+}) async {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  lastRouteDifferenceKr = null;
+  try {
+    final selection = RoutePickerSelection(
+      pickup: address,
+      pickupPoint: point,
+      destination: ride.destinationAddress,
+      stops: [for (final stop in ride.stops) stop.address],
+    );
+    final moved = await _smallPickupMove(ride, selection);
+    if (moved != null) {
+      lastRouteDifferenceKr = 0;
+      return moved;
+    }
+    final changes = await _controllerFor(ride);
+    final priced =
+        quote ??
+        await previewSearchingPickup(
+          ride: ride,
+          address: address,
+          point: point,
+        );
+    if (priced == null || !context.mounted) return null;
+    RefundDestination? refundTo;
+    if (priced.differenceKr < 0 && !isCashPayment(ride.paymentMethod)) {
+      final decision = await RouteChangeSheet.confirm(
+        context,
+        quote: priced,
+        paymentMethod: ride.paymentMethod,
+        paymentMethodId: ride.paymentMethodId,
+        whileSearching: true,
+      );
+      if (!decision.confirmed || !context.mounted) return null;
+      refundTo = decision.refundTo;
+    }
+    if (changes.contractWire) {
+      final updated = await _propose(changes, ride, priced, null);
+      if (updated != null) lastRouteDifferenceKr = priced.differenceKr;
+      return updated;
+    }
+    final updated = await changes.apply(
+      ride: ride,
+      quote: priced,
+      refundTo: refundTo,
+    );
+    await _creditWallet(refundTo, priced, before: ride, after: updated);
+    lastRefundDestination = refundTo;
+    lastRouteDifferenceKr = priced.differenceKr;
+    return updated;
+  } on RouteChangeException catch (error) {
+    messenger
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(error.message)));
+    return null;
+  }
+}
+
 /// v0.18.9 (driver group 7): a controller with the trip zone's
 /// `routeChange.on` and `booking.maxStops` (on and 3 when no config of the
 /// trip's currency can be read; the server checks both again).

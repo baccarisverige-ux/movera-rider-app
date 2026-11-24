@@ -1,5 +1,6 @@
 import 'package:movera_rider/features/active_ride/presentation/trip_pin_card.dart';
 import 'package:flutter/material.dart';
+import 'package:movera_rider/features/driver_profile/presentation/driver_on_way_card.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,8 +11,6 @@ import 'package:movera_rider/l10n/l10n.dart';
 
 const Color _ink = Color(0xFF1D252C);
 const Color _muted = Color(0xFF5C656C);
-const Color _line = Color(0xFFE7EBEE);
-const Color _accent = Color(0xFF2D5878);
 
 /// Announced once, when the driver reaches the pickup point.
 ///
@@ -87,83 +86,71 @@ class DriverArrivedSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final inset = MediaQuery.paddingOf(context).bottom;
-    final name = driver?.firstName;
-    final plate = driver?.plate;
-    final vehicle = driver?.vehicleLabel;
+    final d = driver;
+    final name = d?.firstName;
+    final plate = d?.plate;
+    final car = [
+      d?.vehicleColor,
+      d?.vehicleMake,
+      d?.vehicleModel,
+    ].whereType<String>().where((s) => s.trim().isNotEmpty).join(' ');
 
     return PointerInterceptor(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + inset),
+        padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + inset),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFE8F0F6),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.directions_car_filled_outlined,
-                    color: _accent,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    name == null
-                        ? context.l10n.driverIsHere
-                        : context.l10n.nameIsHere(name),
-                    style: GoogleFonts.poppins(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: _ink,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            // Owner 2026-11-23 (C1): a centred navy pin over two calm blue
+            // rings; still with reduce motion.
+            const ArrivedPin(),
             const SizedBox(height: 10),
             Text(
+              name == null
+                  ? context.l10n.driverIsHere
+                  : context.l10n.nameIsHere(name),
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: _ink,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
               context.l10n.driverWaitingAtPickup,
+              textAlign: TextAlign.center,
               style: GoogleFonts.poppins(fontSize: 14, color: _muted),
             ),
-            if (plate != null && plate.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _line),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      plate,
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: _ink,
-                        letterSpacing: 1.5,
+            if (d != null) ...[
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  DriverRatedPhoto(
+                    driver: d,
+                    radius: 22,
+                    photoKey: const ValueKey('arrived-photo'),
+                  ),
+                  if (plate != null && plate.isNotEmpty) ...[
+                    const SizedBox(width: 14),
+                    SwedishPlate(text: plate),
+                  ],
+                  if (car.isNotEmpty) ...[
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        car,
+                        maxLines: 2,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: _ink,
+                        ),
                       ),
                     ),
-                    if (vehicle != null && vehicle.isNotEmpty)
-                      Text(
-                        vehicle,
-                        style: GoogleFonts.poppins(fontSize: 13, color: _muted),
-                      ),
                   ],
-                ),
+                ],
               ),
             ],
             if (pin case final code?) ...[
@@ -173,20 +160,18 @@ class DriverArrivedSheet extends StatelessWidget {
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
+              height: 52,
               child: FilledButton(
                 key: const ValueKey('driver-arrived-on-way'),
                 onPressed: () => _sendOnWayAndClose(context),
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF11181D),
-                  minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                  backgroundColor: const Color(0xFF111614),
+                  shape: const StadiumBorder(),
                 ),
                 child: Text(
                   context.l10n.imOnTheWay,
                   style: GoogleFonts.poppins(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
@@ -198,4 +183,85 @@ class DriverArrivedSheet extends StatelessWidget {
       ),
     );
   }
+}
+
+/// C1: the navy pin standing on two soft blue rings that widen calmly.
+class ArrivedPin extends StatefulWidget {
+  const ArrivedPin({super.key});
+
+  @override
+  State<ArrivedPin> createState() => _ArrivedPinState();
+}
+
+class _ArrivedPinState extends State<ArrivedPin>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _rings = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2400),
+  );
+  bool _played = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+      _rings
+        ..stop()
+        ..value = 0.5;
+    } else if (!_rings.isAnimating && !_played) {
+      // A few calm waves, then still (never an endless motion).
+      _played = true;
+      _rings.repeat(count: 3);
+    }
+  }
+
+  @override
+  void dispose() {
+    _rings.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: const ValueKey('arrived-pin'),
+      width: 210,
+      height: 96,
+      child: AnimatedBuilder(
+        animation: _rings,
+        builder: (context, _) => CustomPaint(
+          painter: _RingsPainter(_rings.value),
+          child: const Align(
+            alignment: Alignment(0, -0.45),
+            child: Icon(Icons.location_on, size: 64, color: Color(0xFF061B44)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RingsPainter extends CustomPainter {
+  const _RingsPainter(this.t);
+  final double t;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height * 0.78);
+    for (final phase in [t, (t + 0.5) % 1]) {
+      final w = 70 + 130 * phase;
+      canvas.drawOval(
+        Rect.fromCenter(center: c, width: w, height: w * 0.3),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = const Color(
+            0xFF9CC3E0,
+          ).withValues(alpha: 0.9 * (1 - phase)),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RingsPainter old) => old.t != t;
 }

@@ -26,11 +26,9 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.text('+2,00 €'));
+    await tester.tap(find.text('+2'));
     await tester.pump();
 
-    final field = tester.widget<TextField>(find.byType(TextField));
-    expect(field.controller!.text, isNot(contains('.')));
     expect(find.text('Confirm 26,60 €'), findsOneWidget);
   });
 }

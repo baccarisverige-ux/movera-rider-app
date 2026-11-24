@@ -50,7 +50,7 @@ void main() {
   ) async {
     final confirmed = <int>[];
     await pumpCard(tester, confirmed: confirmed);
-    await tester.tap(find.text('+100,00 kr'));
+    await tester.tap(find.text('+100'));
     await tester.pump();
     expect(find.text('Confirm 359,00 kr'), findsOneWidget);
     await tester.tap(find.text('Confirm 359,00 kr'));
@@ -61,7 +61,7 @@ void main() {
   testWidgets('typed price confirms the extra kr', (tester) async {
     final confirmed = <int>[];
     await pumpCard(tester, confirmed: confirmed);
-    await tester.enterText(find.byType(TextField), '340');
+    tester.widget<Slider>(find.byType(Slider)).onChanged!(340);
     await tester.pump();
     expect(find.text('Confirm 340,00 kr'), findsOneWidget);
     await tester.tap(find.text('Confirm 340,00 kr'));
@@ -74,7 +74,7 @@ void main() {
   ) async {
     final confirmed = <int>[];
     await pumpCard(tester, confirmed: confirmed);
-    await tester.enterText(find.byType(TextField), '259');
+    tester.widget<Slider>(find.byType(Slider)).onChanged!(259);
     await tester.pump();
     expect(find.text('Set new price'), findsOneWidget);
     await tester.tap(find.text('Set new price'));
@@ -102,12 +102,13 @@ void main() {
       ),
     );
     bool lit(String chip) =>
-        tester.widget<Text>(find.text(chip)).style?.color == Colors.white;
-    await tester.enterText(find.byType(TextField), '27'); // +2,40 €
+        tester.widget<Text>(find.text(chip)).style?.fontWeight ==
+        FontWeight.w700;
+    tester.widget<Slider>(find.byType(Slider)).onChanged!(27); // +2,40 €
     await tester.pump();
-    expect(lit('+2,00 €'), isFalse);
-    await tester.tap(find.text('+2,00 €'));
+    expect(lit('+2'), isFalse);
+    await tester.tap(find.text('+2'));
     await tester.pump();
-    expect(lit('+2,00 €'), isTrue);
+    expect(lit('+2'), isTrue);
   });
 }

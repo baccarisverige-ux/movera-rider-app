@@ -1,3 +1,4 @@
+import '../fixtures/open_cancel_via_menu.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -102,7 +103,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
-    await tester.tap(find.byIcon(Icons.close_rounded));
+    await openCancelViaMenu(tester);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel ride'));
     await tester.pumpAndSettle();

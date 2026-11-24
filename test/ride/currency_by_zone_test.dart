@@ -604,9 +604,9 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Current 259,00 kr'), findsOneWidget);
-      expect(find.text('+50,00 kr'), findsOneWidget);
-      await tester.tap(find.text('+100,00 kr'));
+      expect(find.text('259'), findsOneWidget);
+      expect(find.text('+50'), findsOneWidget);
+      await tester.tap(find.text('+100'));
       await tester.pump();
       expect(find.text('Confirm 359,00 kr'), findsOneWidget);
     });
@@ -631,9 +631,9 @@ void main() {
         ),
       ),
     );
-    expect(find.text('Current 24,60 €'), findsOneWidget);
+    expect(find.text('24,60'), findsOneWidget);
     expect(find.textContaining('kr'), findsNothing);
-    await tester.enterText(find.byType(TextField), '30');
+    tester.widget<Slider>(find.byType(Slider)).onChanged!(30);
     await tester.pump();
     await tester.tap(find.text('Confirm 30,00 €'));
     expect(raised, const Money(540, 'EUR'));
