@@ -17,7 +17,7 @@ jobs:
           flutter-version: '3.47.7'
           cache: true
       - run: flutter pub get --enforce-lockfile
-      - run: dart format --output=none --set-exit-if-changed lib/core/notifications/firebase_push_service.dart test/notifications/r7_push_config_test.dart
+      - run: dart format --output=none --set-exit-if-changed lib/core/notifications/firebase_push_service.dart test/notifications/r7_push_config_test.dart test/platform/audit_fix_release_readiness_test.dart
       - run: flutter analyze
       - run: flutter test test/notifications
       - run: flutter test

@@ -239,7 +239,10 @@ class FirebasePushService implements PushService {
         'Push settings could not be read (${error.runtimeType}).',
       );
     }
-    final settings = answer[native ? '${platform}Config' : 'webConfig'];
+    final settings =
+        answer[native
+            ? (platform == 'android' ? 'androidConfig' : 'iosConfig')
+            : 'webConfig'];
     String text(String key) => settings is Map && settings[key] is String
         ? settings[key] as String
         : '';
