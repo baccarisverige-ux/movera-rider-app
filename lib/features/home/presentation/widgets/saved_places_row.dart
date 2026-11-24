@@ -129,7 +129,7 @@ class SavedPlacesRow extends StatelessWidget {
       constraints: BoxConstraints(minHeight: ResSize.h * 46),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
+        physics: const ClampingScrollPhysics(),
         child: Row(
           children: [
             for (var i = 0; i < cards.length; i++)

@@ -108,7 +108,7 @@ class RiderMenuPage extends StatelessWidget {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
+          physics: const ClampingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(18, 6, 18, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
