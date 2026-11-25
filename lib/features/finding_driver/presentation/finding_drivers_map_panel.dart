@@ -70,10 +70,16 @@ extension _FindingDriversMapPanel on _FindingDriversState {
 
   Future<void> _prepareMapVisuals() async {
     final eta = widget.etaMinutes;
-    final tripMinutes = estimatedTripMinutes(
-      GeoPoint(_pickupPosition.latitude, _pickupPosition.longitude),
-      GeoPoint(_destinationPosition.latitude, _destinationPosition.longitude),
-    );
+    // v0.18.163: the server's trip time when the quote carried one.
+    final tripMinutes =
+        widget.tripMinutes ??
+        estimatedTripMinutes(
+          GeoPoint(_pickupPosition.latitude, _pickupPosition.longitude),
+          GeoPoint(
+            _destinationPosition.latitude,
+            _destinationPosition.longitude,
+          ),
+        );
     final icons = await Future.wait<BitmapDescriptor>([
       // While searching the pins carry the estimate; the live driver ETA
       // takes over once a driver is found.

@@ -21,6 +21,7 @@ class RideQuote {
     this.serverHeld = false,
     this.pickupAt,
     this.samePointWarning,
+    this.tripSeconds,
   });
 
   final String id;
@@ -61,6 +62,20 @@ class RideQuote {
   /// but can accept booking"): pickup and drop-off are this close; the
   /// rider is warned and can still book ([bookable] does not change).
   final SamePointWarning? samePointWarning;
+
+  /// v0.18.163 (contract.json#liveTraffic.quote / rider, owner 2026-11-25
+  /// "Google trafic réel"): the trip time the server priced with (live
+  /// traffic), shown instead of the app's own straight-line minutes. Null
+  /// from an older server (then the app's estimate).
+  final int? tripSeconds;
+
+  /// [tripSeconds] in whole minutes (at least 1), or null.
+  int? get tripMinutes {
+    final seconds = tripSeconds;
+    if (seconds == null) return null;
+    final minutes = (seconds / 60).ceil();
+    return minutes < 1 ? 1 : minutes;
+  }
 
   /// Whether booking may send this quote: it has an id and either the
   /// server holds it ([serverHeld]) or it carries the mock's signature.

@@ -277,6 +277,7 @@ extension _SelectRideBookNow on _SelectRideState {
           stops: stops,
           realtime: widget.realtime,
           etaMinutes: selected.etaMin,
+          tripMinutes: quote.tripMinutes,
         ),
         settings: const RouteSettings(name: AppRoutes.findingDriver),
       );

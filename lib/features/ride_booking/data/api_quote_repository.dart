@@ -54,7 +54,7 @@ class ApiQuoteRepository implements QuoteRepository {
   Future<RideQuote> quote({
     required String rideType,
     required int distanceMeters,
-    int durationSeconds = 600,
+    int? durationSeconds,
     String? pickup,
     String? destination,
     GeoPoint? pickupPoint,
@@ -78,7 +78,8 @@ class ApiQuoteRepository implements QuoteRepository {
         body: {
           'rideType': rideType,
           'distanceMeters': distanceMeters,
-          'durationSeconds': durationSeconds,
+          // v0.18.163: no placeholder 600 s; only a real duration is sent.
+          if (durationSeconds != null) 'durationSeconds': durationSeconds,
           'pickup': pickup,
           'destination': destination,
           // ARCH-8 / contract C-2: the points the server routes and prices.
@@ -247,6 +248,8 @@ class ApiQuoteRepository implements QuoteRepository {
           outstandingFeeMinor: found.outstandingFeeMinor,
           // J10 (v0.18.84): the debt line under the price, never in it.
           walletDebt: found.walletDebt,
+          // v0.18.163 (contract.json#liveTraffic.rider): the server's trip time.
+          tripSeconds: found.tripSeconds,
           serverHeld: true,
         );
       }
@@ -366,6 +369,12 @@ class ApiQuoteRepository implements QuoteRepository {
       serverHeld: true,
       pickupAt: WireTime.tryParse(map['pickupAt']),
       samePointWarning: samePointWarning,
+      // v0.18.163 (contract.json#liveTraffic.quote): the drive time this
+      // price used (live traffic); absent from an older server.
+      tripSeconds: switch (map['tripSeconds']) {
+        final num s when s.isFinite && s >= 0 => s.round(),
+        _ => null,
+      },
     );
   }
 
