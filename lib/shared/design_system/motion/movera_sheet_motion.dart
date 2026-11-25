@@ -3,6 +3,7 @@ import 'package:movera_rider/shared/design_system/motion/movera_curves.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_durations.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
+import 'package:movera_rider/shared/design_system/motion/movera_sheet_physics.dart';
 
 class MoveraSheetMotion {
   const MoveraSheetMotion({
@@ -35,7 +36,10 @@ class MoveraSheetMotion {
     );
   }
 
-  static const SheetPhysics physics = BouncingSheetPhysics();
+  // Owner 2026-11-24 (iPhone): a sheet stops at its top and bottom stops;
+  // bouncing let the Home sheet be over-dragged 120 px past its top, which
+  // pushed "Where to?" under the status bar and opened a band under the nav.
+  static final SheetPhysics physics = MoveraSheetPhysics();
 
   static SheetDecoration decoration({Color color = Colors.white}) {
     return MaterialSheetDecoration(

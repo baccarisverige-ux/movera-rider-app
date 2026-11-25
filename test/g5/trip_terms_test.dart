@@ -113,7 +113,7 @@ void main() {
   });
 
   test(
-    // v0.18.156 (owner 2026-11-23): free pickup move up to 300 m (was 200).
+    // v0.18.160 (owner 2026-11-23): free pickup move up to 300 m (was 200).
     'the pickup move default is 300 m (was 200) when the document says nothing',
     () {
       final config = RiderAppConfig.fromJson({

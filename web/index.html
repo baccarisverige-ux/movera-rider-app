@@ -116,6 +116,29 @@
        taps; only its image is hidden. */
     .gm-style img[src*="/mapfiles/transparent.png"] { visibility: hidden !important; }
   </style>
+  <script>
+    // Owner 2026-11-23 (same as the driver app, LT-4 "load on open"): the google_sign_in web plugin
+    // adds Google's sign-in script (about 100 kB) at every start, but only a
+    // tap on "Continue with Google" needs it (and only on a build with
+    // GOOGLE_CLIENT_ID_WEB, lib/features/auth/data/provider_token_source.dart). Hold
+    // that script back until moveraLoadGoogleSignIn() asks for it.
+    (function() {
+      var head = document.head;
+      var append = head.appendChild;
+      var held = null;
+      head.appendChild = function(node) {
+        var src = node && node.tagName === 'SCRIPT' ? String(node.src || '') : '';
+        if (held === null && src.indexOf('https://accounts.google.com/gsi/client') === 0) {
+          held = node;
+          return node;
+        }
+        return append.call(head, node);
+      };
+      window.moveraLoadGoogleSignIn = function() {
+        if (held && !held.parentNode) append.call(head, held);
+      };
+    })();
+  </script>
 </head>
 <body>
   <div id="movera-boot" role="status" aria-live="polite" aria-label="Loading Movera">

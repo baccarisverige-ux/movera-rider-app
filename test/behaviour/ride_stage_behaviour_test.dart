@@ -1,3 +1,4 @@
+import '../fixtures/open_cancel_via_menu.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -147,7 +148,7 @@ void main() {
   testWidgets('Finding: cancelling uses the cancel sheet, never the old '
       '"Confirming your ride" dialog', (tester) async {
     await pumpFinding(tester);
-    await tester.tap(find.byIcon(Icons.close_rounded));
+    await openCancelViaMenu(tester);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.widgetWithText(TextButton, 'Cancel request'), findsOneWidget);
@@ -221,7 +222,7 @@ void main() {
   testWidgets('Waiting: cancelling uses the cancel sheet, never the old '
       '"Confirming your ride" dialog', (tester) async {
     await pumpWaiting(tester);
-    await tester.tap(find.byIcon(Icons.close_rounded));
+    await openCancelViaMenu(tester);
     await tester.pumpAndSettle();
     expect(find.text('Cancel ride'), findsOneWidget);
     expect(find.textContaining('Confirming your ride'), findsNothing);

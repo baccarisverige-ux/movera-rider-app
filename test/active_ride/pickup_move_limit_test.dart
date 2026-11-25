@@ -72,8 +72,8 @@ void main() {
     return mock;
   }
 
-  // v0.18.156 (owner 2026-11-23): free move up to 300 m (was 200 from v0.18.7).
-  test('the default limit is 300 m (v0.18.156)', () => expect(limit, 300));
+  // v0.18.160 (owner 2026-11-23): free move up to 300 m (was 200 from v0.18.7).
+  test('the default limit is 300 m (v0.18.160)', () => expect(limit, 300));
 
   test('a pickup moved more than the limit after accept is refused', () async {
     final changes = RouteChangeController(

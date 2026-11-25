@@ -52,6 +52,33 @@ jobs:
           # then the default branch head).
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
+      # Owner 2026-11-23: real "Sign in with Google / Apple". The client ids (not secrets) come from the
+      # repository variables below; an empty one keeps that button on "coming soon" (lib: ProviderSignInConfig).
+      # A pasted space or line break is stripped, like MOVERA_PROD_API_URL.
+      - name: Sign-in client ids
+        env:
+          V_GOOGLE_CLIENT_ID_WEB: ${{ vars.GOOGLE_CLIENT_ID_WEB }}
+          V_GOOGLE_CLIENT_ID_IOS: ${{ vars.GOOGLE_CLIENT_ID_IOS }}
+          V_GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_SERVER_CLIENT_ID }}
+          V_APPLE_SERVICE_ID: ${{ vars.APPLE_SERVICE_ID }}
+          V_APPLE_REDIRECT_URI: ${{ vars.APPLE_REDIRECT_URI }}
+        run: |
+          set -euo pipefail
+          for n in GOOGLE_CLIENT_ID_WEB GOOGLE_CLIENT_ID_IOS GOOGLE_SERVER_CLIENT_ID APPLE_SERVICE_ID APPLE_REDIRECT_URI; do
+            v="V_$n"
+            clean="$(printf '%s' "${!v:-}" | tr -d '[:space:][:cntrl:]')"
+            echo "$n=$clean" >> "$GITHUB_ENV"
+            export "$n=$clean"
+          done
+          case "$APPLE_REDIRECT_URI" in ''|https://*) ;; *) echo "::error::APPLE_REDIRECT_URI must start with https://"; exit 1 ;; esac
+          # iOS: the reversed iOS client id is the app's URL scheme (ios/Flutter/GoogleSignIn.xcconfig, untracked).
+          case "$GOOGLE_CLIENT_ID_IOS" in
+            *.apps.googleusercontent.com)
+              printf 'GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.%s\n' "${GOOGLE_CLIENT_ID_IOS%.apps.googleusercontent.com}" > ios/Flutter/GoogleSignIn.xcconfig ;;
+            '') ;;
+            *) echo "::error::GOOGLE_CLIENT_ID_IOS must end with .apps.googleusercontent.com"; exit 1 ;;
+          esac
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -97,10 +124,15 @@ jobs:
             --dart-define=MOVERA_API_BASE_URL="$LIVE_API" \
             --dart-define=MOVERA_AUTH_REQUIRED=true \
             --dart-define=MOVERA_APP_VERSION="$app_version" \
+            --dart-define=GOOGLE_CLIENT_ID_WEB="${GOOGLE_CLIENT_ID_WEB:-}" \
+            --dart-define=GOOGLE_CLIENT_ID_IOS="${GOOGLE_CLIENT_ID_IOS:-}" \
+            --dart-define=GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID:-}" \
+            --dart-define=APPLE_SERVICE_ID="${APPLE_SERVICE_ID:-}" \
+            --dart-define=APPLE_REDIRECT_URI="${APPLE_REDIRECT_URI:-}" \
             --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID"
           printf '%s\n' '{"flavor":"staging","production":false}' > build/web/movera-environment.json
           # D12 (R10 #14): the same size budget as ci.yml's production build.
-          python3 tool/check_web_budget.py build/web --main-raw 6633472 --main-gzip 1890304
+          python3 tool/check_web_budget.py build/web --main-raw 6769664 --main-gzip 1930240
           python3 - <<'PY'
           import os
           from pathlib import Path
@@ -153,9 +185,14 @@ jobs:
             --dart-define=MOVERA_API_BASE_URL="$PROD_API" \
             --dart-define=MOVERA_AUTH_REQUIRED=true \
             --dart-define=MOVERA_APP_VERSION="$app_version" \
+            --dart-define=GOOGLE_CLIENT_ID_WEB="${GOOGLE_CLIENT_ID_WEB:-}" \
+            --dart-define=GOOGLE_CLIENT_ID_IOS="${GOOGLE_CLIENT_ID_IOS:-}" \
+            --dart-define=GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID:-}" \
+            --dart-define=APPLE_SERVICE_ID="${APPLE_SERVICE_ID:-}" \
+            --dart-define=APPLE_REDIRECT_URI="${APPLE_REDIRECT_URI:-}" \
             --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID"
           printf '%s\n' '{"flavor":"staging","production":false,"server":"real"}' > build/web/movera-environment.json
-          python3 tool/check_web_budget.py build/web --main-raw 6633472 --main-gzip 1890304
+          python3 tool/check_web_budget.py build/web --main-raw 6769664 --main-gzip 1930240
           python3 - <<'PY'
           import os
           from pathlib import Path

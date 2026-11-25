@@ -67,5 +67,28 @@
 	<true/>
 	<key>GMSApiKey</key>
 	<string>$(GOOGLE_MAPS_API_KEY)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(GOOGLE_REVERSED_CLIENT_ID)</string>
+			</array>
+		</dict>
+	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Movera uses your location only while you use the app, to set your pickup point and show your driver where to meet you. Movera does not track you in the background.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Movera uses your location only while you use the app, to set your pickup point and show your driver where to meet you. Movera does not track you in the background.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Movera uses the camera only if you choose to scan a payment card or turn on video in an in-app call.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Movera does not use Face ID to sign you in. A sign-in component it includes can ask for Face ID, and only when you choose to confirm with it.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Movera may use Bluetooth only to connect audio headsets during in-app calls with your driver.</string>
 </dict>
 </plist>

@@ -32,6 +32,12 @@ Future<void> moveraFirebaseMessagingBackgroundHandler(
 ) async {
   final environment = AppEnv.current;
   if (!environment.hasFirebaseConfig) return;
+  // An iPhone aborts on another platform's app id (TestFlight crash 2026-11-24).
+  if (!kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.iOS &&
+      !environment.firebaseAppId.contains(':ios:')) {
+    return;
+  }
   if (Firebase.apps.isEmpty) {
     await Firebase.initializeApp(options: _firebaseOptions(environment));
   }
@@ -99,7 +105,9 @@ class FlutterFirebasePushGateway implements FirebasePushGateway {
             defaultTargetPlatform != TargetPlatform.macOS)) {
       return;
     }
-    for (var attempt = 0; attempt < 10; attempt += 1) {
+    // v0.18.156: up to 10 s (was 2 s): right after the permission APNs can
+    // take several seconds to give the first token on a real iPhone.
+    for (var attempt = 0; attempt < 50; attempt += 1) {
       final token = await _messaging.getAPNSToken();
       if (token != null && token.trim().isNotEmpty) return;
       await Future<void>.delayed(const Duration(milliseconds: 200));
@@ -209,22 +217,37 @@ class FirebasePushService implements PushService {
   /// as the driver app does). The web settings carry a web app id, with
   /// which Firebase on an Android phone gives no usable token, so rider
   /// phone push stayed off. No key in the repository or in GitHub.
+  ///
+  /// iOS (TestFlight crash 2026-11-24): an iPhone asks `&platform=ios` and
+  /// uses only `iosConfig` (contract v0.18.105: push off on iOS until the APNs
+  /// key is in Firebase). Native Firebase on iOS raises an Objective-C
+  /// exception for a web app id (+[FIRApp addAppToAppDictionary:]); Dart
+  /// cannot catch it and the app closed ~1 s after launch. A phone therefore
+  /// never starts Firebase with settings that are not for its own platform.
   Future<AppEnv> _firebaseEnvironment() async {
-    if (_environment.hasFirebaseConfig) return _environment;
-    final android = _platformName == 'android';
+    final platform = _platformName;
+    if (_environment.hasFirebaseConfig) {
+      _requireAppIdFor(platform, _environment.firebaseAppId);
+      return _environment;
+    }
+    final native = platform != 'web';
     final Map<String, dynamic> answer;
     try {
       answer = await _api.get(
-        android ? '$configPath&platform=android' : configPath,
+        native ? '$configPath&platform=$platform' : configPath,
       );
     } catch (error) {
       throw PushConfigurationException(
         'Push settings could not be read (${error.runtimeType}).',
       );
     }
-    final web = answer[android ? 'androidConfig' : 'webConfig'];
-    String text(String key) =>
-        web is Map && web[key] is String ? web[key] as String : '';
+    final settings =
+        answer[native
+            ? (platform == 'android' ? 'androidConfig' : 'iosConfig')
+            : 'webConfig'];
+    String text(String key) => settings is Map && settings[key] is String
+        ? settings[key] as String
+        : '';
     final runtime = AppEnv(
       flavor: _environment.flavor,
       apiBaseUrl: _environment.apiBaseUrl,
@@ -239,7 +262,20 @@ class FirebasePushService implements PushService {
         'Push is off on the server (no Firebase settings).',
       );
     }
+    _requireAppIdFor(platform, runtime.firebaseAppId);
     return runtime;
+  }
+
+  /// A Firebase app id names its platform (`1:123:ios:abc`). On an iPhone,
+  /// native Firebase aborts the app for an id of another platform, so such
+  /// settings never reach it (Android only gives no token, it does not crash).
+  static void _requireAppIdFor(String platform, String appId) {
+    if (platform != 'ios') return;
+    if (!appId.contains(':ios:')) {
+      throw PushConfigurationException(
+        'Push settings are not for $platform; push stays off.',
+      );
+    }
   }
 
   @override

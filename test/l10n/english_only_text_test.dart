@@ -37,6 +37,33 @@ const _dataFiles = {
 };
 
 const _allowed = <String, Set<String>>{
+  // Owner 2026-11-23 (games): Stockholm place names in quiz answers, the
+  // same in every app language (lib/.../games/quiz_game.dart).
+  'Stockholm quiz place names (owner 2026-11-23)': {
+    'Södermalm',
+    'Kronan',
+    'Friends Arena',
+    'Vänern',
+    'Humlegården',
+  },
+  // v0.18.155 driver profile: each language in its own language (endonyms,
+  // the same in every app language; contract.json#driverProfile.languages).
+  'language endonyms (v0.18.155)': {
+    'Suomi',
+    'Español',
+    'Deutsch',
+    'Soomaali',
+    'Türkçe',
+    'Polski',
+    'Kurdî',
+    'Bosanski',
+  },
+  'crash catcher, never shown: crash-report messages for the admin '
+      '(contract v0.18.158, lib/core/observability/crash_*.dart)': {
+    'Isolate error',
+    'App ended without a clean exit (last screen )',
+    'The screen froze for s (screen )',
+  },
   'contract v0.18.57 §79 texts kept in sv, fr and en and picked by the '
       'phone language (lib/core/config/emergency_numbers.dart)': {
     'Ring {label} {number}',

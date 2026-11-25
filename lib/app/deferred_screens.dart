@@ -1,3 +1,4 @@
+import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:flutter/widgets.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart'
     deferred as ride_history;
@@ -22,9 +23,14 @@ Widget rideHistoryScreen() => DeferredScreen(
   builder: (_) => ride_history.RideHistory(),
 );
 
-Widget chatScreen({String? driverName, String? rideId}) => DeferredScreen(
+Widget chatScreen({
+  String? driverName,
+  String? rideId,
+  MatchedDriver? driver,
+}) => DeferredScreen(
   load: chat.loadLibrary,
-  builder: (_) => chat.Chat(driverName: driverName, rideId: rideId),
+  builder: (_) =>
+      chat.Chat(driverName: driverName, rideId: rideId, driver: driver),
 );
 
 /// Loads all three now (tests: a deferred load does not finish inside a

@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.156",
+  "version": "0.18.160",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -150,6 +150,7 @@
     "tags": {
       "note": "v0.9.0 (owner real-data decision, part 3): one fixed list of tag codes, the same in every country; each app shows its own words (sv/fr/en). aboutDriver: the tags a rider may give the driver; aboutRider: the tags a driver may give the rider. A rating may carry none of them.",
       "aboutDriver": [
+        "great_service",
         "clean_car",
         "friendly",
         "safe_driving",
@@ -161,7 +162,9 @@
         "polite",
         "clear_pickup"
       ],
-      "maxPerRating": 5
+      "maxPerRating": 6,
+      "maxPerRatingBefore0_18_155": 5,
+      "noteV0_18_155": "v0.18.155 (contract.json#driverProfile.compliments): great_service added to aboutDriver; a rider may pick all six (maxPerRating 6, was 5). The aboutRider list is unchanged."
     },
     "moderation": {
       "note": "v0.9.0: an admin hides a rating (POST /admin/ratings/{tripId}/{from}/hide) or restores it. A hidden rating stops counting in the person's average and in the low-rating risk signal; restoring counts it again (owner, 2026-10-27)."
@@ -967,7 +970,8 @@
           "deepLink": "Notification.deepLink when it has one, else empty"
         },
         "riderConsent": "A rider with consents.rideUpdates false gets no OPTIONAL push (driver found, almost there); the bell notice is always stored. v0.18.53 §75 (owner Q36-Q39): arrived, a new driver, cancelled, no driver found, trip failed, the booked-ride no-driver kinds and support answers are always pushed (riderTripPush.consent, support.answerPush). Drivers have no push consent: the operating system's permission is the switch.",
-        "tap": "A tap on the push opens the app at data.deepLink (the bell list when empty)."
+        "tap": "A tap on the push opens the app at data.deepLink (the bell list when empty).",
+        "apns": "v0.18.156: every FCM message to an ios device carries an apns block, so an iPhone shows it as an Android phone does: headers apns-push-type alert and apns-priority 10 (Android is always priority HIGH), apns-expiration from the offer's time to live as before; payload aps.alert { title, body } (the notice's, the same as notification), aps.sound (a loud driver offer: driverOffers.push.native.iosSound with interruption-level time-sensitive, a quiet Radar offer none, every other push default), aps.thread-id = data.kind (iOS groups the notices by kind). The server never sets aps.badge and never sends content-available (no silent background push); Android sets no collapse key, so no apns-collapse-id either. data stays the same on every platform."
       },
       "config": {
         "note": "v0.18.3 (R7): GET /push/config?app=driver|rider needs no token and gives the public Firebase web settings so no key is kept in the apps' code: { provider: fcm, enabled, projectId?, webConfig? { apiKey, appId, messagingSenderId, projectId, authDomain? } }. The server reads the web app (display name 'Movera Driver web' / 'Movera Rider web') from the Firebase Management API with its service account once and keeps it in memory. enabled false (no projectId, no webConfig) when the server has no Firebase settings; the app then skips push. v0.18.105: &platform=android gives androidConfig instead (auth.devices.config.android).",
@@ -1000,6 +1004,15 @@
             "Driver app": "Android: firebase_core + firebase_messaging, NativePushPlatform (lib/core/push/native_push_platform.dart) started from androidConfig, the two offer channels and res/raw/movera_offer in MainActivity.kt. iOS: off until the APNs key.",
             "Rider app": "unchanged in this version: its native builds start Firebase from build settings (MOVERA_FIREBASE_*); it may read androidConfig the same way later (no change needed to keep working)."
           }
+        },
+        "ios": {
+          "note": "v0.18.156 (owner 2026-11-24 \"Notifications doesn't work on iPhones?\"; the owner uploaded the team APNs auth key (sandbox + production) in Firebase Cloud Messaging for both iOS apps, Rules LAUNCH-RULE.md 2026-11-24; Rule 0; X-Api-Version stays `0.5`; additive, optional; no migration; follows v0.18.155): GET /push/config?app=driver|rider&platform=ios gives { provider: fcm, enabled, projectId?, iosConfig? { apiKey, appId, messagingSenderId, projectId, iosBundleId } }: the public settings of the project's Firebase iOS app with the app's bundle id (iosBundleIds), read once with the server's service account from the Firebase Management API (the app's GoogleService-Info.plist: GOOGLE_APP_ID, API_KEY, GCM_SENDER_ID, PROJECT_ID, BUNDLE_ID) and kept in memory, the same way as androidConfig. They are public (inside every IPA), never a secret, so no GoogleService-Info.plist and no key is kept in any app repository or CI. iosConfig.appId always names an iOS app (`1:<sender>:ios:<id>`). enabled false (no iosConfig) when the server has no Firebase settings or the project has no iOS app with that bundle id; the app then skips push and says so in its log. A failed read is tried again after 5 minutes. This replaces the v0.18.105 rule that platform=ios is always enabled false (auth.devices.config.android.ios, kept as history).",
+          "iosBundleIds": {
+            "driver": "se.movera.driver",
+            "rider": "com.movera.rider"
+          },
+          "appStart": "The iPhone app starts Firebase at run time with iosConfig (FirebaseOptions apiKey, appId, messagingSenderId, projectId, iosBundleId) and never with settings of another platform (native Firebase on iOS aborts the app for a web or Android app id). Then it follows appFlow at the same moment and with the same texts as on Android (driver: Go online; rider: after sign-in), asks the iOS notification permission (alert, sound, badge), waits for the APNs token, gets the FCM token, POST /push/devices { provider: fcm, platform: ios }, registers again when FCM changes the token and unregisters on sign-out. A push that comes while the app is open is not shown by the app (the offer stream and the bell list show it). A tap opens data.deepLink as on Android, from the background and from a closed app.",
+          "apps": "The iOS apps carry UIBackgroundModes remote-notification and the aps-environment entitlement (production in TestFlight / App Store builds; the bundle ids have the Push Notifications capability). The driver app also carries com.apple.developer.usernotifications.time-sensitive (Time Sensitive Notifications capability) so a loud offer (interruption-level time-sensitive) breaks through Focus."
         }
       },
       "appFlow": "v0.18.3 (R7): after sign-in the app explains why (sv / fr / en) before the operating system asks for the notification permission once; when allowed it gets the FCM token (on the web with the settings from GET /push/config and the service worker firebase-messaging-sw.js, which loads the same settings), registers it with POST /push/devices, registers again when the token changes and unregisters it on sign-out."
@@ -1360,7 +1373,8 @@
         "calls.adminCallRoles",
         "calls.phoneProvider",
         "driverPayRequest",
-        "riderFeeStripe"
+        "riderFeeStripe",
+        "smsSignInOtherCountries"
       ],
       "dispatch": [
         "radar.reaskAfterSeconds",
@@ -1642,10 +1656,14 @@
       ],
       "kinds": [
         "crash",
-        "error"
+        "error",
+        "dart_error",
+        "native_crash",
+        "freeze"
       ],
       "defaultKind": "crash",
-      "fields": "app (driver|rider), platform (android|ios|web), appVersion (e.g. 1.4.2), build (store build number), screen (route or screen name, no ids), kind (crash: the app stopped; error: caught and shown), occurredAt (RFC 3339 on the device; the server keeps its own receive time too)"
+      "fields": "app (driver|rider), platform (android|ios|web), appVersion (e.g. 1.4.2), build (store build number), screen (route or screen name, no ids), kind (crash: the app stopped; error: caught and shown), occurredAt (RFC 3339 on the device; the server keeps its own receive time too)",
+      "kindsNote": "v0.18.158 (crash catcher; owner 2026-11-24 \"Add to admin all kind of crash\", Rules LAUNCH-RULE.md 2026-11-24, plan/NUMBERS.md; Rule 0; X-Api-Version stays 0.5; additive; server migration 0136 (the kind list of error_groups); no third-party crash SDK; follows v0.18.157): kinds dart_error, native_crash and freeze added (contract.json#crashCatcher.kinds); crash and error kept."
     },
     "errorGroups": {
       "note": "v0.16.0 (owner 2026-10-29): the admin \"Crashes & errors\" section. Reports with the same fingerprint are one ErrorGroup. The server also records its own unhandled 5xx errors as app server (scrubbed, platform server).",
@@ -2316,7 +2334,8 @@
           "texts": {},
           "validMonths": {},
           "guides": {},
-          "emailVerifiedForApproval": false
+          "emailVerifiedForApproval": false,
+          "fleetNeedsCarForApproval": true
         },
         "FR": {
           "documents": {
@@ -2487,7 +2506,8 @@
             "urssaf_certificate": 6
           },
           "guides": {},
-          "emailVerifiedForApproval": false
+          "emailVerifiedForApproval": false,
+          "fleetNeedsCarForApproval": true
         },
         "TN": {
           "documents": {
@@ -2628,7 +2648,8 @@
           "texts": {},
           "validMonths": {},
           "guides": {},
-          "emailVerifiedForApproval": false
+          "emailVerifiedForApproval": false,
+          "fleetNeedsCarForApproval": true
         }
       },
       "stepIds": [
@@ -2761,7 +2782,7 @@
         "document_expiring": "due_soon: approved, expires within the warning window (fix: document)",
         "document_in_review": "waiting: uploaded, Movera reviews it (no fix)",
         "info_session_waiting": "waiting: the info session (kind admin_check) is not marked held yet; status waiting_for_movera; fix: info_session (content slot driver-info-session \"How to book your info session\")",
-        "account_not_active": "blocks_online: the account is pending / on_hold / suspended and every document is done (v0.18.3 R10: no line document_needed, document_rejected, document_expired, document_in_review, info_session_waiting, admin_check_waiting or vehicle_photos_needed is left; v0.18.76: nor a red email_not_verified line actually sent in this answer, since Movera cannot approve him before the check; a driver app below 0.18.76 never gets that line, so it still gets account_not_active); Movera activates it (no fix)",
+        "account_not_active": "blocks_online: the account is pending / on_hold / suspended and every document is done (v0.18.3 R10: no line document_needed, document_rejected, document_expired, document_in_review, info_session_waiting, admin_check_waiting or vehicle_photos_needed is left; v0.18.76: nor a red email_not_verified line actually sent in this answer, since Movera cannot approve him before the check; a driver app below 0.18.76 never gets that line, so it still gets account_not_active); Movera activates it (no fix) v0.18.159: nor while a fleet_no_car line is sent in this answer (the fleet owner has no car yet).",
         "fleet_not_approved": "blocks_online: the fleet is pending / rejected / blocked (no fix)",
         "no_fleet": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R4 \"Red 'Join a fleet' line (Recommended)\"): blocks_online: an account of type driver that is in no fleet; text texts.no_fleet; fix join_fleet (My fleet › Join a fleet) and actions [join_fleet, start_company] (two buttons, labels texts.actions); the line goes once the driver is in a fleet (or his account becomes a fleet)",
         "fleet_no_approved_car": "blocks_online: the fleet has no car that can be picked (approved, every car document approved); owner fix: fleet_vehicles (add / finish a car); member: no fix (\"Your fleet has no approved car yet…\")",
@@ -2770,7 +2791,8 @@
         "vehicle_photos_needed": "blocks_online: a car's four photos are not all uploaded and approved (fix: document, the first photo missing); text \"Add 4 photos of your car\"",
         "fleet_invitation": "v0.18.5 (G2-D5.6): waiting: an owner invited this driver (invitationId, fleetName); actions accept_invitation and decline_invitation; text texts.fleet_invitation; the line goes when he answers or it expires",
         "email_not_verified": "v0.18.76 (G30, owner Q3 \"show on sheet home screen as no verify\"): the driver has an e-mail without emailVerifiedAt; no expiresAt; fix verify_email (Account › E-mail, the code check with his address filled); the line goes once emailVerifiedAt is set. Level (owner 2026-11-12 ~14:10, S2): blocks_online (red) with text texts.email_not_verified_approval (\"needed for approval\") when his country's OnboardingSettings.emailVerifiedForApproval is on and he was never active before (pending or on_hold, or suspended without ever having been active; contract.json#emailVerified.neverActive), because Movera cannot approve him until it is verified; otherwise due_soon (orange, still works) with text texts.email_not_verified. Sent only to driver apps whose X-Contract-Version is 0.18.76 or higher (an older app would show an unknown line). The line itself never blocks going online: a red one is only sent to a driver who is not active yet.",
-        "owes_movera_over_limit": "v0.18.84 (owner Q-S5-1 'Both' + 2026-11-13 14:54, contract.json#debtModel.driverOwes.homeLine): due_soon (orange warning) while his country's CountryRules.driverOwesLimit is on and what he owes Movera is at or above its max — he gets no cash trips until he pays (driverOwes.cashOffers); it never stops going online. owed and limit (Money) on the line; no fix target; text texts.owes_movera_over_limit ({owed}, {limit}). Sent only to driver apps whose X-Contract-Version is 0.18.84 or higher."
+        "owes_movera_over_limit": "v0.18.84 (owner Q-S5-1 'Both' + 2026-11-13 14:54, contract.json#debtModel.driverOwes.homeLine): due_soon (orange warning) while his country's CountryRules.driverOwesLimit is on and what he owes Movera is at or above its max — he gets no cash trips until he pays (driverOwes.cashOffers); it never stops going online. owed and limit (Money) on the line; no fix target; text texts.owes_movera_over_limit ({owed}, {limit}). Sent only to driver apps whose X-Contract-Version is 0.18.84 or higher.",
+        "fleet_no_car": "v0.18.159 (owner 2026-11-24, Rules decisions/driver-g2.md \"Fleet owner must add a car\": \"Why fleet owner after sign in don't know that he need to add car ?\"; mockup PROPOSAL-fleet-add-car-2026-11-24.html approved \"Fleet partner add card reminder add\"): blocks_online: the FLEET OWNER (fleet.ownerDriverId = the driver) of a fleet with ZERO cars (no vehicle with this fleetId, whatever its status), while the fleet is NOT approved (pending, rejected, blocked), from the first sign-in (an approved fleet with no car keeps fleet_no_approved_car: \"before Movera can approve it\" would be false); text texts.fleet_no_car + texts.fleet_no_car_body, button texts.fleet_add_car; fix fleet_vehicles (My fleet › Add car). Never sent to a member. Sent only to apps that send X-Contract-Version 0.18.159 or later (contract.json#fleetNeedsCar.since); an older app keeps the lines it had. While it is sent, account_not_active is not sent (the owner still has to act; \"Everything is sent\" would be false). The line goes once the fleet has a car (then the car's own document / photo lines, and fleet_no_approved_car once the fleet is approved, as before)."
       },
       "fixTargets": [
         "document",
@@ -2836,6 +2858,41 @@
           "sv": "Du är skyldig Movera {owed} (gräns {limit}). Du får inga resor som betalas i bilen förrän du betalar Movera.",
           "fr": "Vous devez {owed} à Movera (limite {limit}). Vous ne recevez plus de courses payées à bord tant que vous n’avez pas payé Movera.",
           "en": "You owe Movera {owed} (limit {limit}). You get no cash trips until you pay Movera."
+        },
+        "fleet_no_car": {
+          "sv": "Lägg till din första bil",
+          "fr": "Ajoutez votre première voiture",
+          "en": "Add your first car"
+        },
+        "fleet_no_car_body": {
+          "sv": "Ditt åkeri behöver minst en bil innan Movera kan godkänna det.",
+          "fr": "Votre flotte a besoin d’au moins une voiture avant que Movera puisse l’approuver.",
+          "en": "Your fleet needs at least one car before Movera can approve it."
+        },
+        "fleet_add_car": {
+          "sv": "Lägg till bil",
+          "fr": "Ajouter une voiture",
+          "en": "Add car"
+        },
+        "fleet_not_approved": {
+          "sv": "Movera har inte godkänt ditt åkeri än",
+          "fr": "Movera n’a pas encore approuvé votre flotte",
+          "en": "Movera has not approved your fleet yet"
+        },
+        "fleet_not_approved_body": {
+          "sv": "Vi granskar det när din bil och dina dokument är inne.",
+          "fr": "Nous l’examinons une fois votre voiture et vos documents envoyés.",
+          "en": "We review it after your car and documents are in."
+        },
+        "fleet_cars_empty": {
+          "sv": "Ingen bil än",
+          "fr": "Pas encore de voiture",
+          "en": "No car yet"
+        },
+        "fleet_cars_empty_body": {
+          "sv": "Lägg till en bil så att ditt åkeri kan godkännas och köra.",
+          "fr": "Ajoutez une voiture pour que votre flotte soit approuvée et puisse rouler.",
+          "en": "Add a car so your fleet can be approved and drive."
         }
       },
       "actions": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R4): DriverReminder.actions, when present, are the buttons of the line in order (each a ReminderFix); fix stays the tap on the line itself. join_fleet = My fleet › Join a fleet (code, owner's name and e-mail); start_company = My fleet › Start my own company (POST /driver/fleet/start-company).",
@@ -4104,6 +4161,14 @@
       "dailyCap": 200,
       "note": "v0.18.133: CountryRules.smsSignIn never saved (every country)."
     },
+    "smsSignInOtherCountries": {
+      "enabled": true,
+      "dailyCap": 50,
+      "perCodeDailyCap": 10,
+      "perMinuteCap": 30,
+      "blockedCallingCodes": [],
+      "note": "v0.18.157: CountryRules.smsSignInOtherCountries never saved (on standard-SE): ON for the rider app (owner 2026-11-24)."
+    },
     "accountDeletion": {
       "eraseEnabled": false,
       "eraseAfterDays": 30
@@ -4131,7 +4196,10 @@
         "android": null,
         "ios": null
       }
-    }
+    },
+    "driverProfileOn": true,
+    "driverReviewsOn": false,
+    "crashReportsOn": true
   },
   "realtime": {
     "envelope": [
@@ -4566,7 +4634,7 @@
     "list": "GET /admin/config/{doc}/history?zoneId&cursor&limit (settings.read): newest first, ConfigHistoryEntry { version, publishedAt, publishedBy, note?, action: publish | restore, restoredFrom?, document } v0.18.118 (Rules audits/impact/country-undo.md; server branch claude/rules-email-key-browserstack-f5y0p3-cfgundo fad59d5 src/config/scope.ts scopeKey, src/pricing/routes.ts HistoryQuery / RestoreBody, src/config/service.ts configHistory): History names exactly one of zoneId or country (ISO alpha-2: the country's standard), as GET, PUT and publish (configDocs.scope: both or neither → 400 invalid_request, reason scope_required; a country the admin has no zone in → 403 zone_out_of_scope; a country with no zone → 404 country_not_found). An entry of a country's standard carries country instead of zoneId.",
     "restore": "POST /admin/config/{doc}/restore { zoneId, version, expectedVersion, note? } (the publish permission): publishes that version's document again as the next version (action restore, restoredFrom), with every effect of a publish (§6.2 app documents for pricing). Undo last publish = restore the version before the live one. A version not in the history: 404; the live version: 409 invalid_transition (already_live). v0.18.118 (Rules audits/impact/country-undo.md; server branch claude/rules-email-key-browserstack-f5y0p3-cfgundo fad59d5 src/config/scope.ts scopeKey, src/pricing/routes.ts HistoryQuery / RestoreBody, src/config/service.ts configHistory): { zoneId | country, version, expectedVersion, note? }: exactly one of zoneId or country (configDocs.scope, the same reasons as History), so a country's standard is restored (Undo last publish) like a zone's own document.",
     "audit": "one audit row per pricing publish or restore: action config.publish, details { doc, zoneId, version, restoredFrom?, appDocuments: [{ doc, version }] } (the app documents the publish rewrote)",
-    "restoreKeeps": "v0.18.123 (SF-F1-3 safe config saves; owner 2026-11-17 Q-SCS-1 \"Keep values, save rest (Rec.)\", 2026-11-16 Q-SCS-2 \"No, keep current (Rec.)\", Rules audits/impact/safe-config-saves.md §3, decisions/session-2026-11-06.md): a Restore or Undo last publish of country_rules does not bring back the old payoutMode, payoutSchedule, maxRiderDebt or driverOwesLimit (MONEY), nor the old calls.adminCallRoles or calls.phoneProvider (owner 2026-11-17: Undo/Restore keeps the current call settings, the same rule as payout/debt): each takes the value the scope's live document has now, and one the live document lacks is left out of the restored document (calls.on and the other calls fields are restored as before). The four payout/debt keys are changed in Finance › Payouts settings only. Every other field, and every other document, is restored as before. The restored document is saved through the same draft path, so configDocs.keptKeys applies to it too. v0.18.139 (driverPayRequest.setting): CountryRules.driverPayRequest is kept the same way (the switch, the day, the payment link and the minimum amount stay as they are live now). v0.18.136 (stripeFees): CountryRules.riderFeeStripe (the switch for paying a rider fee with Stripe in the app) is kept the same way."
+    "restoreKeeps": "v0.18.123 (SF-F1-3 safe config saves; owner 2026-11-17 Q-SCS-1 \"Keep values, save rest (Rec.)\", 2026-11-16 Q-SCS-2 \"No, keep current (Rec.)\", Rules audits/impact/safe-config-saves.md §3, decisions/session-2026-11-06.md): a Restore or Undo last publish of country_rules does not bring back the old payoutMode, payoutSchedule, maxRiderDebt or driverOwesLimit (MONEY), nor the old calls.adminCallRoles or calls.phoneProvider (owner 2026-11-17: Undo/Restore keeps the current call settings, the same rule as payout/debt): each takes the value the scope's live document has now, and one the live document lacks is left out of the restored document (calls.on and the other calls fields are restored as before). The four payout/debt keys are changed in Finance › Payouts settings only. Every other field, and every other document, is restored as before. The restored document is saved through the same draft path, so configDocs.keptKeys applies to it too. v0.18.139 (driverPayRequest.setting): CountryRules.driverPayRequest is kept the same way (the switch, the day, the payment link and the minimum amount stay as they are live now). v0.18.136 (stripeFees): CountryRules.riderFeeStripe (the switch for paying a rider fee with Stripe in the app) is kept the same way. v0.18.157 (smsSignIn.otherCountries.setting): CountryRules.smsSignInOtherCountries (SMS sign-in for numbers from other countries, super admins only) is kept the same way, so a Restore by any admin never changes it; a save without an admin role (Restore, the seed) may not change it either."
   },
   "categoryCatalog": {
     "note": "v0.7.1 (owner 2026-10-27): one catalog of car types for every country and zone (admin Pricing › Manage categories); each zone switches a category on or off in its pricing document.",
@@ -4989,6 +5057,15 @@
         "booked_no_driver_ended": {
           "level": "important",
           "rule": "v0.18.39 §63 (P17): a booked ride the server ended noDriverStopAfterMin after its pickup time because no driver took it (TripProjection.reservation.noDriverFound). Title '{0}'s booked ride at {1} ended: no driver found'. Shown for 24 h after the end, or until an admin marks it done."
+        },
+        "app_crash": {
+          "level": "important",
+          "limits": {
+            "info": null,
+            "important": 1,
+            "critical": 20
+          },
+          "rule": "A server alert (alertDesk kind app_crash, group system) for every crash group of the rider or driver app (kinds dart_error, native_crash, freeze, crash; never error or server) that is open and was first seen in the last 24 hours, once its count reaches the kind's Important limit (default 1, so a NEW crash type alerts at once); Critical from the Critical limit (default 20). One alert per group and country (every country that has a zone; the zone of the report when it sent one). Solved by itself when the group is marked fixed or is older than 24 hours. The admin changes the limits, the level or switches it off in Alerts › Settings, like every other kind."
         }
       },
       "commands": "take / pass / snooze / done on a server alert: the kind, zone and title stored by the server win over what the call sends. done closes it (state done).",
@@ -5029,7 +5106,8 @@
       "booked_not_started": "dispatch",
       "booked_taken_back": "dispatch",
       "no_driver_nearby": "dispatch",
-      "booked_no_driver_ended": "dispatch"
+      "booked_no_driver_ended": "dispatch",
+      "app_crash": "system"
     },
     "permissions": {
       "note": "Seeing an alert needs its group's read permission; acting on it (take, done, snooze, pass) needs its group's act permission or alerts.manage. Mutes, settings and rules need alerts.manage. Quiet hours: the admin's own (overview.read).",
@@ -6675,7 +6753,7 @@
       "route": "PATCH /trips/{tripId}",
       "configPath": "DriverAppConfig.booking.maxPickupMoveMeters (RiderAppConfig.booking.maxPickupMoveMeters shows the same number)",
       "default": 300,
-      "freeMoveNote": "v0.18.156 (owner 2026-11-23, Rules decisions/session-2026-11-06.md \"2026-11-23 OWNER DECISION\": the rider can adjust the pickup up to 300 m for free, same price): the default is 300 m (was 200 from v0.18.7, 500 before); the range stays 0–2000 and the admin can still set any zone. Server migration 0133 moves every published rider and driver document (and draft) still on 200 to 300, as the next version with a history row; a zone the admin set to another value keeps it. A trip already booked keeps the value of its booking time (bookingSnapshot, TripTerms.maxPickupMoveMeters); only trips booked after the change get 300. In the note above, 200 is the old default (Rule 21: kept word for word).",
+      "freeMoveNote": "v0.18.160 (owner 2026-11-23, Rules decisions/session-2026-11-06.md \"2026-11-23 OWNER DECISION\": the rider can adjust the pickup up to 300 m for free, same price): the default is 300 m (was 200 from v0.18.7, 500 before); the range stays 0–2000 and the admin can still set any zone. Server migration 0133 moves every published rider and driver document (and draft) still on 200 to 300, as the next version with a history row; a zone the admin set to another value keeps it. A trip already booked keeps the value of its booking time (bookingSnapshot, TripTerms.maxPickupMoveMeters); only trips booked after the change get 300. In the note above, 200 is the old default (Rule 21: kept word for word).",
       "range": [
         0,
         2000
@@ -10868,7 +10946,313 @@
     "logs": "The server log and the stored SMS row never hold the code; the log never holds the full phone number (calling code and the last two digits at most). The stored SMS row keeps the text with the code replaced by dots.",
     "otherSms": "Only sign-in codes use the keys in this version. The fleet invitation SMS and the SOS contacts SMS (sosContactsSms) stay not connected until a later version says so.",
     "apps": "Contract: this block (errors: the reasons beside auth.signInErrors, which is kept as released), configDefaults.smsSignIn, CountryRules.smsSignIn. Server: the sender, the rules above. Admin: the card with the switch and the daily limit per country, the alert texts. Driver and rider apps: the code field has OtpChallenge.codeLength boxes (sign-in and phone change; 4 when the answer has no codeLength); texts.smsNotSent and texts.smsDailyLimit for the two new reasons on the phone-number and code screens (resend with the countdown, wrong code, expired code, too many tries and the waiting list are unchanged).",
-    "otherSmsV0_18_151": "v0.18.151 (sosContactsSms.send): the SOS contacts SMS use the same sender when the server switch SOS_CONTACTS_SMS_SEND is on (default off), and count in dailyCap with the sign-in SMS. The fleet invitation SMS stays not connected."
+    "otherSmsV0_18_151": "v0.18.151 (sosContactsSms.send): the SOS contacts SMS use the same sender when the server switch SOS_CONTACTS_SMS_SEND is on (default off), and count in dailyCap with the sign-in SMS. The fleet invitation SMS stays not connected.",
+    "otherCountries": {
+      "note": "v0.18.157 (owner 2026-11-24: \"SMS sign-in codes must work for ANY phone number from ANY country\", e.g. a tourist with a Tunisian, German or US number visiting Sweden or France; Rules decisions/session-2026-11-06.md; Rule 0; X-Api-Version stays 0.5; additive, one optional CountryRules field; no new route, reason or migration; follows v0.18.156): real sign-in codes for mobile numbers of every country Movera does not serve on this server. Owner 2026-11-24 (repeated): \"ALL numbers must be able to log in in the RIDER app, all kinds of numbers from all countries\": default ON for the rider app; a super admin can switch it off or lower the daily limit. The driver app keeps the served-country rule only.",
+      "served": "A country is SERVED on this server when it is homeCountry (always) or its country standard country_rules (standard-<CC>) is published (the server publishes one for every country with an open zone). A number whose calling code is a served country in smsSignIn.countries keeps that country's own switch, cap and mobile pattern (smsSignIn.active, setting, dailyCap, mobileNumbers): otherCountries never opens a served country's numbers. Every other number (any other calling code, or a calling code in smsSignIn.countries whose country is not served here, e.g. +216 or +33 on the Sweden-only server) is an OTHER-COUNTRY number and is ruled by this block only.",
+      "homeCountry": "SE",
+      "setting": "CountryRules.smsSignInOtherCountries { enabled (boolean), dailyCap (integer, smsSignIn.dailyCapRange), perCodeDailyCap (integer, perCodeDailyCapRange), perMinuteCap (integer, perMinuteCapRange), blockedCallingCodes (array of calling codes from callingCodes, at most 50, no repeats) }, ONE setting for the whole server, kept on the country standard of homeCountry only (standard-SE): Admin › Pricing › Tips & limits, Sweden standard, card \"SMS sign-in for numbers from other countries\" (shown and editable only for super admins; settings.edit, published with that country_rules document by settings.publish). On any other zone or country standard it is 400 invalid_request, reason sms_sign_in_other_home_only; enabled not true / false, a number not a whole number inside its range, a blocked code not in callingCodes or repeated, or another key inside it, is 400 invalid_request, reason invalid_document; a document that changes it saved by an admin who is not a super admin is 403 forbidden, reason super_admin_only. Never saved, or a part missing = configDefaults.smsSignInOtherCountries (on, 50). Only the exact boolean false switches it off; missing or not a boolean reads as the default (on). configDocs.keptKeys.country_rules keeps smsSignInOtherCountries when a save leaves it out, so a Tips & limits save by an admin who is not a super admin (who never sees the card) never turns it off or changes it.",
+      "active": "An other-country number that is not a test number gets a real code in the RIDER app (app rider) only when ALL hold: (1) the SMS company's keys are on the server (smsSignIn.serverKeys); (2) the number passes numberCheck; (3) smsSignInOtherCountries.enabled is true (default true). Otherwise, and always for app driver, 403 forbidden, reason sign_in_restricted, exactly as before.",
+      "numberCheck": "No phone-number library is used (none is a server dependency). A number is refused ONLY when it is clearly not valid or certainly a landline: (a) not strict E.164 ^\\+[1-9][0-9]{7,14}$ (8 to 15 digits) is refused; (b) a number that matches a fixedLines pattern of its calling code (ranges that are landline for certain) is refused. An unknown number type or a country not served is never a reason to refuse. An SMS to a landline the server cannot recognise is simply not delivered (it still counts on dailyCap).",
+      "fixedLines": {
+        "+33": "^\\+33[1-5][0-9]{8}$",
+        "+44": "^\\+44[12][0-9]{8,9}$",
+        "+46": "^\\+46[1-68][0-9]{6,9}$",
+        "+49": "^\\+49[2-9][0-9]{5,11}$",
+        "+216": "^\\+216[37][0-9]{7}$"
+      },
+      "dailyCap": "Cost guard (SMS pumping), the same rule as smsSignIn.dailyCap but ONE bucket for all other-country numbers together: the sign-in SMS (and SOS contacts SMS) to numbers whose calling code is not a served country's, handed to the SMS company in the last 24 hours, counted and booked in one step (lock sms-cap:other). At dailyCap: 503 unavailable, reason sms_daily_limit, Retry-After until the oldest leaves the window. The served countries' caps are separate and unchanged.",
+      "limits": "Every sign-in limit applies unchanged (smsSignIn.limits): the resend wait, codes per number per hour, codes per address per hour, the wrong-code locks; an other-country number uses the countryLimits of no country (the contract defaults). The staging fast path of test numbers never applies.",
+      "language": "The SMS is written in the request's locale when it is sv, fr or en; else en (no country language for an other-country number). Same texts (smsSignIn.texts.sms), same sender name smsSignIn.sender (\"Movera\").",
+      "sender": "46elks sends to international numbers with the same API and the same alphanumeric sender name \"Movera\" (SMS_SENDER_NAME). Known limit: some countries (for example the USA and Canada) do not show an alphanumeric sender; there 46elks delivers from a number of its own or the SMS is not delivered. International SMS cost more per message than Swedish ones (46elks price list per country).",
+      "alert": "The same admin alerts as smsSignIn.alert, in the book of homeCountry: from nearPercent % of the other-country dailyCap an important alert (cause system_health:sms_cap_near:other), at dailyCap a critical one (cause system_health:sms_cap:other); solved by themselves below the line. Only while smsSignInOtherCountries.enabled is true and the homeCountry book's system_health is on. Titles: alertTitles (the admin translates them).",
+      "alertTitles": {
+        "near": "Sign-in SMS to other countries: {0} of {1} sent in the last 24 hours",
+        "reached": "Sign-in SMS limit for other countries reached: {0} of {1} in the last 24 hours. New sign-in codes for these numbers are stopped",
+        "detail": "Raise the daily limit for other countries in Tips & limits (Sweden) if these are real people"
+      },
+      "costNote": "Each code to another country is an international SMS (more expensive than a Swedish one) and foreign numbers are the usual target of SMS pumping (fake sign-ins to premium ranges that earn the attacker money). Keep the daily limit low (default 50) and raise it only when real visitors need it; at the limit new codes for other-country numbers stop until the 24-hour count falls.",
+      "admin": {
+        "placement": "Pricing › Tips & limits, Sweden country standard (homeCountry), a card under \"Real SMS sign-in codes\". Only super admins see it; other admins never see or change it (the server refuses a change: super_admin_only).",
+        "texts": {
+          "title": {
+            "en": "SMS sign-in for numbers from other countries",
+            "sv": "Sms-inloggning för nummer från andra länder",
+            "fr": "Connexion par SMS pour les numéros d’autres pays"
+          },
+          "switch": {
+            "en": "Send sign-in codes to rider numbers from all other countries",
+            "sv": "Skicka inloggningskoder till resenärsnummer från alla andra länder",
+            "fr": "Envoyer les codes de connexion aux numéros des passagers de tous les autres pays"
+          },
+          "dailyCap": {
+            "en": "Daily limit (SMS per 24 hours, all other countries together)",
+            "sv": "Dagsgräns (sms per 24 timmar, alla andra länder tillsammans)",
+            "fr": "Limite par jour (SMS par 24 heures, tous les autres pays ensemble)"
+          },
+          "info": {
+            "en": "For visitors with a foreign number (for example Tunisian, German or US). Each code is an international SMS and costs more than a Swedish one. Foreign numbers are the usual target of SMS fraud, so keep the limit low and raise it only when real visitors need it. At the limit, new codes for these numbers stop until the next day. Sweden keeps its own switch and limit.",
+            "sv": "För besökare med utländskt nummer (till exempel tunisiskt, tyskt eller amerikanskt). Varje kod är ett utlandssms och kostar mer än ett svenskt. Utländska nummer är vanliga mål för sms-bedrägerier, så håll gränsen låg och höj den bara när riktiga besökare behöver det. Vid gränsen stoppas nya koder till dessa nummer till nästa dag. Sverige har kvar sin egen brytare och gräns.",
+            "fr": "Pour les visiteurs avec un numéro étranger (par exemple tunisien, allemand ou américain). Chaque code est un SMS international et coûte plus cher qu’un SMS suédois. Les numéros étrangers sont la cible habituelle des fraudes au SMS : gardez une limite basse et augmentez-la seulement si de vrais visiteurs en ont besoin. À la limite, les nouveaux codes pour ces numéros s’arrêtent jusqu’au lendemain. La Suède garde son propre interrupteur et sa limite."
+          },
+          "perCodeDailyCap": {
+            "en": "Per calling code (SMS per 24 hours)",
+            "sv": "Per landsnummer (sms per 24 timmar)",
+            "fr": "Par indicatif (SMS par 24 heures)"
+          },
+          "perMinuteCap": {
+            "en": "All sign-in SMS per minute, at most",
+            "sv": "Alla inloggnings-sms per minut, högst",
+            "fr": "Tous les SMS de connexion par minute, au maximum"
+          },
+          "blocked": {
+            "en": "Blocked calling codes (for example +882)",
+            "sv": "Blockerade landsnummer (till exempel +882)",
+            "fr": "Indicatifs bloqués (par exemple +882)"
+          }
+        }
+      },
+      "apps": "Rider and driver apps: the phone field takes any country: a country picker (any calling code) or a number typed in international form with +; the number sent is E.164 (+ and digits only). No app-side mobile check stricter than E.164 for a country that is not SE / FR / TN; the server decides. A refusal shows the existing texts: sign_in_restricted the waiting list as before, sms_daily_limit texts.smsDailyLimit, sms_not_sent texts.smsNotSent, invalid_phone the existing invalid number text.",
+      "guards": {
+        "note": "Owner 2026-11-24 via 46elks anti-SMS-pumping (AIT) advice: limit SMS per number and per minute / hour / day, stop bots, limit countries. Since every country is open in the rider app, the other-countries path has these guards on top of the per-number and per-address limits (smsSignIn.limits, unchanged).",
+        "callingCode": "The calling code of a number = the longest entry of callingCodes it starts with (+1 for the whole North American plan).",
+        "perCodeDailyCap": "Inside the other-countries bucket, at most perCodeDailyCap sign-in SMS per calling code in 24 hours (default 10), so one premium-rate country cannot use up the whole budget. At the cap: 503 unavailable, reason sms_daily_limit (same answer and texts), Retry-After until the oldest of that code leaves the window.",
+        "perMinuteCap": "A burst limit for ALL sign-in SMS of the server together (every country and the other-countries bucket): at most perMinuteCap handed to the SMS company in the last 60 seconds (default 30). Over it: 503 unavailable, reason sms_daily_limit, Retry-After until the oldest leaves the minute. Test numbers are never counted.",
+        "blockedCallingCodes": "Calling codes an admin blocks (empty by default): an other-country number with a blocked calling code is 403 sign_in_restricted and nothing is sent. Served countries are never blocked by this list.",
+        "alerts": "Admin alerts (system_health, homeCountry book): system_health:sms_cap:other:<code> (important) when one calling code reached perCodeDailyCap in 24 h (a spike from one country), system_health:sms_burst (critical) while the count of the last 60 seconds is at perMinuteCap (checked on each alert sweep and right after a refusal). Solved by themselves.",
+        "alertTitles": {
+          "code": "Sign-in SMS spike to {0}: {1} of {2} in the last 24 hours. New codes for this calling code are stopped",
+          "burst": "Sign-in SMS burst: the limit of {0} per minute was reached. New codes wait",
+          "detail": "Check for SMS pumping; block the calling code in Tips & limits (Sweden) if these are not real people"
+        },
+        "deviceCheck": "The drafted SMS abuse guards (contract v0.18.138 deviceCheck: per-install code limit + Play Integrity / App Attest) fit this path and should ship before or with a wide opening; they are a separate change (restack on this version needed)."
+      },
+      "perCodeDailyCapRange": [
+        1,
+        100000
+      ],
+      "perMinuteCapRange": [
+        1,
+        10000
+      ],
+      "callingCodes": [
+        "+1",
+        "+7",
+        "+20",
+        "+27",
+        "+30",
+        "+31",
+        "+32",
+        "+33",
+        "+34",
+        "+36",
+        "+39",
+        "+40",
+        "+41",
+        "+43",
+        "+44",
+        "+45",
+        "+46",
+        "+47",
+        "+48",
+        "+49",
+        "+51",
+        "+52",
+        "+53",
+        "+54",
+        "+55",
+        "+56",
+        "+57",
+        "+58",
+        "+60",
+        "+61",
+        "+62",
+        "+63",
+        "+64",
+        "+65",
+        "+66",
+        "+81",
+        "+82",
+        "+84",
+        "+86",
+        "+90",
+        "+91",
+        "+92",
+        "+93",
+        "+94",
+        "+95",
+        "+98",
+        "+211",
+        "+212",
+        "+213",
+        "+216",
+        "+218",
+        "+220",
+        "+221",
+        "+222",
+        "+223",
+        "+224",
+        "+225",
+        "+226",
+        "+227",
+        "+228",
+        "+229",
+        "+230",
+        "+231",
+        "+232",
+        "+233",
+        "+234",
+        "+235",
+        "+236",
+        "+237",
+        "+238",
+        "+239",
+        "+240",
+        "+241",
+        "+242",
+        "+243",
+        "+244",
+        "+245",
+        "+246",
+        "+248",
+        "+249",
+        "+250",
+        "+251",
+        "+252",
+        "+253",
+        "+254",
+        "+255",
+        "+256",
+        "+257",
+        "+258",
+        "+260",
+        "+261",
+        "+262",
+        "+263",
+        "+264",
+        "+265",
+        "+266",
+        "+267",
+        "+268",
+        "+269",
+        "+290",
+        "+291",
+        "+297",
+        "+298",
+        "+299",
+        "+350",
+        "+351",
+        "+352",
+        "+353",
+        "+354",
+        "+355",
+        "+356",
+        "+357",
+        "+358",
+        "+359",
+        "+370",
+        "+371",
+        "+372",
+        "+373",
+        "+374",
+        "+375",
+        "+376",
+        "+377",
+        "+378",
+        "+379",
+        "+380",
+        "+381",
+        "+382",
+        "+383",
+        "+385",
+        "+386",
+        "+387",
+        "+389",
+        "+420",
+        "+421",
+        "+423",
+        "+500",
+        "+501",
+        "+502",
+        "+503",
+        "+504",
+        "+505",
+        "+506",
+        "+507",
+        "+508",
+        "+509",
+        "+590",
+        "+591",
+        "+592",
+        "+593",
+        "+594",
+        "+595",
+        "+596",
+        "+597",
+        "+598",
+        "+599",
+        "+670",
+        "+672",
+        "+673",
+        "+674",
+        "+675",
+        "+676",
+        "+677",
+        "+678",
+        "+679",
+        "+680",
+        "+681",
+        "+682",
+        "+683",
+        "+685",
+        "+686",
+        "+687",
+        "+688",
+        "+689",
+        "+690",
+        "+691",
+        "+692",
+        "+800",
+        "+808",
+        "+850",
+        "+852",
+        "+853",
+        "+855",
+        "+856",
+        "+870",
+        "+878",
+        "+880",
+        "+881",
+        "+882",
+        "+883",
+        "+886",
+        "+888",
+        "+960",
+        "+961",
+        "+962",
+        "+963",
+        "+964",
+        "+965",
+        "+966",
+        "+967",
+        "+968",
+        "+970",
+        "+971",
+        "+972",
+        "+973",
+        "+974",
+        "+975",
+        "+976",
+        "+977",
+        "+979",
+        "+992",
+        "+993",
+        "+994",
+        "+995",
+        "+996",
+        "+998"
+      ]
+    }
   },
   "driverWalletBalance": {
     "note": "v0.18.139 (driver wallet D5; owner button 2026-11-20 'Yes, server + app (Rec.)', Rules decisions/session-2026-11-06.md and audits/impact/driver-wallet-cash.md; earlier answers kept: decisions/driver-g10.md item 4 'driver app shows the carried amount in earnings', Q-M3 'Next payout', Q-S5-7 'Carry over', 2026-11-13 14:59 'What he owes Movera'): the driver sees in his wallet the cash he collected this week and what he owes Movera now (or what Movera owes him), as the server counts it. Additive: one optional field on GET /driver/earnings; X-Api-Version stays 0.5; no migration, no admin setting; rider app and admin not affected (the admin already shows the same owed, debtModel.driverOwes.adminList).",
@@ -11300,5 +11684,158 @@
         "fr": "Les téléphones en dessous de cette version doivent faire la mise à jour avant de pouvoir réserver ou se connecter."
       }
     }
+  },
+  "driverProfile": {
+    "note": "v0.18.155 (driver profile v3; owner 2026-11-20 \"Now build all\", design Rules plan/inspiration-ride-change-2026-11-20/driver-profile-v3.html; Rule 0): the rider's driver card opens a driver profile (photo, verified tick, languages, city, trips, rating, years, compliment counts, milestones, the latest approved review); after the trip the rider gives stars, compliment chips, an optional short review and chooses to show his first name or stay anonymous; the driver chooses his languages and what to show; admin turns the profile and written reviews on/off per zone and approves or hides each review. Additive; X-Api-Version stays 0.5; server migration 0127. Follows v0.18.132 (0.18.133-0.18.146 are other open drafts; renumber at merge, tags only go up).",
+    "compliments": {
+      "note": "The six compliment chips, in this order. Each is a ratings.tags.aboutDriver code; the icon is the phone's own emoji drawn as text (no image file). Each app has its own words (sv/en/fr/ar).",
+      "list": [
+        {
+          "code": "great_service",
+          "emoji": "⭐"
+        },
+        {
+          "code": "knew_the_way",
+          "emoji": "🧭"
+        },
+        {
+          "code": "friendly",
+          "emoji": "💬"
+        },
+        {
+          "code": "clean_car",
+          "emoji": "✨"
+        },
+        {
+          "code": "safe_driving",
+          "emoji": "🛡"
+        },
+        {
+          "code": "good_music",
+          "emoji": "🎵"
+        }
+      ],
+      "counts": "The server keeps one count per driver and code, raised in the same transaction as the rating (never counted on read); a hidden rating (ratings.moderation) takes its codes off again. Only ratings with stars >= minStars add to the counts. The profile sends only the codes with count >= 1, in list order.",
+      "minStars": 4
+    },
+    "review": {
+      "field": "RatingRequest.review (string, 1-280 characters after trim, rider only): the short text the rider allows to show on the driver's profile. RatingRequest.comment stays private (admin only) as before. A review with stars < minStarsShown is never stored as a review (the text is kept as a private comment instead).",
+      "maxLength": 280,
+      "minStarsShown": 4,
+      "reviewName": "RatingRequest.reviewName: first_name (default) | anonymous. first_name: the review shows the rider's first name as it was at rating time (first word of the profile name, at most 20 characters); anonymous: no name. Nothing else about the rider is ever stored on or sent with a review: no rider id, phone, photo, e-mail, trip id, address or exact date; the month (YYYY-MM, the trip's zone time) only.",
+      "moderation": "Every review starts pending. It shows on the profile only after an admin approves it (POST /admin/driver-reviews/{reviewId}/approve). Hide (POST /admin/driver-reviews/{reviewId}/hide) takes it off at once; approve again shows it again. The driver sees his own reviews with their status in GET /driver/public-profile; the rider never sees pending or hidden ones.",
+      "latest": "DriverPublicProfile.latestReview = the newest approved review of the driver (by trip month, then approval time), or null. Only while the zone's reviews switch is on."
+    },
+    "languages": {
+      "rule": "The driver picks up to max languages from codes (ISO 639-1); order kept as saved. Empty = none shown.",
+      "max": 6,
+      "codes": [
+        "sv",
+        "en",
+        "ar",
+        "fr",
+        "fi",
+        "es",
+        "de",
+        "fa",
+        "so",
+        "ti",
+        "tr",
+        "pl",
+        "ru",
+        "ku",
+        "bs",
+        "uk"
+      ]
+    },
+    "visibility": {
+      "rule": "The driver chooses showCity (default true: the zone's city name) and showYears (default true: 'since' month and years). Trips, rating and compliments are always shown while the profile is on; low ratings are never listed one by one.",
+      "showCity": true,
+      "showYears": true
+    },
+    "milestones": {
+      "rule": "The server works them out when the profile is read (from the stored counts, no extra job). Each item: { code, reachedAt (YYYY-MM) }. Shown only when reached.",
+      "trips_1000": "tripCount >= 1000; reachedAt = the month of the 1000th completed trip.",
+      "top_rating": "the average of the last 6 months' shown ratings >= 4.9 with at least 50 of them; reachedAt = the current month."
+    },
+    "kpis": "DriverPublicProfile: tripCount (completed trips), rating (1 decimal, null with fewer than 5 ratings), years (whole years since the first approved day, 0 shown as the since month only), sinceMonth (YYYY-MM).",
+    "verified": "verified true when the driver's account is approved and his profile photo is approved.",
+    "routes": {
+      "rider": "GET /rider/trips/{tripId}/driver-profile (rider of that trip; from accepted until 24 h after the trip ended) -> DriverPublicProfile. Not the trip's rider or another state: 404 not_found. The zone's profile switch off: 404 not_found, reason driver_profile_off (the card still opens the old simple page).",
+      "driverRead": "GET /driver/public-profile -> DriverOwnPublicProfile: the settings, the preview exactly as a rider sees it, the compliment counts and the driver's reviews (newest first, at most 50, with status).",
+      "driverWrite": "PATCH /driver/public-profile { languages?, showCity?, showYears? } -> DriverOwnPublicProfile. An unknown code or too many: 400 invalid_request, reason invalid_language.",
+      "adminList": "GET /admin/driver-reviews?status=pending|approved|hidden&zoneId&cursor (settings.read, the admin's zones) -> AdminDriverReviewPage, oldest pending first. Each item: reviewId, driverId, driver first name, zoneId, stars, text, name (or null), month, status, createdAt. No rider id or contact.",
+      "adminModerate": "POST /admin/driver-reviews/{reviewId}/approve | /hide (settings.publish) -> AdminDriverReview; written to the audit log."
+    },
+    "load": "LOAD RULE (owner): no new polling. The rider app reads the profile once when the sheet opens (and again only after 5 min); the answer carries Cache-Control: private, max-age=300 and an ETag, and If-None-Match gets 304. The driver app reads GET /driver/public-profile when Min profil opens. Counts are aggregated on the server.",
+    "setting": "Per zone: rider_app_config carries driverProfile { on (default configDefaults.driverProfileOn = true), reviews (default configDefaults.driverReviewsOn = false) }; the server serves the same object in GET /driver/config (DriverAppConfig.driverProfile). Not an object, or a value that is not true / false: 400 invalid_request, reason invalid_document. reviews off: no review box after the trip, no latestReview; stored reviews stay for the admin.",
+    "apps": {
+      "rider": "Waiting card: photo with rating badge, first name with verified tick, trips and since-year, the plate and car model + colour, big Call (filled) and Message (soft, unread dot); a tap on the card opens the profile sheet (one read, cached). After the trip: stars, the six chips, the short review (only while reviews is on) and 'Show my first name' (default on).",
+      "driver": "Profile > Min profil: languages, show city / years switches, compliment counts, own reviews with status, 'View as rider' preview.",
+      "admin": "Dispatch > Riders' view per zone: 'Driver profile' and 'Written reviews' switches; Reviews > Driver reviews: the moderation list (Approve / Hide)."
+    }
+  },
+  "crashCatcher": {
+    "note": "v0.18.158 (crash catcher; owner 2026-11-24 \"Add to admin all kind of crash\", Rules LAUNCH-RULE.md 2026-11-24, plan/NUMBERS.md; Rule 0; X-Api-Version stays 0.5; additive; server migration 0136 (the kind list of error_groups); no third-party crash SDK; follows v0.18.157): every kind of app crash reaches the admin Crashes & errors page: Dart errors, native crashes (found on the next launch), and freezes. Same endpoint POST /telemetry/crashes, same scrubbing, same 16 KB, same 30 days.",
+    "kinds": {
+      "dart_error": "an uncaught Dart error: FlutterError.onError, PlatformDispatcher.instance.onError and the main isolate error listener (no extra zone around runApp: it runs in the zone that made the binding, so no \"Zone mismatch\"). Sent at once.",
+      "native_crash": "the app ended without a clean exit (an iOS NSException or signal, an Android Java/Kotlin exception, a native crash, an Android ANR or the system killing the app while it was in front). Found on the NEXT launch from the running marker and sent then, with the native reason when the app caught one.",
+      "freeze": "the app screen made no progress for freezeSeconds or more while the app was in front. Sent when the screen moves again, with how long it froze.",
+      "crash": "older apps (v0.16.0): the app stopped. Kept; new apps send dart_error instead.",
+      "error": "a caught error shown to the user (v0.16.0). Kept as before."
+    },
+    "freezeSeconds": 5,
+    "runningMarker": "The Android and iOS apps write a small running marker file when they start and every time they come to the front, and delete it when they go to the background (paused, hidden, detached) or close cleanly. A marker still there at the next launch means the app did not end cleanly: one native_crash report is sent (the app version and build of the run that ended, its last screen and its breadcrumbs). An app swiped away from the background never counts (its marker was already deleted). Web: no marker (a closed tab is not a crash).",
+    "nativeReason": "Without any third-party SDK. iOS: NSSetUncaughtExceptionHandler writes the exception name, reason and call stack, and signal handlers (SIGABRT, SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGTRAP) write the signal name, to a file in Application Support that the next launch reads and deletes (a signal after an exception never overwrites it). Android: Thread.setDefaultUncaughtExceptionHandler writes the exception class, message and stack to a file in the app files folder (then the previous handler runs, so Android still closes the app as before); on Android 11+ the next launch also reads the last ApplicationExitInfo and names REASON_CRASH_NATIVE, REASON_ANR or REASON_CRASH when no file was written (each exit only once). The report message is \"<name>: <reason>\" when there is a native reason, else \"App ended without a clean exit (last screen <screen>)\".",
+    "breadcrumbs": {
+      "max": 30,
+      "maxMessage": 200,
+      "types": [
+        "route",
+        "lifecycle",
+        "platform",
+        "network",
+        "log"
+      ],
+      "rule": "The apps keep the last max breadcrumbs { at (RFC 3339), type, message } in memory and in a small file (so a native crash still has them at the next launch): route = a screen change; lifecycle = resumed / inactive / paused / hidden / detached; platform = a platform call that failed (a plugin error); network = an API call that failed (method, path with ids replaced, status, never the body); log = a warning or error log line. Each message is scrubbed like the rest of the report (no e-mail, phone number, name, address or coordinate) and cut to maxMessage characters."
+    },
+    "fields": "POST /telemetry/crashes also takes, all optional: kind (see kinds), osVersion (e.g. \"iOS 17.1\" or \"Android 14 (API 34)\", at most 60), deviceModel (e.g. \"iPhone15,2\" or \"samsung SM-S911B\", at most 80), tripId (the trip on screen, when there is one), zoneId (the zone the app is in), breadcrumbs (at most 30), nativeReason { name, reason } (native_crash only; name at most 200, reason at most 1000 characters) and freezeMs (freeze only, whole milliseconds). Never a phone number, e-mail, name or address: the account is the token the report is sent with, as before.",
+    "outbox": "A report that cannot be sent (offline, 5xx, 429) waits in a file of at most 20 reports and is sent again later and at the next launch, oldest first; a 2xx or 4xx answer removes it. The same report again within a minute is counted on the phone, not sent again (as v0.16.0).",
+    "server": {
+      "store": "The server scrubs again and groups every report as before (ErrorGroup, fingerprint app + platform + normalized message + top stack frame); kind is stored on the group (the latest report's kind). Breadcrumbs and the other new fields stay in the kept report body.",
+      "perDevicePerMinute": 10,
+      "perDevice": "At most perDevicePerMinute crash reports per device and minute are stored (the device is the signed-in account, else the address; fixed 60 s window per server copy, next to the per-address telemetry budget). Over it: 202 with an empty body and nothing stored; the apps treat it as delivered.",
+      "retention": "As telemetry: reports and groups not seen for keepDays (30) are deleted."
+    },
+    "admin": {
+      "list": "GET /admin/errors also takes kind (one of kinds) next to app, platform, version and status.",
+      "reports": "GET /admin/errors/{errorId}/reports?limit= (1-50, default 20) -> { items: [ErrorReport { at, kind, appVersion?, build?, platform?, osVersion?, deviceModel?, screen?, tripId?, zoneId?, message, stack?, nativeReason?, freezeMs?, breadcrumbs[] }] }, newest first: the kept reports of one group (at most maxEventsPerGroup are kept). Same permission as GET /admin/errors (any signed-in admin). 404 not_found for an unknown group.",
+      "page": "Admin System › Crashes & errors: filters app, platform, version, kind and status; each group shows count, devices, first and last seen; a group opens its detail with the latest reports: stack, breadcrumbs, native reason, device, OS, build and screen."
+    },
+    "setting": {
+      "key": "crashReports.on",
+      "rule": "Per zone, in both app documents: RiderAppConfig.crashReports { on } and DriverAppConfig.crashReports { on } (the zone's own document, else its country standard), saved and published like the other switches. Default configDefaults.crashReportsOn (true). Off: that app sends no crash report of any kind in that zone (the running marker and breadcrumbs are still kept on the phone, nothing leaves it). The app keeps the last value it read, so a crash at start before the document is read follows the last known value (true when never read). GET /rider/config and GET /driver/config always serve crashReports { on }. A crashReports that is not an object, or an on that is not true / false, is 400 invalid_request, reason invalid_document.",
+      "admin": "Admin › Dispatch › Safety, card \"Crash reports\", two switches per zone: \"Rider app sends crash reports\" and \"Driver app sends crash reports\" (en / sv / fr)."
+    },
+    "alert": {
+      "kind": "app_crash",
+      "rule": "A server alert (alertDesk kind app_crash, group system) for every crash group of the rider or driver app (kinds dart_error, native_crash, freeze, crash; never error or server) that is open and was first seen in the last 24 hours, once its count reaches the kind's Important limit (default 1, so a NEW crash type alerts at once); Critical from the Critical limit (default 20). One alert per group and country (every country that has a zone; the zone of the report when it sent one). Solved by itself when the group is marked fixed or is older than 24 hours. The admin changes the limits, the level or switches it off in Alerts › Settings, like every other kind.",
+      "limits": {
+        "info": null,
+        "important": 1,
+        "critical": 20
+      }
+    }
+  },
+  "fleetNeedsCar": {
+    "since": "0.18.159",
+    "note": "v0.18.159 (owner 2026-11-24, Rules decisions/driver-g2.md \"Fleet owner must add a car\"; Rule 0; X-Api-Version stays `0.5`; additive; no migration; texts approved by the owner): a fleet owner is told from his first sign-in to add his first car, and Movera cannot approve a fleet with no car.",
+    "reminder": "GET /driver/reminders: kind fleet_no_car (driverOnboarding.reminders.kinds.fleet_no_car), gated by X-Contract-Version >= since like email_not_verified (contract.json#emailVerified).",
+    "setting": "OnboardingSettings.fleetNeedsCarForApproval (boolean, default true; missing = true), per country, Admin › Drivers › Onboarding (\"Fleet needs at least 1 car before approval\"), saved and published like the other onboarding settings (settings.edit / settings.publish). The country is the fleet's country.",
+    "refusal": "POST /admin/fleets/{fleetId}/review { decision: approved } on a fleet with zero cars (no vehicle with this fleetId, whatever its status) while its country's fleetNeedsCarForApproval is on → 409 invalid_transition, reason fleet_has_no_car; nothing changes. rejected / blocked are never refused for this. Off: approval ignores the cars (as before).",
+    "admin": "Fleet review sheet: a Cars line, \"✓ N cars\" or \"✕ Car missing: no car added\" (red); while Fleet.approvalBlockedReason is fleet_has_no_car: \"Approve is locked until the owner adds at least 1 car.\" and Approve fleet is disabled; a 409 fleet_has_no_car shows the same text.",
+    "driverApp": "Home › Important reminders: the red line fleet_no_car with the Add car button (fix fleet_vehicles → My fleet › Add car). For the owner of a PENDING fleet the fleet_not_approved line is grey and reads texts.fleet_not_approved + texts.fleet_not_approved_body; members and rejected / blocked fleets keep the red title-only line. My fleet › Cars with zero cars: an empty card texts.fleet_cars_empty + texts.fleet_cars_empty_body with the button texts.fleet_add_car (opens Add car).",
+    "apps": "Server, admin and driver app change. Rider: not affected (riders never see fleets or fleet reminders).",
+    "adminView": "Fleet.approvalBlockedReason (admin views only: GET /admin/fleets, GET /admin/fleets/{fleetId}, the review answer): 'fleet_has_no_car' while the fleet is not approved, has zero cars and its country's PUBLISHED fleetNeedsCarForApproval is on; absent otherwise. The server computes it from the same rule as the refusal, so the admin panel needs no settings.read and never reads a draft."
   }
 }

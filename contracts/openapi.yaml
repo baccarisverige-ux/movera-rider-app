@@ -1,11 +1,11 @@
-# Movera API v0.18.156 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.160 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.156
+  version: 0.18.160
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.156 in this folder; this file must agree with them.
+    v0.18.160 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.156
+  version: 0.18.160
   source: contract.json
 paths:
   /auth/otp/request:
@@ -135,7 +135,20 @@ paths:
         200 as before (requestId, sessionId, expiresAt, retryAfterSeconds) plus codeLength (codeLengthNote). Refused by the
         company, answered with an error, or not answered (a time-out or a broken connection): the code is void at once and
         the answer is 503 unavailable, reason sms_not_sent, Retry-After = auth.otp.retryAfterSeconds; the app may ask again
-        after that wait. The try still counts on the hourly limits.'
+        after that wait. The try still counts on the hourly limits. v0.18.157 (contract.json#smsSignIn.otherCountries): A
+        country is SERVED on this server when it is homeCountry (always) or its country standard country_rules (standard-<CC>)
+        is published (the server publishes one for every country with an open zone). A number whose calling code is a served
+        country in smsSignIn.countries keeps that country''s own switch, cap and mobile pattern (smsSignIn.active, setting,
+        dailyCap, mobileNumbers): otherCountries never opens a served country''s numbers. Every other number (any other calling
+        code, or a calling code in smsSignIn.countries whose country is not served here, e.g. +216 or +33 on the Sweden-only
+        server) is an OTHER-COUNTRY number and is ruled by this block only. An other-country number that is not a test number
+        gets a real code in the RIDER app (app rider) only when ALL hold: (1) the SMS company''s keys are on the server (smsSignIn.serverKeys);
+        (2) the number passes numberCheck; (3) smsSignInOtherCountries.enabled is true (default true). Otherwise, and always
+        for app driver, 403 forbidden, reason sign_in_restricted, exactly as before. No phone-number library is used (none
+        is a server dependency). A number is refused ONLY when it is clearly not valid or certainly a landline: (a) not strict
+        E.164 ^\+[1-9][0-9]{7,14}$ (8 to 15 digits) is refused; (b) a number that matches a fixedLines pattern of its calling
+        code (ranges that are landline for certain) is refused. An unknown number type or a country not served is never a
+        reason to refuse. An SMS to a landline the server cannot recognise is simply not delivered (it still counts on dailyCap).'
       tags:
       - Auth
       x-actor:
@@ -539,7 +552,13 @@ paths:
         with consents.rideUpdates false gets no OPTIONAL push (driver found, almost there); the bell notice is always stored.
         v0.18.53 §75 (owner Q36-Q39): arrived, a new driver, cancelled, no driver found, trip failed, the booked-ride no-driver
         kinds and support answers are always pushed (riderTripPush.consent, support.answerPush). Drivers have no push consent:
-        the operating system''s permission is the switch.'
+        the operating system''s permission is the switch. v0.18.156: every FCM message to an ios device carries an apns block,
+        so an iPhone shows it as an Android phone does: headers apns-push-type alert and apns-priority 10 (Android is always
+        priority HIGH), apns-expiration from the offer''s time to live as before; payload aps.alert { title, body } (the notice''s,
+        the same as notification), aps.sound (a loud driver offer: driverOffers.push.native.iosSound with interruption-level
+        time-sensitive, a quiet Radar offer none, every other push default), aps.thread-id = data.kind (iOS groups the notices
+        by kind). The server never sets aps.badge and never sends content-available (no silent background push); Android sets
+        no collapse key, so no apns-collapse-id either. data stays the same on every platform.'
       tags:
       - Auth
       x-actor:
@@ -5621,7 +5640,9 @@ paths:
       description: 'v0.16.0: app + platform + the message with numbers, hex and ids replaced + the top stack frame. GET /admin/errors?app=&platform=&version=&status=&cursor=&limit=
         → ErrorGroupPage, newest lastSeen first; PATCH /admin/errors/{errorId} { status } → ErrorGroup. Permission: any signed-in
         admin, every role, for the list and for marking fixed; no permission id, like GET /admin/auth/me (owner 2026-10-29:
-        "No code now every one can see and later we add"; "All admin roles (Recommended)"). The rest of System keeps system.read..'
+        "No code now every one can see and later we add"; "All admin roles (Recommended)"). The rest of System keeps system.read..
+        v0.18.158 (contract.json#crashCatcher): GET /admin/errors also takes kind (one of kinds) next to app, platform, version
+        and status.'
       tags:
       - Admin · System
       x-actor:
@@ -5662,6 +5683,19 @@ paths:
           enum:
           - open
           - fixed
+      - name: kind
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - crash
+          - error
+          - dart_error
+          - native_crash
+          - freeze
+        description: 'v0.18.158 (contract.json#crashCatcher): GET /admin/errors also takes kind (one of kinds) next to app,
+          platform, version and status.'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
       responses:
@@ -9257,7 +9291,10 @@ paths:
       summary: Approve / reject / block a fleet
       description: 'v0.5.3. The first approval makes the join code (contract.json#driverOnboarding.fleetCode). Approving the
         fleet does not activate its owner as a driver: POST /admin/drivers/{driverId}/status does, when his own documents
-        are approved.'
+        are approved. v0.18.159 (fleetNeedsCar): POST /admin/fleets/{fleetId}/review { decision: approved } on a fleet with
+        zero cars (no vehicle with this fleetId, whatever its status) while its country''s fleetNeedsCarForApproval is on
+        → 409 invalid_transition, reason fleet_has_no_car; nothing changes. rejected / blocked are never refused for this.
+        Off: approval ignores the cars (as before).'
       tags:
       - Admin · People
       x-actor:
@@ -9578,17 +9615,17 @@ paths:
         "problem:<code>"] (not_a_list, too_many_steps, pct_or_amount, up_to_missing, pct_out_of_range, amount_out_of_range,
         above_not_last, last_not_above, up_to_out_of_range, up_to_not_increasing); nothing is saved. v0.18.123 (configDocs.keptKeys;
         country_rules: payoutMode, payoutSchedule, maxRiderDebt, driverOwesLimit, calls.adminCallRoles, calls.phoneProvider,
-        driverPayRequest, riderFeeStripe; dispatch: radar.reaskAfterSeconds, exclusive.reaskAfterSeconds): v0.18.123 (SF-F1-3
-        safe config saves; owner 2026-11-17 Q-SCS-1 "Keep values, save rest (Rec.)", 2026-11-16 Q-SCS-2 "No, keep current
-        (Rec.)", Rules audits/impact/safe-config-saves.md §3, decisions/session-2026-11-06.md): PUT /admin/config/{doc} replaces
-        the draft, except the kept keys of the document listed here (dotted paths). A kept key that the stored document (the
-        scope''s draft, else the scope''s own live document) has and the sent document leaves out is kept by the server: its
-        stored value is copied into the draft, the rest is saved as sent. The save is never refused for a missing kept key.
-        A key the request names in removeKeys is really removed (left out as sent). A scope with no own document (a zone on
-        the standard, a first save) has no stored document and keeps nothing, so a Standard-only key never gets into a zone
-        document. The answer (ConfigDraft.keptKeys) and the audit line config.draft (details.kept) list the paths the server
-        kept; both are absent when nothing was kept. Publish is unchanged (the draft is already whole). Rule for later: a
-        field that no whole-document admin screen owns goes on this list in the same contract version that adds it. ConfigDraftUpdate.removeKeys
+        driverPayRequest, riderFeeStripe, smsSignInOtherCountries; dispatch: radar.reaskAfterSeconds, exclusive.reaskAfterSeconds):
+        v0.18.123 (SF-F1-3 safe config saves; owner 2026-11-17 Q-SCS-1 "Keep values, save rest (Rec.)", 2026-11-16 Q-SCS-2
+        "No, keep current (Rec.)", Rules audits/impact/safe-config-saves.md §3, decisions/session-2026-11-06.md): PUT /admin/config/{doc}
+        replaces the draft, except the kept keys of the document listed here (dotted paths). A kept key that the stored document
+        (the scope''s draft, else the scope''s own live document) has and the sent document leaves out is kept by the server:
+        its stored value is copied into the draft, the rest is saved as sent. The save is never refused for a missing kept
+        key. A key the request names in removeKeys is really removed (left out as sent). A scope with no own document (a zone
+        on the standard, a first save) has no stored document and keeps nothing, so a Standard-only key never gets into a
+        zone document. The answer (ConfigDraft.keptKeys) and the audit line config.draft (details.kept) list the paths the
+        server kept; both are absent when nothing was kept. Publish is unchanged (the draft is already whole). Rule for later:
+        a field that no whole-document admin screen owns goes on this list in the same contract version that adds it. ConfigDraftUpdate.removeKeys
         (optional, array of dotted paths): each must be a kept key of that document, else 400 invalid_request, reason unknown_kept_key,
         details ["key:<path>"], nothing saved. A named key that the sent document carries is saved as sent (removeKeys only
         stops the keep). v0.18.130 (configDocs.keptKeys; driver_app_config: realtime.oneStream, realtime.oneStreamFallback):
@@ -11772,7 +11809,17 @@ paths:
         Sent only to driver apps whose X-Contract-Version is 0.18.76 or higher (an older app would show an unknown line).
         The line itself never blocks going online: a red one is only sent to a driver who is not active yet. v0.18.83 (S2,
         owner ''Yes, 7 checks''): under overload it may answer 503 unavailable, reason server_busy, Retry-After 2 at once;
-        the app keeps the last value (contract.json#fastDispatch.shedPolls).'
+        the app keeps the last value (contract.json#fastDispatch.shedPolls). v0.18.159 (fleetNeedsCar): fleet_no_car: v0.18.159
+        (owner 2026-11-24, Rules decisions/driver-g2.md "Fleet owner must add a car": "Why fleet owner after sign in don''t
+        know that he need to add car ?"; mockup PROPOSAL-fleet-add-car-2026-11-24.html approved "Fleet partner add card reminder
+        add"): blocks_online: the FLEET OWNER (fleet.ownerDriverId = the driver) of a fleet with ZERO cars (no vehicle with
+        this fleetId, whatever its status), while the fleet is NOT approved (pending, rejected, blocked), from the first sign-in
+        (an approved fleet with no car keeps fleet_no_approved_car: "before Movera can approve it" would be false); text texts.fleet_no_car
+        + texts.fleet_no_car_body, button texts.fleet_add_car; fix fleet_vehicles (My fleet › Add car). Never sent to a member.
+        Sent only to apps that send X-Contract-Version 0.18.159 or later (contract.json#fleetNeedsCar.since); an older app
+        keeps the lines it had. While it is sent, account_not_active is not sent (the owner still has to act; "Everything
+        is sent" would be false). The line goes once the fleet has a car (then the car''s own document / photo lines, and
+        fleet_no_approved_car once the fleet is approved, as before).'
       tags:
       - Driver · Account
       x-actor:
@@ -11876,7 +11923,17 @@ paths:
         shows a push that comes while it is open (the offer stream and the bell list show it). The offer channels driverOffers.push.native.androidChannel
         / androidQuietChannel (sound soundFile) are made by the app at start; a channel the driver changed in Android settings
         keeps his choice. The in-app Vibrate setting cannot change a notice Android shows (the channel decides): a known gap
-        on native, the web keeps E6 in full.'
+        on native, the web keeps E6 in full. v0.18.156: The iPhone app starts Firebase at run time with iosConfig (FirebaseOptions
+        apiKey, appId, messagingSenderId, projectId, iosBundleId) and never with settings of another platform (native Firebase
+        on iOS aborts the app for a web or Android app id). Then it follows appFlow at the same moment and with the same texts
+        as on Android (driver: Go online; rider: after sign-in), asks the iOS notification permission (alert, sound, badge),
+        waits for the APNs token, gets the FCM token, POST /push/devices { provider: fcm, platform: ios }, registers again
+        when FCM changes the token and unregisters on sign-out. A push that comes while the app is open is not shown by the
+        app (the offer stream and the bell list show it). A tap opens data.deepLink as on Android, from the background and
+        from a closed app. The iOS apps carry UIBackgroundModes remote-notification and the aps-environment entitlement (production
+        in TestFlight / App Store builds; the bundle ids have the Push Notifications capability). The driver app also carries
+        com.apple.developer.usernotifications.time-sensitive (Time Sensitive Notifications capability) so a loud offer (interruption-level
+        time-sensitive) breaks through Focus.'
       tags:
       - Auth
       x-actor:
@@ -11899,7 +11956,14 @@ paths:
         description: 'v0.18.105: web (default) gives webConfig, android gives androidConfig, ios is enabled false for now.
           v0.18.105: platform=ios answers enabled false for now: iOS push needs the Apple Developer account and an APNs auth
           key uploaded to Firebase (Rules plan/REMINDERS.md 7, at store launch). Then a later version adds iosConfig the same
-          way.'
+          way. v0.18.156: ios gives iosConfig (enabled true once the project has the iOS app). The iPhone app starts Firebase
+          at run time with iosConfig (FirebaseOptions apiKey, appId, messagingSenderId, projectId, iosBundleId) and never
+          with settings of another platform (native Firebase on iOS aborts the app for a web or Android app id). Then it follows
+          appFlow at the same moment and with the same texts as on Android (driver: Go online; rider: after sign-in), asks
+          the iOS notification permission (alert, sound, badge), waits for the APNs token, gets the FCM token, POST /push/devices
+          { provider: fcm, platform: ios }, registers again when FCM changes the token and unregisters on sign-out. A push
+          that comes while the app is open is not shown by the app (the offer stream and the bell list show it). A tap opens
+          data.deepLink as on Android, from the background and from a closed app.'
         schema:
           type: string
           enum:
@@ -12333,8 +12397,11 @@ paths:
         and every other document, is restored as before. The restored document is saved through the same draft path, so configDocs.keptKeys
         applies to it too. v0.18.139 (driverPayRequest.setting): CountryRules.driverPayRequest is kept the same way (the switch,
         the day, the payment link and the minimum amount stay as they are live now). v0.18.136 (stripeFees): CountryRules.riderFeeStripe
-        (the switch for paying a rider fee with Stripe in the app) is kept the same way. v0.18.139 (driverPayRequest): Restore
-        keeps driverPayRequest (pricingHistory.restoreKeeps). v0.18.136 (stripeFees): Restore keeps riderFeeStripe (pricingHistory.restoreKeeps).'
+        (the switch for paying a rider fee with Stripe in the app) is kept the same way. v0.18.157 (smsSignIn.otherCountries.setting):
+        CountryRules.smsSignInOtherCountries (SMS sign-in for numbers from other countries, super admins only) is kept the
+        same way, so a Restore by any admin never changes it; a save without an admin role (Restore, the seed) may not change
+        it either. v0.18.139 (driverPayRequest): Restore keeps driverPayRequest (pricingHistory.restoreKeeps). v0.18.136 (stripeFees):
+        Restore keeps riderFeeStripe (pricingHistory.restoreKeeps).'
       tags:
       - Admin · Config
       x-actor:
@@ -20903,6 +20970,333 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /rider/trips/{tripId}/driver-profile:
+    get:
+      operationId: riderTripDriverProfile
+      summary: The trip driver's profile
+      description: 'v0.18.155 (contract.json#driverProfile): GET /rider/trips/{tripId}/driver-profile (rider of that trip;
+        from accepted until 24 h after the trip ended) -> DriverPublicProfile. Not the trip''s rider or another state: 404
+        not_found. The zone''s profile switch off: 404 not_found, reason driver_profile_off (the card still opens the old
+        simple page). LOAD RULE (owner): no new polling. The rider app reads the profile once when the sheet opens (and again
+        only after 5 min); the answer carries Cache-Control: private, max-age=300 and an ETag, and If-None-Match gets 304.
+        The driver app reads GET /driver/public-profile when Min profil opens. Counts are aggregated on the server.'
+      tags:
+      - Rider · Trips
+      x-actor:
+      - rider
+      parameters:
+      - $ref: '#/components/parameters/TripId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverPublicProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '304':
+          description: Not modified (If-None-Match matched the ETag).
+  /driver/public-profile:
+    get:
+      operationId: getDriverPublicProfile
+      summary: 'Min profil: what riders see'
+      description: 'v0.18.155 (contract.json#driverProfile): GET /driver/public-profile -> DriverOwnPublicProfile: the settings,
+        the preview exactly as a rider sees it, the compliment counts and the driver''s reviews (newest first, at most 50,
+        with status).'
+      tags:
+      - Driver · Account
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverOwnPublicProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    patch:
+      operationId: updateDriverPublicProfile
+      summary: 'Min profil: languages and what to show'
+      description: 'v0.18.155 (contract.json#driverProfile): PATCH /driver/public-profile { languages?, showCity?, showYears?
+        } -> DriverOwnPublicProfile. An unknown code or too many: 400 invalid_request, reason invalid_language.'
+      tags:
+      - Driver · Account
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverPublicProfilePatch'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverOwnPublicProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/driver-reviews:
+    get:
+      operationId: adminListDriverReviews
+      summary: Driver reviews to moderate
+      description: 'v0.18.155 (contract.json#driverProfile): GET /admin/driver-reviews?status=pending|approved|hidden&zoneId&cursor
+        (settings.read, the admin''s zones) -> AdminDriverReviewPage, oldest pending first. Each item: reviewId, driverId,
+        driver first name, zoneId, stars, text, name (or null), month, status, createdAt. No rider id or contact.'
+      tags:
+      - Admin · Reviews
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - pending
+          - approved
+          - hidden
+      - $ref: '#/components/parameters/ListZoneId'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDriverReviewPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/driver-reviews/{reviewId}/approve:
+    post:
+      operationId: adminApproveDriverReview
+      summary: Show a driver review
+      description: 'v0.18.155 (contract.json#driverProfile): POST /admin/driver-reviews/{reviewId}/approve | /hide (settings.publish)
+        -> AdminDriverReview; written to the audit log.'
+      tags:
+      - Admin · Reviews
+      x-actor:
+      - admin
+      x-permission: settings.publish
+      parameters:
+      - name: reviewId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDriverReview'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/driver-reviews/{reviewId}/hide:
+    post:
+      operationId: adminHideDriverReview
+      summary: Hide a driver review
+      description: 'v0.18.155 (contract.json#driverProfile): POST /admin/driver-reviews/{reviewId}/approve | /hide (settings.publish)
+        -> AdminDriverReview; written to the audit log.'
+      tags:
+      - Admin · Reviews
+      x-actor:
+      - admin
+      x-permission: settings.publish
+      parameters:
+      - name: reviewId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDriverReview'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/errors/{errorId}/reports:
+    get:
+      operationId: adminListErrorReports
+      summary: The kept reports of one crash or error group (newest first)
+      description: 'v0.18.158 (contract.json#crashCatcher): GET /admin/errors/{errorId}/reports?limit= (1-50, default 20)
+        -> { items: [ErrorReport { at, kind, appVersion?, build?, platform?, osVersion?, deviceModel?, screen?, tripId?, zoneId?,
+        message, stack?, nativeReason?, freezeMs?, breadcrumbs[] }] }, newest first: the kept reports of one group (at most
+        maxEventsPerGroup are kept). Same permission as GET /admin/errors (any signed-in admin). 404 not_found for an unknown
+        group. Permission: any signed-in admin, every role, for the list and for marking fixed; no permission id, like GET
+        /admin/auth/me (owner 2026-10-29: "No code now every one can see and later we add"; "All admin roles (Recommended)").
+        The rest of System keeps system.read..'
+      tags:
+      - Admin · System
+      x-actor:
+      - admin
+      parameters:
+      - $ref: '#/components/parameters/ErrorId'
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorReportList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -23639,6 +24033,14 @@ components:
           type: boolean
           description: 'v0.18.54 §76: true on an admin answer when ownerEmail was masked (the admin lacks drivers.viewSensitive);
             absent when the value is full. The admin shows Reveal (POST /admin/fleets/{fleetId}/reveal).'
+        approvalBlockedReason:
+          type: string
+          enum:
+          - fleet_has_no_car
+          description: 'v0.18.159 (fleetNeedsCar.adminView): Fleet.approvalBlockedReason (admin views only: GET /admin/fleets,
+            GET /admin/fleets/{fleetId}, the review answer): ''fleet_has_no_car'' while the fleet is not approved, has zero
+            cars and its country''s PUBLISHED fleetNeedsCarForApproval is on; absent otherwise. The server computes it from
+            the same rule as the refusal, so the admin panel needs no settings.read and never reads a draft.'
     FleetDriver:
       type: object
       required:
@@ -24051,6 +24453,7 @@ components:
     RatingTag:
       type: string
       enum:
+      - great_service
       - clean_car
       - friendly
       - safe_driving
@@ -26592,6 +26995,270 @@ components:
           $ref: '#/components/schemas/AccountDeletionSetting'
         riderFeeStripe:
           $ref: '#/components/schemas/RiderFeeStripeSetting'
+        smsSignInOtherCountries:
+          type: object
+          description: 'v0.18.157 (contract.json#smsSignIn.otherCountries): CountryRules.smsSignInOtherCountries { enabled
+            (boolean), dailyCap (integer, smsSignIn.dailyCapRange), perCodeDailyCap (integer, perCodeDailyCapRange), perMinuteCap
+            (integer, perMinuteCapRange), blockedCallingCodes (array of calling codes from callingCodes, at most 50, no repeats)
+            }, ONE setting for the whole server, kept on the country standard of homeCountry only (standard-SE): Admin › Pricing
+            › Tips & limits, Sweden standard, card "SMS sign-in for numbers from other countries" (shown and editable only
+            for super admins; settings.edit, published with that country_rules document by settings.publish). On any other
+            zone or country standard it is 400 invalid_request, reason sms_sign_in_other_home_only; enabled not true / false,
+            a number not a whole number inside its range, a blocked code not in callingCodes or repeated, or another key inside
+            it, is 400 invalid_request, reason invalid_document; a document that changes it saved by an admin who is not a
+            super admin is 403 forbidden, reason super_admin_only. Never saved, or a part missing = configDefaults.smsSignInOtherCountries
+            (on, 50). Only the exact boolean false switches it off; missing or not a boolean reads as the default (on). configDocs.keptKeys.country_rules
+            keeps smsSignInOtherCountries when a save leaves it out, so a Tips & limits save by an admin who is not a super
+            admin (who never sees the card) never turns it off or changes it.'
+          properties:
+            enabled:
+              type: boolean
+              description: Real SMS sign-in codes in the rider app for numbers of every country not served on this server
+                (default on).
+              default: true
+            dailyCap:
+              type: integer
+              minimum: 10
+              maximum: 100000
+              default: 50
+              description: Sign-in SMS per 24 hours to all other-country numbers together before new codes are refused (sms_daily_limit).
+            perCodeDailyCap:
+              type: integer
+              minimum: 1
+              maximum: 100000
+              default: 10
+              description: Sign-in SMS per 24 hours per calling code inside the other-countries bucket (sms_daily_limit).
+            perMinuteCap:
+              type: integer
+              minimum: 1
+              maximum: 10000
+              default: 30
+              description: All sign-in SMS of the server per minute (burst limit, sms_daily_limit).
+            blockedCallingCodes:
+              type: array
+              maxItems: 50
+              uniqueItems: true
+              default: []
+              description: Calling codes blocked for other-country numbers (empty by default).
+              items:
+                type: string
+                enum:
+                - '+1'
+                - '+7'
+                - '+20'
+                - '+27'
+                - '+30'
+                - '+31'
+                - '+32'
+                - '+33'
+                - '+34'
+                - '+36'
+                - '+39'
+                - '+40'
+                - '+41'
+                - '+43'
+                - '+44'
+                - '+45'
+                - '+46'
+                - '+47'
+                - '+48'
+                - '+49'
+                - '+51'
+                - '+52'
+                - '+53'
+                - '+54'
+                - '+55'
+                - '+56'
+                - '+57'
+                - '+58'
+                - '+60'
+                - '+61'
+                - '+62'
+                - '+63'
+                - '+64'
+                - '+65'
+                - '+66'
+                - '+81'
+                - '+82'
+                - '+84'
+                - '+86'
+                - '+90'
+                - '+91'
+                - '+92'
+                - '+93'
+                - '+94'
+                - '+95'
+                - '+98'
+                - '+211'
+                - '+212'
+                - '+213'
+                - '+216'
+                - '+218'
+                - '+220'
+                - '+221'
+                - '+222'
+                - '+223'
+                - '+224'
+                - '+225'
+                - '+226'
+                - '+227'
+                - '+228'
+                - '+229'
+                - '+230'
+                - '+231'
+                - '+232'
+                - '+233'
+                - '+234'
+                - '+235'
+                - '+236'
+                - '+237'
+                - '+238'
+                - '+239'
+                - '+240'
+                - '+241'
+                - '+242'
+                - '+243'
+                - '+244'
+                - '+245'
+                - '+246'
+                - '+248'
+                - '+249'
+                - '+250'
+                - '+251'
+                - '+252'
+                - '+253'
+                - '+254'
+                - '+255'
+                - '+256'
+                - '+257'
+                - '+258'
+                - '+260'
+                - '+261'
+                - '+262'
+                - '+263'
+                - '+264'
+                - '+265'
+                - '+266'
+                - '+267'
+                - '+268'
+                - '+269'
+                - '+290'
+                - '+291'
+                - '+297'
+                - '+298'
+                - '+299'
+                - '+350'
+                - '+351'
+                - '+352'
+                - '+353'
+                - '+354'
+                - '+355'
+                - '+356'
+                - '+357'
+                - '+358'
+                - '+359'
+                - '+370'
+                - '+371'
+                - '+372'
+                - '+373'
+                - '+374'
+                - '+375'
+                - '+376'
+                - '+377'
+                - '+378'
+                - '+379'
+                - '+380'
+                - '+381'
+                - '+382'
+                - '+383'
+                - '+385'
+                - '+386'
+                - '+387'
+                - '+389'
+                - '+420'
+                - '+421'
+                - '+423'
+                - '+500'
+                - '+501'
+                - '+502'
+                - '+503'
+                - '+504'
+                - '+505'
+                - '+506'
+                - '+507'
+                - '+508'
+                - '+509'
+                - '+590'
+                - '+591'
+                - '+592'
+                - '+593'
+                - '+594'
+                - '+595'
+                - '+596'
+                - '+597'
+                - '+598'
+                - '+599'
+                - '+670'
+                - '+672'
+                - '+673'
+                - '+674'
+                - '+675'
+                - '+676'
+                - '+677'
+                - '+678'
+                - '+679'
+                - '+680'
+                - '+681'
+                - '+682'
+                - '+683'
+                - '+685'
+                - '+686'
+                - '+687'
+                - '+688'
+                - '+689'
+                - '+690'
+                - '+691'
+                - '+692'
+                - '+800'
+                - '+808'
+                - '+850'
+                - '+852'
+                - '+853'
+                - '+855'
+                - '+856'
+                - '+870'
+                - '+878'
+                - '+880'
+                - '+881'
+                - '+882'
+                - '+883'
+                - '+886'
+                - '+888'
+                - '+960'
+                - '+961'
+                - '+962'
+                - '+963'
+                - '+964'
+                - '+965'
+                - '+966'
+                - '+967'
+                - '+968'
+                - '+970'
+                - '+971'
+                - '+972'
+                - '+973'
+                - '+974'
+                - '+975'
+                - '+976'
+                - '+977'
+                - '+979'
+                - '+992'
+                - '+993'
+                - '+994'
+                - '+995'
+                - '+996'
+                - '+998'
+          additionalProperties: false
       x-server-only: true
     FeeRule:
       type: object
@@ -28188,7 +28855,7 @@ components:
               minimum: 0
               description: 'How far the rider may move the pickup after accept; further = cancel and rebook. v0.18.7: default
                 200, range 0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}.
-                v0.18.156: default 300 (was 200; the rider moves the pickup up to 300 m for free); v0.18.156 (owner 2026-11-23,
+                v0.18.160: default 300 (was 200; the rider moves the pickup up to 300 m for free); v0.18.160 (owner 2026-11-23,
                 Rules decisions/session-2026-11-06.md "2026-11-23 OWNER DECISION": the rider can adjust the pickup up to 300
                 m for free, same price): the default is 300 m (was 200 from v0.18.7, 500 before); the range stays 0–2000 and
                 the admin can still set any zone. Server migration 0133 moves every published rider and driver document (and
@@ -28391,6 +29058,23 @@ components:
               maximum: 10
               default: 8
           additionalProperties: false
+        driverProfile:
+          $ref: '#/components/schemas/DriverProfileSettings'
+        crashReports:
+          type: object
+          description: 'v0.18.158 (contract.json#crashCatcher): Per zone, in both app documents: RiderAppConfig.crashReports
+            { on } and DriverAppConfig.crashReports { on } (the zone''s own document, else its country standard), saved and
+            published like the other switches. Default configDefaults.crashReportsOn (true). Off: that app sends no crash
+            report of any kind in that zone (the running marker and breadcrumbs are still kept on the phone, nothing leaves
+            it). The app keeps the last value it read, so a crash at start before the document is read follows the last known
+            value (true when never read). GET /rider/config and GET /driver/config always serve crashReports { on }. A crashReports
+            that is not an object, or an on that is not true / false, is 400 invalid_request, reason invalid_document.'
+          properties:
+            'on':
+              type: boolean
+              description: The zone's switch.
+              default: true
+          additionalProperties: false
     DriverAppConfig:
       type: object
       description: Per-zone driver document built by Admin exporters. Unknown keys are ignored; missing keys fall back to
@@ -28455,8 +29139,8 @@ components:
               type: integer
               minimum: 0
               description: 'Pickup move limit after accept; the driver is notified of a move. v0.18.7: default 200, range
-                0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}. v0.18.156:
-                default 300 (was 200; the rider moves the pickup up to 300 m for free); v0.18.156 (owner 2026-11-23, Rules
+                0–2000 (contract.json#pickupWaiting.pickupMove); the server checks it on PATCH /trips/{tripId}. v0.18.160:
+                default 300 (was 200; the rider moves the pickup up to 300 m for free); v0.18.160 (owner 2026-11-23, Rules
                 decisions/session-2026-11-06.md "2026-11-23 OWNER DECISION": the rider can adjust the pickup up to 300 m for
                 free, same price): the default is 300 m (was 200 from v0.18.7, 500 before); the range stays 0–2000 and the
                 admin can still set any zone. Server migration 0133 moves every published rider and driver document (and draft)
@@ -28810,6 +29494,23 @@ components:
                   description: Minutes on the two old streams before the next reconnect asks GET /driver/stream again (or
                     at app restart).
               additionalProperties: false
+        driverProfile:
+          $ref: '#/components/schemas/DriverProfileSettings'
+        crashReports:
+          type: object
+          description: 'v0.18.158 (contract.json#crashCatcher): Per zone, in both app documents: RiderAppConfig.crashReports
+            { on } and DriverAppConfig.crashReports { on } (the zone''s own document, else its country standard), saved and
+            published like the other switches. Default configDefaults.crashReportsOn (true). Off: that app sends no crash
+            report of any kind in that zone (the running marker and breadcrumbs are still kept on the phone, nothing leaves
+            it). The app keeps the last value it read, so a crash at start before the document is read follows the last known
+            value (true when never read). GET /rider/config and GET /driver/config always serve crashReports { on }. A crashReports
+            that is not an object, or an on that is not true / false, is 400 invalid_request, reason invalid_document.'
+          properties:
+            'on':
+              type: boolean
+              description: The zone's switch.
+              default: true
+          additionalProperties: false
     CategoryPricingWaiting:
       type: object
       description: Waiting at pickup for one category; RiderAppConfig / DriverAppConfig waiting.byCategory carry the same
@@ -30579,7 +31280,17 @@ components:
       description: 'v0.16.0 (owner 2026-10-29, "Want section on dispatch to show all crash droids and bugs detected from server"):
         POST /telemetry/crashes takes optional app, platform, appVersion, build, screen, kind and occurredAt next to error,
         stack and extra (additive; an older app sends none). The server scrubs again, groups each report and keeps the reports
-        keepDays days.'
+        keepDays days. v0.18.158 (contract.json#crashCatcher): POST /telemetry/crashes also takes, all optional: kind (see
+        kinds), osVersion (e.g. "iOS 17.1" or "Android 14 (API 34)", at most 60), deviceModel (e.g. "iPhone15,2" or "samsung
+        SM-S911B", at most 80), tripId (the trip on screen, when there is one), zoneId (the zone the app is in), breadcrumbs
+        (at most 30), nativeReason { name, reason } (native_crash only; name at most 200, reason at most 1000 characters)
+        and freezeMs (freeze only, whole milliseconds). Never a phone number, e-mail, name or address: the account is the
+        token the report is sent with, as before. A report that cannot be sent (offline, 5xx, 429) waits in a file of at most
+        20 reports and is sent again later and at the next launch, oldest first; a 2xx or 4xx answer removes it. The same
+        report again within a minute is counted on the phone, not sent again (as v0.16.0). At most perDevicePerMinute crash
+        reports per device and minute are stored (the device is the signed-in account, else the address; fixed 60 s window
+        per server copy, next to the per-address telemetry budget). Over it: 202 with an empty body and nothing stored; the
+        apps treat it as delivered.'
       required:
       - error
       properties:
@@ -30621,9 +31332,55 @@ components:
           enum:
           - crash
           - error
-          description: 'v0.16.0: crash (the app stopped) or error (caught). Default crash.'
+          - dart_error
+          - native_crash
+          - freeze
+          description: 'v0.16.0: crash (the app stopped) or error (caught). Default crash. v0.18.158 (contract.json#crashCatcher):
+            dart_error: an uncaught Dart error: FlutterError.onError, PlatformDispatcher.instance.onError and the main isolate
+            error listener (no extra zone around runApp: it runs in the zone that made the binding, so no "Zone mismatch").
+            Sent at once. native_crash: the app ended without a clean exit (an iOS NSException or signal, an Android Java/Kotlin
+            exception, a native crash, an Android ANR or the system killing the app while it was in front). Found on the NEXT
+            launch from the running marker and sent then, with the native reason when the app caught one. freeze: the app
+            screen made no progress for freezeSeconds or more while the app was in front. Sent when the screen moves again,
+            with how long it froze. crash: older apps (v0.16.0): the app stopped. Kept; new apps send dart_error instead.
+            error: a caught error shown to the user (v0.16.0). Kept as before.'
         occurredAt:
           $ref: '#/components/schemas/Timestamp'
+        osVersion:
+          type: string
+          maxLength: 60
+          description: 'v0.18.158 (contract.json#crashCatcher): e.g. iOS 17.1, Android 14 (API 34).'
+        deviceModel:
+          type: string
+          maxLength: 80
+          description: 'v0.18.158 (contract.json#crashCatcher): e.g. iPhone15,2, samsung SM-S911B.'
+        tripId:
+          type: string
+          maxLength: 64
+          description: 'v0.18.158 (contract.json#crashCatcher): the trip on screen, when there is one.'
+        zoneId:
+          type: string
+          maxLength: 64
+          description: 'v0.18.158 (contract.json#crashCatcher): the zone the app is in.'
+        breadcrumbs:
+          type: array
+          items:
+            $ref: '#/components/schemas/CrashBreadcrumb'
+          maxItems: 30
+          description: 'v0.18.158 (contract.json#crashCatcher): The apps keep the last max breadcrumbs { at (RFC 3339), type,
+            message } in memory and in a small file (so a native crash still has them at the next launch): route = a screen
+            change; lifecycle = resumed / inactive / paused / hidden / detached; platform = a platform call that failed (a
+            plugin error); network = an API call that failed (method, path with ids replaced, status, never the body); log
+            = a warning or error log line. Each message is scrubbed like the rest of the report (no e-mail, phone number,
+            name, address or coordinate) and cut to maxMessage characters.'
+        nativeReason:
+          allOf:
+          - $ref: '#/components/schemas/NativeCrashReason'
+          description: 'v0.18.158 (contract.json#crashCatcher): native_crash only.'
+        freezeMs:
+          type: integer
+          minimum: 0
+          description: 'v0.18.158 (contract.json#crashCatcher): freeze only: how long the screen froze.'
     ErrorGroup:
       type: object
       description: 'v0.16.0 (owner 2026-10-29): the admin "Crashes & errors" section. Reports with the same fingerprint are
@@ -30672,6 +31429,10 @@ components:
           enum:
           - crash
           - error
+          - dart_error
+          - native_crash
+          - freeze
+          description: 'v0.18.158 (contract.json#crashCatcher): the latest report''s kind.'
         count:
           type: integer
           minimum: 1
@@ -31973,6 +32734,7 @@ components:
           items:
             type: string
             pattern: ^[a-z][a-z0-9_]{0,63}$
+          maxItems: 6
         comment:
           type: string
           maxLength: 2000
@@ -31997,6 +32759,25 @@ components:
           allOf:
           - $ref: '#/components/schemas/TipMethod'
           description: 'v0.18.10: with tip; default cash.'
+        review:
+          type: string
+          minLength: 1
+          maxLength: 280
+          description: 'v0.18.155 (contract.json#driverProfile): RatingRequest.review (string, 1-280 characters after trim,
+            rider only): the short text the rider allows to show on the driver''s profile. RatingRequest.comment stays private
+            (admin only) as before. A review with stars < minStarsShown is never stored as a review (the text is kept as a
+            private comment instead).'
+        reviewName:
+          type: string
+          enum:
+          - first_name
+          - anonymous
+          description: 'v0.18.155 (contract.json#driverProfile): RatingRequest.reviewName: first_name (default) | anonymous.
+            first_name: the review shows the rider''s first name as it was at rating time (first word of the profile name,
+            at most 20 characters); anonymous: no name. Nothing else about the rider is ever stored on or sent with a review:
+            no rider id, phone, photo, e-mail, trip id, address or exact date; the month (YYYY-MM, the trip''s zone time)
+            only.'
+          default: first_name
     AvailabilityRequest:
       type: object
       required:
@@ -33071,7 +33852,8 @@ components:
             - realtime.oneStream
             - realtime.oneStreamFallback
             - riderFeeStripe
-          maxItems: 14
+            - smsSignInOtherCountries
+          maxItems: 15
           description: 'v0.18.123 (configDocs.keptKeys.removeKeys): ConfigDraftUpdate.removeKeys (optional, array of dotted
             paths): each must be a kept key of that document, else 400 invalid_request, reason unknown_kept_key, details ["key:<path>"],
             nothing saved. A named key that the sent document carries is saved as sent (removeKeys only stops the keep).'
@@ -33766,6 +34548,12 @@ components:
             when a once-active driver is made active again (after on_hold or a suspension); never sets an active driver back.
             Off: approval ignores the e-mail.'
           default: false
+        fleetNeedsCarForApproval:
+          type: boolean
+          description: 'v0.18.159 (fleetNeedsCar): OnboardingSettings.fleetNeedsCarForApproval (boolean, default true; missing
+            = true), per country, Admin › Drivers › Onboarding ("Fleet needs at least 1 car before approval"), saved and published
+            like the other onboarding settings (settings.edit / settings.publish). The country is the fleet''s country.'
+          default: true
       x-server-only: true
       x-defaults:
         SE:
@@ -33886,6 +34674,7 @@ components:
           validMonths: {}
           guides: {}
           emailVerifiedForApproval: false
+          fleetNeedsCarForApproval: true
         FR:
           documents:
             driver:
@@ -34013,6 +34802,7 @@ components:
             urssaf_certificate: 6
           guides: {}
           emailVerifiedForApproval: false
+          fleetNeedsCarForApproval: true
         TN:
           documents:
             driver: []
@@ -34115,6 +34905,7 @@ components:
           validMonths: {}
           guides: {}
           emailVerifiedForApproval: false
+          fleetNeedsCarForApproval: true
     DocumentGuide:
       type: object
       description: 'v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R8 "Admin edits all text (Recommended)"):
@@ -34215,20 +35006,21 @@ components:
         / on_hold / suspended and every document is done (v0.18.3 R10: no line document_needed, document_rejected, document_expired,
         document_in_review, info_session_waiting, admin_check_waiting or vehicle_photos_needed is left; v0.18.76: nor a red
         email_not_verified line actually sent in this answer, since Movera cannot approve him before the check; a driver app
-        below 0.18.76 never gets that line, so it still gets account_not_active); Movera activates it (no fix). fleet_not_approved:
-        blocks_online: the fleet is pending / rejected / blocked (no fix). no_fleet: v0.18.3 (owner decisions of 2026-10-30,
-        driver group 2 re-check R4 "Red ''Join a fleet'' line (Recommended)"): blocks_online: an account of type driver that
-        is in no fleet; text texts.no_fleet; fix join_fleet (My fleet › Join a fleet) and actions [join_fleet, start_company]
-        (two buttons, labels texts.actions); the line goes once the driver is in a fleet (or his account becomes a fleet).
-        fleet_no_approved_car: blocks_online: the fleet has no car that can be picked (approved, every car document approved);
-        owner fix: fleet_vehicles (add / finish a car); member: no fix ("Your fleet has no approved car yet…"). no_vehicle:
-        blocks_online: the fleet has a car that can be picked but this driver has none picked (fix: pick_vehicle). admin_check_waiting:
-        waiting: a custom admin_check document not marked yet; status waiting_for_movera (no fix). vehicle_photos_needed:
-        blocks_online: a car''s four photos are not all uploaded and approved (fix: document, the first photo missing); text
-        "Add 4 photos of your car". fleet_invitation: v0.18.5 (G2-D5.6): waiting: an owner invited this driver (invitationId,
-        fleetName); actions accept_invitation and decline_invitation; text texts.fleet_invitation; the line goes when he answers
-        or it expires. email_not_verified: v0.18.76 (G30, owner Q3 "show on sheet home screen as no verify"): the driver has
-        an e-mail without emailVerifiedAt; no expiresAt; fix verify_email (Account › E-mail, the code check with his address
+        below 0.18.76 never gets that line, so it still gets account_not_active); Movera activates it (no fix) v0.18.159:
+        nor while a fleet_no_car line is sent in this answer (the fleet owner has no car yet).. fleet_not_approved: blocks_online:
+        the fleet is pending / rejected / blocked (no fix). no_fleet: v0.18.3 (owner decisions of 2026-10-30, driver group
+        2 re-check R4 "Red ''Join a fleet'' line (Recommended)"): blocks_online: an account of type driver that is in no fleet;
+        text texts.no_fleet; fix join_fleet (My fleet › Join a fleet) and actions [join_fleet, start_company] (two buttons,
+        labels texts.actions); the line goes once the driver is in a fleet (or his account becomes a fleet). fleet_no_approved_car:
+        blocks_online: the fleet has no car that can be picked (approved, every car document approved); owner fix: fleet_vehicles
+        (add / finish a car); member: no fix ("Your fleet has no approved car yet…"). no_vehicle: blocks_online: the fleet
+        has a car that can be picked but this driver has none picked (fix: pick_vehicle). admin_check_waiting: waiting: a
+        custom admin_check document not marked yet; status waiting_for_movera (no fix). vehicle_photos_needed: blocks_online:
+        a car''s four photos are not all uploaded and approved (fix: document, the first photo missing); text "Add 4 photos
+        of your car". fleet_invitation: v0.18.5 (G2-D5.6): waiting: an owner invited this driver (invitationId, fleetName);
+        actions accept_invitation and decline_invitation; text texts.fleet_invitation; the line goes when he answers or it
+        expires. email_not_verified: v0.18.76 (G30, owner Q3 "show on sheet home screen as no verify"): the driver has an
+        e-mail without emailVerifiedAt; no expiresAt; fix verify_email (Account › E-mail, the code check with his address
         filled); the line goes once emailVerifiedAt is set. Level (owner 2026-11-12 ~14:10, S2): blocks_online (red) with
         text texts.email_not_verified_approval ("needed for approval") when his country''s OnboardingSettings.emailVerifiedForApproval
         is on and he was never active before (pending or on_hold, or suspended without ever having been active; contract.json#emailVerified.neverActive),
@@ -34239,7 +35031,16 @@ components:
         warning) while his country''s CountryRules.driverOwesLimit is on and what he owes Movera is at or above its max —
         he gets no cash trips until he pays (driverOwes.cashOffers); it never stops going online. owed and limit (Money) on
         the line; no fix target; text texts.owes_movera_over_limit ({owed}, {limit}). Sent only to driver apps whose X-Contract-Version
-        is 0.18.84 or higher..'
+        is 0.18.84 or higher.. fleet_no_car: v0.18.159 (owner 2026-11-24, Rules decisions/driver-g2.md "Fleet owner must add
+        a car": "Why fleet owner after sign in don''t know that he need to add car ?"; mockup PROPOSAL-fleet-add-car-2026-11-24.html
+        approved "Fleet partner add card reminder add"): blocks_online: the FLEET OWNER (fleet.ownerDriverId = the driver)
+        of a fleet with ZERO cars (no vehicle with this fleetId, whatever its status), while the fleet is NOT approved (pending,
+        rejected, blocked), from the first sign-in (an approved fleet with no car keeps fleet_no_approved_car: "before Movera
+        can approve it" would be false); text texts.fleet_no_car + texts.fleet_no_car_body, button texts.fleet_add_car; fix
+        fleet_vehicles (My fleet › Add car). Never sent to a member. Sent only to apps that send X-Contract-Version 0.18.159
+        or later (contract.json#fleetNeedsCar.since); an older app keeps the lines it had. While it is sent, account_not_active
+        is not sent (the owner still has to act; "Everything is sent" would be false). The line goes once the fleet has a
+        car (then the car''s own document / photo lines, and fleet_no_approved_car once the fleet is approved, as before)..'
       required:
       - kind
       - level
@@ -34263,6 +35064,7 @@ components:
           - fleet_invitation
           - email_not_verified
           - owes_movera_over_limit
+          - fleet_no_car
         level:
           type: string
           enum:
@@ -34430,6 +35232,22 @@ components:
             false (no androidConfig) when the server has no Firebase settings or the project has no Android app with that
             package; the app then skips push and says so in its log. Without platform, or platform=web, the answer is the
             v0.18.3 one (webConfig), unchanged. A failed read is tried again after 5 minutes.'
+        iosConfig:
+          allOf:
+          - $ref: '#/components/schemas/PushIosConfig'
+          description: 'v0.18.156: only with platform=ios. v0.18.156 (owner 2026-11-24 "Notifications doesn''t work on iPhones?";
+            the owner uploaded the team APNs auth key (sandbox + production) in Firebase Cloud Messaging for both iOS apps,
+            Rules LAUNCH-RULE.md 2026-11-24; Rule 0; X-Api-Version stays `0.5`; additive, optional; no migration; follows
+            v0.18.155): GET /push/config?app=driver|rider&platform=ios gives { provider: fcm, enabled, projectId?, iosConfig?
+            { apiKey, appId, messagingSenderId, projectId, iosBundleId } }: the public settings of the project''s Firebase
+            iOS app with the app''s bundle id (iosBundleIds), read once with the server''s service account from the Firebase
+            Management API (the app''s GoogleService-Info.plist: GOOGLE_APP_ID, API_KEY, GCM_SENDER_ID, PROJECT_ID, BUNDLE_ID)
+            and kept in memory, the same way as androidConfig. They are public (inside every IPA), never a secret, so no GoogleService-Info.plist
+            and no key is kept in any app repository or CI. iosConfig.appId always names an iOS app (`1:<sender>:ios:<id>`).
+            enabled false (no iosConfig) when the server has no Firebase settings or the project has no iOS app with that
+            bundle id; the app then skips push and says so in its log. A failed read is tried again after 5 minutes. This
+            replaces the v0.18.105 rule that platform=ios is always enabled false (auth.devices.config.android.ios, kept as
+            history).'
     AdminVehicleUpdate:
       type: object
       description: 'PATCH /admin/vehicles/{vehicleId} { expectedVersion, make?, model?, year?, color?, plate?, seats?, fuel?,
@@ -41645,3 +42463,546 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DriverIncomeRow'
+    DriverCompliment:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): The server keeps one count per driver and code, raised in the
+        same transaction as the rating (never counted on read); a hidden rating (ratings.moderation) takes its codes off again.
+        Only ratings with stars >= minStars add to the counts. The profile sends only the codes with count >= 1, in list order.'
+      required:
+      - code
+      - count
+      properties:
+        code:
+          type: string
+          enum:
+          - great_service
+          - knew_the_way
+          - friendly
+          - clean_car
+          - safe_driving
+          - good_music
+        count:
+          type: integer
+          minimum: 1
+      additionalProperties: false
+    DriverMilestone:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): The server works them out when the profile is read (from the
+        stored counts, no extra job). Each item: { code, reachedAt (YYYY-MM) }. Shown only when reached.'
+      required:
+      - code
+      - reachedAt
+      properties:
+        code:
+          type: string
+          enum:
+          - trips_1000
+          - top_rating
+        reachedAt:
+          type: string
+          pattern: ^[0-9]{4}-[0-1][0-9]$
+          description: YYYY-MM in the trip zone's time zone.
+      additionalProperties: false
+    DriverReviewShown:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): RatingRequest.reviewName: first_name (default) | anonymous. first_name:
+        the review shows the rider''s first name as it was at rating time (first word of the profile name, at most 20 characters);
+        anonymous: no name. Nothing else about the rider is ever stored on or sent with a review: no rider id, phone, photo,
+        e-mail, trip id, address or exact date; the month (YYYY-MM, the trip''s zone time) only.'
+      required:
+      - text
+      - name
+      - month
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 280
+        name:
+          oneOf:
+          - type: string
+            maxLength: 20
+          - type: 'null'
+        month:
+          type: string
+          pattern: ^[0-9]{4}-[0-1][0-9]$
+          description: YYYY-MM in the trip zone's time zone.
+      additionalProperties: false
+    DriverPublicProfile:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): DriverPublicProfile: tripCount (completed trips), rating (1 decimal,
+        null with fewer than 5 ratings), years (whole years since the first approved day, 0 shown as the since month only),
+        sinceMonth (YYYY-MM). LOAD RULE (owner): no new polling. The rider app reads the profile once when the sheet opens
+        (and again only after 5 min); the answer carries Cache-Control: private, max-age=300 and an ETag, and If-None-Match
+        gets 304. The driver app reads GET /driver/public-profile when Min profil opens. Counts are aggregated on the server.'
+      required:
+      - driverId
+      - firstName
+      - verified
+      - photoUrl
+      - languages
+      - city
+      - sinceMonth
+      - years
+      - tripCount
+      - rating
+      - compliments
+      - milestones
+      - latestReview
+      properties:
+        driverId:
+          $ref: '#/components/schemas/Id'
+        firstName:
+          type: string
+          minLength: 1
+        verified:
+          type: boolean
+          description: verified true when the driver's account is approved and his profile photo is approved.
+        photoUrl:
+          oneOf:
+          - type: string
+            format: uri-reference
+          - type: 'null'
+          description: The same driver-photo path as DriverSummary.photoUrl, or null.
+        languages:
+          type: array
+          items:
+            type: string
+            enum:
+            - sv
+            - en
+            - ar
+            - fr
+            - fi
+            - es
+            - de
+            - fa
+            - so
+            - ti
+            - tr
+            - pl
+            - ru
+            - ku
+            - bs
+            - uk
+          maxItems: 6
+          uniqueItems: true
+        city:
+          oneOf:
+          - type: string
+            maxLength: 80
+          - type: 'null'
+          description: null when the driver hides it (showCity false).
+        sinceMonth:
+          oneOf:
+          - type: string
+            pattern: ^[0-9]{4}-[0-1][0-9]$
+            description: YYYY-MM in the trip zone's time zone.
+          - type: 'null'
+          description: null when the driver hides it (showYears false).
+        years:
+          oneOf:
+          - type: integer
+            minimum: 0
+          - type: 'null'
+          description: null when the driver hides it.
+        tripCount:
+          type: integer
+          minimum: 0
+        rating:
+          oneOf:
+          - type: number
+            minimum: 0
+            maximum: 5
+          - type: 'null'
+        compliments:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverCompliment'
+          maxItems: 6
+        milestones:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverMilestone'
+          maxItems: 2
+        latestReview:
+          oneOf:
+          - $ref: '#/components/schemas/DriverReviewShown'
+          - type: 'null'
+      additionalProperties: false
+    DriverOwnReview:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): Every review starts pending. It shows on the profile only after
+        an admin approves it (POST /admin/driver-reviews/{reviewId}/approve). Hide (POST /admin/driver-reviews/{reviewId}/hide)
+        takes it off at once; approve again shows it again. The driver sees his own reviews with their status in GET /driver/public-profile;
+        the rider never sees pending or hidden ones.'
+      required:
+      - reviewId
+      - text
+      - name
+      - month
+      - stars
+      - status
+      properties:
+        reviewId:
+          $ref: '#/components/schemas/Id'
+        text:
+          type: string
+          maxLength: 280
+        name:
+          oneOf:
+          - type: string
+            maxLength: 20
+          - type: 'null'
+        month:
+          type: string
+          pattern: ^[0-9]{4}-[0-1][0-9]$
+          description: YYYY-MM in the trip zone's time zone.
+        stars:
+          type: integer
+          minimum: 4
+          maximum: 5
+        status:
+          type: string
+          enum:
+          - pending
+          - approved
+          - hidden
+      additionalProperties: false
+    DriverOwnPublicProfile:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): GET /driver/public-profile -> DriverOwnPublicProfile: the settings,
+        the preview exactly as a rider sees it, the compliment counts and the driver''s reviews (newest first, at most 50,
+        with status).'
+      required:
+      - languages
+      - showCity
+      - showYears
+      - profileOn
+      - reviewsOn
+      - preview
+      - compliments
+      - reviews
+      properties:
+        languages:
+          type: array
+          items:
+            type: string
+            enum:
+            - sv
+            - en
+            - ar
+            - fr
+            - fi
+            - es
+            - de
+            - fa
+            - so
+            - ti
+            - tr
+            - pl
+            - ru
+            - ku
+            - bs
+            - uk
+          maxItems: 6
+          uniqueItems: true
+        showCity:
+          type: boolean
+        showYears:
+          type: boolean
+        profileOn:
+          type: boolean
+          description: The zone's driver profile switch.
+        reviewsOn:
+          type: boolean
+          description: The zone's written reviews switch.
+        preview:
+          $ref: '#/components/schemas/DriverPublicProfile'
+        compliments:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverCompliment'
+        reviews:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverOwnReview'
+          maxItems: 50
+      additionalProperties: false
+    DriverPublicProfilePatch:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): PATCH /driver/public-profile { languages?, showCity?, showYears?
+        } -> DriverOwnPublicProfile. An unknown code or too many: 400 invalid_request, reason invalid_language.'
+      properties:
+        languages:
+          type: array
+          items:
+            type: string
+            enum:
+            - sv
+            - en
+            - ar
+            - fr
+            - fi
+            - es
+            - de
+            - fa
+            - so
+            - ti
+            - tr
+            - pl
+            - ru
+            - ku
+            - bs
+            - uk
+          maxItems: 6
+          uniqueItems: true
+        showCity:
+          type: boolean
+        showYears:
+          type: boolean
+      additionalProperties: false
+      minProperties: 1
+    AdminDriverReview:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): GET /admin/driver-reviews?status=pending|approved|hidden&zoneId&cursor
+        (settings.read, the admin''s zones) -> AdminDriverReviewPage, oldest pending first. Each item: reviewId, driverId,
+        driver first name, zoneId, stars, text, name (or null), month, status, createdAt. No rider id or contact.'
+      required:
+      - reviewId
+      - driverId
+      - driverFirstName
+      - zoneId
+      - text
+      - name
+      - month
+      - stars
+      - status
+      - createdAt
+      properties:
+        reviewId:
+          $ref: '#/components/schemas/Id'
+        driverId:
+          $ref: '#/components/schemas/Id'
+        driverFirstName:
+          type: string
+        zoneId:
+          $ref: '#/components/schemas/Id'
+        text:
+          type: string
+          maxLength: 280
+        name:
+          oneOf:
+          - type: string
+            maxLength: 20
+          - type: 'null'
+        month:
+          type: string
+          pattern: ^[0-9]{4}-[0-1][0-9]$
+          description: YYYY-MM in the trip zone's time zone.
+        stars:
+          type: integer
+          minimum: 4
+          maximum: 5
+        status:
+          type: string
+          enum:
+          - pending
+          - approved
+          - hidden
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+      additionalProperties: false
+    AdminDriverReviewPage:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): GET /admin/driver-reviews?status=pending|approved|hidden&zoneId&cursor
+        (settings.read, the admin''s zones) -> AdminDriverReviewPage, oldest pending first. Each item: reviewId, driverId,
+        driver first name, zoneId, stars, text, name (or null), month, status, createdAt. No rider id or contact.'
+      required:
+      - items
+      - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminDriverReview'
+        nextCursor:
+          type:
+          - string
+          - 'null'
+    DriverProfileSettings:
+      type: object
+      description: 'v0.18.155 (contract.json#driverProfile): Per zone: rider_app_config carries driverProfile { on (default
+        configDefaults.driverProfileOn = true), reviews (default configDefaults.driverReviewsOn = false) }; the server serves
+        the same object in GET /driver/config (DriverAppConfig.driverProfile). Not an object, or a value that is not true
+        / false: 400 invalid_request, reason invalid_document. reviews off: no review box after the trip, no latestReview;
+        stored reviews stay for the admin.'
+      properties:
+        'on':
+          type: boolean
+          description: The zone's driver profile switch.
+          default: true
+        reviews:
+          type: boolean
+          description: The zone's written reviews switch.
+          default: false
+    CrashBreadcrumb:
+      type: object
+      description: 'v0.18.158 (contract.json#crashCatcher): The apps keep the last max breadcrumbs { at (RFC 3339), type,
+        message } in memory and in a small file (so a native crash still has them at the next launch): route = a screen change;
+        lifecycle = resumed / inactive / paused / hidden / detached; platform = a platform call that failed (a plugin error);
+        network = an API call that failed (method, path with ids replaced, status, never the body); log = a warning or error
+        log line. Each message is scrubbed like the rest of the report (no e-mail, phone number, name, address or coordinate)
+        and cut to maxMessage characters.'
+      required:
+      - at
+      - type
+      - message
+      properties:
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        type:
+          type: string
+          enum:
+          - route
+          - lifecycle
+          - platform
+          - network
+          - log
+        message:
+          type: string
+          maxLength: 200
+      additionalProperties: false
+    NativeCrashReason:
+      type: object
+      description: 'v0.18.158 (contract.json#crashCatcher): Without any third-party SDK. iOS: NSSetUncaughtExceptionHandler
+        writes the exception name, reason and call stack, and signal handlers (SIGABRT, SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGTRAP)
+        write the signal name, to a file in Application Support that the next launch reads and deletes (a signal after an
+        exception never overwrites it). Android: Thread.setDefaultUncaughtExceptionHandler writes the exception class, message
+        and stack to a file in the app files folder (then the previous handler runs, so Android still closes the app as before);
+        on Android 11+ the next launch also reads the last ApplicationExitInfo and names REASON_CRASH_NATIVE, REASON_ANR or
+        REASON_CRASH when no file was written (each exit only once). The report message is "<name>: <reason>" when there is
+        a native reason, else "App ended without a clean exit (last screen <screen>)".'
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        reason:
+          type: string
+          maxLength: 1000
+      additionalProperties: false
+    ErrorReport:
+      type: object
+      description: 'v0.18.158 (contract.json#crashCatcher): GET /admin/errors/{errorId}/reports?limit= (1-50, default 20)
+        -> { items: [ErrorReport { at, kind, appVersion?, build?, platform?, osVersion?, deviceModel?, screen?, tripId?, zoneId?,
+        message, stack?, nativeReason?, freezeMs?, breadcrumbs[] }] }, newest first: the kept reports of one group (at most
+        maxEventsPerGroup are kept). Same permission as GET /admin/errors (any signed-in admin). 404 not_found for an unknown
+        group.'
+      required:
+      - at
+      - kind
+      - message
+      - breadcrumbs
+      properties:
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        kind:
+          type: string
+          enum:
+          - crash
+          - error
+          - dart_error
+          - native_crash
+          - freeze
+        appVersion:
+          type: string
+          maxLength: 40
+        build:
+          type: string
+          maxLength: 40
+        platform:
+          type: string
+          enum:
+          - android
+          - ios
+          - web
+        osVersion:
+          type: string
+          maxLength: 60
+        deviceModel:
+          type: string
+          maxLength: 80
+        screen:
+          type: string
+          maxLength: 200
+        tripId:
+          type: string
+          maxLength: 64
+        zoneId:
+          type: string
+          maxLength: 64
+        message:
+          type: string
+          maxLength: 4000
+        stack:
+          type: string
+          maxLength: 12000
+        nativeReason:
+          $ref: '#/components/schemas/NativeCrashReason'
+        freezeMs:
+          type: integer
+          minimum: 0
+        breadcrumbs:
+          type: array
+          items:
+            $ref: '#/components/schemas/CrashBreadcrumb'
+          maxItems: 30
+    ErrorReportList:
+      type: object
+      description: 'v0.18.158 (contract.json#crashCatcher): newest first.'
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorReport'
+    PushIosConfig:
+      type: object
+      description: 'v0.18.156: the Firebase iOS app''s public settings. v0.18.156 (owner 2026-11-24 "Notifications doesn''t
+        work on iPhones?"; the owner uploaded the team APNs auth key (sandbox + production) in Firebase Cloud Messaging for
+        both iOS apps, Rules LAUNCH-RULE.md 2026-11-24; Rule 0; X-Api-Version stays `0.5`; additive, optional; no migration;
+        follows v0.18.155): GET /push/config?app=driver|rider&platform=ios gives { provider: fcm, enabled, projectId?, iosConfig?
+        { apiKey, appId, messagingSenderId, projectId, iosBundleId } }: the public settings of the project''s Firebase iOS
+        app with the app''s bundle id (iosBundleIds), read once with the server''s service account from the Firebase Management
+        API (the app''s GoogleService-Info.plist: GOOGLE_APP_ID, API_KEY, GCM_SENDER_ID, PROJECT_ID, BUNDLE_ID) and kept in
+        memory, the same way as androidConfig. They are public (inside every IPA), never a secret, so no GoogleService-Info.plist
+        and no key is kept in any app repository or CI. iosConfig.appId always names an iOS app (`1:<sender>:ios:<id>`). enabled
+        false (no iosConfig) when the server has no Firebase settings or the project has no iOS app with that bundle id; the
+        app then skips push and says so in its log. A failed read is tried again after 5 minutes. This replaces the v0.18.105
+        rule that platform=ios is always enabled false (auth.devices.config.android.ios, kept as history).'
+      required:
+      - apiKey
+      - appId
+      - messagingSenderId
+      - projectId
+      - iosBundleId
+      properties:
+        apiKey:
+          type: string
+          description: Public Firebase iOS API key (not a secret).
+        appId:
+          type: string
+          pattern: ':ios:'
+          description: The Firebase iOS app id (1:<sender>:ios:<id>).
+        messagingSenderId:
+          type: string
+        projectId:
+          type: string
+        iosBundleId:
+          type: string
+          enum:
+          - com.movera.rider
+          - se.movera.driver

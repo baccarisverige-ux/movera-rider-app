@@ -1,6 +1,8 @@
+import '../fixtures/open_cancel_via_menu.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/config/driver_profile_settings.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
@@ -96,6 +98,16 @@ void main() {
     tester,
   ) async {
     phone(tester);
+    // The v0.18.155 driver card fits the resting sheet on this phone, so
+    // there is no higher stop to raise to; the old block is taller and
+    // keeps the raised stop this back-key check needs.
+    DriverProfileSettings.current = const DriverProfileSettings(
+      on: false,
+      reviews: false,
+    );
+    addTearDown(
+      () => DriverProfileSettings.current = DriverProfileSettings.defaults,
+    );
     final gate = CancelGate();
     await pumpWaitingWithGate(
       tester,
@@ -130,7 +142,7 @@ void main() {
     );
     await frames(tester);
 
-    await tester.tap(find.byIcon(Icons.close_rounded));
+    await openCancelViaMenu(tester);
     await frames(tester);
 
     expect(find.byType(CancelRideSheet), findsOneWidget);

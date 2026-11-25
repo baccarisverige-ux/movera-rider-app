@@ -454,7 +454,7 @@ class _RideHistoryState extends State<RideHistory> {
         children: [
           Expanded(
             child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
+              physics: const ClampingScrollPhysics(),
               child: Padding(
                 padding: const EdgeInsets.only(top: 20, bottom: 20),
                 child: Column(

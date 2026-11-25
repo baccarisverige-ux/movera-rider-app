@@ -55,13 +55,13 @@ void main() {
       ),
     );
 
-    await tester.enterText(find.byType(TextField), '181');
+    tester.widget<Slider>(find.byType(Slider)).onChanged!(181);
     await tester.pump();
     expect(find.text('Set new price'), findsOneWidget);
     await tester.tap(find.text('Set new price'));
     expect(confirmed, isNull);
 
-    await tester.enterText(find.byType(TextField), '180');
+    tester.widget<Slider>(find.byType(Slider)).onChanged!(180);
     await tester.pump();
     await tester.tap(find.text('Confirm 180,00 kr'));
     expect(confirmed, 80);

@@ -74,7 +74,7 @@ abstract final class ZoneDefaults {
   static const paymentMethodAliases = <String, String>{'apple': 'apple_pay'};
 
   static const maxStops = 3;
-  // Contract v0.18.156 (owner 2026-11-23): the rider moves the pickup up to
+  // Contract v0.18.160 (owner 2026-11-23): the rider moves the pickup up to
   // 300 m for free (was 200 m from v0.18.7).
   static const maxPickupMoveMeters = 300;
   static const freeWaitMin = 5;

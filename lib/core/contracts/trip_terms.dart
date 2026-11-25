@@ -24,7 +24,7 @@ class TripTerms {
   });
 
   /// `pickupWaiting.pickupMove.default`.
-  // v0.18.156: 300 m (was 200), the same as ZoneDefaults.maxPickupMoveMeters.
+  // v0.18.160: 300 m (was 200), the same as ZoneDefaults.maxPickupMoveMeters.
   static const defaultMaxPickupMoveMeters = ZoneDefaults.maxPickupMoveMeters;
 
   final String currency;

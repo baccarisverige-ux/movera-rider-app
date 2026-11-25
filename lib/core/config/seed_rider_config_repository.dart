@@ -406,7 +406,7 @@ class SeedRiderConfigRepository implements RiderConfigRepository {
     'booking': {
       'maxStops': 3,
       'bookingHorizonDays': 14,
-      'maxPickupMoveMeters': 300, // v0.18.156
+      'maxPickupMoveMeters': 300, // v0.18.160
       // v0.18.17 Book later (owner Q1, Q6).
       'minAheadMin': 15,
       'maxAheadDays': 90,
