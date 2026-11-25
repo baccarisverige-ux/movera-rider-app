@@ -23,28 +23,32 @@ Map<String, dynamic> _quote({Object? tripSeconds}) => {
   if (tripSeconds != null) 'tripSeconds': tripSeconds,
 };
 
+int? _minutes(Object? tripSeconds) =>
+    ApiQuoteRepository.contractQuoteOf(
+      _quote(tripSeconds: tripSeconds),
+    )!.tripMinutes;
+
 void main() {
   test('the contract says the rider shows Quote.tripSeconds', () {
     final lt = _contract['liveTraffic'] as Map<String, dynamic>;
     expect(lt['rider'] as String, contains('Quote.tripSeconds'));
   });
 
-  test('a quote with tripSeconds 1560 is 26 minutes (Google Maps 26, not 13)', () {
-    final quote = ApiQuoteRepository.contractQuoteOf(_quote(tripSeconds: 1560))!;
+  test('tripSeconds 1560 is 26 minutes (Google Maps 26, not 13)', () {
+    final quote = ApiQuoteRepository.contractQuoteOf(
+      _quote(tripSeconds: 1560),
+    )!;
     expect(quote.tripSeconds, 1560);
     expect(quote.tripMinutes, 26);
   });
 
-  test('an older server (no tripSeconds) or a bad value: null, the app estimates', () {
-    expect(ApiQuoteRepository.contractQuoteOf(_quote())!.tripMinutes, isNull);
-    expect(
-      ApiQuoteRepository.contractQuoteOf(_quote(tripSeconds: -5))!.tripMinutes,
-      isNull,
-    );
+  test('an older server or a bad value: null, the app estimates', () {
+    expect(_minutes(null), isNull);
+    expect(_minutes(-5), isNull);
   });
 
   test('a few seconds round up to one minute', () {
-    expect(ApiQuoteRepository.contractQuoteOf(_quote(tripSeconds: 20))!.tripMinutes, 1);
+    expect(_minutes(20), 1);
   });
 
   test('no placeholder 600 s is left in the quote calls', () {
@@ -53,7 +57,8 @@ void main() {
       'lib/features/ride_booking/data/mock_quote_repository.dart',
       'lib/features/ride_booking/data/catalog_quote_repository.dart',
     ]) {
-      expect(File(path).readAsStringSync(), isNot(contains('durationSeconds = 600')), reason: path);
+      final source = File(path).readAsStringSync();
+      expect(source, isNot(contains('durationSeconds = 600')), reason: path);
     }
   });
 }

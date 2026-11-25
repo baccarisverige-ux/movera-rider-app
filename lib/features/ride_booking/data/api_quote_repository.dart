@@ -248,7 +248,7 @@ class ApiQuoteRepository implements QuoteRepository {
           outstandingFeeMinor: found.outstandingFeeMinor,
           // J10 (v0.18.84): the debt line under the price, never in it.
           walletDebt: found.walletDebt,
-          // v0.18.163 (contract.json#liveTraffic.rider): the server's trip time.
+          // v0.18.163 (contract.json#liveTraffic.rider): the trip time.
           tripSeconds: found.tripSeconds,
           serverHeld: true,
         );

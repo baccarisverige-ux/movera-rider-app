@@ -210,7 +210,9 @@ extension _SelectRideSheetControl on _SelectRideState {
       );
     }
     return clockTime(
-      DateTime.now().add(Duration(minutes: ride.etaMin + _tripMinutes(ride.id))),
+      DateTime.now().add(
+        Duration(minutes: ride.etaMin + _tripMinutes(ride.id)),
+      ),
     );
   }
 
