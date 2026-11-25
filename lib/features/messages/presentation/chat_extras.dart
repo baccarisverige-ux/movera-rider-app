@@ -20,15 +20,25 @@ class ChatHeaderLine extends StatelessWidget {
         horizontal: screenHorizPadding,
         vertical: 8,
       ),
-      color: const Color(0xFFF4F6F7),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: Color(0xFF5C656C),
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-        ),
+      // Owner 2026-11-23 (chat v2): a quiet line with a shield, on white.
+      color: Colors.white,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.verified_user_outlined,
+            size: 15,
+            color: Color(0xFF5C656C),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFF5C656C), fontSize: 12.5),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -54,7 +64,7 @@ class ChatQuickReplies extends StatelessWidget {
       label: context.l10n.chatQuickReplies,
       child: SizedBox(
         key: const ValueKey<String>('chat-quick-replies'),
-        height: 38,
+        height: 40,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           itemCount: replies.length,
@@ -65,10 +75,15 @@ class ChatQuickReplies extends StatelessWidget {
               key: ValueKey<String>('chat-quick-reply-${reply.id}'),
               label: Text(reply.textIn(language)),
               onPressed: () => onTap(reply),
-              backgroundColor: const Color(0xffF6F6F6),
-              side: BorderSide.none,
+              // Owner 2026-11-23 (chat v2): white outlined pills.
+              backgroundColor: Colors.white,
+              side: const BorderSide(color: Color(0xFFDDE3E8)),
               shape: const StadiumBorder(),
-              labelStyle: TextStyle(color: AppColor.title, fontSize: 13),
+              labelStyle: const TextStyle(
+                color: AppColor.navy,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+              ),
             );
           },
         ),

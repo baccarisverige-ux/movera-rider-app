@@ -295,7 +295,7 @@ class _WalletScreenState extends State<WalletScreen> {
             if (!widget.embedded) _header(context),
             Expanded(
               child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
+                physics: const ClampingScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 30),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

@@ -29,8 +29,12 @@ extension _FindingDriversMapPanel on _FindingDriversState {
 
   void _loadMapBits() {
     final routePoints = _roadRoutePoints;
+    final rider = _riderMarker();
+    final adjust = _adjustMarker();
     _markers = {
-      if (_riderPuck != null)
+      // Owner 2026-11-23: the pickup pin is locked; in the edit mode the
+      // centred pin stands in for it.
+      if (_riderPuck != null && !_editingPickup)
         Marker(
           markerId: const MarkerId('pickup'),
           position: _pickupPosition,
@@ -49,6 +53,8 @@ extension _FindingDriversMapPanel on _FindingDriversState {
         anchor: _pinAnchor,
       ),
       for (final vehicle in _match.nearby) _nearbyMarker(vehicle),
+      ?rider,
+      ?adjust,
     };
     // A14: the road through every stop, straight through them until then.
     _polylines = styledRoute(
@@ -319,8 +325,16 @@ extension _FindingDriversMapPanel on _FindingDriversState {
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          SafetyKitSheetRow(rideId: _match.ride.rideId, driverAssigned: false),
+          // Owner 2026-11-23: the round quick actions (pulled-up sheet).
+          const SizedBox(height: 16),
+          _quickActions(),
+          // Owner 2026-11-23: the two games, side by side (stop once a
+          // driver accepts).
+          const SizedBox(height: 16),
+          SearchGamesRow(active: _match.matchCount == 0),
+          // Owner 2026-11-24: the old safety kit row is not shown while
+          // searching (the round quick action and the top-right button
+          // open the safety kit). The row widget stays for the other screens.
         ],
       ),
     );

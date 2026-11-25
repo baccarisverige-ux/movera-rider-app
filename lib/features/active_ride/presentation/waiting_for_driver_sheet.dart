@@ -131,7 +131,8 @@ extension _WaitingSheet on _WaitingForDriverState {
         onCall: _callDriver,
         // v0.18.9 (G7 decision 3): the destination and the stops change
         // on board too (the server prices it, the driver answers).
-        onMore: widget.routeChangeSupported ? _openDetails : null,
+        // Owner 2026-11-23: the menu is always there (end-trip row).
+        onMore: _openDetails,
         stopNote: _stops.isEmpty || _tracking.terms == null
             ? null
             : TripTermsLines.stopWaitLine(_tracking.terms!),
@@ -143,17 +144,35 @@ extension _WaitingSheet on _WaitingForDriverState {
     }
 
     return SingleChildScrollView(
+      // The sheet's own scroll controller, so the drag is shared.
+      primary: true,
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          WaitingDriverCard(
-            driver: driver,
-            rideId: _rideId,
-            onOpenProfile: _openProfile,
-            onCall: _callDriver,
-            onMore: _moreAction,
-          ),
+          // Owner 2026-11-23 (APPROVED-driver-coming.html): the approved
+          // animation at the top of the panel.
+          const Center(child: DriverComingAnimation()),
+          const SizedBox(height: 8),
+          // v0.18.155 (contract.json#driverProfile, owner 2026-11-20 "Add
+          // card like that"): the new card in the same place; a tap opens
+          // the profile sheet. Zone switch off: the old block, as before.
+          if (DriverProfileSettings.current.on)
+            DriverOnWayCard(
+              driver: driver,
+              rideId: _rideId,
+              onOpenProfile: _openProfile,
+              onCall: _callDriver,
+              onMore: _moreAction,
+            )
+          else
+            WaitingDriverCard(
+              driver: driver,
+              rideId: _rideId,
+              onOpenProfile: _openProfile,
+              onCall: _callDriver,
+              onMore: _moreAction,
+            ),
           const SizedBox(height: 12),
           _locationTools(driver),
           if (_tracking.showPin) ...[
@@ -180,6 +199,10 @@ extension _WaitingSheet on _WaitingForDriverState {
             TripTermsNote(lines: lines),
           ],
           WaitingNotesAndPin(notes: widget.notes, rideId: _rideId),
+          // Owner 2026-11-23: the games row at the bottom of this sheet too
+          // (stops when the trip starts or ends).
+          const SizedBox(height: 16),
+          SearchGamesRow(active: !_tracking.status.isTerminal),
         ],
       ),
     );

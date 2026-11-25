@@ -77,6 +77,33 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # Owner 2026-11-23: real "Sign in with Google / Apple". The client ids (not secrets) come from the
+      # repository variables below; an empty one keeps that button on "coming soon" (lib: ProviderSignInConfig).
+      # A pasted space or line break is stripped, like MOVERA_PROD_API_URL.
+      - name: Sign-in client ids
+        env:
+          V_GOOGLE_CLIENT_ID_WEB: ${{ vars.GOOGLE_CLIENT_ID_WEB }}
+          V_GOOGLE_CLIENT_ID_IOS: ${{ vars.GOOGLE_CLIENT_ID_IOS }}
+          V_GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_SERVER_CLIENT_ID }}
+          V_APPLE_SERVICE_ID: ${{ vars.APPLE_SERVICE_ID }}
+          V_APPLE_REDIRECT_URI: ${{ vars.APPLE_REDIRECT_URI }}
+        run: |
+          set -euo pipefail
+          for n in GOOGLE_CLIENT_ID_WEB GOOGLE_CLIENT_ID_IOS GOOGLE_SERVER_CLIENT_ID APPLE_SERVICE_ID APPLE_REDIRECT_URI; do
+            v="V_$n"
+            clean="$(printf '%s' "${!v:-}" | tr -d '[:space:][:cntrl:]')"
+            echo "$n=$clean" >> "$GITHUB_ENV"
+            export "$n=$clean"
+          done
+          case "$APPLE_REDIRECT_URI" in ''|https://*) ;; *) echo "::error::APPLE_REDIRECT_URI must start with https://"; exit 1 ;; esac
+          # iOS: the reversed iOS client id is the app's URL scheme (ios/Flutter/GoogleSignIn.xcconfig, untracked).
+          case "$GOOGLE_CLIENT_ID_IOS" in
+            *.apps.googleusercontent.com)
+              printf 'GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.%s\n' "${GOOGLE_CLIENT_ID_IOS%.apps.googleusercontent.com}" > ios/Flutter/GoogleSignIn.xcconfig ;;
+            '') ;;
+            *) echo "::error::GOOGLE_CLIENT_ID_IOS must end with .apps.googleusercontent.com"; exit 1 ;;
+          esac
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -129,6 +156,11 @@ jobs:
               --dart-define=MOVERA_API_BASE_URL="$LIVE_API" \
               --dart-define=MOVERA_AUTH_REQUIRED=true \
               --dart-define=MOVERA_APP_VERSION="$app_version" \
+              --dart-define=GOOGLE_CLIENT_ID_WEB="${GOOGLE_CLIENT_ID_WEB:-}" \
+              --dart-define=GOOGLE_CLIENT_ID_IOS="${GOOGLE_CLIENT_ID_IOS:-}" \
+              --dart-define=GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID:-}" \
+              --dart-define=APPLE_SERVICE_ID="${APPLE_SERVICE_ID:-}" \
+              --dart-define=APPLE_REDIRECT_URI="${APPLE_REDIRECT_URI:-}" \
               --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID"
             cp build/app/outputs/flutter-apk/app-release.apk "out/$name"
           }
@@ -210,6 +242,33 @@ jobs:
       # read that still fails, or a driver run still going after the last
       # round, means NOT CHECKED and no Test Lab run (no quota used). A run
       # seen busy stays busy until a later round sees none.
+      # Owner 2026-11-23: real "Sign in with Google / Apple". The client ids (not secrets) come from the
+      # repository variables below; an empty one keeps that button on "coming soon" (lib: ProviderSignInConfig).
+      # A pasted space or line break is stripped, like MOVERA_PROD_API_URL.
+      - name: Sign-in client ids
+        env:
+          V_GOOGLE_CLIENT_ID_WEB: ${{ vars.GOOGLE_CLIENT_ID_WEB }}
+          V_GOOGLE_CLIENT_ID_IOS: ${{ vars.GOOGLE_CLIENT_ID_IOS }}
+          V_GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_SERVER_CLIENT_ID }}
+          V_APPLE_SERVICE_ID: ${{ vars.APPLE_SERVICE_ID }}
+          V_APPLE_REDIRECT_URI: ${{ vars.APPLE_REDIRECT_URI }}
+        run: |
+          set -euo pipefail
+          for n in GOOGLE_CLIENT_ID_WEB GOOGLE_CLIENT_ID_IOS GOOGLE_SERVER_CLIENT_ID APPLE_SERVICE_ID APPLE_REDIRECT_URI; do
+            v="V_$n"
+            clean="$(printf '%s' "${!v:-}" | tr -d '[:space:][:cntrl:]')"
+            echo "$n=$clean" >> "$GITHUB_ENV"
+            export "$n=$clean"
+          done
+          case "$APPLE_REDIRECT_URI" in ''|https://*) ;; *) echo "::error::APPLE_REDIRECT_URI must start with https://"; exit 1 ;; esac
+          # iOS: the reversed iOS client id is the app's URL scheme (ios/Flutter/GoogleSignIn.xcconfig, untracked).
+          case "$GOOGLE_CLIENT_ID_IOS" in
+            *.apps.googleusercontent.com)
+              printf 'GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.%s\n' "${GOOGLE_CLIENT_ID_IOS%.apps.googleusercontent.com}" > ios/Flutter/GoogleSignIn.xcconfig ;;
+            '') ;;
+            *) echo "::error::GOOGLE_CLIENT_ID_IOS must end with .apps.googleusercontent.com"; exit 1 ;;
+          esac
+
       - name: Wait while the driver app's device run is going (shared test pair)
         id: lock
         timeout-minutes: 16
@@ -316,6 +375,11 @@ jobs:
               --dart-define=MOVERA_API_BASE_URL="$LIVE_API" \
               --dart-define=MOVERA_AUTH_REQUIRED=true \
               --dart-define=MOVERA_APP_VERSION="$app_version" \
+              --dart-define=GOOGLE_CLIENT_ID_WEB="${GOOGLE_CLIENT_ID_WEB:-}" \
+              --dart-define=GOOGLE_CLIENT_ID_IOS="${GOOGLE_CLIENT_ID_IOS:-}" \
+              --dart-define=GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID:-}" \
+              --dart-define=APPLE_SERVICE_ID="${APPLE_SERVICE_ID:-}" \
+              --dart-define=APPLE_REDIRECT_URI="${APPLE_REDIRECT_URI:-}" \
               --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID"
             mkdir -p out
             cp build/app/outputs/flutter-apk/app-debug.apk out/app-debug.apk
@@ -334,6 +398,11 @@ jobs:
               --dart-define=MOVERA_API_BASE_URL="$LIVE_API" \
               --dart-define=MOVERA_AUTH_REQUIRED=true \
               --dart-define=MOVERA_APP_VERSION="$app_version" \
+              --dart-define=GOOGLE_CLIENT_ID_WEB="${GOOGLE_CLIENT_ID_WEB:-}" \
+              --dart-define=GOOGLE_CLIENT_ID_IOS="${GOOGLE_CLIENT_ID_IOS:-}" \
+              --dart-define=GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID:-}" \
+              --dart-define=APPLE_SERVICE_ID="${APPLE_SERVICE_ID:-}" \
+              --dart-define=APPLE_REDIRECT_URI="${APPLE_REDIRECT_URI:-}" \
               --dart-define=MOVERA_GOOGLE_MAP_ID="$RIDER_MAP_ID"
             mkdir -p out
             cp build/app/outputs/flutter-apk/app-profile.apk out/app-profile.apk

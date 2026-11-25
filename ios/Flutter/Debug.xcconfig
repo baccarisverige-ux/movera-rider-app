@@ -1,4 +1,10 @@
 #include "Generated.xcconfig"
+// Google sign-in on iOS: the reversed iOS client id as the app's URL scheme
+// (Info.plist CFBundleURLTypes). This placeholder keeps the build working
+// without it; CI (or a developer) writes the real one into the untracked
+// GoogleSignIn.xcconfig: GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.<id>
+GOOGLE_REVERSED_CLIENT_ID = com.movera.rider.google-not-configured
+#include? "GoogleSignIn.xcconfig"
 // Untracked, optional: GOOGLE_MAPS_API_KEY for the iOS Maps SDK.
 // Copy Secrets.xcconfig.example to Secrets.xcconfig, or let CI write it.
 #include? "Secrets.xcconfig"

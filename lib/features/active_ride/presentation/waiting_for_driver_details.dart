@@ -45,12 +45,24 @@ extension _WaitingDetails on _WaitingForDriverState {
       currency: widget.currency,
       paymentMethod: widget.paymentMethod,
       notes: widget.notes,
-      allowCancel: !_isInTrip,
+      // Owner 2026-11-23 (screen 3): on board the menu's last row ends the
+      // trip here (the same end-early confirm as the old bottom button).
+      allowCancel: true,
+      cancelLabel: _isInTrip ? context.l10n.endTripHere : null,
       onCancelTrip: (sheet) {
         Navigator.pop(sheet);
         unawaited(_confirmCancel());
       },
-      onEditPickup: pencils.pickup
+      // As before: the pencil only where route changes are on.
+      onEditPickup: pencils.pickup && widget.routeChangeSupported
+          ? (sheet) {
+              Navigator.pop(sheet);
+              unawaited(_movePickup());
+            }
+          : null,
+      // Owner 2026-11-23: on the server's pickup move (before the driver
+      // is there) a "Flytta upphämtning" row in the menu.
+      onMovePickup: _serverPickupMove && _pickupEditable && !_isInTrip
           ? (sheet) {
               Navigator.pop(sheet);
               unawaited(_movePickup());

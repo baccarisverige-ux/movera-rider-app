@@ -170,13 +170,29 @@ void main() {
   });
 
   group('CODE-8 store blockers', () {
+    // 2026-11-23 ITMS-90683: Apple refuses the upload without the Always
+    // keys because geolocator references always-location. The app still asks
+    // only when-in-use; the Always texts say there is no background tracking.
     test('location purpose string is specific and when-in-use only', () {
       final plist = _read('ios/Runner/Info.plist');
-      expect(plist, isNot(contains('NSLocationAlwaysUsageDescription')));
-      expect(
-        plist,
-        isNot(contains('NSLocationAlwaysAndWhenInUseUsageDescription')),
-      );
+      for (final key in [
+        'NSLocationAlwaysUsageDescription',
+        'NSLocationAlwaysAndWhenInUseUsageDescription',
+      ]) {
+        expect(
+          RegExp(
+            '<key>$key</key>\\s*<string>[^<]*only while you use the app'
+            '[^<]*does not track you in the background',
+          ).hasMatch(plist),
+          isTrue,
+          reason: key,
+        );
+      }
+      final modes = RegExp(
+        r'<key>UIBackgroundModes</key>\s*<array>(.*?)</array>',
+        dotAll: true,
+      ).firstMatch(plist);
+      expect(modes?.group(1) ?? '', isNot(contains('location')));
       expect(plist, isNot(contains('This app needs access to location')));
       expect(
         RegExp(

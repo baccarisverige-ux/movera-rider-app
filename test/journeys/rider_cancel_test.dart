@@ -1,3 +1,4 @@
+import '../fixtures/open_cancel_via_menu.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -110,7 +111,7 @@ void main() {
     expect(AppScope.instance.ride.status, RideStatus.findingDriver);
     expect(await RideSnapshotStore.read(), isNotNull);
 
-    await tester.tap(find.byIcon(Icons.close_rounded));
+    await openCancelViaMenu(tester);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     await tester.tap(find.widgetWithText(TextButton, 'Cancel request'));
@@ -178,7 +179,7 @@ void main() {
     expect(find.byType(WaitingForDriver), findsOneWidget);
     expect(AppScope.instance.ride.status, RideStatus.driverAssigned);
 
-    await tester.tap(find.byIcon(Icons.close_rounded));
+    await openCancelViaMenu(tester);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel ride'));
     await tester.pumpAndSettle();

@@ -1,3 +1,4 @@
+import '../fixtures/open_cancel_via_menu.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/finding_driver/domain/driver_eta.dart';
@@ -85,7 +86,9 @@ void main() {
     'the top-left button is always the cancel (X) icon, never the collapse chevron',
     (tester) async {
       await pumpWaiting(tester, rideId: 'phase91-icon');
-      expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+      // Owner 2026-11-23: no top-left ✕ on Waiting (cancelling is the ⋯
+      // menu's last row); still never the collapse chevron.
+      expect(find.byIcon(Icons.close_rounded), findsNothing);
       expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
       (AppScope.instance.rideRealtime as MockRideRealtime).holdAssignment();
     },
@@ -215,7 +218,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
       (AppScope.instance.rideRealtime as MockRideRealtime).holdAssignment();
 
-      await tester.tap(find.byIcon(Icons.close_rounded));
+      await openCancelViaMenu(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Cancel ride'));
       await tester.pumpAndSettle();
