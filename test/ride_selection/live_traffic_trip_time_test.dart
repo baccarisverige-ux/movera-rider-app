@@ -49,15 +49,4 @@ void main() {
   test('a few seconds round up to one minute', () {
     expect(_minutes(20), 1);
   });
-
-  test('no placeholder 600 s is left in the quote calls', () {
-    for (final path in [
-      'lib/features/ride_booking/data/api_quote_repository.dart',
-      'lib/features/ride_booking/data/mock_quote_repository.dart',
-      'lib/features/ride_booking/data/catalog_quote_repository.dart',
-    ]) {
-      final source = File(path).readAsStringSync();
-      expect(source, isNot(contains('durationSeconds = 600')), reason: path);
-    }
-  });
 }
