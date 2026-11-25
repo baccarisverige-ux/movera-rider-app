@@ -10901,10 +10901,11 @@ paths:
       summary: Turn-by-turn route for driver navigation (OSRM v5 pass-through)
       description: 'Same path syntax and query as OSRM /route/v1/driving. No route → 200 {code: "NoRoute", routes: []}. About
         30 per minute per driver (429). Auth and rate errors use Error. v0.18.163 (contract.json#liveTraffic): GET /routes/driving
-        (the driver app''s route line on its map) is answered from Google (the same computeRoutes call, live traffic) in the
-        same OSRM-shaped JSON the driver app reads (code Ok, routes[0].distance / duration / geometry.coordinates; legs empty,
-        so no turn-by-turn steps); Google not answering = 503 routing_unavailable (never a straight line). These calls come
-        on top of the ~2 per trip: one per route line the driver app asks (its own rate limit applies).'
+        (the driver app''s route line on its map) never calls Google: on the driver''s active trip it answers the stored Google
+        route of the current leg (trips.eta_route, else the booked quote route to the drop-off), in the same OSRM-shaped JSON
+        the driver app reads (code Ok, routes[0].distance / duration / geometry.coordinates; legs empty, so no turn-by-turn
+        steps); with no trip or no stored route, the straight line through the asked points. Only the ETA tick asks Google
+        again, under the off-route / late rule (recall), so a trip stays at about 2 calls.'
       tags:
       - Maps
       x-actor:

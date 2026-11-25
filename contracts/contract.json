@@ -11907,7 +11907,7 @@
       "duringTrip": "4. During the trip NO calls: each ETA tick works out the remaining distance along the stored polyline from the driver's position, times the route's average speed (Google duration / distance). To the drop-off the trip's quote polyline is used from boarding (no call).",
       "recall": "5. Google is asked again only when the driver left the route (more than recall.offRouteMeters from it for more than recall.offRouteSeconds) or is more than recall.behindMinutes behind the route's planned arrival; and once for a route change (its price and its new route)."
     },
-    "navigation": "GET /routes/driving (the driver app's route line on its map) is answered from Google (the same computeRoutes call, live traffic) in the same OSRM-shaped JSON the driver app reads (code Ok, routes[0].distance / duration / geometry.coordinates; legs empty, so no turn-by-turn steps); Google not answering = 503 routing_unavailable (never a straight line). These calls come on top of the ~2 per trip: one per route line the driver app asks (its own rate limit applies).",
+    "navigation": "GET /routes/driving (the driver app's route line on its map) never calls Google: on the driver's active trip it answers the stored Google route of the current leg (trips.eta_route, else the booked quote route to the drop-off), in the same OSRM-shaped JSON the driver app reads (code Ok, routes[0].distance / duration / geometry.coordinates; legs empty, so no turn-by-turn steps); with no trip or no stored route, the straight line through the asked points. Only the ETA tick asks Google again, under the off-route / late rule (recall), so a trip stays at about 2 calls.",
     "recall": {
       "defaults": {
         "offRouteMeters": 200,
@@ -11940,6 +11940,6 @@
     "quote": "Quote.tripSeconds (the drive time the price used, seconds), Quote.tripMeters and Quote.routeSource (google, osrm or estimate), on every quote from v0.18.163; absent from an older server.",
     "rider": "The rider app shows the server's Quote.tripSeconds as the trip time (Select ride, the search screen); its own straight-line minutes only when the quote has no tripSeconds (an older server). The contract QuoteRequest never sent a duration; the old non-contract quote call no longer sends a placeholder 600 s (durationSeconds is sent only when the app really has one).",
     "admin": "Admin > Dispatch > Rides (zone and country standard): \"Live traffic (Google)\" on/off and the three re-call thresholds, with \"i\" texts; other pages only link to it.",
-    "apps": "Driver app: no code change. The offer already shows the server's Offer.tripSeconds and the trip the server's ETA (an unknown ETA source is shown like estimate); its route line keeps working through GET /routes/driving (now Google, see navigation), without turn steps. Rider app: shows Quote.tripSeconds."
+    "apps": "Driver app: no code change. The offer already shows the server's Offer.tripSeconds and the trip the server's ETA (an unknown ETA source is shown like estimate); its route line keeps working through GET /routes/driving (the stored Google route, see navigation), without turn steps. Rider app: shows Quote.tripSeconds."
   }
 }
