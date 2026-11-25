@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
+import 'package:movera_rider/features/auth/application/auth_error_message.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
 /// What [ContactChangePage] changes.
@@ -103,6 +104,13 @@ class _ContactChangePageState extends State<ContactChangePage> {
           return l10n.contactReauthRequired;
         case 'change_too_many':
           return l10n.contactChangeTooMany;
+        // v0.18.165 (owner 2026-11-25 "Mail 90 s"): a new code for the same
+        // address only after the server's wait (Retry-After).
+        case 'otp_resend_too_soon':
+          final wait = error.retryAfter;
+          return wait == null || wait <= Duration.zero
+              ? l10n.errTooManyWait
+              : l10n.errTooManyIn(authWaitText(wait));
       }
     }
     if (riderErrorKind(error) == RiderErrorKind.offline) return l10n.errOffline;
