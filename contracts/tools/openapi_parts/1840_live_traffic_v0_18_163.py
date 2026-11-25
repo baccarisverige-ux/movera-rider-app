@@ -24,3 +24,5 @@ _E = S["TripEta"]["properties"]["source"]
 assert "google" not in _E["enum"], "TripEta.source google exists before v0.18.163"
 _E["enum"] = ["google"] + list(_E["enum"])
 _E["description"] = "google | " + _E["description"] + " " + _V163 + "google: worked out along the stored Google route with live traffic (" + _LT["calls"]["duringTrip"] + "); osrm is no longer sent (" + _LT["noOsrm"].split(":")[0] + "). Apps treat an unknown value like estimate."
+_N = PATHS["/routes/driving/{coordinates}"]["get"]
+_N["description"] = (_N.get("description", "") + " " + _V163 + _LT["navigation"]).strip()

@@ -10900,7 +10900,11 @@ paths:
       operationId: osrmDrivingRoute
       summary: Turn-by-turn route for driver navigation (OSRM v5 pass-through)
       description: 'Same path syntax and query as OSRM /route/v1/driving. No route → 200 {code: "NoRoute", routes: []}. About
-        30 per minute per driver (429). Auth and rate errors use Error.'
+        30 per minute per driver (429). Auth and rate errors use Error. v0.18.163 (contract.json#liveTraffic): GET /routes/driving
+        (the driver app''s route line on its map) is answered from Google (the same computeRoutes call, live traffic) in the
+        same OSRM-shaped JSON the driver app reads (code Ok, routes[0].distance / duration / geometry.coordinates; legs empty,
+        so no turn-by-turn steps); Google not answering = 503 routing_unavailable (never a straight line). These calls come
+        on top of the ~2 per trip: one per route line the driver app asks (its own rate limit applies).'
       tags:
       - Maps
       x-actor:
@@ -37508,7 +37512,8 @@ components:
         (TripEta) on every read and rides on a kind=location event (etaSeconds + eta; no version change) on the trip stream,
         for the rider, the driver and the admin. Both apps show eta.etaSeconds (whole minutes rounded up, at least 1) and
         eta.distanceMeters as distanceDisplay says; neither app computes its own ETA for the trip screen (the driver''s navigation
-        app is a separate thing).'
+        app is a separate thing). v0.18.163 (contract.json#liveTraffic): no OSRM any more; the ETA follows the stored Google
+        route with live traffic (source google), else the straight-line estimate.'
       required:
       - etaSeconds
       - distanceMeters

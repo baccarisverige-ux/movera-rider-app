@@ -23,10 +23,9 @@ Map<String, dynamic> _quote({Object? tripSeconds}) => {
   if (tripSeconds != null) 'tripSeconds': tripSeconds,
 };
 
-int? _minutes(Object? tripSeconds) =>
-    ApiQuoteRepository.contractQuoteOf(
-      _quote(tripSeconds: tripSeconds),
-    )!.tripMinutes;
+int? _minutes(Object? tripSeconds) => ApiQuoteRepository.contractQuoteOf(
+  _quote(tripSeconds: tripSeconds),
+)!.tripMinutes;
 
 void main() {
   test('the contract says the rider shows Quote.tripSeconds', () {
