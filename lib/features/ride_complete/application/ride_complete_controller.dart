@@ -100,6 +100,8 @@ class RideCompleteController {
     List<String> tags = const <String>[],
     String? comment,
     bool dontMatchAgain = false,
+    String? review,
+    bool showFirstName = true,
     required String idempotencyKey,
   }) async => _feedback.submit(
     rideId: rideId,
@@ -108,6 +110,8 @@ class RideCompleteController {
     tags: tags,
     comment: comment,
     dontMatchAgain: dontMatchAgain,
+    review: review,
+    showFirstName: showFirstName,
     // Q5: the tip is in the trip's own currency, never assumed kronor
     // (P2-M2: also after a reload of the finish screen).
     tipCurrency: await tripCurrency(rideId),

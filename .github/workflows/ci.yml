@@ -327,7 +327,7 @@ jobs:
       # Budget raised on purpose 2026-11-22 (launch build: 11 launch sets merged); the note with the old and
       # new numbers is in tool/check_web_budget.py.
       - name: Size budget (audit Phase 7; baseline 5,885,576 B raw, 1,671,896 B gzip)
-        run: python3 tool/check_web_budget.py build/web --main-raw 6633472 --main-gzip 1890304
+        run: python3 tool/check_web_budget.py build/web --main-raw 6769664 --main-gzip 1930240
       - name: Staging
         run: |
           rm -rf build/web

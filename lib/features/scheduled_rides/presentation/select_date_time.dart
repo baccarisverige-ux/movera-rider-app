@@ -599,7 +599,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
+                  physics: const ClampingScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

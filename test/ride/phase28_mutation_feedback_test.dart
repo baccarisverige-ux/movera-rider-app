@@ -24,8 +24,8 @@ void main() {
         ),
       );
 
-      final field = tester.widget<TextField>(find.byType(TextField));
-      expect(field.enabled, isFalse);
+      final slider = tester.widget<Slider>(find.byType(Slider));
+      expect(slider.onChanged, isNull);
 
       final confirm = tester.widget<FilledButton>(find.byType(FilledButton));
       expect(confirm.onPressed, isNull);

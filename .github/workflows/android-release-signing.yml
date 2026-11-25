@@ -19,6 +19,38 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      # Owner 2026-11-23: real "Sign in with Google / Apple". The client ids (not secrets) come from the
+      # repository variables below; an empty one keeps that button on "coming soon" (lib: ProviderSignInConfig).
+      # A pasted space or line break is stripped, like MOVERA_PROD_API_URL.
+      - name: Sign-in client ids
+        env:
+          V_GOOGLE_CLIENT_ID_WEB: ${{ vars.GOOGLE_CLIENT_ID_WEB }}
+          V_GOOGLE_CLIENT_ID_IOS: ${{ vars.GOOGLE_CLIENT_ID_IOS }}
+          V_GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_SERVER_CLIENT_ID }}
+          V_APPLE_SERVICE_ID: ${{ vars.APPLE_SERVICE_ID }}
+          V_APPLE_REDIRECT_URI: ${{ vars.APPLE_REDIRECT_URI }}
+        run: |
+          set -euo pipefail
+          for n in GOOGLE_CLIENT_ID_WEB GOOGLE_CLIENT_ID_IOS GOOGLE_SERVER_CLIENT_ID APPLE_SERVICE_ID APPLE_REDIRECT_URI; do
+            v="V_$n"
+            clean="$(printf '%s' "${!v:-}" | tr -d '[:space:][:cntrl:]')"
+            echo "$n=$clean" >> "$GITHUB_ENV"
+            export "$n=$clean"
+          done
+          case "$APPLE_REDIRECT_URI" in ''|https://*) ;; *) echo "::error::APPLE_REDIRECT_URI must start with https://"; exit 1 ;; esac
+          # iOS: the reversed iOS client id is the app's URL scheme (ios/Flutter/GoogleSignIn.xcconfig, untracked).
+          case "$GOOGLE_CLIENT_ID_IOS" in
+            *.apps.googleusercontent.com)
+              printf 'GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.%s\n' "${GOOGLE_CLIENT_ID_IOS%.apps.googleusercontent.com}" > ios/Flutter/GoogleSignIn.xcconfig ;;
+            '') ;;
+            *) echo "::error::GOOGLE_CLIENT_ID_IOS must end with .apps.googleusercontent.com"; exit 1 ;;
+          esac
+
+      # Gradle 8.14 cannot run on the runner's default Java 25 (run 45163948389); same JDK as android-test-apk.yml.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -62,7 +94,12 @@ jobs:
             -t lib/main_production.dart \
             --dart-define=MOVERA_FLAVOR=production \
             --dart-define=MOVERA_API_BASE_URL=https://api.movera.example \
-            --dart-define=MOVERA_APP_VERSION="$app_version"
+            --dart-define=MOVERA_APP_VERSION="$app_version" \
+            --dart-define=GOOGLE_CLIENT_ID_WEB="${GOOGLE_CLIENT_ID_WEB:-}" \
+            --dart-define=GOOGLE_CLIENT_ID_IOS="${GOOGLE_CLIENT_ID_IOS:-}" \
+            --dart-define=GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID:-}" \
+            --dart-define=APPLE_SERVICE_ID="${APPLE_SERVICE_ID:-}" \
+            --dart-define=APPLE_REDIRECT_URI="${APPLE_REDIRECT_URI:-}"
           apk=build/app/outputs/flutter-apk/app-release.apk
           test -f "$apk"
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
@@ -96,7 +133,12 @@ jobs:
             -t lib/main_production.dart \
             --dart-define=MOVERA_FLAVOR=production \
             --dart-define=MOVERA_API_BASE_URL=https://api.movera.example \
-            --dart-define=MOVERA_APP_VERSION="$app_version"
+            --dart-define=MOVERA_APP_VERSION="$app_version" \
+            --dart-define=GOOGLE_CLIENT_ID_WEB="${GOOGLE_CLIENT_ID_WEB:-}" \
+            --dart-define=GOOGLE_CLIENT_ID_IOS="${GOOGLE_CLIENT_ID_IOS:-}" \
+            --dart-define=GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID:-}" \
+            --dart-define=APPLE_SERVICE_ID="${APPLE_SERVICE_ID:-}" \
+            --dart-define=APPLE_REDIRECT_URI="${APPLE_REDIRECT_URI:-}"
           aab=build/app/outputs/bundle/release/app-release.aab
           test -f "$aab"
           jarsigner -verify -certs "$aab" > "$RUNNER_TEMP/aab-verify.txt" || { echo '::error::App Bundle signature check failed'; exit 1; }

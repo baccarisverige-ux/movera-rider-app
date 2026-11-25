@@ -23,7 +23,7 @@ abstract final class CrashReport {
   static const kindCrash = 'crash';
   static const kindError = 'error';
 
-  /// v0.18.157 (`contract.json#crashCatcher.kinds`): an uncaught Dart error,
+  /// v0.18.158 (`contract.json#crashCatcher.kinds`): an uncaught Dart error,
   /// an unclean end found at the next launch, a frozen screen.
   static const kindDartError = 'dart_error';
   static const kindNativeCrash = 'native_crash';
@@ -36,15 +36,15 @@ abstract final class CrashReport {
     kindFreeze,
   };
 
-  /// v0.18.157 `crashReports.on`: the zone's switch (last known value; true
+  /// v0.18.158 `crashReports.on`: the zone's switch (last known value; true
   /// until a document says otherwise). Off: no crash report leaves the phone.
   static bool reportingEnabled = true;
 
-  /// v0.18.157: the fields every report carries (device, OS, breadcrumbs),
+  /// v0.18.158: the fields every report carries (device, OS, breadcrumbs),
   /// given by the crash catcher once it runs.
   static Map<String, Object?> Function()? context;
 
-  /// v0.18.157: the trip on screen and the zone the app is in, when known.
+  /// v0.18.158: the trip on screen and the zone the app is in, when known.
   static String? currentTripId;
   static String? currentZoneId;
 

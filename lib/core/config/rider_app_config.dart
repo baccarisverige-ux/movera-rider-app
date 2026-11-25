@@ -198,7 +198,7 @@ class RiderAppConfig {
   /// server) reads as on.
   final bool pickupSpotsOn;
 
-  /// Contract v0.18.157 `crashReports.on` (owner 2026-11-24 "Add to admin
+  /// Contract v0.18.158 `crashReports.on` (owner 2026-11-24 "Add to admin
   /// all kind of crash"): the zone lets the rider app send crash reports.
   /// A document without it (an older server) reads as on.
   final bool crashReportsOn;

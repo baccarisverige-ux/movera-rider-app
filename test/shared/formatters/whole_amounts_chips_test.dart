@@ -47,10 +47,11 @@ void main() {
   }
 
   for (final (currency, steps, chip) in [
-    ('SEK', const [50, 100, 150, 200], '+50,00 kr'),
-    ('TND', const [1, 2, 3], '+1.000 DT'),
+    ('SEK', const [50, 100, 150, 200], '+50'),
+    ('TND', const [1, 2, 3], '+1'),
   ]) {
-    testWidgets('raise steps keep decimals at 320 px ×1.3 ($currency)', (
+    // R2 (owner 2026-11-23): the slider's step labels are short ("+50").
+    testWidgets('raise step labels fit at 320 px ×1.3 ($currency)', (
       tester,
     ) async {
       await pumpNarrow(

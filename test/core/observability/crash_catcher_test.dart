@@ -12,7 +12,7 @@ import 'package:movera_rider/core/observability/crash_files.dart';
 import 'package:movera_rider/core/observability/crash_report.dart';
 import 'package:movera_rider/core/observability/http_observability.dart';
 
-/// Owner 2026-11-24 "Add to admin all kind of crash" (contract v0.18.157
+/// Owner 2026-11-24 "Add to admin all kind of crash" (contract v0.18.158
 /// `contract.json#crashCatcher`). Rule 36: fails on main — there is no
 /// crash catcher, no native_crash / freeze / dart_error kind, no
 /// breadcrumbs, no outbox file and no crashReports.on switch.
@@ -245,7 +245,7 @@ void main() {
     );
   });
 
-  group('the report body (v0.18.157 fields)', () {
+  group('the report body (v0.18.158 fields)', () {
     test(
       'kinds dart_error, native_crash and freeze are kept; an unknown kind is crash',
       () {

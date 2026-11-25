@@ -1,3 +1,4 @@
+import '../fixtures/open_cancel_via_menu.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -117,7 +118,7 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
     expect(AppScope.instance.ride.status, RideStatus.tripInProgress);
 
-    await tester.tap(find.bySemanticsLabel('End trip').first);
+    await openCancelViaMenu(tester);
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }

@@ -34,7 +34,7 @@ class CrashEvent {
 
 /// Reports that could not be sent (offline, 5xx, 429) wait in a file of at
 /// most [max] and go again later and at the next launch, oldest first
-/// (contract v0.18.157 `contract.json#crashCatcher.outbox`).
+/// (contract v0.18.158 `contract.json#crashCatcher.outbox`).
 class CrashOutbox {
   CrashOutbox(this._files);
 
@@ -96,7 +96,7 @@ class CrashOutbox {
 }
 
 /// Every kind of crash reaches the admin (owner 2026-11-24 "Add to admin all
-/// kind of crash"; contract v0.18.157 `contract.json#crashCatcher`):
+/// kind of crash"; contract v0.18.158 `contract.json#crashCatcher`):
 ///
 /// * a running marker written at start and on resume, deleted on pause /
 ///   hide / detach: still there at the next launch = the app did not end

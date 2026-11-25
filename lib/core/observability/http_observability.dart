@@ -87,7 +87,7 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
 
   final Map<String, DateTime> _recentCrashes = {};
 
-  /// v0.18.157 (`contract.json#crashCatcher.outbox`): crash reports are kept
+  /// v0.18.158 (`contract.json#crashCatcher.outbox`): crash reports are kept
   /// in a file until the server answered 2xx / 4xx, so one that could not be
   /// sent goes again at the next launch ([resendOutbox]).
   CrashOutbox? outbox;
@@ -367,7 +367,7 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
     Map<String, Object?> extra = const {},
   }) {
     if (_disposed) return;
-    // v0.18.157 crashReports.on: the zone's switch off sends nothing.
+    // v0.18.158 crashReports.on: the zone's switch off sends nothing.
     if (!CrashReport.reportingEnabled) return;
     if (isUnauthorizedNoise(extra: extra, error: error)) return;
     try {

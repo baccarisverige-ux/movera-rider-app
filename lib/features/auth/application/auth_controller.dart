@@ -18,7 +18,11 @@ class AuthController {
     ProviderTokenSource? providerTokens,
   }) : _auth = auth ?? AuthRepository(),
        _pushPermission = pushPermission,
-       _providerTokens = providerTokens ?? const NoProviderTokenSource();
+       _providerTokens = providerTokens ?? defaultProviderTokens;
+
+  /// The real Apple and Google SDKs (one instance: Google initialises once).
+  static final ProviderTokenSource defaultProviderTokens =
+      PlatformProviderTokenSource();
 
   final AuthRepository _auth;
   final ProviderTokenSource _providerTokens;

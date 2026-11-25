@@ -9,7 +9,7 @@ import 'package:movera_rider/core/observability/crash_files.dart';
 import 'package:movera_rider/core/observability/crash_report.dart';
 import 'package:movera_rider/core/observability/observability.dart';
 
-/// Owner 2026-11-24 "Add to admin all kind of crash" (contract v0.18.157
+/// Owner 2026-11-24 "Add to admin all kind of crash" (contract v0.18.158
 /// `contract.json#crashCatcher`): starts the crash catcher of a live build
 /// (where crash reports go out): the unclean end of the last run is
 /// reported, the running marker and the freeze watch start, the main

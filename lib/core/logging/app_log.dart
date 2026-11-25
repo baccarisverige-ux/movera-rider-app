@@ -71,7 +71,7 @@ abstract final class AppLog {
     if (stackTrace != null) debugPrint('$stackTrace');
   }
 
-  /// v0.18.157 (`contract.json#crashCatcher.breadcrumbs`): a failed API call
+  /// v0.18.158 (`contract.json#crashCatcher.breadcrumbs`): a failed API call
   /// is a `network` breadcrumb (method, path without ids, status), any other
   /// warning or error line a `log` one (its event name only).
   static void _breadcrumb(

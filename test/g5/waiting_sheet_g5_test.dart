@@ -203,7 +203,7 @@ void main() {
       expect(find.byKey(WaitingFeeCounter.counterKey), findsOneWidget);
       expect(find.textContaining('Free waiting · '), findsOneWidget);
       // Texting the driver stays possible after the arrival.
-      expect(find.byIcon(Icons.chat_bubble_outline_rounded), findsOneWidget);
+      expect(find.byKey(const ValueKey('waiting-chat')), findsOneWidget);
       expect(
         find.text('Waiting time is charged after the free minutes'),
         findsOneWidget,

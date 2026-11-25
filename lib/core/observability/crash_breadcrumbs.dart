@@ -2,7 +2,7 @@ import 'dart:collection';
 
 import 'package:movera_rider/core/observability/observability.dart';
 
-/// One of the last events before a crash (contract v0.18.157
+/// One of the last events before a crash (contract v0.18.158
 /// `contract.json#crashCatcher.breadcrumbs`): a screen change, an app state
 /// change, a failed platform call, a failed API call or a warning log line.
 class CrashBreadcrumb {

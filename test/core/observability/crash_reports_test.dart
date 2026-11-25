@@ -229,7 +229,7 @@ void main() {
   });
 
   test(
-    'CrashReporter: fatal is dart_error (v0.18.157, was crash), a caught error is error',
+    'CrashReporter: fatal is dart_error (v0.18.158, was crash), a caught error is error',
     () {
       final seen = <Map<String, Object?>>[];
       Observability.configure(crashSink: _Recording(seen));

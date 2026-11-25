@@ -1,7 +1,7 @@
 export 'package:movera_rider/core/observability/crash_files_io.dart'
     if (dart.library.js_interop) 'package:movera_rider/core/observability/crash_files_web.dart';
 
-/// The small files the crash catcher keeps on the phone (contract v0.18.157
+/// The small files the crash catcher keeps on the phone (contract v0.18.158
 /// `contract.json#crashCatcher.runningMarker`): the running marker, the
 /// breadcrumbs, the outbox of unsent reports, the last crash-report switch
 /// and the native crash file the iOS / Android code writes. Every call is

@@ -25,7 +25,7 @@ class HomeHistoryObserver extends NavigatorObserver {
     moveraNavigationEpoch.value += 1;
     // Contract v0.16.0: a crash report says which screen was on top.
     if (top != null) CrashReport.currentScreen = top.settings.name;
-    // v0.18.157: the screen change is a breadcrumb (contract.json#crashCatcher).
+    // v0.18.158: the screen change is a breadcrumb (contract.json#crashCatcher).
     if (top != null) CrashBreadcrumbs.instance.route(top.settings.name);
     RestartWatch.touch();
     _sync(unlockFirst: unlockFirst);
