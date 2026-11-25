@@ -16,16 +16,36 @@ void main() {
       (contract['smsSignIn'] as Map)['otherCountries'] as Map<String, dynamic>;
 
   test('the contract copy has the other-countries rule, on for the rider', () {
-    final defaults = (contract['configDefaults'] as Map)['smsSignInOtherCountries'] as Map;
+    final defaults =
+        (contract['configDefaults'] as Map)['smsSignInOtherCountries'] as Map;
     expect(defaults['enabled'], isTrue);
     expect(other['apps'], contains('any country'));
   });
 
   test('every inhabited dial code can be picked, each with a flag', () {
     final dials = PhoneCountries.all.map((c) => c.dial).toSet();
-    for (final dial in ['1', '7', '20', '27', '44', '49', '61', '81', '86',
-        '91', '212', '213', '216', '234', '351', '358', '880', '971', '972',
-        '998']) {
+    for (final dial in [
+      '1',
+      '7',
+      '20',
+      '27',
+      '44',
+      '49',
+      '61',
+      '81',
+      '86',
+      '91',
+      '212',
+      '213',
+      '216',
+      '234',
+      '351',
+      '358',
+      '880',
+      '971',
+      '972',
+      '998',
+    ]) {
       expect(dials, contains(dial), reason: '+$dial');
     }
     expect(PhoneCountries.all.length, greaterThanOrEqualTo(240));
