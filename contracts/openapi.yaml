@@ -21344,16 +21344,16 @@ paths:
         the country he works in on his first sign-in, before any of his data is made; his data then shows in the admin only
         under that country ("If he chooses France, his information goes in admin only in France... when admin clicks Sweden
         he doesn''t see him"). PUT /driver/country { country } (driver token) answers the Driver. country is one of driverOnboarding.countries
-        with open true (today SE, FR); a closed or unknown one is 400 country_not_open. It saves drivers.country and, while
-        the driver has no zone, drivers.zoneIds = [the zone of the country''s first city] (so the admin lists by country see
-        him at once). Saving the same country again changes nothing (no version bump). Only while Driver.accountStatus is
-        pending or on_hold (before approval); after that 409 invalid_transition reason details_locked (an admin changes it).
-        A driver linked to a fleet cannot pick another country than the fleet''s: 409 conflict reason fleet_other_country
-        (driverOnboarding.fleetInvitations.oneCountry); a fleet owner alone in his fleet moves the fleet with him (Fleet.country,
-        cityId and zoneId = the new country''s first city). A number a fleet owner invited before it had an account gets the
-        inviting fleet''s country at sign-in (drivers.country = Fleet.country, zoneIds = [Fleet.zoneId]) when all its waiting
-        invitations are from fleets of one country; it then never sees the step (with invitations of two countries it picks,
-        and joining a fleet of another country stays 409 fleet_other_country).'
+        with open true (today SE, FR); a closed or unknown one is 400 country_not_open. It saves drivers.country and sets
+        drivers.cityId and drivers.zoneIds to the country''s first city and its zone (so the admin lists by country see him
+        at once and never under the old country). Saving the same country again changes nothing (no version bump; a missing
+        zone is filled). Only while Driver.accountStatus is pending or on_hold (before approval); after that 409 invalid_transition
+        reason details_locked (an admin changes it). A driver linked to a fleet cannot pick another country than the fleet''s:
+        409 conflict reason fleet_other_country (driverOnboarding.fleetInvitations.oneCountry); a fleet owner alone in his
+        fleet moves the fleet with him (Fleet.country, cityId and zoneId = the new country''s first city). A number a fleet
+        owner invited before it had an account gets the inviting fleet''s country at sign-in (drivers.country = Fleet.country,
+        zoneIds = [Fleet.zoneId]) when all its waiting invitations are from fleets of one country; it then never sees the
+        step (with invitations of two countries it picks, and joining a fleet of another country stays 409 fleet_other_country).'
       tags:
       - Driver · Account
       x-actor:
@@ -21402,17 +21402,18 @@ paths:
         country, reason } (drivers.activate, as the driver status) answers the admin Driver view. The admin Driver detail
         page is the only place to change a driver''s country. An admin with zones (not "*") may change only a driver in his
         zones (a driver with no zone: any), and only to a country where he holds a zone; else 403 forbidden reason zone_out_of_scope.
-        country must be in driverOnboarding.countries (open or closed; unknown 400 country_not_open). reason 1-500 characters
-        (missing 400 reason_required). A changed driver (expectedVersion) is 409 version_mismatch. On a trip: 409 invalid_transition
-        reason on_trip. An online driver is set offline. Fleet rules as the step: a member of a fleet of another country 409
-        conflict reason fleet_other_country; a fleet owner with other drivers in his fleet 409 fleet_other_country; a fleet
-        owner alone moves the fleet (country, cityId, zoneId of the new country''s first city; a country with no city yet
-        is 400 country_not_open for a fleet owner). drivers.country, cityId and zoneIds = the new country''s first city and
-        its zone (a city of the old country is never kept). The cars he owns (the fleet''s cars for a fleet owner, else his
-        own) are re-checked against the new country''s car rules (vehicleRules): an approved car that breaks them goes back
-        to pending (listed in the audit entry''s carsBackToReview; the admin reviews it again) and no driver keeps it picked;
-        a car that fits stays approved. One admin audit entry action driver.country, target the driver, detail { from, to,
-        reason, fleetMoved, carsBackToReview[] }.'
+        country must be in driverOnboarding.countries and have a city (a closed country with no city yet, TN today, or an
+        unknown one is 400 country_not_open). reason 1-500 characters (missing 400 reason_required). A changed driver (expectedVersion)
+        is 409 version_mismatch. On a trip: 409 invalid_transition reason on_trip. An online driver is set offline. Fleet
+        rules as the step: a member of a fleet of another country 409 conflict reason fleet_other_country; a fleet owner with
+        other drivers in his fleet 409 fleet_other_country; a fleet owner alone moves the fleet (country, cityId, zoneId of
+        the new country''s first city). drivers.country, cityId and zoneIds = the new country''s first city and its zone (a
+        city of the old country is never kept). The cars he owns (the fleet''s cars for a fleet owner, else his own) are re-checked
+        against the new country''s car rules (vehicleRules): an approved car that breaks them goes back to pending (listed
+        in the audit entry''s carsBackToReview; the admin reviews it again) and no driver keeps it picked; a car that fits
+        stays approved. One admin audit entry action driver.country, target the driver, detail { from, to, reason, fleetMoved,
+        carsBackToReview[] }; none when nothing changed (the same country again). Version, trip and status checks run on the
+        locked driver row (fleet locked first).'
       tags:
       - Admin · People
       x-actor:
@@ -34814,9 +34815,10 @@ components:
             at most 300 characters) is the upload guide of that document type in this country (a contract type or the country''s
             own custom type; any other key is 400 invalid_document). The driver app shows the admin''s lines; a type with
             no guide (or an empty list) falls back to the app''s built-in text; the drawing stays Movera''s. Served to the
-            app in DocumentTypeInfo.guide. v0.18.164: default FR insurance guide (the car''s RC Circulation certificate shows
-            the plate and the words "transport de personnes à titre onéreux"; a normal car insurance is not enough; not the
-            RC Pro; based on Uber FR); WORDING WAITS FOR THE OWNER''S OK.'
+            app in DocumentTypeInfo.guide. v0.18.164: default FR insurance guide (owner 2026-11-25 "Simple test si admin reject
+            can add comment to show him instead": one short line, the plate and "transport de personnes à titre onéreux",
+            a normal insurance is not enough; details go in the admin''s reject note, shown to the driver as reviewNote);
+            fr wording by the owner; en/sv to confirm.'
           additionalProperties:
             $ref: '#/components/schemas/DocumentGuide'
         validMonths:
@@ -35098,19 +35100,12 @@ components:
           guides:
             insurance:
               checklist:
-              - fr: L’attestation d’assurance (RC Circulation) du véhicule, avec la plaque et la mention « transport de personnes
-                  à titre onéreux ». Une assurance auto classique ne suffit pas, et ce n’est pas la RC Pro.
-                en: The car’s insurance certificate (RC Circulation), showing the plate and the words “transport de personnes
-                  à titre onéreux” (paid passenger transport). A normal car insurance is not enough, and this is not the RC
-                  Pro.
-                sv: Bilens försäkringsintyg (RC Circulation) med registreringsnumret och texten ”transport de personnes à
-                  titre onéreux” (betald persontransport). En vanlig bilförsäkring räcker inte, och det är inte RC Pro.
-              - en: The plate number
-                sv: Registreringsnumret
-                fr: Le numéro d’immatriculation
-              - en: The valid-until date
-                sv: Giltig till-datumet
-                fr: La date de fin de validité
+              - fr: Envoyez l'assurance de la voiture. Elle doit montrer la plaque et dire "transport de personnes à titre
+                  onéreux". Une assurance normale ne suffit pas.
+                en: Send the car's insurance. It must show the plate and say "transport de personnes à titre onéreux". A normal
+                  insurance is not enough.
+                sv: Skicka bilens försäkring. Den måste visa registreringsnumret och texten "transport de personnes à titre
+                  onéreux". En vanlig försäkring räcker inte.
               tips: []
           emailVerifiedForApproval: false
           fleetNeedsCarForApproval: true
@@ -35224,9 +35219,9 @@ components:
         most 300 characters) is the upload guide of that document type in this country (a contract type or the country''s
         own custom type; any other key is 400 invalid_document). The driver app shows the admin''s lines; a type with no guide
         (or an empty list) falls back to the app''s built-in text; the drawing stays Movera''s. Served to the app in DocumentTypeInfo.guide.
-        v0.18.164: default FR insurance guide (the car''s RC Circulation certificate shows the plate and the words "transport
-        de personnes à titre onéreux"; a normal car insurance is not enough; not the RC Pro; based on Uber FR); WORDING WAITS
-        FOR THE OWNER''S OK.'
+        v0.18.164: default FR insurance guide (owner 2026-11-25 "Simple test si admin reject can add comment to show him instead":
+        one short line, the plate and "transport de personnes à titre onéreux", a normal insurance is not enough; details
+        go in the admin''s reject note, shown to the driver as reviewNote); fr wording by the owner; en/sv to confirm.'
       properties:
         checklist:
           type: array
@@ -43330,9 +43325,9 @@ components:
       type: object
       description: 'v0.18.162 (contract.json#driverCountryFirst): PUT /driver/country { country } (driver token) answers the
         Driver. country is one of driverOnboarding.countries with open true (today SE, FR); a closed or unknown one is 400
-        country_not_open. It saves drivers.country and, while the driver has no zone, drivers.zoneIds = [the zone of the country''s
-        first city] (so the admin lists by country see him at once). Saving the same country again changes nothing (no version
-        bump).'
+        country_not_open. It saves drivers.country and sets drivers.cityId and drivers.zoneIds to the country''s first city
+        and its zone (so the admin lists by country see him at once and never under the old country). Saving the same country
+        again changes nothing (no version bump; a missing zone is filled).'
       required:
       - country
       properties:
