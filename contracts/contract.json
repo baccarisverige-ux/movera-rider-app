@@ -11738,7 +11738,7 @@
   "crashCatcher": {
     "note": "v0.18.158 (crash catcher; owner 2026-11-24 \"Add to admin all kind of crash\", Rules LAUNCH-RULE.md 2026-11-24, plan/NUMBERS.md; Rule 0; X-Api-Version stays 0.5; additive; server migration 0136 (the kind list of error_groups); no third-party crash SDK; follows v0.18.157): every kind of app crash reaches the admin Crashes & errors page: Dart errors, native crashes (found on the next launch), and freezes. Same endpoint POST /telemetry/crashes, same scrubbing, same 16 KB, same 30 days.",
     "kinds": {
-      "dart_error": "an uncaught Dart error: FlutterError.onError, PlatformDispatcher.instance.onError, the root zone (runZonedGuarded) and the main isolate error listener. Sent at once.",
+      "dart_error": "an uncaught Dart error: FlutterError.onError, PlatformDispatcher.instance.onError and the main isolate error listener (no extra zone around runApp: it runs in the zone that made the binding, so no \"Zone mismatch\"). Sent at once.",
       "native_crash": "the app ended without a clean exit (an iOS NSException or signal, an Android Java/Kotlin exception, a native crash, an Android ANR or the system killing the app while it was in front). Found on the NEXT launch from the running marker and sent then, with the native reason when the app caught one.",
       "freeze": "the app screen made no progress for freezeSeconds or more while the app was in front. Sent when the screen moves again, with how long it froze.",
       "crash": "older apps (v0.16.0): the app stopped. Kept; new apps send dart_error instead.",

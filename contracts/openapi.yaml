@@ -31299,13 +31299,14 @@ components:
           - native_crash
           - freeze
           description: 'v0.16.0: crash (the app stopped) or error (caught). Default crash. v0.18.158 (contract.json#crashCatcher):
-            dart_error: an uncaught Dart error: FlutterError.onError, PlatformDispatcher.instance.onError, the root zone (runZonedGuarded)
-            and the main isolate error listener. Sent at once. native_crash: the app ended without a clean exit (an iOS NSException
-            or signal, an Android Java/Kotlin exception, a native crash, an Android ANR or the system killing the app while
-            it was in front). Found on the NEXT launch from the running marker and sent then, with the native reason when
-            the app caught one. freeze: the app screen made no progress for freezeSeconds or more while the app was in front.
-            Sent when the screen moves again, with how long it froze. crash: older apps (v0.16.0): the app stopped. Kept;
-            new apps send dart_error instead. error: a caught error shown to the user (v0.16.0). Kept as before.'
+            dart_error: an uncaught Dart error: FlutterError.onError, PlatformDispatcher.instance.onError and the main isolate
+            error listener (no extra zone around runApp: it runs in the zone that made the binding, so no "Zone mismatch").
+            Sent at once. native_crash: the app ended without a clean exit (an iOS NSException or signal, an Android Java/Kotlin
+            exception, a native crash, an Android ANR or the system killing the app while it was in front). Found on the NEXT
+            launch from the running marker and sent then, with the native reason when the app caught one. freeze: the app
+            screen made no progress for freezeSeconds or more while the app was in front. Sent when the screen moves again,
+            with how long it froze. crash: older apps (v0.16.0): the app stopped. Kept; new apps send dart_error instead.
+            error: a caught error shown to the user (v0.16.0). Kept as before.'
         occurredAt:
           $ref: '#/components/schemas/Timestamp'
         osVersion:
