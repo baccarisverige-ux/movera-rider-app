@@ -12369,8 +12369,11 @@ paths:
         and every other document, is restored as before. The restored document is saved through the same draft path, so configDocs.keptKeys
         applies to it too. v0.18.139 (driverPayRequest.setting): CountryRules.driverPayRequest is kept the same way (the switch,
         the day, the payment link and the minimum amount stay as they are live now). v0.18.136 (stripeFees): CountryRules.riderFeeStripe
-        (the switch for paying a rider fee with Stripe in the app) is kept the same way. v0.18.139 (driverPayRequest): Restore
-        keeps driverPayRequest (pricingHistory.restoreKeeps). v0.18.136 (stripeFees): Restore keeps riderFeeStripe (pricingHistory.restoreKeeps).'
+        (the switch for paying a rider fee with Stripe in the app) is kept the same way. v0.18.157 (smsSignIn.otherCountries.setting):
+        CountryRules.smsSignInOtherCountries (SMS sign-in for numbers from other countries, super admins only) is kept the
+        same way, so a Restore by any admin never changes it; a save without an admin role (Restore, the seed) may not change
+        it either. v0.18.139 (driverPayRequest): Restore keeps driverPayRequest (pricingHistory.restoreKeeps). v0.18.136 (stripeFees):
+        Restore keeps riderFeeStripe (pricingHistory.restoreKeeps).'
       tags:
       - Admin · Config
       x-actor:
@@ -26917,7 +26920,7 @@ components:
             a number not a whole number inside its range, a blocked code not in callingCodes or repeated, or another key inside
             it, is 400 invalid_request, reason invalid_document; a document that changes it saved by an admin who is not a
             super admin is 403 forbidden, reason super_admin_only. Never saved, or a part missing = configDefaults.smsSignInOtherCountries
-            (off, 50). Only the exact boolean false switches it off; missing or not a boolean reads as the default (on). configDocs.keptKeys.country_rules
+            (on, 50). Only the exact boolean false switches it off; missing or not a boolean reads as the default (on). configDocs.keptKeys.country_rules
             keeps smsSignInOtherCountries when a save leaves it out, so a Tips & limits save by an admin who is not a super
             admin (who never sees the card) never turns it off or changes it.'
           properties:
