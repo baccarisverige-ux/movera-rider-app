@@ -21336,16 +21336,16 @@ paths:
         the country he works in on his first sign-in, before any of his data is made; his data then shows in the admin only
         under that country ("If he chooses France, his information goes in admin only in France... when admin clicks Sweden
         he doesn''t see him"). PUT /driver/country { country } (driver token) answers the Driver. country is one of driverOnboarding.countries
-        with open true (today SE, FR); a closed or unknown one is 400 country_not_open. It saves drivers.country and, while
-        the driver has no zone, drivers.zoneIds = [the zone of the country''s first city] (so the admin lists by country see
-        him at once). Saving the same country again changes nothing (no version bump). Only while Driver.accountStatus is
-        pending or on_hold (before approval); after that 409 invalid_transition reason details_locked (an admin changes it).
-        A driver linked to a fleet cannot pick another country than the fleet''s: 409 conflict reason fleet_other_country
-        (driverOnboarding.fleetInvitations.oneCountry); a fleet owner alone in his fleet moves the fleet with him (Fleet.country,
-        cityId and zoneId = the new country''s first city). A number a fleet owner invited before it had an account gets the
-        inviting fleet''s country at sign-in (drivers.country = Fleet.country, zoneIds = [Fleet.zoneId]) when all its waiting
-        invitations are from fleets of one country; it then never sees the step (with invitations of two countries it picks,
-        and joining a fleet of another country stays 409 fleet_other_country).'
+        with open true (today SE, FR); a closed or unknown one is 400 country_not_open. It saves drivers.country and sets
+        drivers.cityId and drivers.zoneIds to the country''s first city and its zone (so the admin lists by country see him
+        at once and never under the old country). Saving the same country again changes nothing (no version bump; a missing
+        zone is filled). Only while Driver.accountStatus is pending or on_hold (before approval); after that 409 invalid_transition
+        reason details_locked (an admin changes it). A driver linked to a fleet cannot pick another country than the fleet''s:
+        409 conflict reason fleet_other_country (driverOnboarding.fleetInvitations.oneCountry); a fleet owner alone in his
+        fleet moves the fleet with him (Fleet.country, cityId and zoneId = the new country''s first city). A number a fleet
+        owner invited before it had an account gets the inviting fleet''s country at sign-in (drivers.country = Fleet.country,
+        zoneIds = [Fleet.zoneId]) when all its waiting invitations are from fleets of one country; it then never sees the
+        step (with invitations of two countries it picks, and joining a fleet of another country stays 409 fleet_other_country).'
       tags:
       - Driver · Account
       x-actor:
@@ -21394,17 +21394,18 @@ paths:
         country, reason } (drivers.activate, as the driver status) answers the admin Driver view. The admin Driver detail
         page is the only place to change a driver''s country. An admin with zones (not "*") may change only a driver in his
         zones (a driver with no zone: any), and only to a country where he holds a zone; else 403 forbidden reason zone_out_of_scope.
-        country must be in driverOnboarding.countries (open or closed; unknown 400 country_not_open). reason 1-500 characters
-        (missing 400 reason_required). A changed driver (expectedVersion) is 409 version_mismatch. On a trip: 409 invalid_transition
-        reason on_trip. An online driver is set offline. Fleet rules as the step: a member of a fleet of another country 409
-        conflict reason fleet_other_country; a fleet owner with other drivers in his fleet 409 fleet_other_country; a fleet
-        owner alone moves the fleet (country, cityId, zoneId of the new country''s first city; a country with no city yet
-        is 400 country_not_open for a fleet owner). drivers.country, cityId and zoneIds = the new country''s first city and
-        its zone (a city of the old country is never kept). The cars he owns (the fleet''s cars for a fleet owner, else his
-        own) are re-checked against the new country''s car rules (vehicleRules): an approved car that breaks them goes back
-        to pending (listed in the audit entry''s carsBackToReview; the admin reviews it again) and no driver keeps it picked;
-        a car that fits stays approved. One admin audit entry action driver.country, target the driver, detail { from, to,
-        reason, fleetMoved, carsBackToReview[] }.'
+        country must be in driverOnboarding.countries and have a city (a closed country with no city yet, TN today, or an
+        unknown one is 400 country_not_open). reason 1-500 characters (missing 400 reason_required). A changed driver (expectedVersion)
+        is 409 version_mismatch. On a trip: 409 invalid_transition reason on_trip. An online driver is set offline. Fleet
+        rules as the step: a member of a fleet of another country 409 conflict reason fleet_other_country; a fleet owner with
+        other drivers in his fleet 409 fleet_other_country; a fleet owner alone moves the fleet (country, cityId, zoneId of
+        the new country''s first city). drivers.country, cityId and zoneIds = the new country''s first city and its zone (a
+        city of the old country is never kept). The cars he owns (the fleet''s cars for a fleet owner, else his own) are re-checked
+        against the new country''s car rules (vehicleRules): an approved car that breaks them goes back to pending (listed
+        in the audit entry''s carsBackToReview; the admin reviews it again) and no driver keeps it picked; a car that fits
+        stays approved. One admin audit entry action driver.country, target the driver, detail { from, to, reason, fleetMoved,
+        carsBackToReview[] }; none when nothing changed (the same country again). Version, trip and status checks run on the
+        locked driver row (fleet locked first).'
       tags:
       - Admin · People
       x-actor:
@@ -43253,9 +43254,9 @@ components:
       type: object
       description: 'v0.18.162 (contract.json#driverCountryFirst): PUT /driver/country { country } (driver token) answers the
         Driver. country is one of driverOnboarding.countries with open true (today SE, FR); a closed or unknown one is 400
-        country_not_open. It saves drivers.country and, while the driver has no zone, drivers.zoneIds = [the zone of the country''s
-        first city] (so the admin lists by country see him at once). Saving the same country again changes nothing (no version
-        bump).'
+        country_not_open. It saves drivers.country and sets drivers.cityId and drivers.zoneIds to the country''s first city
+        and its zone (so the admin lists by country see him at once and never under the old country). Saving the same country
+        again changes nothing (no version bump; a missing zone is filled).'
       required:
       - country
       properties:
