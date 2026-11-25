@@ -171,7 +171,7 @@
   "booking": {
     "maxStops": 3,
     "bookingHorizonDays": 14,
-    "maxPickupMoveMeters": 200,
+    "maxPickupMoveMeters": 300,
     "minAheadMin": 15,
     "maxAheadDays": 90,
     "freeChangeBeforeMin": 60

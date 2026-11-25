@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.158",
+  "version": "0.18.160",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -2334,7 +2334,8 @@
           "texts": {},
           "validMonths": {},
           "guides": {},
-          "emailVerifiedForApproval": false
+          "emailVerifiedForApproval": false,
+          "fleetNeedsCarForApproval": true
         },
         "FR": {
           "documents": {
@@ -2505,7 +2506,8 @@
             "urssaf_certificate": 6
           },
           "guides": {},
-          "emailVerifiedForApproval": false
+          "emailVerifiedForApproval": false,
+          "fleetNeedsCarForApproval": true
         },
         "TN": {
           "documents": {
@@ -2646,7 +2648,8 @@
           "texts": {},
           "validMonths": {},
           "guides": {},
-          "emailVerifiedForApproval": false
+          "emailVerifiedForApproval": false,
+          "fleetNeedsCarForApproval": true
         }
       },
       "stepIds": [
@@ -2779,7 +2782,7 @@
         "document_expiring": "due_soon: approved, expires within the warning window (fix: document)",
         "document_in_review": "waiting: uploaded, Movera reviews it (no fix)",
         "info_session_waiting": "waiting: the info session (kind admin_check) is not marked held yet; status waiting_for_movera; fix: info_session (content slot driver-info-session \"How to book your info session\")",
-        "account_not_active": "blocks_online: the account is pending / on_hold / suspended and every document is done (v0.18.3 R10: no line document_needed, document_rejected, document_expired, document_in_review, info_session_waiting, admin_check_waiting or vehicle_photos_needed is left; v0.18.76: nor a red email_not_verified line actually sent in this answer, since Movera cannot approve him before the check; a driver app below 0.18.76 never gets that line, so it still gets account_not_active); Movera activates it (no fix)",
+        "account_not_active": "blocks_online: the account is pending / on_hold / suspended and every document is done (v0.18.3 R10: no line document_needed, document_rejected, document_expired, document_in_review, info_session_waiting, admin_check_waiting or vehicle_photos_needed is left; v0.18.76: nor a red email_not_verified line actually sent in this answer, since Movera cannot approve him before the check; a driver app below 0.18.76 never gets that line, so it still gets account_not_active); Movera activates it (no fix) v0.18.159: nor while a fleet_no_car line is sent in this answer (the fleet owner has no car yet).",
         "fleet_not_approved": "blocks_online: the fleet is pending / rejected / blocked (no fix)",
         "no_fleet": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R4 \"Red 'Join a fleet' line (Recommended)\"): blocks_online: an account of type driver that is in no fleet; text texts.no_fleet; fix join_fleet (My fleet › Join a fleet) and actions [join_fleet, start_company] (two buttons, labels texts.actions); the line goes once the driver is in a fleet (or his account becomes a fleet)",
         "fleet_no_approved_car": "blocks_online: the fleet has no car that can be picked (approved, every car document approved); owner fix: fleet_vehicles (add / finish a car); member: no fix (\"Your fleet has no approved car yet…\")",
@@ -2788,7 +2791,8 @@
         "vehicle_photos_needed": "blocks_online: a car's four photos are not all uploaded and approved (fix: document, the first photo missing); text \"Add 4 photos of your car\"",
         "fleet_invitation": "v0.18.5 (G2-D5.6): waiting: an owner invited this driver (invitationId, fleetName); actions accept_invitation and decline_invitation; text texts.fleet_invitation; the line goes when he answers or it expires",
         "email_not_verified": "v0.18.76 (G30, owner Q3 \"show on sheet home screen as no verify\"): the driver has an e-mail without emailVerifiedAt; no expiresAt; fix verify_email (Account › E-mail, the code check with his address filled); the line goes once emailVerifiedAt is set. Level (owner 2026-11-12 ~14:10, S2): blocks_online (red) with text texts.email_not_verified_approval (\"needed for approval\") when his country's OnboardingSettings.emailVerifiedForApproval is on and he was never active before (pending or on_hold, or suspended without ever having been active; contract.json#emailVerified.neverActive), because Movera cannot approve him until it is verified; otherwise due_soon (orange, still works) with text texts.email_not_verified. Sent only to driver apps whose X-Contract-Version is 0.18.76 or higher (an older app would show an unknown line). The line itself never blocks going online: a red one is only sent to a driver who is not active yet.",
-        "owes_movera_over_limit": "v0.18.84 (owner Q-S5-1 'Both' + 2026-11-13 14:54, contract.json#debtModel.driverOwes.homeLine): due_soon (orange warning) while his country's CountryRules.driverOwesLimit is on and what he owes Movera is at or above its max — he gets no cash trips until he pays (driverOwes.cashOffers); it never stops going online. owed and limit (Money) on the line; no fix target; text texts.owes_movera_over_limit ({owed}, {limit}). Sent only to driver apps whose X-Contract-Version is 0.18.84 or higher."
+        "owes_movera_over_limit": "v0.18.84 (owner Q-S5-1 'Both' + 2026-11-13 14:54, contract.json#debtModel.driverOwes.homeLine): due_soon (orange warning) while his country's CountryRules.driverOwesLimit is on and what he owes Movera is at or above its max — he gets no cash trips until he pays (driverOwes.cashOffers); it never stops going online. owed and limit (Money) on the line; no fix target; text texts.owes_movera_over_limit ({owed}, {limit}). Sent only to driver apps whose X-Contract-Version is 0.18.84 or higher.",
+        "fleet_no_car": "v0.18.159 (owner 2026-11-24, Rules decisions/driver-g2.md \"Fleet owner must add a car\": \"Why fleet owner after sign in don't know that he need to add car ?\"; mockup PROPOSAL-fleet-add-car-2026-11-24.html approved \"Fleet partner add card reminder add\"): blocks_online: the FLEET OWNER (fleet.ownerDriverId = the driver) of a fleet with ZERO cars (no vehicle with this fleetId, whatever its status), while the fleet is NOT approved (pending, rejected, blocked), from the first sign-in (an approved fleet with no car keeps fleet_no_approved_car: \"before Movera can approve it\" would be false); text texts.fleet_no_car + texts.fleet_no_car_body, button texts.fleet_add_car; fix fleet_vehicles (My fleet › Add car). Never sent to a member. Sent only to apps that send X-Contract-Version 0.18.159 or later (contract.json#fleetNeedsCar.since); an older app keeps the lines it had. While it is sent, account_not_active is not sent (the owner still has to act; \"Everything is sent\" would be false). The line goes once the fleet has a car (then the car's own document / photo lines, and fleet_no_approved_car once the fleet is approved, as before)."
       },
       "fixTargets": [
         "document",
@@ -2854,6 +2858,41 @@
           "sv": "Du är skyldig Movera {owed} (gräns {limit}). Du får inga resor som betalas i bilen förrän du betalar Movera.",
           "fr": "Vous devez {owed} à Movera (limite {limit}). Vous ne recevez plus de courses payées à bord tant que vous n’avez pas payé Movera.",
           "en": "You owe Movera {owed} (limit {limit}). You get no cash trips until you pay Movera."
+        },
+        "fleet_no_car": {
+          "sv": "Lägg till din första bil",
+          "fr": "Ajoutez votre première voiture",
+          "en": "Add your first car"
+        },
+        "fleet_no_car_body": {
+          "sv": "Ditt åkeri behöver minst en bil innan Movera kan godkänna det.",
+          "fr": "Votre flotte a besoin d’au moins une voiture avant que Movera puisse l’approuver.",
+          "en": "Your fleet needs at least one car before Movera can approve it."
+        },
+        "fleet_add_car": {
+          "sv": "Lägg till bil",
+          "fr": "Ajouter une voiture",
+          "en": "Add car"
+        },
+        "fleet_not_approved": {
+          "sv": "Movera har inte godkänt ditt åkeri än",
+          "fr": "Movera n’a pas encore approuvé votre flotte",
+          "en": "Movera has not approved your fleet yet"
+        },
+        "fleet_not_approved_body": {
+          "sv": "Vi granskar det när din bil och dina dokument är inne.",
+          "fr": "Nous l’examinons une fois votre voiture et vos documents envoyés.",
+          "en": "We review it after your car and documents are in."
+        },
+        "fleet_cars_empty": {
+          "sv": "Ingen bil än",
+          "fr": "Pas encore de voiture",
+          "en": "No car yet"
+        },
+        "fleet_cars_empty_body": {
+          "sv": "Lägg till en bil så att ditt åkeri kan godkännas och köra.",
+          "fr": "Ajoutez une voiture pour que votre flotte soit approuvée et puisse rouler.",
+          "en": "Add a car so your fleet can be approved and drive."
         }
       },
       "actions": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R4): DriverReminder.actions, when present, are the buttons of the line in order (each a ReminderFix); fix stays the tap on the line itself. join_fleet = My fleet › Join a fleet (code, owner's name and e-mail); start_company = My fleet › Start my own company (POST /driver/fleet/start-company).",
@@ -3126,7 +3165,7 @@
   "configDefaults": {
     "note": "Defaults for the per-zone config fields (CONTRACT.md §6). Admin exports them where no setting exists yet; apps fall back to them when a document lacks a field or has a bad value. Money is in the country's currency. v0.5.0 adds offers, pickupPay and surge. v0.5.1 adds pricing (SE, the admin's Stockholm prices) and dispatch (the admin's zone defaults). v0.5.6: missedExclusiveBeforeOffline (DriverAppConfig.offers.autoOffline.missedExclusive) goes from 3 to 10 (owner decision 35, 2026-10-26). v0.18.6: raiseMaxFactor (DispatchDocument.raisePrice.maxFactor, RiderAppConfig.raisePrice.maxFactor) 2 and offerCardRiderRating (DriverAppConfig.offers.offerCard.riderRating) true. v0.18.7: maxPickupMoveMeters 500 → 200 (owner 2026-10-29 '200 m default, admin can change'; server migration moves published documents still on 500) and cancelAfterArrivedIsNoShow true (Q2). v0.18.8: pickupPin (off, 5 tries, 5 min lock), waitingRules (the admin's far pickup / airport / event / scheduled defaults) and stopFreeWaitMin 0 (contract.json#arrivedWaiting). v0.18.9: rideCheck (on, stopMinutes 2, offRouteKm 3 → 2, endFarMeters 500, noAnswerSeconds 120, repeatMinutes 10, noAnswerAlarm false) and routeChange (on, driverCanRefuse, answerSeconds 60) per zone in the driver document (contract.json#onTrip); maxStops 3 now enforced by the server. v0.18.9 (owner rule 16, 2026-11-01): routeChange.beforePickup true and routeChange.fixedPriceTrips \"block\". v0.18.10 (contract.json#finish): earlyEnd (DriverAppConfig.cancelFees.earlyEnd: repriceOverKm 2, repriceOverMin 8, owner G8 Q2), tips per country (countries.SE.tips 10 / 20 / 30 kr, countries.FR.tips 1 / 2 / 5 €; the sample documents no longer convert Swedish tips to euro), paymentMethods cash, card, apple_pay (no google_pay). v0.18.10 (builder questions resolved 2026-11-01): tipRules (RiderAppConfig.tipRules: cashAfterTrip false, cashInCarMinutes 5, customAmount false, customMax SE 200 kr / FR 20 €). v0.18.10 checker: driverPayChangeMax (CountryRules.driverPayChangeMax, SE 1000 kr / FR 100 €).",
     "maxStops": 3,
-    "maxPickupMoveMeters": 200,
+    "maxPickupMoveMeters": 300,
     "samePointWarnMeters": 100,
     "freeWaitMin": {
       "default": 5,
@@ -6713,7 +6752,8 @@
       "note": "Status item 4 + note check (owner '200 m default, admin can change'): the rider moves the pickup with PATCH /trips/{tripId} { expectedVersion, pickup } while the trip is requested, searching, offered, accepted or driver_to_pickup. The server measures the straight-line distance from the BOOKED pickup (the first one) to the new one and refuses more than the zone's booking.maxPickupMoveMeters (the zone's driver document, admin Dispatch › Booking 'Pickup move after accept'; default 200, range 0–2000; server migration sets every published document still on the old 500 to 200): 400 invalid_request, reason pickup_move_too_far, details [\"maxMeters=200\", \"meters=…\"]. After the driver arrived: 409 invalid_transition, reason pickup_fixed_after_arrival. A move changes pickup, version + 1, and sends one event of kind pickup_moved (new realtime kind, with the projection, before terminal only) to the rider, the driver and the admin; the driver app re-routes and shows texts.island on the island; open offers show the new pickup on their next read; the fare does not change (≤ 200 m). The other UpdateTripRequest fields (dropoff, stops, routeQuoteId, payment method) are not served yet: 400 invalid_request, reason route_change_not_available (destination change is the next job, decision 5).",
       "route": "PATCH /trips/{tripId}",
       "configPath": "DriverAppConfig.booking.maxPickupMoveMeters (RiderAppConfig.booking.maxPickupMoveMeters shows the same number)",
-      "default": 200,
+      "default": 300,
+      "freeMoveNote": "v0.18.160 (owner 2026-11-23, Rules decisions/session-2026-11-06.md \"2026-11-23 OWNER DECISION\": the rider can adjust the pickup up to 300 m for free, same price): the default is 300 m (was 200 from v0.18.7, 500 before); the range stays 0–2000 and the admin can still set any zone. Server migration 0133 moves every published rider and driver document (and draft) still on 200 to 300, as the next version with a history row; a zone the admin set to another value keeps it. A trip already booked keeps the value of its booking time (bookingSnapshot, TripTerms.maxPickupMoveMeters); only trips booked after the change get 300. In the note above, 200 is the old default (Rule 21: kept word for word).",
       "range": [
         0,
         2000
@@ -11786,5 +11826,16 @@
         "critical": 20
       }
     }
+  },
+  "fleetNeedsCar": {
+    "since": "0.18.159",
+    "note": "v0.18.159 (owner 2026-11-24, Rules decisions/driver-g2.md \"Fleet owner must add a car\"; Rule 0; X-Api-Version stays `0.5`; additive; no migration; texts approved by the owner): a fleet owner is told from his first sign-in to add his first car, and Movera cannot approve a fleet with no car.",
+    "reminder": "GET /driver/reminders: kind fleet_no_car (driverOnboarding.reminders.kinds.fleet_no_car), gated by X-Contract-Version >= since like email_not_verified (contract.json#emailVerified).",
+    "setting": "OnboardingSettings.fleetNeedsCarForApproval (boolean, default true; missing = true), per country, Admin › Drivers › Onboarding (\"Fleet needs at least 1 car before approval\"), saved and published like the other onboarding settings (settings.edit / settings.publish). The country is the fleet's country.",
+    "refusal": "POST /admin/fleets/{fleetId}/review { decision: approved } on a fleet with zero cars (no vehicle with this fleetId, whatever its status) while its country's fleetNeedsCarForApproval is on → 409 invalid_transition, reason fleet_has_no_car; nothing changes. rejected / blocked are never refused for this. Off: approval ignores the cars (as before).",
+    "admin": "Fleet review sheet: a Cars line, \"✓ N cars\" or \"✕ Car missing: no car added\" (red); while Fleet.approvalBlockedReason is fleet_has_no_car: \"Approve is locked until the owner adds at least 1 car.\" and Approve fleet is disabled; a 409 fleet_has_no_car shows the same text.",
+    "driverApp": "Home › Important reminders: the red line fleet_no_car with the Add car button (fix fleet_vehicles → My fleet › Add car). For the owner of a PENDING fleet the fleet_not_approved line is grey and reads texts.fleet_not_approved + texts.fleet_not_approved_body; members and rejected / blocked fleets keep the red title-only line. My fleet › Cars with zero cars: an empty card texts.fleet_cars_empty + texts.fleet_cars_empty_body with the button texts.fleet_add_car (opens Add car).",
+    "apps": "Server, admin and driver app change. Rider: not affected (riders never see fleets or fleet reminders).",
+    "adminView": "Fleet.approvalBlockedReason (admin views only: GET /admin/fleets, GET /admin/fleets/{fleetId}, the review answer): 'fleet_has_no_car' while the fleet is not approved, has zero cars and its country's PUBLISHED fleetNeedsCarForApproval is on; absent otherwise. The server computes it from the same rule as the refusal, so the admin panel needs no settings.read and never reads a draft."
   }
 }

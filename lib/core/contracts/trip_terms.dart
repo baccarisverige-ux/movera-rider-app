@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/config/zone_settings.dart';
 import 'package:movera_rider/core/contracts/cancel_fee.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 
@@ -23,7 +24,8 @@ class TripTerms {
   });
 
   /// `pickupWaiting.pickupMove.default`.
-  static const defaultMaxPickupMoveMeters = 200;
+  // v0.18.160: 300 m (was 200), the same as ZoneDefaults.maxPickupMoveMeters.
+  static const defaultMaxPickupMoveMeters = ZoneDefaults.maxPickupMoveMeters;
 
   final String currency;
   final num freeWaitMin;

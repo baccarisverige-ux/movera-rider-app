@@ -49,7 +49,7 @@ class PickupMoveException implements Exception {
 /// Moves the pickup of a booked trip: `PATCH /trips/{tripId}
 /// { expectedVersion, pickup }` while the trip is requested … driver on the
 /// way. The limit is the trip's `terms.maxPickupMoveMeters` (the zone's
-/// `booking.maxPickupMoveMeters`, admin Dispatch › Booking, default 200),
+/// `booking.maxPickupMoveMeters`, admin Dispatch › Booking, default 300 since v0.18.160),
 /// measured from the BOOKED pickup; the fare does not change.
 class PickupMoveController {
   PickupMoveController({required ApiClient api, RideSession? session})
