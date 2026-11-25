@@ -573,9 +573,10 @@ _base = {'SE': 2015, 'FR': 2016, 'TN': 2012}
 for _cc, _d in _st['defaults'].items():
     _req = _do['documents']['required'].get(_cc, {'driver': [], 'fleet': [], 'vehicle': []})
     if _d['documents'] != _req: bad += 1; print('ONBOARDING defaults documents differ from required', _cc)
-    for _scope, _owner in [('driver', 'driver'), ('fleet', 'driver'), ('vehicle', 'vehicle')]:
+    # v0.18.164 (documents.ownerFleet): person and company lists take owner driver or fleet; cars take vehicle.
+    for _scope, _owners in [('driver', ('driver', 'fleet')), ('fleet', ('driver', 'fleet')), ('vehicle', ('vehicle',))]:
         for _t in _d['documents'][_scope]:
-            if _ty.get(_t, {}).get('owner') != _owner: bad += 1; print('ONBOARDING type owner', _cc, _scope, _t)
+            if _ty.get(_t, {}).get('owner') not in _owners: bad += 1; print('ONBOARDING type owner', _cc, _scope, _t)
     if _do['countries'][_cc]['open'] and 'driving_license' not in _d['documents']['driver']: bad += 1; print('ONBOARDING driving_license', _cc)
     if [s['id'] for s in _d['steps']] != _st['stepIds'] or [s['days'] for s in _d['steps']] != [3, 7, 3, 5, 2]: bad += 1; print('ONBOARDING steps', _cc)
     if _d['signUpReminders'] != {'on': True, 'everyDays': 2, 'stuckAfterDays': 10}: bad += 1; print('ONBOARDING reminders', _cc)

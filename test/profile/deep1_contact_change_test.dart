@@ -137,4 +137,35 @@ void main() {
       expect(find.text(text), findsOneWidget);
     });
   }
+
+  // v0.18.165 (owner 2026-11-25 "Mail 90 s"): a new e-mail code before the
+  // server's wait shows that wait (Retry-After), or a plain "wait" without it.
+  for (final (wait, text) in [
+    (const Duration(seconds: 45), 'Too many tries. Try again in '),
+    (null, 'Too many tries. Wait a moment and try again.'),
+  ]) {
+    testWidgets('429 otp_resend_too_soon shows the wait ($wait)', (
+      tester,
+    ) async {
+      await open(
+        tester,
+        ContactKind.email,
+        (_) => throw ApiError(
+          code: 'refused',
+          reason: 'otp_resend_too_soon',
+          message: 'x',
+          statusCode: 429,
+          retryAfter: wait,
+        ),
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('contact-value')),
+        'new@example.test',
+      );
+      await tester.tap(find.byKey(const ValueKey('contact-submit')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining(text), findsOneWidget);
+      if (wait != null) expect(find.textContaining('45'), findsOneWidget);
+    });
+  }
 }

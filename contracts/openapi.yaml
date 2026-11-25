@@ -1,11 +1,11 @@
-# Movera API v0.18.163 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.165 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.163
+  version: 0.18.165
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.163 in this folder; this file must agree with them.
+    v0.18.165 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.163
+  version: 0.18.165
   source: contract.json
 paths:
   /auth/otp/request:
@@ -16096,13 +16096,22 @@ paths:
         POST /admin/auth/sign-in-locks/unlock { phone } lifts both locks for all addresses at once. Phones already signed
         in keep working (refresh does not read it). So a stranger guessing from 4 or more networks can lock a number for up
         to 24 h (codesPerPhonePerHour already let one block new codes for one hour). The write limit in front of these calls
-        is keyed by phone + address (contract.json#rateLimit.key). v0.18.62 §84: An admin caller needs settings.edit (x-permission);
-        otherwise 403 forbidden, reason missing_permission. 200 { phone, lifted }: phone = the number sent (E.164, not masked);
-        lifted = integer >= 0, how many of the number''s wrong-code sessions of the last 24 h were unlocked (0 when nothing
-        was locked; still 200). Audited auth.sign_in_unlock { lifted } with the number''s last 4 digits hidden. 400 invalid_request
-        reason invalid_body when phone is missing or not a string; 400 invalid_request reason invalid_phone when phone is
-        not international form (^\+[1-9][0-9]{6,14}$); 401 unauthenticated; 403 forbidden missing_permission. The server never
-        answers 404 here.'
+        is keyed by phone + address (contract.json#rateLimit.key). v0.18.165 (owner 2026-11-25 "Apres 30 peut demander nouveau
+        code mais aussi faut que le code marche plus apres 30 s", "Je voit les autre app mais 60 s", "Nn on laisse 60 seconde
+        demander nv aussi", "Pas qd on demande un nouveau code ancien bloquer ! Mm si on demande pas nv code apres 60 s doit
+        être bloquer"; Rules decisions/session-2026-11-06.md): a code expires on its own 60 s after it was sent (expiresSeconds
+        60, was 300), whether or not a new one is asked; verify after that is 410 otp_expired. A new code may be asked only
+        60 s after the last one (retryAfterSeconds 60, was 30; earlier is 429 rate_limited reason otp_resend_too_soon with
+        Retry-After). So the resend button unlocks exactly when the old code dies. Fixed in the contract, not an admin setting.
+        The apps keep reading retryAfterSeconds and expiresAt from the challenge (no number in the app). The same two values
+        apply to the account phone change code (POST /account/phone/change); the account e-mail change code has its own auth.emailCode
+        (90 s, owner "Mail 90 s"). A test number (staging) keeps retryAfterSeconds 0. v0.18.62 §84: An admin caller needs
+        settings.edit (x-permission); otherwise 403 forbidden, reason missing_permission. 200 { phone, lifted }: phone = the
+        number sent (E.164, not masked); lifted = integer >= 0, how many of the number''s wrong-code sessions of the last
+        24 h were unlocked (0 when nothing was locked; still 200). Audited auth.sign_in_unlock { lifted } with the number''s
+        last 4 digits hidden. 400 invalid_request reason invalid_body when phone is missing or not a string; 400 invalid_request
+        reason invalid_phone when phone is not international form (^\+[1-9][0-9]{6,14}$); 401 unauthenticated; 403 forbidden
+        missing_permission. The server never answers 404 here.'
       tags:
       - Admin · Auth
       x-actor:
@@ -16288,7 +16297,10 @@ paths:
         for an address VERIFIED on another account, which gets the same answer and no code, so the answer never tells). The
         11th start within the hour → 429 change_too_many (Retry-After), before any e-mail is sent and before anything is saved;
         whichever limit is reached first refuses. A start refused before it begins (400, 403 reauth_required, or a 429 itself)
-        does not count. Same rolling hour as the 3 accepted sends; phone starts are unchanged.'
+        does not count. Same rolling hour as the 3 accepted sends; phone starts are unchanged. v0.18.165 (auth.emailCode):
+        the e-mail code lives 90 s (expiresAt; after it verify is 410 otp_expired) and a new code for the same address may
+        be asked 90 s after the last one for it; earlier is 429 rate_limited reason otp_resend_too_soon with Retry-After (no
+        mail sent).'
       tags:
       - Account
       x-actor:
@@ -23662,6 +23674,17 @@ components:
             admin driver page list both: the approved one and, right after it, its renewal. The Home line of the approved
             one (expiring / expired) carries renewalStatus (in_review | rejected). With renewalStatus rejected the line also
             carries reviewNote = the admin''s note on the rejected renewal (why), so Home can show it.'
+        hasFile:
+          type: boolean
+          description: 'v0.18.164 (documents.reviewNeedsFile): true when a file is stored for this document (or renewal).
+            Absent from an older server (treat as unknown). v0.18.164 (owner 2026-11-25 "Yes, fix all 3", upload safety):
+            POST /admin/documents/{documentId}/review { decision: approved } of a document whose type has kind file (in its
+            country) and that has no stored file is 400 invalid_request, reason no_file; rejecting stays allowed. DocumentSummary.hasFile
+            (admin and driver document lists) says whether a file is stored; the admin panel shows Open and Approve only for
+            a row with a file (hasFile true, or fileUrl), else "No file" (Reject stays). Test accounts (seed-test, SEED_TEST_ON_START)
+            store a tiny placeholder file for each file document when the server has a fixed document key. The driver app
+            sends one Idempotency-Key per picked photo, so a retry after a timeout never makes a second version, and shows
+            the document as uploaded when the server already has it.'
     Document:
       type: object
       required:
@@ -24070,7 +24093,8 @@ components:
             base year whatever its categories: the smallest minYear among the country''s settings.vehicles.categories that
             are on and are not extraCategories (defaults: SE 2015, FR 2016, TN 2012). An older car is 400 invalid_request,
             reason category_not_allowed, with details "<category>:year_too_old" for each of its categories ("car:year_too_old"
-            when it has none), on POST /driver/vehicles and PATCH /admin/vehicles/{vehicleId}.'
+            when it has none), on POST /driver/vehicles and PATCH /admin/vehicles/{vehicleId}. v0.18.164: a country with settings.vehicles.maxAgeYears
+            also has the rolling age year of vehicleRules.maxAge (FR: 6 years, hybrid and electric exempt).'
         pickable:
           type: boolean
           description: 'v0.18.0: the asking driver can pick this car now. v0.18.0 (owner decision 19: "Driver dont see documents
@@ -28660,7 +28684,7 @@ components:
           $ref: '#/components/schemas/Language'
     OtpChallenge:
       type: object
-      description: 'The code lives 300 s; at most 5 attempts. v0.18.133 (contract.json#smsSignIn): it is 4 digits for a test
+      description: 'The code lives 60 s; at most 5 attempts. v0.18.133 (contract.json#smsSignIn): it is 4 digits for a test
         number and 6 digits when sent by SMS (codeLength).'
       required:
       - requestId
@@ -28677,7 +28701,7 @@ components:
         retryAfterSeconds:
           type: integer
           minimum: 0
-          default: 30
+          default: 60
         codeLength:
           type: integer
           enum:
@@ -34592,19 +34616,21 @@ components:
         (owner item 14: "First answer , and admin can change text and add or delete documents so must add on contract and
         server and admin ! Also same for Sweden"): per country the admin also creates new document types (customTypes), changes
         the name and help text of any type (texts), sets which expire (expiringTypes), and adds or removes types in each list.
-        Rules: documents.driver, documents.fleet: types whose owner is driver; documents.vehicle: types whose owner is vehicle
-        (documents.types). An unknown type or one of the wrong owner is 400 invalid_document. A new type needs a contract
-        change (it has names in sv / fr / en and a kind). documents.driver always contains driving_license (admin rule "The
-        driving licence is always needed"). expiringTypes: the listed types need an expiry date when an admin approves them
-        (documentExpiry). steps: every id of stepIds once, at least one on, days within limits.stepDays. The server stores
-        and serves them; the admin panel shows the funnel with them. signUpReminders.everyDays within limits.remindEveryDays,
+        Rules: documents.driver, documents.fleet: types whose owner is driver or fleet (v0.18.164 documents.ownerFleet); documents.vehicle:
+        types whose owner is vehicle (documents.types). An unknown type or one of the wrong owner is 400 invalid_document.
+        A new type needs a contract change (it has names in sv / fr / en and a kind). documents.driver always contains driving_license
+        (admin rule "The driving licence is always needed"). expiringTypes: the listed types need an expiry date when an admin
+        approves them (documentExpiry). steps: every id of stepIds once, at least one on, days within limits.stepDays. The
+        server stores and serves them; the admin panel shows the funnel with them. signUpReminders.everyDays within limits.remindEveryDays,
         stuckAfterDays within limits.stuckAfterDays. expiry.warnDays: 1 to 3 numbers within limits.warnDays, largest first,
         each smaller than the one before. vehicles.categories: each category of the catalog at most once; minYear, minSeats
         within limits; a category that is on allows at least one fuel of fuels; vehicles.warnDays within limits.vehicleWarnDays.
         customTypes: ids unique and of idPattern; the scope list a custom type is in matches its owner (driver → documents.driver,
         fleet → documents.fleet, vehicle → documents.vehicle); names and help in sv, fr and en. v0.18.3: guides and validMonths
         keys are types of the country (contract types or its customTypes); guide lines within guideLimits; validMonths within
-        limits.validMonths. v0.18.76: emailVerifiedForApproval is a boolean; missing = false (contract.json#emailVerified.approvalSetting).'
+        limits.validMonths. v0.18.76: emailVerifiedForApproval is a boolean; missing = false (contract.json#emailVerified.approvalSetting).
+        v0.18.164: vehicles.maxAgeYears (optional) within limits.maxAgeYears; vehicles.hybridElectricExempt (optional, missing
+        = false).'
       required:
       - version
       - country
@@ -34753,6 +34779,39 @@ components:
             photosNeeded:
               type: boolean
               description: The four photo types are required car documents.
+            maxAgeYears:
+              type: integer
+              minimum: 1
+              maximum: 30
+              description: 'v0.18.164: the oldest a car may be, in years (rolling: current year minus N). Missing = no age
+                rule. v0.18.164 (owner 2026-11-25, France "Moins de 6 ans"; Rules decisions/session-2026-11-06.md 2026-11-25):
+                settings.vehicles.maxAgeYears = N (1 to 30, per country, admin setting; missing = no age rule, so Sweden,
+                Tunisia and every country without it keep the base year rule unchanged). With N set, the country''s age year
+                is the current calendar year (UTC) minus N (2026 with FR 6 → 2020): a car with year below the age year breaks
+                the rule, the same as below the base year: "<category>:year_too_old" for each of its categories ("car:year_too_old"
+                when it has none) on POST /driver/vehicles and PATCH /admin/vehicles/{vehicleId}, missing from Vehicle.fitCategories,
+                listed in Vehicle.ruleProblems and refused on approval (409 vehicle_rules_not_met). The base year and every
+                category minYear still apply on top (the stricter one wins). settings.vehicles.hybridElectricExempt = true
+                (admin toggle, missing = false; FR default true): a car with fuel hybrid or electric is exempt from the age
+                year (not from minYear). A car with no fuel is not exempt. The year rolls every 1 January with no publish.
+                Existing approved cars are not put back to pending (no migration): an approved car that breaks the age year
+                stays approved and shows its ruleProblems in red until an admin decides (owner OK needed before any hold).
+                Driver read: GET /driver/onboarding/settings serves each category minYear raised to at least the age year
+                (the stored document and GET /admin/config/onboarding are unchanged), so the driver app''s base year and its
+                "the car must be from <year> or later" text follow with no app change; the server''s own checks use the stored
+                document and the exemption. Side effects on an existing approved car below the age year (owner to OK): it
+                stays approved and drivable, but while it breaks the rule every admin change is refused (PATCH /admin/vehicles/{vehicleId}
+                category_not_allowed, PUT /admin/drivers/{driverId}/categories, re-approval 409 vehicle_rules_not_met, also
+                after a review a 0.18.162 country change asked for) and Vehicle.fitCategories is empty; the year moves every
+                1 January. A published onboarding document of the country replaces the defaults whole: the FR defaults of
+                v0.18.164 (age rule, fleet list, REVTC 60, insurance guide) apply only where standard-FR was never published,
+                else an admin publishes them in Drivers › Onboarding. Driver read edge: an exempt car below a category minYear
+                is told the raised year (e.g. a 2015 hybrid hears 2020 where 2016 is the real floor); conservative, accepted.'
+            hybridElectricExempt:
+              type: boolean
+              description: 'v0.18.164: hybrid and electric cars are exempt from maxAgeYears (not from minYear). Missing =
+                false.'
+              default: false
         guides:
           type: object
           description: 'v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R8 "Admin edits all text (Recommended)"):
@@ -34760,7 +34819,10 @@ components:
             at most 300 characters) is the upload guide of that document type in this country (a contract type or the country''s
             own custom type; any other key is 400 invalid_document). The driver app shows the admin''s lines; a type with
             no guide (or an empty list) falls back to the app''s built-in text; the drawing stays Movera''s. Served to the
-            app in DocumentTypeInfo.guide.'
+            app in DocumentTypeInfo.guide. v0.18.164: default FR insurance guide (owner 2026-11-25 "Simple test si admin reject
+            can add comment to show him instead": one short line, the plate and "transport de personnes à titre onéreux",
+            a normal insurance is not enough; details go in the admin''s reject note, shown to the driver as reviewNote);
+            fr wording by the owner; en/sv to confirm.'
           additionalProperties:
             $ref: '#/components/schemas/DocumentGuide'
         validMonths:
@@ -34770,7 +34832,7 @@ components:
             (default FR urssaf_certificate 6). When an admin approves it with issuedAt (the date on the paper, not in the
             future) and no expiresAt, the server sets expiresAt = issuedAt + N months; an expiresAt the admin types wins.
             A type of expiringTypes still needs one of the two (400 expiry_required). Any key must be a type of the country
-            (400 invalid_document).'
+            (400 invalid_document). v0.18.164: default FR vtc_register_certificate 60 (REVTC, owner 2026-11-25).'
           additionalProperties:
             type: integer
             minimum: 1
@@ -34926,8 +34988,6 @@ components:
             - company_registration
             - vtc_register_certificate
             - rc_pro_insurance
-            - urssaf_certificate
-            - national_id
             - bank_statement
             vehicle:
             - vehicle_registration
@@ -35034,11 +35094,23 @@ components:
             warnDays: 30
             autoHold: true
             photosNeeded: true
+            maxAgeYears: 6
+            hybridElectricExempt: true
           customTypes: []
           texts: {}
           validMonths:
             urssaf_certificate: 6
-          guides: {}
+            vtc_register_certificate: 60
+          guides:
+            insurance:
+              checklist:
+              - fr: Envoyez l'assurance de la voiture. Elle doit montrer la plaque et dire "transport de personnes à titre
+                  onéreux". Une assurance normale ne suffit pas.
+                en: Send the car's insurance. It must show the plate and say "transport de personnes à titre onéreux". A normal
+                  insurance is not enough.
+                sv: Skicka bilens försäkring. Den måste visa registreringsnumret och texten "transport de personnes à titre
+                  onéreux". En vanlig försäkring räcker inte.
+              tips: []
           emailVerifiedForApproval: false
           fleetNeedsCarForApproval: true
         TN:
@@ -35150,7 +35222,10 @@ components:
         guides[type] = { checklist: LocalText[], tips: LocalText[] } (each 0 to 10 lines, every line in sv, fr and en, at
         most 300 characters) is the upload guide of that document type in this country (a contract type or the country''s
         own custom type; any other key is 400 invalid_document). The driver app shows the admin''s lines; a type with no guide
-        (or an empty list) falls back to the app''s built-in text; the drawing stays Movera''s. Served to the app in DocumentTypeInfo.guide.'
+        (or an empty list) falls back to the app''s built-in text; the drawing stays Movera''s. Served to the app in DocumentTypeInfo.guide.
+        v0.18.164: default FR insurance guide (owner 2026-11-25 "Simple test si admin reject can add comment to show him instead":
+        one short line, the plate and "transport de personnes à titre onéreux", a normal insurance is not enough; details
+        go in the admin''s reject note, shown to the driver as reviewNote); fr wording by the owner; en/sv to confirm.'
       properties:
         checklist:
           type: array
