@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/core/constants/app_version.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/observability/crash_report.dart';
 import 'package:movera_rider/core/observability/observability.dart';
 
 /// Sends crashes and reported errors to `POST /telemetry/crashes` through
@@ -26,7 +27,7 @@ class CrashReporter {
       'screen': screen,
       'operation': operation,
       'requestId': requestId,
-      'kind': fatal ? 'crash' : 'error',
+      'kind': fatal ? CrashReport.kindDartError : CrashReport.kindError,
       'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
       'appVersion': appVersion,
     });

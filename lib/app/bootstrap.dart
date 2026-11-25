@@ -21,6 +21,7 @@ import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/maps/native_maps_config.dart';
+import 'package:movera_rider/app/crash_catcher_start.dart';
 import 'package:movera_rider/core/observability/crash_report.dart';
 import 'package:movera_rider/core/observability/restart_watch.dart';
 import 'package:movera_rider/core/web/web_ride_pagehide.dart';
@@ -187,6 +188,10 @@ Future<void> _bootSteps() async {
     AppScope.instance.crashes.record(error, stack, fatal: true);
     return true;
   };
+  // v0.18.158 (owner 2026-11-24 "Add to admin all kind of crash"): the
+  // last run's unclean end, the running marker, the freeze watch, the main
+  // isolate's errors, the unsent reports and the zone's crashReports.on.
+  await bootStep('crash_catcher', startCrashCatcher);
 
   // Owner 2026-11-07 ("5. Mouchard redémarrage"): proof of a page that iOS
   // restarts from zero (live web builds only: the sink is release-only).
@@ -297,31 +302,37 @@ Future<void> _bootSteps() async {
   AppLog.info('app.start', extra: {'platform': kIsWeb ? 'web' : 'native'});
 }
 
+/// Crash fix (rider TestFlight "Zone mismatch", Rules LAUNCH-RULE.md
+/// 2026-11-24): runApp runs in the zone that made the binding
+/// ([bootstrap] calls `WidgetsFlutterBinding.ensureInitialized()` in it).
+/// It used to run inside its own `runZonedGuarded`, which Flutter reports
+/// as a "Zone mismatch" error, and the crash catcher sent that as a crash.
+/// Uncaught errors still reach the crash reports: through
+/// `PlatformDispatcher.instance.onError` and `FlutterError.onError`, both
+/// set in `_bootSteps` before the first screen.
+@visibleForTesting
+void runFirstScreen(void Function() show) => show();
+
 void _showFirstScreen() {
-  runZonedGuarded(
-    () {
-      runApp(const MoveraApp());
-      _pushCoordinator ??= PushCoordinator(
-        push: AppScope.instance.push,
-        openRide: openRideFromNotification,
-        openSupport: openSupportTicketFromNotification,
-        openRefund: openRefundFromNotification,
-        openNotifications: _openNotificationsFromPush,
-      );
-      startPushAfterFirstFrame(
-        startCoordinator: _pushCoordinator!.start,
-        registerExisting: _registerExistingPushSession,
-      );
-      // Load time (audit F8): routine log lines held at start go out a few
-      // seconds after the first screen is up, not while it downloads.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Timer(const Duration(seconds: 3), () {
-          AppScope.instance.observabilitySink?.releaseRoutine();
-        });
+  runFirstScreen(() {
+    runApp(const MoveraApp());
+    _pushCoordinator ??= PushCoordinator(
+      push: AppScope.instance.push,
+      openRide: openRideFromNotification,
+      openSupport: openSupportTicketFromNotification,
+      openRefund: openRefundFromNotification,
+      openNotifications: _openNotificationsFromPush,
+    );
+    startPushAfterFirstFrame(
+      startCoordinator: _pushCoordinator!.start,
+      registerExisting: _registerExistingPushSession,
+    );
+    // Load time (audit F8): routine log lines held at start go out a few
+    // seconds after the first screen is up, not while it downloads.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Timer(const Duration(seconds: 3), () {
+        AppScope.instance.observabilitySink?.releaseRoutine();
       });
-    },
-    (error, stack) {
-      AppScope.instance.crashes.record(error, stack, fatal: true);
-    },
-  );
+    });
+  });
 }

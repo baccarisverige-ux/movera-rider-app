@@ -58,6 +58,12 @@ const _allowed = <String, Set<String>>{
     'Kurdî',
     'Bosanski',
   },
+  'crash catcher, never shown: crash-report messages for the admin '
+      '(contract v0.18.158, lib/core/observability/crash_*.dart)': {
+    'Isolate error',
+    'App ended without a clean exit (last screen )',
+    'The screen froze for s (screen )',
+  },
   'contract v0.18.57 §79 texts kept in sv, fr and en and picked by the '
       'phone language (lib/core/config/emergency_numbers.dart)': {
     'Ring {label} {number}',

@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/core/observability/crash_catcher.dart';
 import 'package:movera_rider/core/observability/crash_report.dart';
 import 'package:movera_rider/core/observability/observability.dart';
 
@@ -33,6 +34,7 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
     this.retryDelay = const Duration(seconds: 30),
     this.maxRetryDelay = const Duration(minutes: 10),
     this.maxAttempts = 6,
+    this.outbox,
     bool holdRoutineAtStart = false,
     this.routineHoldLimit = const Duration(seconds: 30),
     DateTime Function()? clock,
@@ -85,6 +87,30 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
 
   final Map<String, DateTime> _recentCrashes = {};
 
+  /// v0.18.158 (`contract.json#crashCatcher.outbox`): crash reports are kept
+  /// in a file until the server answered 2xx / 4xx, so one that could not be
+  /// sent goes again at the next launch ([resendOutbox]).
+  CrashOutbox? outbox;
+
+  /// Sends the reports a previous run could not deliver, oldest first.
+  void resendOutbox() {
+    final box = outbox;
+    if (box == null || _disposed) return;
+    try {
+      for (final item in box.pending()) {
+        _post(
+          '/api/v1/telemetry/crashes',
+          item.body,
+          routine: false,
+          retry: true,
+          outboxId: item.id,
+        );
+      }
+    } catch (_) {
+      // Never shown and never fatal: a crash report must not crash the app.
+    }
+  }
+
   /// Crash reports not sent because the same one was just sent.
   int get repeatedCount => _repeated;
   int _repeated = 0;
@@ -127,6 +153,7 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
     Map<String, Object?> body, {
     required bool routine,
     bool retry = false,
+    String? outboxId,
   }) {
     if (_disposed) return;
     final queue = _queues.putIfAbsent(path, () => _PathQueue());
@@ -143,7 +170,9 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
       body = {...body, 'droppedLines': _routineDropped};
       _routineDropped = 0;
     }
-    queue.pending.add(_Entry(body, routine: routine, retry: retry));
+    queue.pending.add(
+      _Entry(body, routine: routine, retry: retry, outboxId: outboxId),
+    );
     while (queue.pending.length > queueLimit) {
       final index = queue.pending.indexWhere((e) => e.routine);
       queue.pending.removeAt(index == -1 ? 0 : index);
@@ -180,6 +209,10 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
     unawaited(
       _send(path, entry)
           .then((response) {
+            final code = response.statusCode;
+            if (code < 500 && code != 429 && entry.outboxId != null) {
+              outbox?.remove(entry.outboxId!);
+            }
             if (response.statusCode == 404) {
               // Not enabled on this server: nothing more to send for now.
               queue.mutedUntil = _clock().add(muteAfterNotFound);
@@ -334,15 +367,28 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
     Map<String, Object?> extra = const {},
   }) {
     if (_disposed) return;
+    // v0.18.158 crashReports.on: the zone's switch off sends nothing.
+    if (!CrashReport.reportingEnabled) return;
     if (isUnauthorizedNoise(extra: extra, error: error)) return;
     try {
       final now = _clock();
-      final kind = extra['kind'] == CrashReport.kindError
-          ? CrashReport.kindError
+      final kind = CrashReport.kinds.contains(extra['kind'])
+          ? extra['kind']! as String
           : CrashReport.kindCrash;
       final screen = extra['screen'] is String
           ? extra['screen'] as String
           : CrashReport.currentScreen;
+      Map<String, Object?> context = const {};
+      try {
+        context = CrashReport.context?.call() ?? const {};
+      } catch (_) {
+        // Never shown and never fatal: a crash report must not crash the app.
+      }
+      String? field(String key) => extra[key] is String
+          ? extra[key]! as String
+          : (context[key] is String ? context[key]! as String : null);
+      final crumbs = extra['breadcrumbs'] ?? context['breadcrumbs'];
+      final native = extra['nativeReason'];
       final body = CrashReport.body(
         error: error,
         stackTrace: stackTrace,
@@ -354,6 +400,23 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
         screen: screen,
         kind: kind,
         occurredAt: now,
+        osVersion: field('osVersion'),
+        deviceModel: field('deviceModel'),
+        tripId: field('tripId') ?? CrashReport.currentTripId,
+        zoneId: field('zoneId') ?? CrashReport.currentZoneId,
+        breadcrumbs: crumbs is List
+            ? [
+                for (final c in crumbs)
+                  if (c is Map) Map<String, Object?>.from(c),
+              ]
+            : null,
+        nativeReason: native is Map
+            ? {
+                for (final e in native.entries)
+                  if (e.value is String) '${e.key}': e.value as String,
+              }
+            : null,
+        freezeMs: extra['freezeMs'] is int ? extra['freezeMs']! as int : null,
       );
       final key = CrashReport.fingerprint(
         kind,
@@ -367,7 +430,20 @@ class HttpObservabilitySink implements LoggerSink, AnalyticsSink, CrashSink {
       }
       if (_recentCrashes.length >= 100) _recentCrashes.clear();
       _recentCrashes[key] = now;
-      _post('/api/v1/telemetry/crashes', body, routine: false, retry: true);
+      final box = outbox;
+      String? id;
+      try {
+        id = box?.add(body);
+      } catch (_) {
+        // Never shown and never fatal: a crash report must not crash the app.
+      }
+      _post(
+        '/api/v1/telemetry/crashes',
+        body,
+        routine: false,
+        retry: true,
+        outboxId: id,
+      );
     } catch (_) {
       // A crash report must never crash the app.
     }
@@ -393,9 +469,10 @@ class _PathQueue {
 }
 
 class _Entry {
-  _Entry(this.body, {required this.routine, this.retry = false});
+  _Entry(this.body, {required this.routine, this.retry = false, this.outboxId});
   final Map<String, Object?> body;
   final bool routine;
   final bool retry;
+  final String? outboxId;
   int attempts = 0;
 }

@@ -1,11 +1,11 @@
-# Movera API v0.18.157 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.158 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.157
+  version: 0.18.158
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.157 in this folder; this file must agree with them.
+    v0.18.158 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.157
+  version: 0.18.158
   source: contract.json
 paths:
   /auth/otp/request:
@@ -5640,7 +5640,9 @@ paths:
       description: 'v0.16.0: app + platform + the message with numbers, hex and ids replaced + the top stack frame. GET /admin/errors?app=&platform=&version=&status=&cursor=&limit=
         → ErrorGroupPage, newest lastSeen first; PATCH /admin/errors/{errorId} { status } → ErrorGroup. Permission: any signed-in
         admin, every role, for the list and for marking fixed; no permission id, like GET /admin/auth/me (owner 2026-10-29:
-        "No code now every one can see and later we add"; "All admin roles (Recommended)"). The rest of System keeps system.read..'
+        "No code now every one can see and later we add"; "All admin roles (Recommended)"). The rest of System keeps system.read..
+        v0.18.158 (contract.json#crashCatcher): GET /admin/errors also takes kind (one of kinds) next to app, platform, version
+        and status.'
       tags:
       - Admin · System
       x-actor:
@@ -5681,6 +5683,19 @@ paths:
           enum:
           - open
           - fixed
+      - name: kind
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - crash
+          - error
+          - dart_error
+          - native_crash
+          - freeze
+        description: 'v0.18.158 (contract.json#crashCatcher): GET /admin/errors also takes kind (one of kinds) next to app,
+          platform, version and status.'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
       responses:
@@ -21218,6 +21233,57 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/errors/{errorId}/reports:
+    get:
+      operationId: adminListErrorReports
+      summary: The kept reports of one crash or error group (newest first)
+      description: 'v0.18.158 (contract.json#crashCatcher): GET /admin/errors/{errorId}/reports?limit= (1-50, default 20)
+        -> { items: [ErrorReport { at, kind, appVersion?, build?, platform?, osVersion?, deviceModel?, screen?, tripId?, zoneId?,
+        message, stack?, nativeReason?, freezeMs?, breadcrumbs[] }] }, newest first: the kept reports of one group (at most
+        maxEventsPerGroup are kept). Same permission as GET /admin/errors (any signed-in admin). 404 not_found for an unknown
+        group. Permission: any signed-in admin, every role, for the list and for marking fixed; no permission id, like GET
+        /admin/auth/me (owner 2026-10-29: "No code now every one can see and later we add"; "All admin roles (Recommended)").
+        The rest of System keeps system.read..'
+      tags:
+      - Admin · System
+      x-actor:
+      - admin
+      parameters:
+      - $ref: '#/components/parameters/ErrorId'
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorReportList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -28965,6 +29031,21 @@ components:
           additionalProperties: false
         driverProfile:
           $ref: '#/components/schemas/DriverProfileSettings'
+        crashReports:
+          type: object
+          description: 'v0.18.158 (contract.json#crashCatcher): Per zone, in both app documents: RiderAppConfig.crashReports
+            { on } and DriverAppConfig.crashReports { on } (the zone''s own document, else its country standard), saved and
+            published like the other switches. Default configDefaults.crashReportsOn (true). Off: that app sends no crash
+            report of any kind in that zone (the running marker and breadcrumbs are still kept on the phone, nothing leaves
+            it). The app keeps the last value it read, so a crash at start before the document is read follows the last known
+            value (true when never read). GET /rider/config and GET /driver/config always serve crashReports { on }. A crashReports
+            that is not an object, or an on that is not true / false, is 400 invalid_request, reason invalid_document.'
+          properties:
+            'on':
+              type: boolean
+              description: The zone's switch.
+              default: true
+          additionalProperties: false
     DriverAppConfig:
       type: object
       description: Per-zone driver document built by Admin exporters. Unknown keys are ignored; missing keys fall back to
@@ -29378,6 +29459,21 @@ components:
               additionalProperties: false
         driverProfile:
           $ref: '#/components/schemas/DriverProfileSettings'
+        crashReports:
+          type: object
+          description: 'v0.18.158 (contract.json#crashCatcher): Per zone, in both app documents: RiderAppConfig.crashReports
+            { on } and DriverAppConfig.crashReports { on } (the zone''s own document, else its country standard), saved and
+            published like the other switches. Default configDefaults.crashReportsOn (true). Off: that app sends no crash
+            report of any kind in that zone (the running marker and breadcrumbs are still kept on the phone, nothing leaves
+            it). The app keeps the last value it read, so a crash at start before the document is read follows the last known
+            value (true when never read). GET /rider/config and GET /driver/config always serve crashReports { on }. A crashReports
+            that is not an object, or an on that is not true / false, is 400 invalid_request, reason invalid_document.'
+          properties:
+            'on':
+              type: boolean
+              description: The zone's switch.
+              default: true
+          additionalProperties: false
     CategoryPricingWaiting:
       type: object
       description: Waiting at pickup for one category; RiderAppConfig / DriverAppConfig waiting.byCategory carry the same
@@ -31147,7 +31243,17 @@ components:
       description: 'v0.16.0 (owner 2026-10-29, "Want section on dispatch to show all crash droids and bugs detected from server"):
         POST /telemetry/crashes takes optional app, platform, appVersion, build, screen, kind and occurredAt next to error,
         stack and extra (additive; an older app sends none). The server scrubs again, groups each report and keeps the reports
-        keepDays days.'
+        keepDays days. v0.18.158 (contract.json#crashCatcher): POST /telemetry/crashes also takes, all optional: kind (see
+        kinds), osVersion (e.g. "iOS 17.1" or "Android 14 (API 34)", at most 60), deviceModel (e.g. "iPhone15,2" or "samsung
+        SM-S911B", at most 80), tripId (the trip on screen, when there is one), zoneId (the zone the app is in), breadcrumbs
+        (at most 30), nativeReason { name, reason } (native_crash only; name at most 200, reason at most 1000 characters)
+        and freezeMs (freeze only, whole milliseconds). Never a phone number, e-mail, name or address: the account is the
+        token the report is sent with, as before. A report that cannot be sent (offline, 5xx, 429) waits in a file of at most
+        20 reports and is sent again later and at the next launch, oldest first; a 2xx or 4xx answer removes it. The same
+        report again within a minute is counted on the phone, not sent again (as v0.16.0). At most perDevicePerMinute crash
+        reports per device and minute are stored (the device is the signed-in account, else the address; fixed 60 s window
+        per server copy, next to the per-address telemetry budget). Over it: 202 with an empty body and nothing stored; the
+        apps treat it as delivered.'
       required:
       - error
       properties:
@@ -31189,9 +31295,55 @@ components:
           enum:
           - crash
           - error
-          description: 'v0.16.0: crash (the app stopped) or error (caught). Default crash.'
+          - dart_error
+          - native_crash
+          - freeze
+          description: 'v0.16.0: crash (the app stopped) or error (caught). Default crash. v0.18.158 (contract.json#crashCatcher):
+            dart_error: an uncaught Dart error: FlutterError.onError, PlatformDispatcher.instance.onError and the main isolate
+            error listener (no extra zone around runApp: it runs in the zone that made the binding, so no "Zone mismatch").
+            Sent at once. native_crash: the app ended without a clean exit (an iOS NSException or signal, an Android Java/Kotlin
+            exception, a native crash, an Android ANR or the system killing the app while it was in front). Found on the NEXT
+            launch from the running marker and sent then, with the native reason when the app caught one. freeze: the app
+            screen made no progress for freezeSeconds or more while the app was in front. Sent when the screen moves again,
+            with how long it froze. crash: older apps (v0.16.0): the app stopped. Kept; new apps send dart_error instead.
+            error: a caught error shown to the user (v0.16.0). Kept as before.'
         occurredAt:
           $ref: '#/components/schemas/Timestamp'
+        osVersion:
+          type: string
+          maxLength: 60
+          description: 'v0.18.158 (contract.json#crashCatcher): e.g. iOS 17.1, Android 14 (API 34).'
+        deviceModel:
+          type: string
+          maxLength: 80
+          description: 'v0.18.158 (contract.json#crashCatcher): e.g. iPhone15,2, samsung SM-S911B.'
+        tripId:
+          type: string
+          maxLength: 64
+          description: 'v0.18.158 (contract.json#crashCatcher): the trip on screen, when there is one.'
+        zoneId:
+          type: string
+          maxLength: 64
+          description: 'v0.18.158 (contract.json#crashCatcher): the zone the app is in.'
+        breadcrumbs:
+          type: array
+          items:
+            $ref: '#/components/schemas/CrashBreadcrumb'
+          maxItems: 30
+          description: 'v0.18.158 (contract.json#crashCatcher): The apps keep the last max breadcrumbs { at (RFC 3339), type,
+            message } in memory and in a small file (so a native crash still has them at the next launch): route = a screen
+            change; lifecycle = resumed / inactive / paused / hidden / detached; platform = a platform call that failed (a
+            plugin error); network = an API call that failed (method, path with ids replaced, status, never the body); log
+            = a warning or error log line. Each message is scrubbed like the rest of the report (no e-mail, phone number,
+            name, address or coordinate) and cut to maxMessage characters.'
+        nativeReason:
+          allOf:
+          - $ref: '#/components/schemas/NativeCrashReason'
+          description: 'v0.18.158 (contract.json#crashCatcher): native_crash only.'
+        freezeMs:
+          type: integer
+          minimum: 0
+          description: 'v0.18.158 (contract.json#crashCatcher): freeze only: how long the screen froze.'
     ErrorGroup:
       type: object
       description: 'v0.16.0 (owner 2026-10-29): the admin "Crashes & errors" section. Reports with the same fingerprint are
@@ -31240,6 +31392,10 @@ components:
           enum:
           - crash
           - error
+          - dart_error
+          - native_crash
+          - freeze
+          description: 'v0.18.158 (contract.json#crashCatcher): the latest report''s kind.'
         count:
           type: integer
           minimum: 1
@@ -42633,6 +42789,129 @@ components:
           type: boolean
           description: The zone's written reviews switch.
           default: false
+    CrashBreadcrumb:
+      type: object
+      description: 'v0.18.158 (contract.json#crashCatcher): The apps keep the last max breadcrumbs { at (RFC 3339), type,
+        message } in memory and in a small file (so a native crash still has them at the next launch): route = a screen change;
+        lifecycle = resumed / inactive / paused / hidden / detached; platform = a platform call that failed (a plugin error);
+        network = an API call that failed (method, path with ids replaced, status, never the body); log = a warning or error
+        log line. Each message is scrubbed like the rest of the report (no e-mail, phone number, name, address or coordinate)
+        and cut to maxMessage characters.'
+      required:
+      - at
+      - type
+      - message
+      properties:
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        type:
+          type: string
+          enum:
+          - route
+          - lifecycle
+          - platform
+          - network
+          - log
+        message:
+          type: string
+          maxLength: 200
+      additionalProperties: false
+    NativeCrashReason:
+      type: object
+      description: 'v0.18.158 (contract.json#crashCatcher): Without any third-party SDK. iOS: NSSetUncaughtExceptionHandler
+        writes the exception name, reason and call stack, and signal handlers (SIGABRT, SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGTRAP)
+        write the signal name, to a file in Application Support that the next launch reads and deletes (a signal after an
+        exception never overwrites it). Android: Thread.setDefaultUncaughtExceptionHandler writes the exception class, message
+        and stack to a file in the app files folder (then the previous handler runs, so Android still closes the app as before);
+        on Android 11+ the next launch also reads the last ApplicationExitInfo and names REASON_CRASH_NATIVE, REASON_ANR or
+        REASON_CRASH when no file was written (each exit only once). The report message is "<name>: <reason>" when there is
+        a native reason, else "App ended without a clean exit (last screen <screen>)".'
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        reason:
+          type: string
+          maxLength: 1000
+      additionalProperties: false
+    ErrorReport:
+      type: object
+      description: 'v0.18.158 (contract.json#crashCatcher): GET /admin/errors/{errorId}/reports?limit= (1-50, default 20)
+        -> { items: [ErrorReport { at, kind, appVersion?, build?, platform?, osVersion?, deviceModel?, screen?, tripId?, zoneId?,
+        message, stack?, nativeReason?, freezeMs?, breadcrumbs[] }] }, newest first: the kept reports of one group (at most
+        maxEventsPerGroup are kept). Same permission as GET /admin/errors (any signed-in admin). 404 not_found for an unknown
+        group.'
+      required:
+      - at
+      - kind
+      - message
+      - breadcrumbs
+      properties:
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        kind:
+          type: string
+          enum:
+          - crash
+          - error
+          - dart_error
+          - native_crash
+          - freeze
+        appVersion:
+          type: string
+          maxLength: 40
+        build:
+          type: string
+          maxLength: 40
+        platform:
+          type: string
+          enum:
+          - android
+          - ios
+          - web
+        osVersion:
+          type: string
+          maxLength: 60
+        deviceModel:
+          type: string
+          maxLength: 80
+        screen:
+          type: string
+          maxLength: 200
+        tripId:
+          type: string
+          maxLength: 64
+        zoneId:
+          type: string
+          maxLength: 64
+        message:
+          type: string
+          maxLength: 4000
+        stack:
+          type: string
+          maxLength: 12000
+        nativeReason:
+          $ref: '#/components/schemas/NativeCrashReason'
+        freezeMs:
+          type: integer
+          minimum: 0
+        breadcrumbs:
+          type: array
+          items:
+            $ref: '#/components/schemas/CrashBreadcrumb'
+          maxItems: 30
+    ErrorReportList:
+      type: object
+      description: 'v0.18.158 (contract.json#crashCatcher): newest first.'
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorReport'
     PushIosConfig:
       type: object
       description: 'v0.18.156: the Firebase iOS app''s public settings. v0.18.156 (owner 2026-11-24 "Notifications doesn''t
