@@ -16104,13 +16104,14 @@ paths:
         60 s after the last one (retryAfterSeconds 60, was 30; earlier is 429 rate_limited reason otp_resend_too_soon with
         Retry-After). So the resend button unlocks exactly when the old code dies. Fixed in the contract, not an admin setting.
         The apps keep reading retryAfterSeconds and expiresAt from the challenge (no number in the app). The same two values
-        apply to the account phone and e-mail change codes (POST /me/phone|email/start), which use auth.otp. A test number
-        (staging) keeps retryAfterSeconds 0. v0.18.62 §84: An admin caller needs settings.edit (x-permission); otherwise 403
-        forbidden, reason missing_permission. 200 { phone, lifted }: phone = the number sent (E.164, not masked); lifted =
-        integer >= 0, how many of the number''s wrong-code sessions of the last 24 h were unlocked (0 when nothing was locked;
-        still 200). Audited auth.sign_in_unlock { lifted } with the number''s last 4 digits hidden. 400 invalid_request reason
-        invalid_body when phone is missing or not a string; 400 invalid_request reason invalid_phone when phone is not international
-        form (^\+[1-9][0-9]{6,14}$); 401 unauthenticated; 403 forbidden missing_permission. The server never answers 404 here.'
+        apply to the account phone change code (POST /account/phone/change); the account e-mail change code has its own auth.emailCode
+        (90 s, owner "Mail 90 s"). A test number (staging) keeps retryAfterSeconds 0. v0.18.62 §84: An admin caller needs
+        settings.edit (x-permission); otherwise 403 forbidden, reason missing_permission. 200 { phone, lifted }: phone = the
+        number sent (E.164, not masked); lifted = integer >= 0, how many of the number''s wrong-code sessions of the last
+        24 h were unlocked (0 when nothing was locked; still 200). Audited auth.sign_in_unlock { lifted } with the number''s
+        last 4 digits hidden. 400 invalid_request reason invalid_body when phone is missing or not a string; 400 invalid_request
+        reason invalid_phone when phone is not international form (^\+[1-9][0-9]{6,14}$); 401 unauthenticated; 403 forbidden
+        missing_permission. The server never answers 404 here.'
       tags:
       - Admin · Auth
       x-actor:
@@ -16296,7 +16297,10 @@ paths:
         for an address VERIFIED on another account, which gets the same answer and no code, so the answer never tells). The
         11th start within the hour → 429 change_too_many (Retry-After), before any e-mail is sent and before anything is saved;
         whichever limit is reached first refuses. A start refused before it begins (400, 403 reauth_required, or a 429 itself)
-        does not count. Same rolling hour as the 3 accepted sends; phone starts are unchanged.'
+        does not count. Same rolling hour as the 3 accepted sends; phone starts are unchanged. v0.18.165 (auth.emailCode):
+        the e-mail code lives 90 s (expiresAt; after it verify is 410 otp_expired) and a new code for the same address may
+        be asked 90 s after the last one for it; earlier is 429 rate_limited reason otp_resend_too_soon with Retry-After (no
+        mail sent).'
       tags:
       - Account
       x-actor:
