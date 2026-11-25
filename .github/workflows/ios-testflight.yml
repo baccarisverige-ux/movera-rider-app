@@ -90,6 +90,36 @@ jobs:
       - name: Resolve dependencies
         run: flutter pub get --enforce-lockfile
 
+      # Owner 2026-11-24 (setup done): real "Sign in with Google" on iPhone. Client ids are repository
+      # variables (not secrets); an empty one keeps that button on "coming soon" (lib: ProviderSignInConfig).
+      # Apple on iPhone is native (entitlement com.apple.developer.applesignin in ios/Runner/Runner.entitlements).
+      - name: Sign-in client ids
+        env:
+          V_GOOGLE_CLIENT_ID_WEB: ${{ vars.GOOGLE_CLIENT_ID_WEB }}
+          V_GOOGLE_CLIENT_ID_IOS: ${{ vars.GOOGLE_CLIENT_ID_IOS }}
+          V_GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_SERVER_CLIENT_ID }}
+          V_APPLE_SERVICE_ID: ${{ vars.APPLE_SERVICE_ID }}
+          V_APPLE_REDIRECT_URI: ${{ vars.APPLE_REDIRECT_URI }}
+        run: |
+          set -euo pipefail
+          for n in GOOGLE_CLIENT_ID_WEB GOOGLE_CLIENT_ID_IOS GOOGLE_SERVER_CLIENT_ID APPLE_SERVICE_ID APPLE_REDIRECT_URI; do
+            v="V_$n"
+            clean="$(printf '%s' "${!v:-}" | tr -d '[:space:][:cntrl:]')"
+            echo "$n=$clean" >> "$GITHUB_ENV"
+            export "$n=$clean"
+          done
+          case "$APPLE_REDIRECT_URI" in ''|https://*) ;; *) echo "::error::APPLE_REDIRECT_URI must start with https://"; exit 1 ;; esac
+          # google_sign_in needs the reversed iOS client id as a URL scheme (Info.plist CFBundleURLTypes,
+          # filled from the untracked ios/Flutter/GoogleSignIn.xcconfig).
+          case "$GOOGLE_CLIENT_ID_IOS" in
+            *.apps.googleusercontent.com)
+              rev="com.googleusercontent.apps.${GOOGLE_CLIENT_ID_IOS%.apps.googleusercontent.com}"
+              printf 'GOOGLE_REVERSED_CLIENT_ID = %s\n' "$rev" > ios/Flutter/GoogleSignIn.xcconfig
+              echo "GOOGLE_REVERSED_CLIENT_ID=$rev" >> "$GITHUB_ENV" ;;
+            '') echo "::warning::GOOGLE_CLIENT_ID_IOS is empty: Google sign-in stays 'coming soon' in this build." ;;
+            *) echo "::error::GOOGLE_CLIENT_ID_IOS must end with .apps.googleusercontent.com"; exit 1 ;;
+          esac
+
       - name: "3. Build the real app archive (live defines, iPhone only)"
         env:
           PROD_API: ${{ vars.MOVERA_PROD_API_URL }}
@@ -125,11 +155,20 @@ jobs:
             --dart-define=MOVERA_API_BASE_URL="$PROD_API" \
             --dart-define=MOVERA_AUTH_REQUIRED=true \
             --dart-define=MOVERA_APP_VERSION="$name+$GITHUB_RUN_NUMBER" \
-            --dart-define=MOVERA_GOOGLE_MAP_ID="${MAP_ID:-}"
+            --dart-define=MOVERA_GOOGLE_MAP_ID="${MAP_ID:-}" \
+            --dart-define=GOOGLE_CLIENT_ID_WEB="${GOOGLE_CLIENT_ID_WEB:-}" \
+            --dart-define=GOOGLE_CLIENT_ID_IOS="${GOOGLE_CLIENT_ID_IOS:-}" \
+            --dart-define=GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID:-}" \
+            --dart-define=APPLE_SERVICE_ID="${APPLE_SERVICE_ID:-}" \
+            --dart-define=APPLE_REDIRECT_URI="${APPLE_REDIRECT_URI:-}"
           rm -f ios/Flutter/Secrets.xcconfig
           plist=build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/Info.plist
           echo "Built: $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist") $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist") ($(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist"))"
           test "$(/usr/libexec/PlistBuddy -c 'Print :ITSAppUsesNonExemptEncryption' "$plist")" = false
+          if [ -n "${GOOGLE_REVERSED_CLIENT_ID:-}" ]; then
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$plist" | grep -qF "$GOOGLE_REVERSED_CLIENT_ID" \
+              || { echo "::error::Info.plist has no URL scheme with the reversed Google iOS client id."; exit 1; }
+          fi
           test "$(/usr/libexec/PlistBuddy -c 'Print :UIDeviceFamily:0' "$plist")" = 1
           ! /usr/libexec/PlistBuddy -c 'Print :UIDeviceFamily:1' "$plist" 2>/dev/null
           grep -aqF "${PROD_API%/}" build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/Frameworks/App.framework/App \
@@ -209,6 +248,8 @@ jobs:
           codesign -d --entitlements - --xml "$RUNNER_TEMP/ipa/Payload/Runner.app" 2>/dev/null | plutil -p - || true
           aps="$(codesign -d --entitlements - --xml "$RUNNER_TEMP/ipa/Payload/Runner.app" 2>/dev/null | plutil -extract aps-environment raw -o - - 2>/dev/null || true)"
           [ "$aps" = production ] || { echo "::error::The signed app has no aps-environment production (push would never reach this iPhone)."; exit 1; }
+          codesign -d --entitlements - --xml "$RUNNER_TEMP/ipa/Payload/Runner.app" 2>/dev/null | grep -q 'com.apple.developer.applesignin' \
+            || { echo "::error::The signed app has no Sign in with Apple entitlement."; exit 1; }
           echo "IPA_PATH=$PWD/$ipa" >> "$GITHUB_ENV"
 
       - name: Keep the IPA (7 days)

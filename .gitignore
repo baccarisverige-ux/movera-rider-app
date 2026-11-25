@@ -40,3 +40,4 @@ windows/flutter/generated_plugins.cmake
 
 # Flutter localization generated output
 lib/l10n/generated/
+ios/Flutter/GoogleSignIn.xcconfig
