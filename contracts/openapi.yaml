@@ -1,11 +1,11 @@
-# Movera API v0.18.156 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.157 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.156
+  version: 0.18.157
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.156 in this folder; this file must agree with them.
+    v0.18.157 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.156
+  version: 0.18.157
   source: contract.json
 paths:
   /auth/otp/request:
@@ -135,7 +135,20 @@ paths:
         200 as before (requestId, sessionId, expiresAt, retryAfterSeconds) plus codeLength (codeLengthNote). Refused by the
         company, answered with an error, or not answered (a time-out or a broken connection): the code is void at once and
         the answer is 503 unavailable, reason sms_not_sent, Retry-After = auth.otp.retryAfterSeconds; the app may ask again
-        after that wait. The try still counts on the hourly limits.'
+        after that wait. The try still counts on the hourly limits. v0.18.157 (contract.json#smsSignIn.otherCountries): A
+        country is SERVED on this server when it is homeCountry (always) or its country standard country_rules (standard-<CC>)
+        is published (the server publishes one for every country with an open zone). A number whose calling code is a served
+        country in smsSignIn.countries keeps that country''s own switch, cap and mobile pattern (smsSignIn.active, setting,
+        dailyCap, mobileNumbers): otherCountries never opens a served country''s numbers. Every other number (any other calling
+        code, or a calling code in smsSignIn.countries whose country is not served here, e.g. +216 or +33 on the Sweden-only
+        server) is an OTHER-COUNTRY number and is ruled by this block only. An other-country number that is not a test number
+        gets a real code in the RIDER app (app rider) only when ALL hold: (1) the SMS company''s keys are on the server (smsSignIn.serverKeys);
+        (2) the number passes numberCheck; (3) smsSignInOtherCountries.enabled is true (default true). Otherwise, and always
+        for app driver, 403 forbidden, reason sign_in_restricted, exactly as before. No phone-number library is used (none
+        is a server dependency). A number is refused ONLY when it is clearly not valid or certainly a landline: (a) not strict
+        E.164 ^\+[1-9][0-9]{7,14}$ (8 to 15 digits) is refused; (b) a number that matches a fixedLines pattern of its calling
+        code (ranges that are landline for certain) is refused. An unknown number type or a country not served is never a
+        reason to refuse. An SMS to a landline the server cannot recognise is simply not delivered (it still counts on dailyCap).'
       tags:
       - Auth
       x-actor:
@@ -9584,17 +9597,17 @@ paths:
         "problem:<code>"] (not_a_list, too_many_steps, pct_or_amount, up_to_missing, pct_out_of_range, amount_out_of_range,
         above_not_last, last_not_above, up_to_out_of_range, up_to_not_increasing); nothing is saved. v0.18.123 (configDocs.keptKeys;
         country_rules: payoutMode, payoutSchedule, maxRiderDebt, driverOwesLimit, calls.adminCallRoles, calls.phoneProvider,
-        driverPayRequest, riderFeeStripe; dispatch: radar.reaskAfterSeconds, exclusive.reaskAfterSeconds): v0.18.123 (SF-F1-3
-        safe config saves; owner 2026-11-17 Q-SCS-1 "Keep values, save rest (Rec.)", 2026-11-16 Q-SCS-2 "No, keep current
-        (Rec.)", Rules audits/impact/safe-config-saves.md §3, decisions/session-2026-11-06.md): PUT /admin/config/{doc} replaces
-        the draft, except the kept keys of the document listed here (dotted paths). A kept key that the stored document (the
-        scope''s draft, else the scope''s own live document) has and the sent document leaves out is kept by the server: its
-        stored value is copied into the draft, the rest is saved as sent. The save is never refused for a missing kept key.
-        A key the request names in removeKeys is really removed (left out as sent). A scope with no own document (a zone on
-        the standard, a first save) has no stored document and keeps nothing, so a Standard-only key never gets into a zone
-        document. The answer (ConfigDraft.keptKeys) and the audit line config.draft (details.kept) list the paths the server
-        kept; both are absent when nothing was kept. Publish is unchanged (the draft is already whole). Rule for later: a
-        field that no whole-document admin screen owns goes on this list in the same contract version that adds it. ConfigDraftUpdate.removeKeys
+        driverPayRequest, riderFeeStripe, smsSignInOtherCountries; dispatch: radar.reaskAfterSeconds, exclusive.reaskAfterSeconds):
+        v0.18.123 (SF-F1-3 safe config saves; owner 2026-11-17 Q-SCS-1 "Keep values, save rest (Rec.)", 2026-11-16 Q-SCS-2
+        "No, keep current (Rec.)", Rules audits/impact/safe-config-saves.md §3, decisions/session-2026-11-06.md): PUT /admin/config/{doc}
+        replaces the draft, except the kept keys of the document listed here (dotted paths). A kept key that the stored document
+        (the scope''s draft, else the scope''s own live document) has and the sent document leaves out is kept by the server:
+        its stored value is copied into the draft, the rest is saved as sent. The save is never refused for a missing kept
+        key. A key the request names in removeKeys is really removed (left out as sent). A scope with no own document (a zone
+        on the standard, a first save) has no stored document and keeps nothing, so a Standard-only key never gets into a
+        zone document. The answer (ConfigDraft.keptKeys) and the audit line config.draft (details.kept) list the paths the
+        server kept; both are absent when nothing was kept. Publish is unchanged (the draft is already whole). Rule for later:
+        a field that no whole-document admin screen owns goes on this list in the same contract version that adds it. ConfigDraftUpdate.removeKeys
         (optional, array of dotted paths): each must be a kept key of that document, else 400 invalid_request, reason unknown_kept_key,
         details ["key:<path>"], nothing saved. A named key that the sent document carries is saved as sent (removeKeys only
         stops the keep). v0.18.130 (configDocs.keptKeys; driver_app_config: realtime.oneStream, realtime.oneStreamFallback):
@@ -12356,8 +12369,11 @@ paths:
         and every other document, is restored as before. The restored document is saved through the same draft path, so configDocs.keptKeys
         applies to it too. v0.18.139 (driverPayRequest.setting): CountryRules.driverPayRequest is kept the same way (the switch,
         the day, the payment link and the minimum amount stay as they are live now). v0.18.136 (stripeFees): CountryRules.riderFeeStripe
-        (the switch for paying a rider fee with Stripe in the app) is kept the same way. v0.18.139 (driverPayRequest): Restore
-        keeps driverPayRequest (pricingHistory.restoreKeeps). v0.18.136 (stripeFees): Restore keeps riderFeeStripe (pricingHistory.restoreKeeps).'
+        (the switch for paying a rider fee with Stripe in the app) is kept the same way. v0.18.157 (smsSignIn.otherCountries.setting):
+        CountryRules.smsSignInOtherCountries (SMS sign-in for numbers from other countries, super admins only) is kept the
+        same way, so a Restore by any admin never changes it; a save without an admin role (Restore, the seed) may not change
+        it either. v0.18.139 (driverPayRequest): Restore keeps driverPayRequest (pricingHistory.restoreKeeps). v0.18.136 (stripeFees):
+        Restore keeps riderFeeStripe (pricingHistory.restoreKeeps).'
       tags:
       - Admin · Config
       x-actor:
@@ -26892,6 +26908,270 @@ components:
           $ref: '#/components/schemas/AccountDeletionSetting'
         riderFeeStripe:
           $ref: '#/components/schemas/RiderFeeStripeSetting'
+        smsSignInOtherCountries:
+          type: object
+          description: 'v0.18.157 (contract.json#smsSignIn.otherCountries): CountryRules.smsSignInOtherCountries { enabled
+            (boolean), dailyCap (integer, smsSignIn.dailyCapRange), perCodeDailyCap (integer, perCodeDailyCapRange), perMinuteCap
+            (integer, perMinuteCapRange), blockedCallingCodes (array of calling codes from callingCodes, at most 50, no repeats)
+            }, ONE setting for the whole server, kept on the country standard of homeCountry only (standard-SE): Admin › Pricing
+            › Tips & limits, Sweden standard, card "SMS sign-in for numbers from other countries" (shown and editable only
+            for super admins; settings.edit, published with that country_rules document by settings.publish). On any other
+            zone or country standard it is 400 invalid_request, reason sms_sign_in_other_home_only; enabled not true / false,
+            a number not a whole number inside its range, a blocked code not in callingCodes or repeated, or another key inside
+            it, is 400 invalid_request, reason invalid_document; a document that changes it saved by an admin who is not a
+            super admin is 403 forbidden, reason super_admin_only. Never saved, or a part missing = configDefaults.smsSignInOtherCountries
+            (on, 50). Only the exact boolean false switches it off; missing or not a boolean reads as the default (on). configDocs.keptKeys.country_rules
+            keeps smsSignInOtherCountries when a save leaves it out, so a Tips & limits save by an admin who is not a super
+            admin (who never sees the card) never turns it off or changes it.'
+          properties:
+            enabled:
+              type: boolean
+              description: Real SMS sign-in codes in the rider app for numbers of every country not served on this server
+                (default on).
+              default: true
+            dailyCap:
+              type: integer
+              minimum: 10
+              maximum: 100000
+              default: 50
+              description: Sign-in SMS per 24 hours to all other-country numbers together before new codes are refused (sms_daily_limit).
+            perCodeDailyCap:
+              type: integer
+              minimum: 1
+              maximum: 100000
+              default: 10
+              description: Sign-in SMS per 24 hours per calling code inside the other-countries bucket (sms_daily_limit).
+            perMinuteCap:
+              type: integer
+              minimum: 1
+              maximum: 10000
+              default: 30
+              description: All sign-in SMS of the server per minute (burst limit, sms_daily_limit).
+            blockedCallingCodes:
+              type: array
+              maxItems: 50
+              uniqueItems: true
+              default: []
+              description: Calling codes blocked for other-country numbers (empty by default).
+              items:
+                type: string
+                enum:
+                - '+1'
+                - '+7'
+                - '+20'
+                - '+27'
+                - '+30'
+                - '+31'
+                - '+32'
+                - '+33'
+                - '+34'
+                - '+36'
+                - '+39'
+                - '+40'
+                - '+41'
+                - '+43'
+                - '+44'
+                - '+45'
+                - '+46'
+                - '+47'
+                - '+48'
+                - '+49'
+                - '+51'
+                - '+52'
+                - '+53'
+                - '+54'
+                - '+55'
+                - '+56'
+                - '+57'
+                - '+58'
+                - '+60'
+                - '+61'
+                - '+62'
+                - '+63'
+                - '+64'
+                - '+65'
+                - '+66'
+                - '+81'
+                - '+82'
+                - '+84'
+                - '+86'
+                - '+90'
+                - '+91'
+                - '+92'
+                - '+93'
+                - '+94'
+                - '+95'
+                - '+98'
+                - '+211'
+                - '+212'
+                - '+213'
+                - '+216'
+                - '+218'
+                - '+220'
+                - '+221'
+                - '+222'
+                - '+223'
+                - '+224'
+                - '+225'
+                - '+226'
+                - '+227'
+                - '+228'
+                - '+229'
+                - '+230'
+                - '+231'
+                - '+232'
+                - '+233'
+                - '+234'
+                - '+235'
+                - '+236'
+                - '+237'
+                - '+238'
+                - '+239'
+                - '+240'
+                - '+241'
+                - '+242'
+                - '+243'
+                - '+244'
+                - '+245'
+                - '+246'
+                - '+248'
+                - '+249'
+                - '+250'
+                - '+251'
+                - '+252'
+                - '+253'
+                - '+254'
+                - '+255'
+                - '+256'
+                - '+257'
+                - '+258'
+                - '+260'
+                - '+261'
+                - '+262'
+                - '+263'
+                - '+264'
+                - '+265'
+                - '+266'
+                - '+267'
+                - '+268'
+                - '+269'
+                - '+290'
+                - '+291'
+                - '+297'
+                - '+298'
+                - '+299'
+                - '+350'
+                - '+351'
+                - '+352'
+                - '+353'
+                - '+354'
+                - '+355'
+                - '+356'
+                - '+357'
+                - '+358'
+                - '+359'
+                - '+370'
+                - '+371'
+                - '+372'
+                - '+373'
+                - '+374'
+                - '+375'
+                - '+376'
+                - '+377'
+                - '+378'
+                - '+379'
+                - '+380'
+                - '+381'
+                - '+382'
+                - '+383'
+                - '+385'
+                - '+386'
+                - '+387'
+                - '+389'
+                - '+420'
+                - '+421'
+                - '+423'
+                - '+500'
+                - '+501'
+                - '+502'
+                - '+503'
+                - '+504'
+                - '+505'
+                - '+506'
+                - '+507'
+                - '+508'
+                - '+509'
+                - '+590'
+                - '+591'
+                - '+592'
+                - '+593'
+                - '+594'
+                - '+595'
+                - '+596'
+                - '+597'
+                - '+598'
+                - '+599'
+                - '+670'
+                - '+672'
+                - '+673'
+                - '+674'
+                - '+675'
+                - '+676'
+                - '+677'
+                - '+678'
+                - '+679'
+                - '+680'
+                - '+681'
+                - '+682'
+                - '+683'
+                - '+685'
+                - '+686'
+                - '+687'
+                - '+688'
+                - '+689'
+                - '+690'
+                - '+691'
+                - '+692'
+                - '+800'
+                - '+808'
+                - '+850'
+                - '+852'
+                - '+853'
+                - '+855'
+                - '+856'
+                - '+870'
+                - '+878'
+                - '+880'
+                - '+881'
+                - '+882'
+                - '+883'
+                - '+886'
+                - '+888'
+                - '+960'
+                - '+961'
+                - '+962'
+                - '+963'
+                - '+964'
+                - '+965'
+                - '+966'
+                - '+967'
+                - '+968'
+                - '+970'
+                - '+971'
+                - '+972'
+                - '+973'
+                - '+974'
+                - '+975'
+                - '+976'
+                - '+977'
+                - '+979'
+                - '+992'
+                - '+993'
+                - '+994'
+                - '+995'
+                - '+996'
+                - '+998'
+          additionalProperties: false
       x-server-only: true
     FeeRule:
       type: object
@@ -33379,7 +33659,8 @@ components:
             - realtime.oneStream
             - realtime.oneStreamFallback
             - riderFeeStripe
-          maxItems: 14
+            - smsSignInOtherCountries
+          maxItems: 15
           description: 'v0.18.123 (configDocs.keptKeys.removeKeys): ConfigDraftUpdate.removeKeys (optional, array of dotted
             paths): each must be a kept key of that document, else 400 invalid_request, reason unknown_kept_key, details ["key:<path>"],
             nothing saved. A named key that the sent document carries is saved as sent (removeKeys only stops the keep).'
