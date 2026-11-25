@@ -44,7 +44,7 @@ class _Quotes implements QuoteRepository {
   Future<RideQuote> quote({
     required String rideType,
     required int distanceMeters,
-    int durationSeconds = 600,
+    int? durationSeconds,
     String? pickup,
     String? destination,
     GeoPoint? pickupPoint,
@@ -79,7 +79,7 @@ class _SlowPinQuotes extends _Quotes {
   Future<RideQuote> quote({
     required String rideType,
     required int distanceMeters,
-    int durationSeconds = 600,
+    int? durationSeconds,
     String? pickup,
     String? destination,
     GeoPoint? pickupPoint,
@@ -448,7 +448,7 @@ class _ManualQuotes implements QuoteRepository {
   Future<RideQuote> quote({
     required String rideType,
     required int distanceMeters,
-    int durationSeconds = 600,
+    int? durationSeconds,
     String? pickup,
     String? destination,
     GeoPoint? pickupPoint,
