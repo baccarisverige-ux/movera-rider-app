@@ -38,7 +38,7 @@ class _PinQuotes implements QuoteRepository {
   Future<RideQuote> quote({
     required String rideType,
     required int distanceMeters,
-    int durationSeconds = 600,
+    int? durationSeconds,
     String? pickup,
     String? destination,
     GeoPoint? pickupPoint,

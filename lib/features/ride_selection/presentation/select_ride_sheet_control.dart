@@ -169,7 +169,20 @@ extension _SelectRideSheetControl on _SelectRideState {
     return false;
   }
 
-  int _tripMinutes() => estimatedTripMinutes(
+  /// v0.18.163 (contract.json#liveTraffic.rider): the server's trip time of
+  /// [rideId]'s quote (else the selected ride's, else any quote of this
+  /// route: they share one route); the straight-line minutes only when no
+  /// quote carries one (an older server).
+  int _tripMinutes([String? rideId]) {
+    final quotes = _selection.authoritativeQuotes;
+    final id = rideId ?? _selectedRideOrNull?.id;
+    final server =
+        (id == null ? null : quotes[id]?.tripMinutes) ??
+        quotes.values.map((q) => q.tripMinutes).whereType<int>().firstOrNull;
+    return server ?? _estimatedTripMinutes();
+  }
+
+  int _estimatedTripMinutes() => estimatedTripMinutes(
     GeoPoint(_pickupPosition.latitude, _pickupPosition.longitude),
     GeoPoint(
       widget.destinationPosition.latitude,
@@ -192,12 +205,14 @@ extension _SelectRideSheetControl on _SelectRideState {
         ZoneClock.wallAfter(
           _pickupSchedule.timeZone,
           scheduled,
-          Duration(minutes: _tripMinutes()),
+          Duration(minutes: _tripMinutes(ride.id)),
         ),
       );
     }
     return clockTime(
-      DateTime.now().add(Duration(minutes: ride.etaMin + _tripMinutes())),
+      DateTime.now().add(
+        Duration(minutes: ride.etaMin + _tripMinutes(ride.id)),
+      ),
     );
   }
 

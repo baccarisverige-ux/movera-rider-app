@@ -104,6 +104,7 @@ class FindingDrivers extends StatefulWidget {
     this.stops = const <RouteStop>[],
     this.realtime,
     this.etaMinutes,
+    this.tripMinutes,
     this.searchStartedAt,
     this.createdAt,
     @visibleForTesting this.controller,
@@ -142,6 +143,11 @@ class FindingDrivers extends StatefulWidget {
   /// The chosen ride's estimated minutes to the pickup, for the time pins
   /// while searching. Null (for example after a restore) shows plain pins.
   final int? etaMinutes;
+
+  /// v0.18.163 (contract.json#liveTraffic.rider): the server's trip time of
+  /// the booked quote, in minutes; null (an older server, a restore) uses
+  /// the app's straight-line estimate.
+  final int? tripMinutes;
 
   final String pickupAddress;
   final String destinationAddress;

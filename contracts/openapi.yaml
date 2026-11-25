@@ -1,11 +1,11 @@
-# Movera API v0.18.160 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.163 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.160
+  version: 0.18.163
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.160 in this folder; this file must agree with them.
+    v0.18.163 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.160
+  version: 0.18.163
   source: contract.json
 paths:
   /auth/otp/request:
@@ -3954,7 +3954,7 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
-      description: ' v0.18.5: v0.18.5 (owner G2-D5.3: "The owner never decide !! Admin who gave him the allowed cathegories
+      description: 'v0.18.5: v0.18.5 (owner G2-D5.3: "The owner never decide !! Admin who gave him the allowed cathegories
         after approve !"): the fleet owner does not pick ride types when adding a car. POST /driver/vehicles ignores VehicleRequest.categoryIds
         (accepted for older apps, never stored); the car is still checked against the country''s base year (400 category_not_allowed,
         car:year_too_old). The admin gives the categories when approving: POST /admin/vehicles/{vehicleId}/review { decision:
@@ -3963,7 +3963,10 @@ paths:
         seats, fuel per country) is 409 invalid_transition, reason vehicle_rules_not_met with details. The admin panel offers
         only the categories the car fits (Vehicle.fitCategories). An id that is no category of the car''s country and no extra
         (e.g. ''foo'') is refused the same way: 409 vehicle_rules_not_met with details ''<id>:unknown_category''; it is never
-        stored.'
+        stored. v0.18.162 (contract.json#driverCountryFirst): No data is made for a driver with no country: POST /driver/vehicles
+        by a driver whose drivers.country is null (and, for a fleet account, whose fleet has none) is 409 invalid_transition
+        reason country_required; nothing is saved. This closes the hole where a car was saved while accountType and country
+        were null.'
   /driver/documents:
     get:
       operationId: listDriverDocuments
@@ -4080,7 +4083,10 @@ paths:
         on POST /driver/onboarding), POST /driver/fleet/invite (a number with an account), POST /driver/fleet/invitations/{invitationId}/accept
         and POST /admin/fleets/{fleetId}/invitations/{invitationId}/accept. POST /driver/onboarding is 409 fleet_other_country
         too when a fleet member changes his country away from his fleet''s, or a fleet owner changes it while his fleet has
-        other drivers.'
+        other drivers. v0.18.162 (contract.json#driverCountryFirst): POST /driver/onboarding still carries country (older
+        apps send it from the form); before approval it may still change it under the same fleet rules (409 fleet_other_country),
+        as the step. The new driver app shows the country read-only in the form and changes it only through the step (PUT
+        /driver/country) before approval.'
       tags:
       - Driver · Account
       x-actor:
@@ -4894,7 +4900,15 @@ paths:
       description: 'Results are limited to the zones in the admin''s token scope. v0.18.54 §76: GET /admin/fleets rows, GET
         /admin/fleets/{fleetId} (FleetView.fleet) and the fleet commands (POST /admin/fleets/{fleetId}/review, /code, the
         invitations): ownerEmail (drivers.viewSensitive). v0.18.78: the page carries total (v0.18.78 (owner 2026-11-12 ~17:30
-        item 5 "Yes, build"): admin lists show "50 of N". contract.json#adminListFilters.total).'
+        item 5 "Yes, build"): admin lists show "50 of N". contract.json#adminListFilters.total). v0.18.161 (adminListFilters.carZones):
+        v0.18.161 (owner 2026-11-25 "Yes, fix it": the admin mixed French and Swedish cars; Rule 0; X-Api-Version stays `0.5`;
+        additive; no migration; follows v0.18.160): GET /admin/vehicles and GET /admin/fleets take zoneId, zoneIds and country
+        like the other lists (rules above), and their total counts under the same filter. v0.17.2 (contract.json#adminListFilters):
+        zoneId, zoneIds and country narrow the list inside those zones; an unknown query key → 400 invalid_request (reason
+        unknown_filter). zoneId on these two lists (already taken since v0.5.3) is the same one-zone filter as on the other
+        lists: only that zone, inside the admin''s zones; a zone outside them is now 403 forbidden (reason zone_out_of_scope),
+        where an older server gave an empty page. The zone of a fleet is Fleet.zoneId (the zone of its city, set when the
+        fleet is made; never null on a fleet). country also keeps only fleets whose Fleet.country is that country.'
       tags:
       - Admin · Lists
       x-actor:
@@ -4912,12 +4926,9 @@ paths:
             $ref: '#/components/schemas/FleetStatus'
         style: form
         explode: true
-      - name: country
-        in: query
-        required: false
-        schema:
-          $ref: '#/components/schemas/DriverCountry'
-      - $ref: '#/components/parameters/ZoneIdQuery'
+      - $ref: '#/components/parameters/ListZoneId'
+      - $ref: '#/components/parameters/ListZoneIds'
+      - $ref: '#/components/parameters/ListCountry'
       - $ref: '#/components/parameters/Q'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
@@ -4965,7 +4976,18 @@ paths:
       operationId: adminListVehicles
       summary: List vehicles (cursor paging)
       description: 'Results are limited to the zones in the admin''s token scope. v0.18.78: the page carries total (v0.18.78
-        (owner 2026-11-12 ~17:30 item 5 "Yes, build"): admin lists show "50 of N". contract.json#adminListFilters.total).'
+        (owner 2026-11-12 ~17:30 item 5 "Yes, build"): admin lists show "50 of N". contract.json#adminListFilters.total).
+        v0.18.161 (adminListFilters.carZones): v0.18.161 (owner 2026-11-25 "Yes, fix it": the admin mixed French and Swedish
+        cars; Rule 0; X-Api-Version stays `0.5`; additive; no migration; follows v0.18.160): GET /admin/vehicles and GET /admin/fleets
+        take zoneId, zoneIds and country like the other lists (rules above), and their total counts under the same filter.
+        v0.17.2 (contract.json#adminListFilters): zoneId, zoneIds and country narrow the list inside those zones; an unknown
+        query key → 400 invalid_request (reason unknown_filter). zoneId on these two lists (already taken since v0.5.3) is
+        the same one-zone filter as on the other lists: only that zone, inside the admin''s zones; a zone outside them is
+        now 403 forbidden (reason zone_out_of_scope), where an older server gave an empty page. The zone of a car (Vehicle.zoneId):
+        its fleet''s zone; else (a car with no fleet) its driver''s first zone (drivers.zoneIds[0]); else none (null). The
+        same rule judges the admin''s own zones, zoneId / zoneIds / country, the page and its total, and POST /admin/vehicles/{vehicleId}/review.
+        A car with no zone is in no zone: it is left out as soon as zoneId, zoneIds or country is given, and is seen only
+        by an all-zones admin with no filter (as before).'
       tags:
       - Admin · Lists
       x-actor:
@@ -4999,6 +5021,9 @@ paths:
         required: false
         schema:
           $ref: '#/components/schemas/CategoryId'
+      - $ref: '#/components/parameters/ListZoneId'
+      - $ref: '#/components/parameters/ListZoneIds'
+      - $ref: '#/components/parameters/ListCountry'
       - $ref: '#/components/parameters/Q'
       - $ref: '#/components/parameters/RequestId'
       - $ref: '#/components/parameters/ApiVersion'
@@ -10875,7 +10900,12 @@ paths:
       operationId: osrmDrivingRoute
       summary: Turn-by-turn route for driver navigation (OSRM v5 pass-through)
       description: 'Same path syntax and query as OSRM /route/v1/driving. No route → 200 {code: "NoRoute", routes: []}. About
-        30 per minute per driver (429). Auth and rate errors use Error.'
+        30 per minute per driver (429). Auth and rate errors use Error. v0.18.163 (contract.json#liveTraffic): GET /routes/driving
+        (the driver app''s route line on its map) never calls Google: on the driver''s active trip it answers the stored Google
+        route of the current leg (trips.eta_route, else the booked quote route to the drop-off), in the same OSRM-shaped JSON
+        the driver app reads (code Ok, routes[0].distance / duration / geometry.coordinates; legs empty, so no turn-by-turn
+        steps); with no trip or no stored route, the straight line through the asked points. Only the ETA tick asks Google
+        again, under the off-route / late rule (recall), so a trip stays at about 2 calls.'
       tags:
       - Maps
       x-actor:
@@ -21297,6 +21327,127 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /driver/country:
+    put:
+      operationId: setDriverCountry
+      summary: Pick the country you work in (first sign-in step)
+      description: 'v0.18.162 (contract.json#driverCountryFirst): v0.18.162 (owner 2026-11-25 "Yes"; Rules plan/inspiration-ride-change-2026-11-20/PROPOSAL-driver-country-2026-11-25.html;
+        Rule 0; X-Api-Version stays `0.5`; additive; server migration 0137; follows v0.18.161): a driver or fleet owner picks
+        the country he works in on his first sign-in, before any of his data is made; his data then shows in the admin only
+        under that country ("If he chooses France, his information goes in admin only in France... when admin clicks Sweden
+        he doesn''t see him"). PUT /driver/country { country } (driver token) answers the Driver. country is one of driverOnboarding.countries
+        with open true (today SE, FR); a closed or unknown one is 400 country_not_open. It saves drivers.country and sets
+        drivers.cityId and drivers.zoneIds to the country''s first city and its zone (so the admin lists by country see him
+        at once and never under the old country). Saving the same country again changes nothing (no version bump; a missing
+        zone is filled). Only while Driver.accountStatus is pending or on_hold (before approval); after that 409 invalid_transition
+        reason details_locked (an admin changes it). A driver linked to a fleet cannot pick another country than the fleet''s:
+        409 conflict reason fleet_other_country (driverOnboarding.fleetInvitations.oneCountry); a fleet owner alone in his
+        fleet moves the fleet with him (Fleet.country, cityId and zoneId = the new country''s first city). A number a fleet
+        owner invited before it had an account gets the inviting fleet''s country at sign-in (drivers.country = Fleet.country,
+        zoneIds = [Fleet.zoneId]) when all its waiting invitations are from fleets of one country; it then never sees the
+        step (with invitations of two countries it picks, and joining a fleet of another country stays 409 fleet_other_country).'
+      tags:
+      - Driver · Account
+      x-actor:
+      - driver
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverCountryCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Driver'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/drivers/{driverId}/country:
+    post:
+      operationId: adminSetDriverCountry
+      summary: Change a driver's country (reason, audited)
+      description: 'v0.18.162 (contract.json#driverCountryFirst): POST /admin/drivers/{driverId}/country { expectedVersion,
+        country, reason } (drivers.activate, as the driver status) answers the admin Driver view. The admin Driver detail
+        page is the only place to change a driver''s country. An admin with zones (not "*") may change only a driver in his
+        zones (a driver with no zone: any), and only to a country where he holds a zone; else 403 forbidden reason zone_out_of_scope.
+        country must be in driverOnboarding.countries and have a city (a closed country with no city yet, TN today, or an
+        unknown one is 400 country_not_open). reason 1-500 characters (missing 400 reason_required). A changed driver (expectedVersion)
+        is 409 version_mismatch. On a trip: 409 invalid_transition reason on_trip. An online driver is set offline. Fleet
+        rules as the step: a member of a fleet of another country 409 conflict reason fleet_other_country; a fleet owner with
+        other drivers in his fleet 409 fleet_other_country; a fleet owner alone moves the fleet (country, cityId, zoneId of
+        the new country''s first city). drivers.country, cityId and zoneIds = the new country''s first city and its zone (a
+        city of the old country is never kept). The cars he owns (the fleet''s cars for a fleet owner, else his own) are re-checked
+        against the new country''s car rules (vehicleRules): an approved car that breaks them goes back to pending (listed
+        in the audit entry''s carsBackToReview; the admin reviews it again) and no driver keeps it picked; a car that fits
+        stays approved. One admin audit entry action driver.country, target the driver, detail { from, to, reason, fleetMoved,
+        carsBackToReview[] }; none when nothing changed (the same country again). Version, trip and status checks run on the
+        locked driver row (fleet locked first).'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.activate
+      parameters:
+      - $ref: '#/components/parameters/DriverId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminDriverCountryCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Driver'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -23311,6 +23462,28 @@ components:
           description: 'v0.18.84 (owner Q-M2 / Q-S5-5): Q-S5-5: Quote.walletDebt (Money in the quote''s currency; absent when
             that balance is ≥ 0) is information only, not in Quote.total and not a fare line: the rider app shows texts.quoteDebtLine
             under the price. The amount paid is the one read at payment.'
+        tripSeconds:
+          type: integer
+          minimum: 0
+          description: 'v0.18.163 (contract.json#liveTraffic): the drive time this price used, in seconds (live traffic when
+            routeSource is google). The rider app shows the server''s Quote.tripSeconds as the trip time (Select ride, the
+            search screen); its own straight-line minutes only when the quote has no tripSeconds (an older server). The contract
+            QuoteRequest never sent a duration; the old non-contract quote call no longer sends a placeholder 600 s (durationSeconds
+            is sent only when the app really has one). Absent from an older server.'
+        tripMeters:
+          type: integer
+          minimum: 0
+          description: 'v0.18.163 (contract.json#liveTraffic): the road distance this price used, in metres. Absent from an
+            older server.'
+        routeSource:
+          type: string
+          enum:
+          - google
+          - osrm
+          - estimate
+          description: 'v0.18.163 (contract.json#liveTraffic): Every route says where it came from: google (live traffic)
+            or estimate (straight line x roadFactor at pickupKmh); osrm stays a known value for older stored quotes only (the
+            server no longer asks OSRM). quotes.route_source keeps it (migration 0138 adds google). Absent from an older server.'
     RouteQuote:
       type: object
       description: 'Price for a route change after request; apply with PATCH /trips/{tripId}. Priced from the booking (owner
@@ -23642,7 +23815,10 @@ components:
         country:
           allOf:
           - $ref: '#/components/schemas/DriverCountry'
-          description: v0.5.3
+          description: 'v0.5.3 v0.18.162 (contract.json#driverCountryFirst): missing while the driver has not picked his country;
+            the driver app then shows the country step, the admin the red error. The admin shows a driver with no country
+            (Driver.country missing) as a red error "Driver has no country" on the driver page and in the driver list, with
+            a "Set country" link to the Country field of the driver page.'
         cityId:
           type: string
           description: 'v0.5.3: a cityId of the country (contract.json#driverOnboarding.countries); sets zoneIds.'
@@ -23926,6 +24102,20 @@ components:
             Komfort trip needs a Komfort car); re-approving a car without a ride type removes it from the chosen types of
             its drivers. An approved car with no categories stored does not narrow the driver''s chosen types (older rows;
             the admin should re-approve it with its categories).'
+        zoneId:
+          oneOf:
+          - $ref: '#/components/schemas/Id'
+          - type: 'null'
+          description: 'v0.18.161 (adminListFilters.carZones): the car''s zone: The zone of a car (Vehicle.zoneId): its fleet''s
+            zone; else (a car with no fleet) its driver''s first zone (drivers.zoneIds[0]); else none (null). The same rule
+            judges the admin''s own zones, zoneId / zoneIds / country, the page and its total, and POST /admin/vehicles/{vehicleId}/review.
+            Admin views only; absent from an older server.'
+        country:
+          oneOf:
+          - $ref: '#/components/schemas/CountryCode'
+          - type: 'null'
+          description: 'v0.18.161 (adminListFilters.carZones): the car''s country: its fleet''s country, else its driver''s
+            country, else null (shown as unknown, never guessed). Admin views only; absent from an older server.'
     DriverAccountType:
       type: string
       enum:
@@ -24041,6 +24231,12 @@ components:
             GET /admin/fleets/{fleetId}, the review answer): ''fleet_has_no_car'' while the fleet is not approved, has zero
             cars and its country''s PUBLISHED fleetNeedsCarForApproval is on; absent otherwise. The server computes it from
             the same rule as the refusal, so the admin panel needs no settings.read and never reads a draft.'
+        zoneId:
+          allOf:
+          - $ref: '#/components/schemas/Id'
+          description: 'v0.18.161 (adminListFilters.carZones): The zone of a fleet is Fleet.zoneId (the zone of its city,
+            set when the fleet is made; never null on a fleet). country also keeps only fleets whose Fleet.country is that
+            country. Absent from an older server.'
     FleetDriver:
       type: object
       required:
@@ -30323,6 +30519,48 @@ components:
               minimum: 0
               maximum: 240
               default: 60
+        liveTraffic:
+          type: object
+          description: 'v0.18.163 (contract.json#liveTraffic): DispatchDocument.liveTraffic { on, offRouteMeters, offRouteSeconds,
+            behindMinutes } per zone, or per country as the country standard (Admin > Dispatch > Rides, with an "i" text).
+            A zone that follows its country standard reads the standard''s values; a document without on (or no document)
+            reads the default for the zone''s country: on for SE and FR, off elsewhere (defaultOnCountries); a missing or
+            out-of-range threshold reads its default (recall). Off = the straight-line estimate. 5. Google is asked again
+            only when the driver left the route (more than recall.offRouteMeters from it for more than recall.offRouteSeconds)
+            or is more than recall.behindMinutes behind the route''s planned arrival; and once for a route change (its price
+            and its new route). google -> estimate. Google is asked with a timeout (default 2500 ms) behind a circuit breaker
+            (5 failures in a row open it for 60 s, then one probe). Any Google failure, a 4xx/5xx answer, a timeout, the open
+            breaker or the per-copy rate cap takes the straight-line estimate. Each failure is one warn log line (never the
+            key); while, in a country with live traffic on, at least 3 quotes of the last 10 minutes and none from Google
+            were made, the admin gets one system_health alert per country book (key system_health:live_traffic:<CC>, "Live
+            traffic is not available: trip times use roads without traffic"), solved by itself when Google answers again.
+            No alert when the server has no Google key.'
+          required:
+          - 'on'
+          properties:
+            'on':
+              type: boolean
+              description: 'v0.18.163 (contract.json#liveTraffic): true: trip times with live traffic (Google), else the straight-line
+                estimate.'
+            offRouteMeters:
+              type: integer
+              minimum: 50
+              maximum: 2000
+              description: 'v0.18.163 (contract.json#liveTraffic): metres off the stored route that count as leaving it, 50
+                to 2000, default 200.'
+            offRouteSeconds:
+              type: integer
+              minimum: 10
+              maximum: 600
+              description: 'v0.18.163 (contract.json#liveTraffic): seconds off the route before Google is asked again, 10
+                to 600, default 30.'
+            behindMinutes:
+              type: integer
+              minimum: 1
+              maximum: 60
+              description: 'v0.18.163 (contract.json#liveTraffic): minutes behind the route''s planned arrival before Google
+                is asked again, 1 to 60, default 5.'
+          additionalProperties: false
       x-server-only: true
       x-ranges:
         radar.drivers:
@@ -37276,7 +37514,8 @@ components:
         (TripEta) on every read and rides on a kind=location event (etaSeconds + eta; no version change) on the trip stream,
         for the rider, the driver and the admin. Both apps show eta.etaSeconds (whole minutes rounded up, at least 1) and
         eta.distanceMeters as distanceDisplay says; neither app computes its own ETA for the trip screen (the driver''s navigation
-        app is a separate thing).'
+        app is a separate thing). v0.18.163 (contract.json#liveTraffic): no OSRM any more; the ETA follows the stored Google
+        route with live traffic (source google), else the straight-line estimate.'
       required:
       - etaSeconds
       - distanceMeters
@@ -37302,12 +37541,17 @@ components:
         source:
           type: string
           enum:
+          - google
           - osrm
           - estimate
           - stale
-          description: 'osrm | estimate | stale (stale: the driver sent no position for more than 120 s, dispatch''s "gone"
-            age; the previous ETA is kept with at = now, nothing new is routed; the apps show the last number and may say
-            it is old)'
+          description: 'google | osrm | estimate | stale (stale: the driver sent no position for more than 120 s, dispatch''s
+            "gone" age; the previous ETA is kept with at = now, nothing new is routed; the apps show the last number and may
+            say it is old) v0.18.163 (contract.json#liveTraffic): google: worked out along the stored Google route with live
+            traffic (4. During the trip NO calls: each ETA tick works out the remaining distance along the stored polyline
+            from the driver''s position, times the route''s average speed (Google duration / distance). To the drop-off the
+            trip''s quote polyline is used from boarding (no call).); osrm is no longer sent (Owner 2026-11-25 "We cannot
+            use data for open street map"). Apps treat an unknown value like estimate.'
     WaitingRuleOverride:
       type: object
       description: 'v0.18.8: DriverAppConfig.waiting (Admin › Dispatch › Waiting at pickup, per zone): farPickup { on, km,
@@ -43006,3 +43250,37 @@ components:
           enum:
           - com.movera.rider
           - se.movera.driver
+    DriverCountryCommand:
+      type: object
+      description: 'v0.18.162 (contract.json#driverCountryFirst): PUT /driver/country { country } (driver token) answers the
+        Driver. country is one of driverOnboarding.countries with open true (today SE, FR); a closed or unknown one is 400
+        country_not_open. It saves drivers.country and sets drivers.cityId and drivers.zoneIds to the country''s first city
+        and its zone (so the admin lists by country see him at once and never under the old country). Saving the same country
+        again changes nothing (no version bump; a missing zone is filled).'
+      required:
+      - country
+      properties:
+        country:
+          $ref: '#/components/schemas/CountryCode'
+      additionalProperties: false
+    AdminDriverCountryCommand:
+      type: object
+      description: 'v0.18.162 (contract.json#driverCountryFirst): POST /admin/drivers/{driverId}/country { expectedVersion,
+        country, reason } (drivers.activate, as the driver status) answers the admin Driver view. The admin Driver detail
+        page is the only place to change a driver''s country.'
+      required:
+      - expectedVersion
+      - country
+      - reason
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: Version the caller last saw; stale → 409 version_mismatch.
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+      additionalProperties: false

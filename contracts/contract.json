@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.160",
+  "version": "0.18.163",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -1703,7 +1703,9 @@
       "GET /admin/incidents",
       "GET /admin/live/drivers",
       "GET /admin/risk/signals",
-      "GET /admin/kpis"
+      "GET /admin/kpis",
+      "GET /admin/vehicles",
+      "GET /admin/fleets"
     ],
     "reservations": "reservations are trips: GET /admin/trips?kind=scheduled with the same filters",
     "params": {
@@ -1743,7 +1745,20 @@
       "onlyWhenAsked": "v0.18.83 (G34 fix plan P4-B; owner 2026-11-13 12:24 UTC \"Yes (Rec.)\"; proof sup3 P4: every live event reload re-counted page 1, about 2,120 Trips/Payments counts a minute): the lists in total.lists take an optional query key total (boolean, default true). total=false: the server does not count and leaves total out of the page (the rows are the same). The panel counts only when the list page asks: when the list page opens and when its filter (zones, country, status, q or any other filter) changes. Every other first-page read (live event reloads, the alerts, the Dashboard) sends total=false, and the list keeps the number it already shows. absent or total=true: counted as before (the rule above), so an older panel is unchanged. A server before v0.18.83 answers total with 400 invalid_request (reason unknown_filter), so the panel sends it only to a server of v0.18.83 or later. Other routes never take it."
     },
     "scheduledBefore": "v0.18.83 (G34 fix plan A2; owner 2026-11-13 12:24 UTC \"Exact contract filter (Rec.)\"; proof sup3 P6b: the Dashboard's waiting-trips read took 10 pages / 1,000 booked rows every 10 s and showed none of them): GET /admin/trips takes an optional scheduledBefore (Timestamp). With it, a trip of kind live always passes; a trip of kind scheduled passes only when its scheduledAt is at or before scheduledBefore. It only narrows, together with the other filters (status, kind, zones, from / to, ...). The Dashboard's waiting requests use one read: GET /admin/trips?status=requested&status=searching&status=offered&scheduledBefore=<now>, so booked rides that are not due are never read, and a booked ride whose send is late (still requested after its pickup time) stays on the Dashboard. Reservations keeps its own reads (kind=scheduled), unchanged. A malformed value → 400 invalid_request; a server before v0.18.83 answers it with 400 invalid_request (reason unknown_filter), so the panel sends it only to a server of v0.18.83 or later.",
-    "incidentsByPerson": "v0.18.78 (owner 2026-11-12 ~17:30 item 5): GET /admin/incidents takes two more optional filters: driverId (cases whose Incident.driverId is that driver) and riderId (cases whose Incident.riderId is that rider). Both together: cases that match both. They only narrow inside the admin's own zones and with the other filters (status, severity, kind, tripId, zoneId / zoneIds / country, from / to); an id with no case → an empty page (no 404); a malformed id → 400 invalid_request. Used by the driver and rider detail pages and Reports › Care instead of reading every case. A server before v0.18.78 answers these keys with 400 invalid_request (reason unknown_filter), so the panel sends them only to a server of v0.18.78 or later. Rule 33: the server may add an index on incidents.driver_id and incidents.rider_id (built without locking the table, Rule 46) so these filters stay fast at 10,000+ drivers and riders."
+    "incidentsByPerson": "v0.18.78 (owner 2026-11-12 ~17:30 item 5): GET /admin/incidents takes two more optional filters: driverId (cases whose Incident.driverId is that driver) and riderId (cases whose Incident.riderId is that rider). Both together: cases that match both. They only narrow inside the admin's own zones and with the other filters (status, severity, kind, tripId, zoneId / zoneIds / country, from / to); an id with no case → an empty page (no 404); a malformed id → 400 invalid_request. Used by the driver and rider detail pages and Reports › Care instead of reading every case. A server before v0.18.78 answers these keys with 400 invalid_request (reason unknown_filter), so the panel sends them only to a server of v0.18.78 or later. Rule 33: the server may add an index on incidents.driver_id and incidents.rider_id (built without locking the table, Rule 46) so these filters stay fast at 10,000+ drivers and riders.",
+    "carZones": {
+      "since": "0.18.161",
+      "note": "v0.18.161 (owner 2026-11-25 \"Yes, fix it\": the admin mixed French and Swedish cars; Rule 0; X-Api-Version stays `0.5`; additive; no migration; follows v0.18.160): GET /admin/vehicles and GET /admin/fleets take zoneId, zoneIds and country like the other lists (rules above), and their total counts under the same filter.",
+      "carZone": "The zone of a car (Vehicle.zoneId): its fleet's zone; else (a car with no fleet) its driver's first zone (drivers.zoneIds[0]); else none (null). The same rule judges the admin's own zones, zoneId / zoneIds / country, the page and its total, and POST /admin/vehicles/{vehicleId}/review.",
+      "noZone": "A car with no zone is in no zone: it is left out as soon as zoneId, zoneIds or country is given, and is seen only by an all-zones admin with no filter (as before).",
+      "fleetZone": "The zone of a fleet is Fleet.zoneId (the zone of its city, set when the fleet is made; never null on a fleet). country also keeps only fleets whose Fleet.country is that country.",
+      "existingZoneId": "zoneId on these two lists (already taken since v0.5.3) is the same one-zone filter as on the other lists: only that zone, inside the admin's zones; a zone outside them is now 403 forbidden (reason zone_out_of_scope), where an older server gave an empty page.",
+      "fields": "Vehicle.zoneId (string or null): the car's zone by carZone. Vehicle.country (ISO 3166-1 alpha-2 or null): the car's country, its fleet's country, else its driver's country (the country whose car rules and documents apply), else null. Fleet.zoneId (string): the fleet's zone. Sent on every Vehicle and Fleet an admin reads; additive, absent from an older server.",
+      "server": "Rule 33: the car zone is part of the SQL WHERE of both the page and the count (never filtered in code after the read); the fleet zone is fleets.zone_id in the WHERE.",
+      "panel": "The admin sends the picked zones (zoneIds, or zoneId for one zone, and country for \"All zones\" of a country) on both lists, shows the server's Vehicle.zoneId / Vehicle.country / Fleet.zoneId, never guesses a car's zone or country (a car with no country is shown as an error, never as SE; noCountry), and never keeps a car or fleet with no zone when a filter is given. A server before v0.18.161 ignores these keys (it answers the whole scope, no 400) and sends no Vehicle.zoneId / Fleet.zoneId: the panel knows it by rows without zoneId, then filters the rows itself with the older rule (rows with no zone kept, the zone guessed from the driver as before) and shows no total; a 400 unknown_filter is handled the same way. The admin may go live before the server, so it must work with both.",
+      "apps": "Driver app: not affected (it reads its own cars from GET /driver/vehicles, never these admin lists). Rider app: not affected (it never reads cars or fleets).",
+      "noCountry": "v0.18.161 (owner 2026-11-25 \"Show as errors and must check what happen\"): a car with no country (Vehicle.country null on a server of v0.18.161 or later) is a data error. The admin shows it as a red error in every car list and on the car page: \"Error: this car has no country. Check what happened.\" (sv / fr), the car id, and a button that opens the car's owner (its fleet, else its driver). The server raises the alert kind car_no_country (alertDesk.serverDetection.kindDefaults.car_no_country) for each such car."
+    }
   },
   "liveDrivers": {
     "note": "v0.5.1 (CONTRACT.md §12), owner decision 11: the admin live map reads driver positions from the server.",
@@ -4890,7 +4905,7 @@
         "solved": "Owner A2 'Alert become green color with new info': the cause ended by itself (e.g. a driver took the ride). The alert STAYS visible, shown GREEN with solvedText (e.g. 'Driver Ali took it 17:48'); an admin can still take it and mark it done. If the same cause comes back before anyone marks it done, the same alert is open again (solved info cleared).",
         "done": "An admin marked it done (AlertRecord status done): it leaves the open list. While the cause is still there no new alert is made for it; once the cause ended and comes back later, a new alert (new alertId) starts."
       },
-      "liveAlert": "LiveAlert { alertId, causeKey, kind, level critical | important | info, title, titleT { t, a[] }, detail, detailT? { t, a[] }, zoneId?, country, since, state open | solved, solvedAt?, solvedText?, solvedT? { t, a[] }, old? (v0.18.31, true only on an old SOS / safety case, see alertsOldList), oldSince? (v0.18.31), ref { tripId?, driverId?, riderId?, incidentId?, rideCheckId?, ticketId?, payoutId?, refundId?, ruleId? } }. title / detail / solvedText are English; titleT / detailT / solvedT are the same text as an English template with {0}, {1} places and its values, which the panel shows in sv / fr / en. Times in texts are HH:MM in the zone's time zone.",
+      "liveAlert": "LiveAlert { alertId, causeKey, kind, level critical | important | info, title, titleT { t, a[] }, detail, detailT? { t, a[] }, zoneId?, country, since, state open | solved, solvedAt?, solvedText?, solvedT? { t, a[] }, old? (v0.18.31, true only on an old SOS / safety case, see alertsOldList), oldSince? (v0.18.31), ref { tripId?, driverId?, riderId?, incidentId?, rideCheckId?, ticketId?, payoutId?, refundId?, ruleId?, vehicleId? (v0.18.161, kind car_no_country) } }. title / detail / solvedText are English; titleT / detailT / solvedT are the same text as an English template with {0}, {1} places and its values, which the panel shows in sv / fr / en. Times in texts are HH:MM in the zone's time zone.",
       "settings": {
         "note": "The server reads the country's alert settings document (PUT /admin/alerts/settings): kinds[kind] { on, level, limits { info, important, critical } } and zones[zoneId] (below); missing values use the defaults here and in kindDefaults. A kind switched off makes no alerts; its open alerts are solved.",
         "zones": "zones[zoneId] { bookedAtRiskMin, liveAtRiskMin, fewDriversLimit, noDriverLimit } — owner A1: the at-risk minutes are an admin setting per zone, separate for booked and live rides.",
@@ -5066,6 +5081,14 @@
             "critical": 20
           },
           "rule": "A server alert (alertDesk kind app_crash, group system) for every crash group of the rider or driver app (kinds dart_error, native_crash, freeze, crash; never error or server) that is open and was first seen in the last 24 hours, once its count reaches the kind's Important limit (default 1, so a NEW crash type alerts at once); Critical from the Critical limit (default 20). One alert per group and country (every country that has a zone; the zone of the report when it sent one). Solved by itself when the group is marked fixed or is older than 24 hours. The admin changes the limits, the level or switches it off in Alerts › Settings, like every other kind."
+        },
+        "car_no_country": {
+          "level": "important",
+          "rule": "v0.18.161 (owner 2026-11-25 \"Show as errors and must check what happen\"; adminListFilters.carZones.noCountry): a server alert (group system) for every car whose country is unknown (Vehicle.country null: no fleet, and no driver or a driver with no country). One alert per car and country, raised in every country that has a zone (the car has none), no zone; title \"Car with no country: {plate}\", detail the car id; ref { vehicleId, driverId? } (the panel opens the car page /vehicles/{vehicleId}). Solved when the car has a country (or is removed). The admin can switch the kind off like any kind."
+        },
+        "driver_no_country": {
+          "level": "important",
+          "rule": "v0.18.162 (driverCountryFirst.oneTimeFix): a server alert (group system) for every driver with no country who has data (an account type, a fleet, a car or an account status other than pending) or signed up more than 24 hours ago. One alert per driver and country, in every open country (driverOnboarding.countries open) that has a zone, no zone; title \"Driver has no country: {first and last name, else the driver id}\", detail the driver id; ref { driverId } (the panel opens /drivers/{driverId}). Solved when he has a country. The car_no_country alert stays as it is."
         }
       },
       "commands": "take / pass / snooze / done on a server alert: the kind, zone and title stored by the server win over what the call sends. done closes it (state done).",
@@ -5107,7 +5130,9 @@
       "booked_taken_back": "dispatch",
       "no_driver_nearby": "dispatch",
       "booked_no_driver_ended": "dispatch",
-      "app_crash": "system"
+      "app_crash": "system",
+      "car_no_country": "system",
+      "driver_no_country": "system"
     },
     "permissions": {
       "note": "Seeing an alert needs its group's read permission; acting on it (take, done, snooze, pass) needs its group's act permission or alerts.manage. Mutes, settings and rules need alerts.manage. Quiet hours: the admin's own (overview.read).",
@@ -6715,7 +6740,7 @@
       "note": "Q5 (rider sees the new total incl. waiting from Start trip): the trip's fare already includes the charged waiting when the driver boards the rider (the board step; start_trip sets it again), so TripProjection.fare is the total the driver asks for. The rider app shows fare, not quote.total, from rider_onboard on (and in the receipt); while the driver waits (status arrived) the projection carries waiting.chargedSecondsNow and waiting.chargedSoFar (Money, read time, no version change) so both apps can show the waiting cost growing, and the rider app shows the TIME only on the driver-arrived sheet (group 6 decision 4)."
     },
     "eta": {
-      "note": "Status item 2 + Q4 (one road-route ETA for both apps): the server computes the ETA every everySeconds from the driver's latest position with its router (Movera's OSRM, else the straight-line estimate; maps.serverRoutes), to the pickup from accept until boarding and to the drop-off from boarding to the end. It is TripProjection.eta (TripEta) on every read and rides on a kind=location event (etaSeconds + eta; no version change) on the trip stream, for the rider, the driver and the admin. Both apps show eta.etaSeconds (whole minutes rounded up, at least 1) and eta.distanceMeters as distanceDisplay says; neither app computes its own ETA for the trip screen (the driver's navigation app is a separate thing).",
+      "note": "Status item 2 + Q4 (one road-route ETA for both apps): the server computes the ETA every everySeconds from the driver's latest position with its router (Movera's OSRM, else the straight-line estimate; maps.serverRoutes), to the pickup from accept until boarding and to the drop-off from boarding to the end. It is TripProjection.eta (TripEta) on every read and rides on a kind=location event (etaSeconds + eta; no version change) on the trip stream, for the rider, the driver and the admin. Both apps show eta.etaSeconds (whole minutes rounded up, at least 1) and eta.distanceMeters as distanceDisplay says; neither app computes its own ETA for the trip screen (the driver's navigation app is a separate thing). v0.18.163 (contract.json#liveTraffic): no OSRM any more; the ETA follows the stored Google route with live traffic (source google), else the straight-line estimate.",
       "everySeconds": 30,
       "staleAfterSeconds": 120,
       "fields": {
@@ -8373,7 +8398,7 @@
       "includedWaitingPolicy": "Owner 2026-11-03: ONE included waiting for every zone (admin 'Included waiting' of the reservation policy), saved on the server: GET /admin/reservations/policy (trips.read) → ReservationPolicy { includedWaitingMinutes, rev, updatedAt }; PUT /admin/reservations/policy { expectedRev, includedWaitingMinutes 0–60 } (trips.intervene; 409 version_mismatch when another admin saved first). A kind scheduled trip's free waiting is this many minutes, counted from the later of the driver's arrival and the pickup time (v0.18.51 §73); the no-show time is never before its end.",
       "riderZoneSwitch": "Owner A (v0.18.19): RiderAppConfig.booking.reservationsOn is the zone's DriverAppConfig.reservations.on, written by the server when it serves the rider document. The rider app never hides Book later; with reservationsOn false a tap says bookLater.texts.zoneOff and no booking starts. POST /quotes and POST /trips with kind scheduled still answer 403 forbidden, reason reservations_off.",
       "driverListReservation": "Live test 2026-11-03 HIGH 2: each DriverReservation row of GET /driver/reservations carries reservation (ReservationInfo, driver view) with changeAsk, leaveAt and driveSeconds, so the driver app asks Keep it at the new time? (new time and new earnings) from the list, the notice tap and the details screen. Before, the row had no changeAsk and the question never showed.",
-      "leaveOnTime": "Owner 2026-11-03: for a booked ride a driver holds, the server works out the drive from his live position to the pickup (by the real road route from the server's router, Movera's OSRM, else the straight-line estimate: the same live ETA source as a normal ride's pickupWaiting.eta) and when he must start to arrive arriveEarlyMin (zone setting, default 10) before the pickup time: TripProjection.reservation.leaveAt and driveSeconds (driver and admin views), recomputed every 2 minutes from 3 hours before pickup as he moves. At leaveAt he gets push kind reservation_leave_now (once); the driver app counts down to leaveAt. If he has not started 5 minutes after leaveAt, or his drive no longer fits before the pickup time, reservation.atRisk becomes true (admin alert 'Driver may be late for a booked ride') and he gets reservation_late_risk (once). Smart assign: when a booked ride is searched (dispatchBeforeMin, Exclusive), drivers who can arrive arriveEarlyMin before the pickup time are asked first. The 3 steps (early, on time, the rest) rank by dispatch's own drive estimate (straight line × road factor at dispatch.score.pickupKmh, the number the offer shows as pickupEtaSeconds): routing every candidate by road inside a dispatch round would add one road request per driver per round; the leave-time check, one driver every 2 minutes, uses the road route. The rider sees the driver ('Driver on the way') from driver_to_pickup on (liveFixes.driverShown).",
+      "leaveOnTime": "Owner 2026-11-03: for a booked ride a driver holds, the server works out the drive from his live position to the pickup (by the real road route from the server's router, Movera's OSRM, else the straight-line estimate: the same live ETA source as a normal ride's pickupWaiting.eta) and when he must start to arrive arriveEarlyMin (zone setting, default 10) before the pickup time: TripProjection.reservation.leaveAt and driveSeconds (driver and admin views), recomputed every 2 minutes from 3 hours before pickup as he moves. At leaveAt he gets push kind reservation_leave_now (once); the driver app counts down to leaveAt. If he has not started 5 minutes after leaveAt, or his drive no longer fits before the pickup time, reservation.atRisk becomes true (admin alert 'Driver may be late for a booked ride') and he gets reservation_late_risk (once). Smart assign: when a booked ride is searched (dispatchBeforeMin, Exclusive), drivers who can arrive arriveEarlyMin before the pickup time are asked first. The 3 steps (early, on time, the rest) rank by dispatch's own drive estimate (straight line × road factor at dispatch.score.pickupKmh, the number the offer shows as pickupEtaSeconds): routing every candidate by road inside a dispatch round would add one road request per driver per round; the leave-time check, one driver every 2 minutes, uses the road route. The rider sees the driver ('Driver on the way') from driver_to_pickup on (liveFixes.driverShown). v0.18.163 (contract.json#liveTraffic): no OSRM any more; this drive is the straight-line estimate (cost).",
       "badge": "Owner 2026-11-03: a booked ride always shows the reservation badge ('Booked ride' + pickup time) wherever a driver sees it: Booked rides, Home popup, Exclusive offer, Radar (Home and the Live list) and the accepted trip. Offer.reservation is true for every offer of a kind scheduled trip (with Offer.scheduledAt); TripProjection.kind scheduled for the trip."
     },
     "texts": {
@@ -11837,5 +11862,84 @@
     "driverApp": "Home › Important reminders: the red line fleet_no_car with the Add car button (fix fleet_vehicles → My fleet › Add car). For the owner of a PENDING fleet the fleet_not_approved line is grey and reads texts.fleet_not_approved + texts.fleet_not_approved_body; members and rejected / blocked fleets keep the red title-only line. My fleet › Cars with zero cars: an empty card texts.fleet_cars_empty + texts.fleet_cars_empty_body with the button texts.fleet_add_car (opens Add car).",
     "apps": "Server, admin and driver app change. Rider: not affected (riders never see fleets or fleet reminders).",
     "adminView": "Fleet.approvalBlockedReason (admin views only: GET /admin/fleets, GET /admin/fleets/{fleetId}, the review answer): 'fleet_has_no_car' while the fleet is not approved, has zero cars and its country's PUBLISHED fleetNeedsCarForApproval is on; absent otherwise. The server computes it from the same rule as the refusal, so the admin panel needs no settings.read and never reads a draft."
+  },
+  "driverCountryFirst": {
+    "since": "0.18.162",
+    "note": "v0.18.162 (owner 2026-11-25 \"Yes\"; Rules plan/inspiration-ride-change-2026-11-20/PROPOSAL-driver-country-2026-11-25.html; Rule 0; X-Api-Version stays `0.5`; additive; server migration 0137; follows v0.18.161): a driver or fleet owner picks the country he works in on his first sign-in, before any of his data is made; his data then shows in the admin only under that country (\"If he chooses France, his information goes in admin only in France... when admin clicks Sweden he doesn't see him\").",
+    "step": {
+      "route": "PUT /driver/country { country } (driver token) answers the Driver. country is one of driverOnboarding.countries with open true (today SE, FR); a closed or unknown one is 400 country_not_open. It saves drivers.country and sets drivers.cityId and drivers.zoneIds to the country's first city and its zone (so the admin lists by country see him at once and never under the old country). Saving the same country again changes nothing (no version bump; a missing zone is filled).",
+      "when": "Only while Driver.accountStatus is pending or on_hold (before approval); after that 409 invalid_transition reason details_locked (an admin changes it). A driver linked to a fleet cannot pick another country than the fleet's: 409 conflict reason fleet_other_country (driverOnboarding.fleetInvitations.oneCountry); a fleet owner alone in his fleet moves the fleet with him (Fleet.country, cityId and zoneId = the new country's first city).",
+      "invited": "A number a fleet owner invited before it had an account gets the inviting fleet's country at sign-in (drivers.country = Fleet.country, zoneIds = [Fleet.zoneId]) when all its waiting invitations are from fleets of one country; it then never sees the step (with invitations of two countries it picks, and joining a fleet of another country stays 409 fleet_other_country).",
+      "onboarding": "POST /driver/onboarding still carries country (older apps send it from the form); before approval it may still change it under the same fleet rules (409 fleet_other_country), as the step. The new driver app shows the country read-only in the form and changes it only through the step (PUT /driver/country) before approval."
+    },
+    "required": {
+      "reason": "country_required",
+      "rule": "No data is made for a driver with no country: POST /driver/vehicles by a driver whose drivers.country is null (and, for a fleet account, whose fleet has none) is 409 invalid_transition reason country_required; nothing is saved. This closes the hole where a car was saved while accountType and country were null."
+    },
+    "adminSet": {
+      "route": "POST /admin/drivers/{driverId}/country { expectedVersion, country, reason } (drivers.activate, as the driver status) answers the admin Driver view. The admin Driver detail page is the only place to change a driver's country.",
+      "scope": "An admin with zones (not \"*\") may change only a driver in his zones (a driver with no zone: any), and only to a country where he holds a zone; else 403 forbidden reason zone_out_of_scope.",
+      "rules": "country must be in driverOnboarding.countries and have a city (a closed country with no city yet, TN today, or an unknown one is 400 country_not_open). reason 1-500 characters (missing 400 reason_required). A changed driver (expectedVersion) is 409 version_mismatch. On a trip: 409 invalid_transition reason on_trip. An online driver is set offline. Fleet rules as the step: a member of a fleet of another country 409 conflict reason fleet_other_country; a fleet owner with other drivers in his fleet 409 fleet_other_country; a fleet owner alone moves the fleet (country, cityId, zoneId of the new country's first city).",
+      "saves": "drivers.country, cityId and zoneIds = the new country's first city and its zone (a city of the old country is never kept).",
+      "cars": "The cars he owns (the fleet's cars for a fleet owner, else his own) are re-checked against the new country's car rules (vehicleRules): an approved car that breaks them goes back to pending (listed in the audit entry's carsBackToReview; the admin reviews it again) and no driver keeps it picked; a car that fits stays approved.",
+      "audit": "One admin audit entry action driver.country, target the driver, detail { from, to, reason, fleetMoved, carsBackToReview[] }; none when nothing changed (the same country again). Version, trip and status checks run on the locked driver row (fleet locked first)."
+    },
+    "oneTimeFix": "Server migration 0137 (runs once): every driver with no country who is in a fleet gets the fleet's country (and, with no zone, the fleet's zone). Every other driver with no country stays null: the driver app shows him the country step at his next sign-in, and the admin sees the alert driver_no_country.",
+    "noCountryError": "The admin shows a driver with no country (Driver.country missing) as a red error \"Driver has no country\" on the driver page and in the driver list, with a \"Set country\" link to the Country field of the driver page.",
+    "apps": "Driver app: a required \"Which country do you work in?\" screen right after the first sign-in and before the details form (no country picked by default; only open countries), shown once to every driver or fleet owner whose Driver.country is missing (new or existing); the details form then shows the country read-only with a change link back to the step while accountStatus is pending or on_hold. Rider app: not affected (it never reads or sets a driver's country). Admin: the Country field with Change on the driver page (reason, own-country scope), the red error, and the driver and fleet lists filtered by country (adminListFilters, carZones)."
+  },
+  "liveTraffic": {
+    "since": "0.18.163",
+    "note": "v0.18.163 (live traffic for trip times; owner 2026-11-25 \"Google trafic réel\" after an offer said 13 min where Google Maps said 26 min, then \"We cannot use data for open street map\" and \"the cheapest method, about 2 Google calls per trip\" (\"Ok\"); Rule 0; X-Api-Version stays `0.5`; additive, optional; migration 0138 (quotes.route_source may be google; quotes.route_polyline, trips.route_polyline, trips.eta_route); follows v0.18.162): trip times come from Google WITH live traffic; OpenStreetMap / OSRM is no longer used by the server; when Google cannot answer the server uses the straight-line estimate and alerts the admin.",
+    "provider": "google_traffic",
+    "request": "Google Routes API computeRoutes (POST https://routes.googleapis.com/directions/v2:computeRoutes), travelMode DRIVE, routingPreference TRAFFIC_AWARE, no departureTime (for DRIVE Google accepts only a future time; left out = the request time, still with live traffic), X-Goog-FieldMask routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline only (no TRAFFIC_AWARE_OPTIMAL, no steps: the cheapest SKU that has live traffic). The key is the server's GOOGLE_MAPS_API_KEY (Routes API enabled on its Google Cloud project); it is sent in the X-Goog-Api-Key header and never logged.",
+    "noOsrm": "Owner 2026-11-25 \"We cannot use data for open street map\": the server asks no OSRM / OpenStreetMap server for anything (quotes, ETAs, trip lines, the ride check). OSRM_URL is ignored. The trip line of an ended trip and the ride check use the straight line where they had OSRM.",
+    "routeSources": [
+      "google",
+      "osrm",
+      "estimate"
+    ],
+    "routeSourceRule": "Every route says where it came from: google (live traffic) or estimate (straight line x roadFactor at pickupKmh); osrm stays a known value for older stored quotes only (the server no longer asks OSRM). quotes.route_source keeps it (migration 0138 adds google).",
+    "calls": {
+      "quote": "1. One Google call per price asked (POST /quotes, one call for all categories): duration, distance and the encoded polyline are stored on the quote (quotes.duration_seconds, distance_meters, route_polyline).",
+      "offer": "2. The trip, its offers (Offer.tripSeconds) and its price reuse the stored quote: no new call.",
+      "accept": "3. One call after accept for the driver to the pickup (the first ETA tick of the trip): its polyline is the ETA route to the pickup.",
+      "duringTrip": "4. During the trip NO calls: each ETA tick works out the remaining distance along the stored polyline from the driver's position, times the route's average speed (Google duration / distance). To the drop-off the trip's quote polyline is used from boarding (no call).",
+      "recall": "5. Google is asked again only when the driver left the route (more than recall.offRouteMeters from it for more than recall.offRouteSeconds) or is more than recall.behindMinutes behind the route's planned arrival; and once for a route change (its price and its new route)."
+    },
+    "navigation": "GET /routes/driving (the driver app's route line on its map) never calls Google: on the driver's active trip it answers the stored Google route of the current leg (trips.eta_route, else the booked quote route to the drop-off), in the same OSRM-shaped JSON the driver app reads (code Ok, routes[0].distance / duration / geometry.coordinates; legs empty, so no turn-by-turn steps); with no trip or no stored route, the straight line through the asked points. Only the ETA tick asks Google again, under the off-route / late rule (recall), so a trip stays at about 2 calls.",
+    "recall": {
+      "defaults": {
+        "offRouteMeters": 200,
+        "offRouteSeconds": 30,
+        "behindMinutes": 5
+      },
+      "ranges": {
+        "offRouteMeters": [
+          50,
+          2000
+        ],
+        "offRouteSeconds": [
+          10,
+          600
+        ],
+        "behindMinutes": [
+          1,
+          60
+        ]
+      }
+    },
+    "fallback": "google -> estimate. Google is asked with a timeout (default 2500 ms) behind a circuit breaker (5 failures in a row open it for 60 s, then one probe). Any Google failure, a 4xx/5xx answer, a timeout, the open breaker or the per-copy rate cap takes the straight-line estimate. Each failure is one warn log line (never the key); while, in a country with live traffic on, at least 3 quotes of the last 10 minutes and none from Google were made, the admin gets one system_health alert per country book (key system_health:live_traffic:<CC>, \"Live traffic is not available: trip times use roads without traffic\"), solved by itself when Google answers again. No alert when the server has no Google key.",
+    "uses": "Live traffic is used for: the quote (Quote.tripSeconds and the per-minute fare line, so the booked trip's duration and the offer's Offer.tripSeconds), the live ETA (calls above) and the route-change price. The booked ride's leave-on-time check (every 2 minutes for up to 3 h) and the offer's pickup ETA stay on the straight-line estimate (cost).",
+    "rateLimit": "Per server copy at most GOOGLE_ROUTES_PER_MINUTE Google asks a minute (default 300); above it the ask takes the estimate for that minute (a cost cap).",
+    "setting": "DispatchDocument.liveTraffic { on, offRouteMeters, offRouteSeconds, behindMinutes } per zone, or per country as the country standard (Admin > Dispatch > Rides, with an \"i\" text). A zone that follows its country standard reads the standard's values; a document without on (or no document) reads the default for the zone's country: on for SE and FR, off elsewhere (defaultOnCountries); a missing or out-of-range threshold reads its default (recall). Off = the straight-line estimate.",
+    "defaultOnCountries": [
+      "SE",
+      "FR"
+    ],
+    "quote": "Quote.tripSeconds (the drive time the price used, seconds), Quote.tripMeters and Quote.routeSource (google, osrm or estimate), on every quote from v0.18.163; absent from an older server.",
+    "rider": "The rider app shows the server's Quote.tripSeconds as the trip time (Select ride, the search screen); its own straight-line minutes only when the quote has no tripSeconds (an older server). The contract QuoteRequest never sent a duration; the old non-contract quote call no longer sends a placeholder 600 s (durationSeconds is sent only when the app really has one).",
+    "admin": "Admin > Dispatch > Rides (zone and country standard): \"Live traffic (Google)\" on/off and the three re-call thresholds, with \"i\" texts; other pages only link to it.",
+    "apps": "Driver app: no code change. The offer already shows the server's Offer.tripSeconds and the trip the server's ETA (an unknown ETA source is shown like estimate); its route line keeps working through GET /routes/driving (the stored Google route, see navigation), without turn steps. Rider app: shows Quote.tripSeconds."
   }
 }
