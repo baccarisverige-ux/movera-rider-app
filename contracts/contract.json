@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.163",
+  "version": "0.18.165",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -920,11 +920,11 @@
     "note": "v0.5.0 (CONTRACT.md §8). Token issuance for the rider and driver apps; the admin signs in with e-mail and password plus a second factor (out of this contract). Actor and ids come from the token.",
     "otp": {
       "codeLength": 4,
-      "expiresSeconds": 300,
-      "retryAfterSeconds": 30,
+      "expiresSeconds": 60,
+      "retryAfterSeconds": 60,
       "maxAttempts": 5,
       "channel": "sms",
-      "note": "POST /auth/otp/request → { requestId, sessionId, expiresAt, retryAfterSeconds }; POST /auth/otp/verify { phone, sessionId, code } → tokens. A wrong code is 400 invalid_request (reason invalid_otp_code), an expired session 410 otp_expired, too many attempts 429 rate_limited (reason otp_too_many_attempts). v0.15.0: see auth.signInErrors. v0.18.5 (G1-B3): the wrong code that reaches maxAttempts is itself answered 429 otp_too_many_attempts (the server counts before it answers), so the 5th wrong code shows \"Too many wrong tries\". v0.18.14 (deep fix 2026-11-02, g1-g3 H2; owner \"Keep 4 digits\"): wrong codes are locked per number AND source (client address): after countryLimits.wrongCodesPerDay wrong codes in 24 h from one address for one number, that address gets 429 rate_limited reason otp_locked_today for that number (Retry-After = until the oldest leaves the 24 h window), on request and verify; an admin can lift it (POST /admin/auth/sign-in-locks/unlock { phone }). Codes per number per hour and per address per hour are admin settings (countryLimits). v0.18.119 (S7 W2 Q117 + Q118; owner 2026-11-15 \"Yes, per user (Rec.)\" and \"Yes, phone + address (Rec.)\", 2026-11-16 OQ-1 \"Lock at 60 for 24 h (Rec.)\" and OQ-2 \"Keep fixed in server (Rec.)\", Rules decisions/session-2026-11-06.md, audits/impact/s7-q117-q118.md): besides that lock per number AND address, the number alone has a ceiling of 4 × countryLimits.wrongCodesPerDay wrong codes in 24 h over all addresses and both apps (default 60; the factor 4 is fixed in the server, not an admin setting). At it the number is locked for EVERY address: 429 rate_limited reason otp_locked_today on request and verify, even with the right code, until the oldest of those wrong codes is 24 h old (at most 24 h) or an admin unlocks it; POST /admin/auth/sign-in-locks/unlock { phone } lifts both locks for all addresses at once. Phones already signed in keep working (refresh does not read it). So a stranger guessing from 4 or more networks can lock a number for up to 24 h (codesPerPhonePerHour already let one block new codes for one hour). The write limit in front of these calls is keyed by phone + address (contract.json#rateLimit.key)."
+      "note": "POST /auth/otp/request → { requestId, sessionId, expiresAt, retryAfterSeconds }; POST /auth/otp/verify { phone, sessionId, code } → tokens. A wrong code is 400 invalid_request (reason invalid_otp_code), an expired session 410 otp_expired, too many attempts 429 rate_limited (reason otp_too_many_attempts). v0.15.0: see auth.signInErrors. v0.18.5 (G1-B3): the wrong code that reaches maxAttempts is itself answered 429 otp_too_many_attempts (the server counts before it answers), so the 5th wrong code shows \"Too many wrong tries\". v0.18.14 (deep fix 2026-11-02, g1-g3 H2; owner \"Keep 4 digits\"): wrong codes are locked per number AND source (client address): after countryLimits.wrongCodesPerDay wrong codes in 24 h from one address for one number, that address gets 429 rate_limited reason otp_locked_today for that number (Retry-After = until the oldest leaves the 24 h window), on request and verify; an admin can lift it (POST /admin/auth/sign-in-locks/unlock { phone }). Codes per number per hour and per address per hour are admin settings (countryLimits). v0.18.119 (S7 W2 Q117 + Q118; owner 2026-11-15 \"Yes, per user (Rec.)\" and \"Yes, phone + address (Rec.)\", 2026-11-16 OQ-1 \"Lock at 60 for 24 h (Rec.)\" and OQ-2 \"Keep fixed in server (Rec.)\", Rules decisions/session-2026-11-06.md, audits/impact/s7-q117-q118.md): besides that lock per number AND address, the number alone has a ceiling of 4 × countryLimits.wrongCodesPerDay wrong codes in 24 h over all addresses and both apps (default 60; the factor 4 is fixed in the server, not an admin setting). At it the number is locked for EVERY address: 429 rate_limited reason otp_locked_today on request and verify, even with the right code, until the oldest of those wrong codes is 24 h old (at most 24 h) or an admin unlocks it; POST /admin/auth/sign-in-locks/unlock { phone } lifts both locks for all addresses at once. Phones already signed in keep working (refresh does not read it). So a stranger guessing from 4 or more networks can lock a number for up to 24 h (codesPerPhonePerHour already let one block new codes for one hour). The write limit in front of these calls is keyed by phone + address (contract.json#rateLimit.key). v0.18.165 (owner 2026-11-25 \"Apres 30 peut demander nouveau code mais aussi faut que le code marche plus apres 30 s\", \"Je voit les autre app mais 60 s\", \"Nn on laisse 60 seconde demander nv aussi\", \"Pas qd on demande un nouveau code ancien bloquer ! Mm si on demande pas nv code apres 60 s doit être bloquer\"; Rules decisions/session-2026-11-06.md): a code expires on its own 60 s after it was sent (expiresSeconds 60, was 300), whether or not a new one is asked; verify after that is 410 otp_expired. A new code may be asked only 60 s after the last one (retryAfterSeconds 60, was 30; earlier is 429 rate_limited reason otp_resend_too_soon with Retry-After). So the resend button unlocks exactly when the old code dies. Fixed in the contract, not an admin setting. The apps keep reading retryAfterSeconds and expiresAt from the challenge (no number in the app). The same two values apply to the account phone and e-mail change codes (POST /me/phone|email/start), which use auth.otp. A test number (staging) keeps retryAfterSeconds 0."
     },
     "providers": [
       "apple",
@@ -1911,7 +1911,7 @@
           }
         },
         "company_registration": {
-          "owner": "driver",
+          "owner": "fleet",
           "kind": "file",
           "name": {
             "en": "Company registration",
@@ -1985,7 +1985,7 @@
           }
         },
         "vtc_register_certificate": {
-          "owner": "driver",
+          "owner": "fleet",
           "kind": "file",
           "name": {
             "en": "VTC operators register certificate",
@@ -1994,7 +1994,7 @@
           }
         },
         "rc_pro_insurance": {
-          "owner": "driver",
+          "owner": "fleet",
           "kind": "file",
           "name": {
             "en": "Professional liability insurance (RC pro)",
@@ -2003,7 +2003,7 @@
           }
         },
         "urssaf_certificate": {
-          "owner": "driver",
+          "owner": "fleet",
           "kind": "file",
           "name": {
             "en": "URSSAF certificate",
@@ -2132,8 +2132,6 @@
             "company_registration",
             "vtc_register_certificate",
             "rc_pro_insurance",
-            "urssaf_certificate",
-            "national_id",
             "bank_statement"
           ],
           "vehicle": [
@@ -2161,7 +2159,10 @@
           }
         }
       },
-      "namesByCountry": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R5 \"Name per country (Recommended)\"): a type may carry nameByCountry[country] = { en, sv, fr }; the name shown for a document is, in order: the admin's settings.texts[type].name of the country, nameByCountry[country], name. So the Swedish bank statement reads \"Relevé bancaire de l’entreprise\" in French and the French one \"RIB de la société\"; the Swedish company registration is not called Kbis. The server already puts the country's name in DocumentTypeInfo.name (GET /driver/onboarding/settings documentTypes) and in its notices; the admin panel shows and edits names per country (settings.texts)."
+      "namesByCountry": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R5 \"Name per country (Recommended)\"): a type may carry nameByCountry[country] = { en, sv, fr }; the name shown for a document is, in order: the admin's settings.texts[type].name of the country, nameByCountry[country], name. So the Swedish bank statement reads \"Relevé bancaire de l’entreprise\" in French and the French one \"RIB de la société\"; the Swedish company registration is not called Kbis. The server already puts the country's name in DocumentTypeInfo.name (GET /driver/onboarding/settings documentTypes) and in its notices; the admin panel shows and edits names per country (settings.texts).",
+      "ownerFleet": "v0.18.164 (owner 2026-11-25, Fable review of the France lists): a type whose owner is fleet is a company paper (vtc_register_certificate, rc_pro_insurance, urssaf_certificate, company_registration). Nothing else changes: it is stored on the owner's driver account like before (ownerKind driver), and documents.driver and documents.fleet each accept types whose owner is driver or fleet (the server accepts and refuses exactly what it did before v0.18.164). bank_statement keeps owner driver: it is the company RIB in the FR fleet list but the same type is a person's bank paper elsewhere. A driver with no country uploads company papers as before (owner fleet is stored as a driver document).",
+      "frFleetUber": "v0.18.164 (owner 2026-11-25 \"Cherche Uber fait quoi et colle\", checked on Uber's official FR documents page): FR fleet = company_registration (Kbis/SIRENE), vtc_register_certificate (REVTC), rc_pro_insurance, bank_statement (RIB). national_id is asked once, in the driver list; urssaf_certificate is no longer required (the type stays, an admin may add it back). Cars keep the carte grise, the insurance, the macaron (vtc_sticker) and the 4 photos (owner \"Garder macaron + 4 photos\"). No contrôle technique (owner \"Ne pas demander\").",
+      "reviewNeedsFile": "v0.18.164 (owner 2026-11-25 \"Yes, fix all 3\", upload safety): POST /admin/documents/{documentId}/review { decision: approved } of a document whose type has kind file (in its country) and that has no stored file is 400 invalid_request, reason no_file; rejecting stays allowed. DocumentSummary.hasFile (admin and driver document lists) says whether a file is stored; the admin panel shows Open and Approve only for a row with a file (hasFile true, or fileUrl), else \"No file\" (Reject stays). Test accounts (seed-test, SEED_TEST_ON_START) store a tiny placeholder file for each file document when the server has a fixed document key. The driver app sends one Idempotency-Key per picked photo, so a retry after a timeout never makes a second version, and shows the document as uploaded when the server already has it."
     },
     "fleetInvitations": {
       "note": "Owner decision 2026-10-25: joining a fleet is a two-sided invitation. driver_request: the driver asks with the code, the owner's name and e-mail (POST /driver/fleet/join); the owner accepts or declines. owner_invite: the owner invites a phone number (POST /driver/fleet/invite); a driver with an account gets it at once, one without gets it the moment he signs up with that number; he accepts or declines. Either side may cancel its own. The other side is told in the app (GET /notifications, kind fleet_invitation; a badge on Home and My fleet) and by one SMS. An admin sees pending invitations on the fleet and may accept or cancel one. Accepting links the driver (Driver.fleet) and closes every other pending invitation of his.",
@@ -2366,8 +2367,6 @@
               "company_registration",
               "vtc_register_certificate",
               "rc_pro_insurance",
-              "urssaf_certificate",
-              "national_id",
               "bank_statement"
             ],
             "vehicle": [
@@ -2513,14 +2512,38 @@
             ],
             "warnDays": 30,
             "autoHold": true,
-            "photosNeeded": true
+            "photosNeeded": true,
+            "maxAgeYears": 6,
+            "hybridElectricExempt": true
           },
           "customTypes": [],
           "texts": {},
           "validMonths": {
-            "urssaf_certificate": 6
+            "urssaf_certificate": 6,
+            "vtc_register_certificate": 60
           },
-          "guides": {},
+          "guides": {
+            "insurance": {
+              "checklist": [
+                {
+                  "fr": "L’attestation d’assurance (RC Circulation) du véhicule, avec la plaque et la mention « transport de personnes à titre onéreux ». Une assurance auto classique ne suffit pas, et ce n’est pas la RC Pro.",
+                  "en": "The car’s insurance certificate (RC Circulation), showing the plate and the words “transport de personnes à titre onéreux” (paid passenger transport). A normal car insurance is not enough, and this is not the RC Pro.",
+                  "sv": "Bilens försäkringsintyg (RC Circulation) med registreringsnumret och texten ”transport de personnes à titre onéreux” (betald persontransport). En vanlig bilförsäkring räcker inte, och det är inte RC Pro."
+                },
+                {
+                  "en": "The plate number",
+                  "sv": "Registreringsnumret",
+                  "fr": "Le numéro d’immatriculation"
+                },
+                {
+                  "en": "The valid-until date",
+                  "sv": "Giltig till-datumet",
+                  "fr": "La date de fin de validité"
+                }
+              ],
+              "tips": []
+            }
+          },
           "emailVerifiedForApproval": false,
           "fleetNeedsCarForApproval": true
         },
@@ -2718,10 +2741,14 @@
         "validMonths": [
           1,
           120
+        ],
+        "maxAgeYears": [
+          1,
+          30
         ]
       },
       "rules": [
-        "documents.driver, documents.fleet: types whose owner is driver; documents.vehicle: types whose owner is vehicle (documents.types). An unknown type or one of the wrong owner is 400 invalid_document. A new type needs a contract change (it has names in sv / fr / en and a kind).",
+        "documents.driver, documents.fleet: types whose owner is driver or fleet (v0.18.164 documents.ownerFleet); documents.vehicle: types whose owner is vehicle (documents.types). An unknown type or one of the wrong owner is 400 invalid_document. A new type needs a contract change (it has names in sv / fr / en and a kind).",
         "documents.driver always contains driving_license (admin rule \"The driving licence is always needed\").",
         "expiringTypes: the listed types need an expiry date when an admin approves them (documentExpiry).",
         "steps: every id of stepIds once, at least one on, days within limits.stepDays. The server stores and serves them; the admin panel shows the funnel with them.",
@@ -2730,7 +2757,8 @@
         "vehicles.categories: each category of the catalog at most once; minYear, minSeats within limits; a category that is on allows at least one fuel of fuels; vehicles.warnDays within limits.vehicleWarnDays.",
         "customTypes: ids unique and of idPattern; the scope list a custom type is in matches its owner (driver → documents.driver, fleet → documents.fleet, vehicle → documents.vehicle); names and help in sv, fr and en.",
         "v0.18.3: guides and validMonths keys are types of the country (contract types or its customTypes); guide lines within guideLimits; validMonths within limits.validMonths.",
-        "v0.18.76: emailVerifiedForApproval is a boolean; missing = false (contract.json#emailVerified.approvalSetting)."
+        "v0.18.76: emailVerifiedForApproval is a boolean; missing = false (contract.json#emailVerified.approvalSetting).",
+        "v0.18.164: vehicles.maxAgeYears (optional) within limits.maxAgeYears; vehicles.hybridElectricExempt (optional, missing = false)."
       ],
       "driverRead": "GET /driver/onboarding/settings → OnboardingSettings of the driver's country (published, else defaults; version 0 = defaults), so the app offers only the car categories a car fits, asks the photos and shows the warnings the server uses. A driver with no country yet names it: ?country=SE. v0.18.0 (item 14): the answer also has documentTypes: { [type]: { owner, kind, expires, name, help? } } for every type in the country's lists, contract types with the admin's texts and the custom types, so the app renders a type it does not know from this data. v0.18.3: DocumentTypeInfo.name is the country's name (documents.namesByCountry); DocumentTypeInfo.guide (R8) and validMonths (R9) when the country has them.",
       "admin": "The draft and publish calls take country only; a zoneId is 400 invalid_request (reason scope_country_only).",
@@ -2750,8 +2778,8 @@
       },
       "texts": "v0.18.0 (owner item 14): texts[type] = { name?: { sv, fr, en }, help?: { sv, fr, en } } replaces the contract name, and adds a help / checklist text, of a contract type in this country. A key that is not a contract type of documents.types is 400 invalid_document (a custom type carries its own texts).",
       "adminCheck": "v0.18.0 (owner items 8 and 13): an admin marks a kind admin_check document (the info session, or a custom one) with POST /admin/drivers/{driverId}/documents/{type}/check { decision: approved | rejected, note? } (documents.approve); approved counts for activation like any approved document. Until then the driver sees waiting_for_movera.",
-      "guides": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R8 \"Admin edits all text (Recommended)\"): guides[type] = { checklist: LocalText[], tips: LocalText[] } (each 0 to 10 lines, every line in sv, fr and en, at most 300 characters) is the upload guide of that document type in this country (a contract type or the country's own custom type; any other key is 400 invalid_document). The driver app shows the admin's lines; a type with no guide (or an empty list) falls back to the app's built-in text; the drawing stays Movera's. Served to the app in DocumentTypeInfo.guide.",
-      "validMonths": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R9 \"Auto 6 months, editable (Recommended)\"): validMonths[type] = N (1 to 120) is how long a document of that type is valid from its issue date in this country (default FR urssaf_certificate 6). When an admin approves it with issuedAt (the date on the paper, not in the future) and no expiresAt, the server sets expiresAt = issuedAt + N months; an expiresAt the admin types wins. A type of expiringTypes still needs one of the two (400 expiry_required). Any key must be a type of the country (400 invalid_document).",
+      "guides": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R8 \"Admin edits all text (Recommended)\"): guides[type] = { checklist: LocalText[], tips: LocalText[] } (each 0 to 10 lines, every line in sv, fr and en, at most 300 characters) is the upload guide of that document type in this country (a contract type or the country's own custom type; any other key is 400 invalid_document). The driver app shows the admin's lines; a type with no guide (or an empty list) falls back to the app's built-in text; the drawing stays Movera's. Served to the app in DocumentTypeInfo.guide. v0.18.164: default FR insurance guide (the car's RC Circulation certificate shows the plate and the words \"transport de personnes à titre onéreux\"; a normal car insurance is not enough; not the RC Pro; based on Uber FR); WORDING WAITS FOR THE OWNER'S OK.",
+      "validMonths": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R9 \"Auto 6 months, editable (Recommended)\"): validMonths[type] = N (1 to 120) is how long a document of that type is valid from its issue date in this country (default FR urssaf_certificate 6). When an admin approves it with issuedAt (the date on the paper, not in the future) and no expiresAt, the server sets expiresAt = issuedAt + N months; an expiresAt the admin types wins. A type of expiringTypes still needs one of the two (400 expiry_required). Any key must be a type of the country (400 invalid_document). v0.18.164: default FR vtc_register_certificate 60 (REVTC, owner 2026-11-25).",
       "guideLimits": {
         "lines": 10,
         "lineChars": 300
@@ -2931,7 +2959,7 @@
       ],
       "reason": "category_not_allowed",
       "photosForAll": "v0.18.0 (owner item 16: \"Before approve any car must have photos uppload led and approv it\"; \"First answer and keep approved account works for test only\"): every car, also one approved before v0.18.0, needs the four photos approved before it can be picked or driven (409 documents_not_approved, reason vehicle_documents_not_approved, details vehicle:vehicle_photo_*). The Home sheet shows one line vehicle_photos_needed (\"Add 4 photos of your car\"). Exempt: a test account (its phone is a driver-app number of the test phones, the seeded test drivers included): it is never asked for the photos.",
-      "baseYear": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R2 \"Year rule for every car (Recommended)\"): every car must be built in or after the country's base year whatever its categories: the smallest minYear among the country's settings.vehicles.categories that are on and are not extraCategories (defaults: SE 2015, FR 2016, TN 2012). An older car is 400 invalid_request, reason category_not_allowed, with details \"<category>:year_too_old\" for each of its categories (\"car:year_too_old\" when it has none), on POST /driver/vehicles and PATCH /admin/vehicles/{vehicleId}.",
+      "baseYear": "v0.18.3 (owner decisions of 2026-10-30, driver group 2 re-check R2 \"Year rule for every car (Recommended)\"): every car must be built in or after the country's base year whatever its categories: the smallest minYear among the country's settings.vehicles.categories that are on and are not extraCategories (defaults: SE 2015, FR 2016, TN 2012). An older car is 400 invalid_request, reason category_not_allowed, with details \"<category>:year_too_old\" for each of its categories (\"car:year_too_old\" when it has none), on POST /driver/vehicles and PATCH /admin/vehicles/{vehicleId}. v0.18.164: a country with settings.vehicles.maxAgeYears also has the rolling age year of vehicleRules.maxAge (FR: 6 years, hybrid and electric exempt).",
       "extraCategories": [
         "child_seat"
       ],
@@ -2940,7 +2968,8 @@
       "approvalReason": "vehicle_rules_not_met",
       "categoriesByAdmin": "v0.18.5 (owner G2-D5.3: \"The owner never decide !! Admin who gave him the allowed cathegories after approve !\"): the fleet owner does not pick ride types when adding a car. POST /driver/vehicles ignores VehicleRequest.categoryIds (accepted for older apps, never stored); the car is still checked against the country's base year (400 category_not_allowed, car:year_too_old). The admin gives the categories when approving: POST /admin/vehicles/{vehicleId}/review { decision: approved, categoryIds } (or the car's categories already set by PATCH /admin/vehicles/{vehicleId}); approval without at least one ride category is 400 invalid_request, reason categories_required; a category the car does not fit (year, seats, fuel per country) is 409 invalid_transition, reason vehicle_rules_not_met with details. The admin panel offers only the categories the car fits (Vehicle.fitCategories). An id that is no category of the car's country and no extra (e.g. 'foo') is refused the same way: 409 vehicle_rules_not_met with details '<id>:unknown_category'; it is never stored.",
       "fitCategories": "v0.18.5: Vehicle.fitCategories (admin and fleet-owner views) = the country's ride categories and extras the car fits now (no problem from categoryProblem); the admin picks among them.",
-      "testCars": "v0.18.5 (owner G2-D5.4): the owner's test cars TST 001–003 keep working: their data is corrected (7 seats, electric) so they fit every category they have; they are not sent back for review (server migration 0038)."
+      "testCars": "v0.18.5 (owner G2-D5.4): the owner's test cars TST 001–003 keep working: their data is corrected (7 seats, electric) so they fit every category they have; they are not sent back for review (server migration 0038).",
+      "maxAge": "v0.18.164 (owner 2026-11-25, France \"Moins de 6 ans\"; Rules decisions/session-2026-11-06.md 2026-11-25): settings.vehicles.maxAgeYears = N (1 to 30, per country, admin setting; missing = no age rule, so Sweden, Tunisia and every country without it keep the base year rule unchanged). With N set, the country's age year is the current calendar year (UTC) minus N (2026 with FR 6 → 2020): a car with year below the age year breaks the rule, the same as below the base year: \"<category>:year_too_old\" for each of its categories (\"car:year_too_old\" when it has none) on POST /driver/vehicles and PATCH /admin/vehicles/{vehicleId}, missing from Vehicle.fitCategories, listed in Vehicle.ruleProblems and refused on approval (409 vehicle_rules_not_met). The base year and every category minYear still apply on top (the stricter one wins). settings.vehicles.hybridElectricExempt = true (admin toggle, missing = false; FR default true): a car with fuel hybrid or electric is exempt from the age year (not from minYear). A car with no fuel is not exempt. The year rolls every 1 January with no publish. Existing approved cars are not put back to pending (no migration): an approved car that breaks the age year stays approved and shows its ruleProblems in red until an admin decides (owner OK needed before any hold). Driver read: GET /driver/onboarding/settings serves each category minYear raised to at least the age year (the stored document and GET /admin/config/onboarding are unchanged), so the driver app's base year and its \"the car must be from <year> or later\" text follow with no app change; the server's own checks use the stored document and the exemption. Side effects on an existing approved car below the age year (owner to OK): it stays approved and drivable, but while it breaks the rule every admin change is refused (PATCH /admin/vehicles/{vehicleId} category_not_allowed, PUT /admin/drivers/{driverId}/categories, re-approval 409 vehicle_rules_not_met, also after a review a 0.18.162 country change asked for) and Vehicle.fitCategories is empty; the year moves every 1 January. A published onboarding document of the country replaces the defaults whole: the FR defaults of v0.18.164 (age rule, fleet list, REVTC 60, insurance guide) apply only where standard-FR was never published, else an admin publishes them in Drivers › Onboarding. Driver read edge: an exempt car below a category minYear is told the raised year (e.g. a 2015 hybrid hears 2020 where 2016 is the real floor); conservative, accepted."
     },
     "startCompany": {
       "note": "v0.18.0 (owner item 7: \"First answer but his account become like fleet company account and the documents that already exist no need to uppload again only the new documents and procces like fleet account and wait for admin approv\"): POST /driver/fleet/start-company { expectedVersion, company } (\"Start my own company\" in My fleet). Only an account of type driver, not on a trip (409 invalid_transition, reasons already_fleet, on_trip). The driver leaves his fleet (car released, offline), the account becomes type fleet with a new pending fleet he owns, and the account goes on_hold. Every document he has stays as it is (approved ones count, nothing is uploaded again); only requiredFleetDocuments he does not have yet and the new cars' documents are needed. An admin then reviews the fleet (POST /admin/fleets/{fleetId}/review) and activates the account (POST /admin/drivers/{driverId}/status, the fleet documents checked) like a new fleet.",
