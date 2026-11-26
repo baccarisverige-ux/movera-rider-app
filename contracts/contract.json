@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.166",
+  "version": "0.18.167",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -12106,5 +12106,14 @@
       "required": "signUpFields.address (defaults SE and FR: on, required). Missing when required: 400 invalid_request reason field_required with details [address]; a field out of range: 400 invalid_request reason invalid_address.",
       "adminEdit": "POST /admin/drivers/{driverId}/address { expectedVersion, address, reason } (drivers.activate, own-country scope as the country change; 409 version_mismatch with the Driver). Audit action driver.address, target the driver, detail { reason } (no address text in the audit). Returns the Driver. The admin driver page shows the address under Details with an Edit button."
     }
+  },
+  "googleRouteLine": {
+    "since": "0.18.167",
+    "note": "v0.18.167 (the rider map draws the real Google route; owner 2026-11-26 \"Oui, corriger\" after the rider map showed a straight line with \"Approximate route\"; owner rule about 2 Google calls per trip, the cheapest; Rule 0; X-Api-Version stays `0.5`; additive, optional; no migration; follows v0.18.166): the quote already holds the Google route its one call returned (contract.json#liveTraffic.calls.quote, quotes.route_polyline); the server now sends it with the quote and the rider app draws it. No new Google call.",
+    "quote": "Quote.routePolyline: the Google encoded polyline (precision 5, the Routes API encodedPolyline) of the route this price used, pickup through every stop to the drop-off. Sent only when Quote.routeSource is google; absent when it is estimate or osrm and from an older server. Every quote of one QuoteList carries the same line (one call for all categories).",
+    "calls": "No extra Google call: it is the polyline the quote's call already stored. POST /routes is unchanged (the straight-line estimate, provider estimate); the app does not ask it for a line the quote already gave.",
+    "rider": "Select ride and the search screen (Finding drivers) draw the decoded Quote.routePolyline as the trip line and hide the \"Approximate route\" badge. Without it (estimate, an older server, an empty or broken line) they keep the straight line through the stops and the badge (fallback). The waiting-for-driver and on-trip maps are unchanged.",
+    "driver": "Driver app: no change. GET /routes/driving already answers the stored Google route of his active trip (contract.json#liveTraffic.navigation).",
+    "admin": "Admin: not affected (no new setting; live traffic stays Admin > Dispatch > Rides > Live traffic (Google), contract.json#liveTraffic.setting)."
   }
 }

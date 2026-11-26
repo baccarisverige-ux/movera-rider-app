@@ -494,8 +494,7 @@ class _SelectRideState extends State<SelectRide>
   }
 
   /// uat-r1/A14: the straight first paint is replaced by the road through
-  /// every stop when the routing seam answers, also late; a failure keeps
-  /// what is drawn and never reaches the screen.
+  /// every stop (also late); a failure keeps what is drawn.
   Future<void> _refreshRoadRoute() async {
     final from = _pickupPosition;
     final stops = _locatedStops;
@@ -555,6 +554,7 @@ class _SelectRideState extends State<SelectRide>
       destinationPoint: _geoPoint(widget.destinationPosition),
     );
     if (!mounted) return;
+    unawaited(_refreshRoadRoute()); // v0.18.167: the quote's Google route
     // v0.18.44 §67: a drop-off too close to the pickup is not a ride; the
     // rider is told and goes back to the destination step (a plain Back:
     // Home reopens the address screen on the destination with this route).

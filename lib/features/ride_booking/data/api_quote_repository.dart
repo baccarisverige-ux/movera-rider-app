@@ -1,10 +1,12 @@
 import 'dart:convert';
 
+import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/contracts/category_ids.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/core/maps/quoted_route.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
@@ -250,6 +252,7 @@ class ApiQuoteRepository implements QuoteRepository {
           walletDebt: found.walletDebt,
           // v0.18.163 (contract.json#liveTraffic.rider): the trip time.
           tripSeconds: found.tripSeconds,
+          routePolyline: found.routePolyline,
           serverHeld: true,
         );
       }
@@ -297,6 +300,10 @@ class ApiQuoteRepository implements QuoteRepository {
       final quote = contractQuoteOf(map, samePointWarning: warning);
       if (quote == null) continue;
       quotes[quote.rideType] = quote;
+      // v0.18.167: the booking maps of this trip draw the priced Google line.
+      if (quote.routePolyline case final line?) {
+        QuotedRoutes.remember(_tripWaypoints(body), line);
+      }
       _routes[quote.id] = QuotedRoute(
         expiresAt: quote.expiresAt.add(const Duration(minutes: 1)),
         pickup:
@@ -375,6 +382,11 @@ class ApiQuoteRepository implements QuoteRepository {
         final num s when s.isFinite && s >= 0 => s.round(),
         _ => null,
       },
+      // v0.18.167 (contract.json#googleRouteLine): the Google line only.
+      routePolyline: switch ((map['routeSource'], map['routePolyline'])) {
+        ('google', final String line) when line.isNotEmpty => line,
+        _ => null,
+      },
     );
   }
 
@@ -391,6 +403,25 @@ class ApiQuoteRepository implements QuoteRepository {
       'lat': lat,
       'lng': lng,
     };
+  }
+
+  /// The asked trip as map points: pickup, every stop, drop-off.
+  static List<LatLng> _tripWaypoints(Map<String, dynamic> body) {
+    LatLng? at(Object? raw) =>
+        raw is Map && raw['lat'] is num && raw['lng'] is num
+        ? LatLng((raw['lat'] as num).toDouble(), (raw['lng'] as num).toDouble())
+        : null;
+    final points = <LatLng>[];
+    for (final raw in [
+      body['pickup'],
+      ...?(body['stops'] as List?),
+      body['dropoff'],
+    ]) {
+      final point = at(raw);
+      if (point == null) return const <LatLng>[];
+      points.add(point);
+    }
+    return points;
   }
 
   static Map<String, dynamic>? _placeOf(Object? raw) {

@@ -1,4 +1,5 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/core/maps/quoted_route.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/core/maps/straight_line.dart';
@@ -28,6 +29,10 @@ Future<TripRouteLine?> roadTripLine({
   required LatLng to,
   RoutingService? routing,
 }) async {
+  // v0.18.167 (contract.json#googleRouteLine): the Google route the quote
+  // was priced on, when the server sent one; no route call, not approximate.
+  final quoted = QuotedRoutes.of(straightTripLine(from, stops, to));
+  if (quoted != null) return (points: quoted, approximate: false);
   try {
     final road = await roadRoutePolylineVia(
       id: 'route',

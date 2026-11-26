@@ -22,6 +22,7 @@ class RideQuote {
     this.pickupAt,
     this.samePointWarning,
     this.tripSeconds,
+    this.routePolyline,
   });
 
   final String id;
@@ -68,6 +69,11 @@ class RideQuote {
   /// traffic), shown instead of the app's own straight-line minutes. Null
   /// from an older server (then the app's estimate).
   final int? tripSeconds;
+
+  /// v0.18.167 (contract.json#googleRouteLine): the Google encoded polyline
+  /// the server priced this quote on; only when its routeSource is google,
+  /// else null (the map keeps the straight line and "Approximate route").
+  final String? routePolyline;
 
   /// [tripSeconds] in whole minutes (at least 1), or null.
   int? get tripMinutes {
