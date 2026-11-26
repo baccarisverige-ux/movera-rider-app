@@ -1,11 +1,11 @@
-# Movera API v0.18.165 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.166 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.165
+  version: 0.18.166
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.165 in this folder; this file must agree with them.
+    v0.18.166 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.165
+  version: 0.18.166
   source: contract.json
 paths:
   /auth/otp/request:
@@ -4056,7 +4056,7 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
-      description: ' v0.18.5: v0.18.5 (owner G2-D1 "Keep old until new approved (Recommended)"): uploading a document of a
+      description: 'v0.18.5: v0.18.5 (owner G2-D1 "Keep old until new approved (Recommended)"): uploading a document of a
         type that is approved (or was approved and expired) does not touch it: the new file waits as a separate renewal (a
         Document with its own documentId and renewalOf = the approved document''s id, status in_review). The approved one
         stays valid until its own expiresAt. Approving the renewal (POST /admin/documents/{renewal''s documentId}/review)
@@ -4069,7 +4069,12 @@ paths:
         whatever media type was sent; else 400 invalid_request, reason invalid_file_content, and the app says "This file is
         not a photo or PDF". The stored media type is the one the content shows. v0.18.5 (owner G2-D5.8 "Max 15 years ahead
         (Recommended)"): an expiresAt more than 15 years after today (admin review, valid months result, or the driver''s
-        upload) is 400 invalid_request, reason expiry_too_far; the admin panel says "Check the end date".'
+        upload) is 400 invalid_request, reason expiry_too_far; the admin panel says "Check the end date". v0.18.166 (contract.json#signupV2):
+        Before approval the driver may retake it (a new upload replaces the waiting one). Once profile_photo is approved (or
+        approved then expired) the driver cannot change it himself: POST /driver/documents with type profile_photo is 409
+        invalid_transition reason profile_photo_locked and nothing is saved (no renewal); the driver app hides the change
+        entry and says to contact support. Only an admin (Movera support) changes it. Older renewals already waiting are kept
+        (Rule 21).'
   /driver/onboarding:
     post:
       operationId: submitDriverOnboarding
@@ -4086,7 +4091,14 @@ paths:
         other drivers. v0.18.162 (contract.json#driverCountryFirst): POST /driver/onboarding still carries country (older
         apps send it from the form); before approval it may still change it under the same fleet rules (409 fleet_other_country),
         as the step. The new driver app shows the country read-only in the form and changes it only through the step (PUT
-        /driver/country) before approval.'
+        /driver/country) before approval. v0.18.166 (contract.json#signupV2): OnboardingSettings.signUpFields (optional, per
+        country): { dateOfBirth, personalNumber, taxiLicenseNumber, language, address } each { on, required }. Missing = the
+        defaults below. A field that is off is not shown and not sent; a required field that is on and missing is 400 invalid_request
+        reason field_required with details [field]. When personalNumber is sent the app sends dateOfBirth = its first 8 digits
+        (DriverOnboardingRequest.dateOfBirth stays required); a dateOfBirth that differs, a bad date or a failed check is
+        400 invalid_request reason invalid_personal_number. The minAge rule (under_age) still applies. v0.18.166 (contract.json#signupV2):
+        signUpFields.address (defaults SE and FR: on, required). Missing when required: 400 invalid_request reason field_required
+        with details [address]; a field out of range: 400 invalid_request reason invalid_address.'
       tags:
       - Driver · Account
       x-actor:
@@ -21357,7 +21369,11 @@ paths:
         fleet moves the fleet with him (Fleet.country, cityId and zoneId = the new country''s first city). A number a fleet
         owner invited before it had an account gets the inviting fleet''s country at sign-in (drivers.country = Fleet.country,
         zoneIds = [Fleet.zoneId]) when all its waiting invitations are from fleets of one country; it then never sees the
-        step (with invitations of two countries it picks, and joining a fleet of another country stays 409 fleet_other_country).'
+        step (with invitations of two countries it picks, and joining a fleet of another country stays 409 fleet_other_country).
+        v0.18.166 (contract.json#signupV2): PUT /driver/country { country, cityId? } (v0.18.166: cityId optional). cityId
+        must be one of driverOnboarding.countries[country].cities (else 400 invalid_request reason invalid_city); it saves
+        drivers.cityId and drivers.zoneIds = [that city''s zoneId]. Without cityId the old rule stays (the country''s first
+        city). All v0.18.162 rules (before approval only, fleet country) are unchanged.'
       tags:
       - Driver · Account
       x-actor:
@@ -21434,6 +21450,56 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/AdminDriverCountryCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Driver'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /admin/drivers/{driverId}/address:
+    post:
+      operationId: adminSetDriverAddress
+      summary: Change a driver's home address (reason, audited)
+      description: 'v0.18.166 (contract.json#signupV2): POST /admin/drivers/{driverId}/address { expectedVersion, address,
+        reason } (drivers.activate, own-country scope as the country change; 409 version_mismatch with the Driver). Audit
+        action driver.address, target the driver, detail { reason } (no address text in the audit). Returns the Driver. The
+        admin driver page shows the address under Details with an Edit button.'
+      tags:
+      - Admin · People
+      x-actor:
+      - admin
+      x-permission: drivers.activate
+      parameters:
+      - $ref: '#/components/parameters/DriverId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminDriverAddressCommand'
       responses:
         '200':
           description: OK
@@ -23985,6 +24051,18 @@ components:
             when there is no e-mail). Sent on the own profile (GET/PATCH /rider/profile, GET/PATCH /driver/profile, POST /driver/onboarding)
             and on the admin rider / driver views; never masked (a masked e-mail still carries it). A new e-mail clears it
             until proven.'
+        personalNumber:
+          type: string
+          description: 'v0.18.166 (contract.json#signupV2): drivers.personal_number (migration 0139). Driver.personalNumber
+            is returned to the driver himself; an admin without drivers.viewSensitive gets it masked as YYYY••••-•••• and
+            sensitiveMasked true (adminMasking).'
+        taxiLicenseNumber:
+          type: string
+          description: 'v0.18.166 (contract.json#signupV2): Optional text 1-30 characters (letters, digits, spaces, dashes),
+            the number on the Taxiförarlegitimation; stored drivers.taxi_license_number (migration 0139), returned as Driver.taxiLicenseNumber;
+            else 400 invalid_request reason invalid_taxi_license_number. It does not replace the document taxi_driver_license.'
+        address:
+          $ref: '#/components/schemas/DriverAddress'
     DriverScheduledRides:
       type: object
       description: 'Owner decision 2 (v0.4.2): an admin''s reservations on/off for this one driver (CONTRACT.md §6.1). Missing
@@ -34037,6 +34115,23 @@ components:
           allOf:
           - $ref: '#/components/schemas/FleetJoinRequest'
           description: 'Optional for accountType driver: join a fleet now (or later with POST /driver/fleet/join).'
+        personalNumber:
+          type: string
+          pattern: ^\d{8}-?\d{4}$
+          description: 'v0.18.166 (contract.json#signupV2): Sweden (signUpFields). Swedish personnummer, 12 digits YYYYMMDD-XXXX
+            (the app also accepts YYYYMMDDXXXX and sends YYYYMMDD-XXXX); the last digit passes the Luhn check over the 10
+            digits after the century. When personalNumber is sent the app sends dateOfBirth = its first 8 digits (DriverOnboardingRequest.dateOfBirth
+            stays required); a dateOfBirth that differs, a bad date or a failed check is 400 invalid_request reason invalid_personal_number.
+            The minAge rule (under_age) still applies.'
+        taxiLicenseNumber:
+          type: string
+          minLength: 1
+          maxLength: 30
+          description: 'v0.18.166 (contract.json#signupV2): Optional text 1-30 characters (letters, digits, spaces, dashes),
+            the number on the Taxiförarlegitimation; stored drivers.taxi_license_number (migration 0139), returned as Driver.taxiLicenseNumber;
+            else 400 invalid_request reason invalid_taxi_license_number. It does not replace the document taxi_driver_license.'
+        address:
+          $ref: '#/components/schemas/DriverAddress'
     FleetCodeCommand:
       type: object
       description: 'v0.5.3: POST /admin/fleets/{fleetId}/code.'
@@ -34854,6 +34949,89 @@ components:
             = true), per country, Admin › Drivers › Onboarding ("Fleet needs at least 1 car before approval"), saved and published
             like the other onboarding settings (settings.edit / settings.publish). The country is the fleet''s country.'
           default: true
+        signUpFields:
+          type: object
+          description: 'v0.18.166 (contract.json#signupV2): OnboardingSettings.signUpFields (optional, per country): { dateOfBirth,
+            personalNumber, taxiLicenseNumber, language, address } each { on, required }. Missing = the defaults below. A
+            field that is off is not shown and not sent; a required field that is on and missing is 400 invalid_request reason
+            field_required with details [field].'
+          properties:
+            dateOfBirth:
+              type: object
+              required:
+              - 'on'
+              - required
+              properties:
+                'on':
+                  type: boolean
+                  description: Shown on the info screen.
+                required:
+                  type: boolean
+                  description: Must be filled (only when on).
+              additionalProperties: false
+            personalNumber:
+              type: object
+              required:
+              - 'on'
+              - required
+              properties:
+                'on':
+                  type: boolean
+                  description: Shown on the info screen.
+                required:
+                  type: boolean
+                  description: Must be filled (only when on).
+              additionalProperties: false
+            taxiLicenseNumber:
+              type: object
+              required:
+              - 'on'
+              - required
+              properties:
+                'on':
+                  type: boolean
+                  description: Shown on the info screen.
+                required:
+                  type: boolean
+                  description: Must be filled (only when on).
+              additionalProperties: false
+            language:
+              type: object
+              required:
+              - 'on'
+              - required
+              properties:
+                'on':
+                  type: boolean
+                  description: Shown on the info screen.
+                required:
+                  type: boolean
+                  description: Must be filled (only when on).
+              additionalProperties: false
+            address:
+              type: object
+              required:
+              - 'on'
+              - required
+              properties:
+                'on':
+                  type: boolean
+                  description: Shown on the info screen.
+                required:
+                  type: boolean
+                  description: Must be filled (only when on).
+              additionalProperties: false
+          additionalProperties: false
+        twoSidedTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentType'
+          uniqueItems: true
+          description: 'v0.18.166 (contract.json#signupV2): OnboardingSettings.twoSidedTypes (optional, per country): the
+            document types photographed recto + verso (two steps 1/2, 2/2, then Vérifier + Envoyer). Missing = defaults[country].
+            Every other file type is one photo or one file. The app joins the two sides into ONE file before POST /driver/documents
+            (one JPEG with the recto above the verso, or one PDF of two pages), so the server, the renewal rule and the admin
+            file view are unchanged: one document, one file. A PDF chosen from Files is sent as it is (no second side asked).'
       x-server-only: true
       x-defaults:
         SE:
@@ -43337,6 +43515,14 @@ components:
       properties:
         country:
           $ref: '#/components/schemas/CountryCode'
+        cityId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: 'v0.18.166 (contract.json#signupV2): optional Région. PUT /driver/country { country, cityId? } (v0.18.166:
+            cityId optional). cityId must be one of driverOnboarding.countries[country].cities (else 400 invalid_request reason
+            invalid_city); it saves drivers.cityId and drivers.zoneIds = [that city''s zoneId]. Without cityId the old rule
+            stays (the country''s first city). All v0.18.162 rules (before approval only, fleet country) are unchanged.'
       additionalProperties: false
     AdminDriverCountryCommand:
       type: object
@@ -43354,6 +43540,57 @@ components:
           description: Version the caller last saw; stale → 409 version_mismatch.
         country:
           $ref: '#/components/schemas/CountryCode'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+      additionalProperties: false
+    DriverAddress:
+      type: object
+      description: 'v0.18.166 (contract.json#signupV2): Owner 2026-11-26 "Oui, ajouter l''adresse (Recommandé)": the home
+        address on "Vos informations" for FR and SE, under the date of birth (SE: under Personnummer), required to send the
+        registration. Reason: EU DAC7 reporting (name, address, date of birth, tax id, bank) and invoices. DriverAddress {
+        street 1-200, postalCode 1-20, city 1-100 } (trimmed). Sent as DriverOnboardingRequest.address, stored drivers.address_street
+        / address_postal_code / address_city (migration 0139), returned as Driver.address to the driver himself; an admin
+        without drivers.viewSensitive gets street masked as the first character and •••, postalCode and city as they are,
+        sensitiveMasked true (adminMasking). While typing the street the app may suggest addresses with the places provider
+        it already uses for ride addresses (no new provider, no new cost line); picking one fills street, postal code and
+        city. Without suggestions the three plain fields are filled by hand.'
+      required:
+      - street
+      - postalCode
+      - city
+      properties:
+        street:
+          type: string
+          minLength: 1
+          maxLength: 200
+        postalCode:
+          type: string
+          minLength: 1
+          maxLength: 20
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+      additionalProperties: false
+    AdminDriverAddressCommand:
+      type: object
+      description: 'v0.18.166 (contract.json#signupV2): POST /admin/drivers/{driverId}/address { expectedVersion, address,
+        reason } (drivers.activate, own-country scope as the country change; 409 version_mismatch with the Driver). Audit
+        action driver.address, target the driver, detail { reason } (no address text in the audit). Returns the Driver. The
+        admin driver page shows the address under Details with an Edit button.'
+      required:
+      - expectedVersion
+      - address
+      - reason
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+          description: Version the caller last saw; stale → 409 version_mismatch.
+        address:
+          $ref: '#/components/schemas/DriverAddress'
         reason:
           type: string
           minLength: 1
