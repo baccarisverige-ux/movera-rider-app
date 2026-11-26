@@ -294,6 +294,8 @@ class ApiQuoteRepository implements QuoteRepository {
     // Routes of quotes that ran out are of no use to a booking any more.
     final now = DateTime.now();
     _routes.removeWhere((_, route) => route.expiresAt.isBefore(now));
+    final waypoints = _tripWaypoints(body);
+    var googleLine = false;
     for (final item in raw) {
       if (item is! Map) continue;
       final map = Map<String, dynamic>.from(item);
@@ -302,7 +304,8 @@ class ApiQuoteRepository implements QuoteRepository {
       quotes[quote.rideType] = quote;
       // v0.18.167: the booking maps of this trip draw the priced Google line.
       if (quote.routePolyline case final line?) {
-        QuotedRoutes.remember(_tripWaypoints(body), line);
+        QuotedRoutes.remember(waypoints, line);
+        googleLine = true;
       }
       _routes[quote.id] = QuotedRoute(
         expiresAt: quote.expiresAt.add(const Duration(minutes: 1)),
@@ -318,6 +321,9 @@ class ApiQuoteRepository implements QuoteRepository {
             : List<Map<String, dynamic>>.from(body['stops'] as List),
       );
     }
+    // Follow-up 2026-11-26: a re-quote priced as an estimate (no Google
+    // line) must not keep drawing an older Google line of the same trip.
+    if (!googleLine) QuotedRoutes.forget(waypoints);
     return quotes;
   }
 

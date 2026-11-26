@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/core/maps/quoted_route.dart';
 import 'package:movera_rider/features/auth/application/user_data_wipe.dart';
 import 'package:movera_rider/features/safety/application/safety_recorder_native.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -57,4 +59,13 @@ void main() {
       await UserDataWipe.run();
     },
   );
+
+  test('follow-up 2026-11-26: the wipe forgets every kept trip line', () async {
+    const a = LatLng(59.3326, 18.0649);
+    const b = LatLng(59.3143, 18.0735);
+    QuotedRoutes.remember([a, b], '_p~iF~ps|U_ulLnnqC_mqNvxq`@');
+    expect(QuotedRoutes.of([a, b]), isNotNull);
+    await UserDataWipe.run();
+    expect(QuotedRoutes.of([a, b]), isNull);
+  });
 }

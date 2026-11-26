@@ -128,4 +128,37 @@ void main() {
     expect(QuotedRoutes.of([_dropoff, _pickup]), isNull);
     expect(QuotedRoutes.of([_pickup, _dropoff]), isNotNull);
   });
+
+  test('follow-up: a re-quote priced as an estimate drops the older Google '
+      'line of the same trip', () async {
+    var source = 'google';
+    final api = ApiClient(
+      env: _staging,
+      client: MockClient(
+        (request) async => http.Response(
+          jsonEncode({
+            'quotes': [
+              _quote(source: source, line: source == 'google' ? _line : null),
+            ],
+            'zoneId': 'Z001',
+            'serverTime': '2026-11-26T08:00:00Z',
+          }),
+          201,
+        ),
+      ),
+    );
+    final repository = ApiQuoteRepository(api: api);
+    Future<void> ask() => repository.quote(
+      rideType: 'economy',
+      distanceMeters: 3000,
+      pickupPoint: GeoPoint(_pickup.latitude, _pickup.longitude),
+      destinationPoint: GeoPoint(_dropoff.latitude, _dropoff.longitude),
+    );
+    await ask();
+    expect(QuotedRoutes.of([_pickup, _dropoff]), isNotNull);
+    source = 'estimate';
+    repository.forgetAnswers();
+    await ask();
+    expect(QuotedRoutes.of([_pickup, _dropoff]), isNull);
+  });
 }
