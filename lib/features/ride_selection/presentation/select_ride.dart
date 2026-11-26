@@ -555,6 +555,9 @@ class _SelectRideState extends State<SelectRide>
       destinationPoint: _geoPoint(widget.destinationPosition),
     );
     if (!mounted) return;
+    // v0.18.167 (contract.json#googleRouteLine): the quotes may carry the
+    // Google route they were priced on; draw it (no route call).
+    unawaited(_refreshRoadRoute());
     // v0.18.44 §67: a drop-off too close to the pickup is not a ride; the
     // rider is told and goes back to the destination step (a plain Back:
     // Home reopens the address screen on the destination with this route).

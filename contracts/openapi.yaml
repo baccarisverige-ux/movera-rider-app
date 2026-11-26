@@ -1,11 +1,11 @@
-# Movera API v0.18.166 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.167 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.166
+  version: 0.18.167
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.166 in this folder; this file must agree with them.
+    v0.18.167 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.166
+  version: 0.18.167
   source: contract.json
 paths:
   /auth/otp/request:
@@ -23562,6 +23562,18 @@ components:
           description: 'v0.18.163 (contract.json#liveTraffic): Every route says where it came from: google (live traffic)
             or estimate (straight line x roadFactor at pickupKmh); osrm stays a known value for older stored quotes only (the
             server no longer asks OSRM). quotes.route_source keeps it (migration 0138 adds google). Absent from an older server.'
+        routePolyline:
+          type: string
+          minLength: 1
+          description: 'v0.18.167 (contract.json#googleRouteLine): Quote.routePolyline: the Google encoded polyline (precision
+            5, the Routes API encodedPolyline) of the route this price used, pickup through every stop to the drop-off. Sent
+            only when Quote.routeSource is google; absent when it is estimate or osrm and from an older server. Every quote
+            of one QuoteList carries the same line (one call for all categories). No extra Google call: it is the polyline
+            the quote''s call already stored. POST /routes is unchanged (the straight-line estimate, provider estimate); the
+            app does not ask it for a line the quote already gave. Select ride and the search screen (Finding drivers) draw
+            the decoded Quote.routePolyline as the trip line and hide the "Approximate route" badge. Without it (estimate,
+            an older server, an empty or broken line) they keep the straight line through the stops and the badge (fallback).
+            The waiting-for-driver and on-trip maps are unchanged.'
     RouteQuote:
       type: object
       description: 'Price for a route change after request; apply with PATCH /trips/{tripId}. Priced from the booking (owner
