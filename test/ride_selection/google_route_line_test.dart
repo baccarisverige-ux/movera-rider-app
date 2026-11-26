@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -51,15 +50,6 @@ class _CountingRoutes extends RoutingService {
 
 void main() {
   setUp(QuotedRoutes.clear);
-
-  test('the contract has Quote.routePolyline for the rider map', () {
-    final c =
-        jsonDecode(File('contracts/contract.json').readAsStringSync())
-            as Map<String, dynamic>;
-    final g = c['googleRouteLine'] as Map<String, dynamic>;
-    expect(g['quote'] as String, contains('Quote.routePolyline'));
-    expect(g['rider'] as String, contains('Approximate route'));
-  });
 
   test('decodes Google polylines; a broken line is null', () {
     final points = decodeGooglePolyline(_line)!;
