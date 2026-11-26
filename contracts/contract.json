@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.165",
+  "version": "0.18.166",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -11966,5 +11966,145 @@
     "rider": "The rider app shows the server's Quote.tripSeconds as the trip time (Select ride, the search screen); its own straight-line minutes only when the quote has no tripSeconds (an older server). The contract QuoteRequest never sent a duration; the old non-contract quote call no longer sends a placeholder 600 s (durationSeconds is sent only when the app really has one).",
     "admin": "Admin > Dispatch > Rides (zone and country standard): \"Live traffic (Google)\" on/off and the three re-call thresholds, with \"i\" texts; other pages only link to it.",
     "apps": "Driver app: no code change. The offer already shows the server's Offer.tripSeconds and the trip the server's ETA (an unknown ETA source is shown like estimate); its route line keeps working through GET /routes/driving (the stored Google route, see navigation), without turn steps. Rider app: shows Quote.tripSeconds."
+  },
+  "signupV2": {
+    "since": "0.18.166",
+    "note": "v0.18.166 (sign-up pro v2 + document scan; owner 2026-11-26 \"Oui, tout construire\", \"I approve it\" (upload flow), Rules plan/inspiration-ride-change-2026-11-20/PROPOSAL-signup-pro-v2-2026-11-26.html and PROPOSAL-upload-scan-2026-11-26.html, plan/NUMBERS.md; Rule 0; X-Api-Version stays `0.5`; additive, every new field optional; server migration 0139; follows v0.18.165): after the SMS code the driver app shows ONE scrollable screen \"Vos informations\" / \"Dina uppgifter\" (Pays then Région at the top, then the locked phone, first name, last name, e-mail and the country's sign-up fields), then the checklist \"Configurons votre compte\" / \"Nu skapar vi ditt konto\" (Vos informations, Photo de profil, Vous êtes; Documents optional on a separate screen). \"Envoyer l'inscription\" sends POST /driver/onboarding with no document. No car step. Nothing old is removed (Rule 21): the country step route PUT /driver/country stays and is what the info screen calls.",
+    "infoScreen": {
+      "order": [
+        "country",
+        "region",
+        "phone",
+        "firstName",
+        "lastName",
+        "email",
+        "dateOfBirth",
+        "personalNumber",
+        "taxiLicenseNumber",
+        "address",
+        "language"
+      ],
+      "countryFromPhone": "The country is pre-selected from the signed-in phone number: +46 = SE, +33 = FR (only when that country is open in driverOnboarding.countries); else from the device location only if the location permission is ALREADY granted (the app never asks for it here); else empty. Always editable. Only open countries are listed; no flags.",
+      "region": "Région / Region lists only the open cities (regions) of the picked country, driverOnboarding.countries[country].cities; with exactly one it is picked automatically. Saving country and region is PUT /driver/country { country, cityId } (cityId optional, v0.18.166).",
+      "fields": "Which of dateOfBirth, personalNumber, taxiLicenseNumber and language are shown and required is the country's OnboardingSettings.signUpFields (admin Drivers › Onboarding), else signupV2.signUpFields.defaults[country].",
+      "accountTypeRemoved": "The \"Type de compte\" choice is no longer on the info screen: \"Vous êtes\" on the checklist sets the same accountType."
+    },
+    "regionStep": {
+      "route": "PUT /driver/country { country, cityId? } (v0.18.166: cityId optional). cityId must be one of driverOnboarding.countries[country].cities (else 400 invalid_request reason invalid_city); it saves drivers.cityId and drivers.zoneIds = [that city's zoneId]. Without cityId the old rule stays (the country's first city). All v0.18.162 rules (before approval only, fleet country) are unchanged."
+    },
+    "signUpFields": {
+      "note": "OnboardingSettings.signUpFields (optional, per country): { dateOfBirth, personalNumber, taxiLicenseNumber, language, address } each { on, required }. Missing = the defaults below. A field that is off is not shown and not sent; a required field that is on and missing is 400 invalid_request reason field_required with details [field].",
+      "fields": [
+        "dateOfBirth",
+        "personalNumber",
+        "taxiLicenseNumber",
+        "language",
+        "address"
+      ],
+      "defaults": {
+        "SE": {
+          "dateOfBirth": {
+            "on": false,
+            "required": false
+          },
+          "personalNumber": {
+            "on": true,
+            "required": true
+          },
+          "taxiLicenseNumber": {
+            "on": true,
+            "required": false
+          },
+          "language": {
+            "on": true,
+            "required": true
+          },
+          "address": {
+            "on": true,
+            "required": true
+          }
+        },
+        "FR": {
+          "dateOfBirth": {
+            "on": true,
+            "required": true
+          },
+          "personalNumber": {
+            "on": false,
+            "required": false
+          },
+          "taxiLicenseNumber": {
+            "on": false,
+            "required": false
+          },
+          "language": {
+            "on": true,
+            "required": true
+          },
+          "address": {
+            "on": true,
+            "required": true
+          }
+        }
+      }
+    },
+    "personalNumber": {
+      "format": "Swedish personnummer, 12 digits YYYYMMDD-XXXX (the app also accepts YYYYMMDDXXXX and sends YYYYMMDD-XXXX); the last digit passes the Luhn check over the 10 digits after the century.",
+      "dateOfBirth": "When personalNumber is sent the app sends dateOfBirth = its first 8 digits (DriverOnboardingRequest.dateOfBirth stays required); a dateOfBirth that differs, a bad date or a failed check is 400 invalid_request reason invalid_personal_number. The minAge rule (under_age) still applies.",
+      "stored": "drivers.personal_number (migration 0139). Driver.personalNumber is returned to the driver himself; an admin without drivers.viewSensitive gets it masked as YYYY••••-•••• and sensitiveMasked true (adminMasking)."
+    },
+    "taxiLicenseNumber": "Optional text 1-30 characters (letters, digits, spaces, dashes), the number on the Taxiförarlegitimation; stored drivers.taxi_license_number (migration 0139), returned as Driver.taxiLicenseNumber; else 400 invalid_request reason invalid_taxi_license_number. It does not replace the document taxi_driver_license.",
+    "checklist": {
+      "items": [
+        "details",
+        "profilePhoto",
+        "accountType"
+      ],
+      "progress": "done items / 3 (details done when the info screen is filled; profilePhoto when a profile_photo document is uploaded (any status but rejected); accountType when chosen). Documents are optional and not counted.",
+      "later": "\"Continuer plus tard\" / \"Fortsätt senare\" goes Home; Home shows the checklist again until POST /driver/onboarding succeeded. What was typed is kept on the phone (details draft) until the server took it.",
+      "send": "\"Envoyer l'inscription\" / \"Skicka registreringen\" sends POST /driver/onboarding (termsAccepted true as before, the terms are ticked on the phone screen); it works without any document; missing documents stay on Home afterwards (requiredDocuments)."
+    },
+    "accountTypeLabels": {
+      "note": "\"Vous êtes\" / \"Du är\" is a bottom-sheet list mapped to the EXISTING accountType, no new concept: fleet = has his own company (FR Kbis), driver = works for a company (joins a fleet). Choosing fleet shows the existing company fields (name, number, address) below the list.",
+      "fleet": {
+        "fr": "Chauffeur avec Kbis",
+        "sv": "Förare med eget företag",
+        "en": "Driver with own company"
+      },
+      "driver": {
+        "fr": "Chauffeur sans Kbis",
+        "sv": "Förare utan eget företag",
+        "en": "Driver without own company"
+      }
+    },
+    "documentsScreen": "A separate optional screen: sections \"Vous\" (Driver.requiredDocuments) and \"Votre société\" (Driver.requiredFleetDocuments, only for accountType fleet), the per-country lists of the onboarding settings. Upload is the existing POST /driver/documents; \"Envoyé ✓\" is shown only after the server answered 201 with the Document.",
+    "twoSided": {
+      "note": "OnboardingSettings.twoSidedTypes (optional, per country): the document types photographed recto + verso (two steps 1/2, 2/2, then Vérifier + Envoyer). Missing = defaults[country]. Every other file type is one photo or one file.",
+      "defaults": {
+        "SE": [
+          "national_id",
+          "driving_license",
+          "taxi_driver_license"
+        ],
+        "FR": [
+          "national_id",
+          "driving_license",
+          "vtc_card"
+        ]
+      },
+      "upload": "The app joins the two sides into ONE file before POST /driver/documents (one JPEG with the recto above the verso, or one PDF of two pages), so the server, the renewal rule and the admin file view are unchanged: one document, one file. A PDF chosen from Files is sent as it is (no second side asked)."
+    },
+    "scanner": "Ajouter opens a sheet: Scanner (recommended: edge detection, automatic capture when sharp, a manual button, deskew and crop; iOS VisionKit, Android ML Kit document scanner) or Choisir une photo ou un fichier (gallery, PDF). Where the scanner is not available (web, an old phone) only the second choice is shown. App-side only, no API.",
+    "profilePhoto": {
+      "note": "Owner 2026-11-26 (Rules decisions/driver-g2.md): \"Photo de profile is just a picture to put on the profile of the driver, but the virtual session is another thing\" and, can the driver change it later, \"Peut pas\". The profile photo is the existing file type profile_photo, added at sign-up by tapping the circle (camera or gallery). info_session is not touched.",
+      "locked": "Before approval the driver may retake it (a new upload replaces the waiting one). Once profile_photo is approved (or approved then expired) the driver cannot change it himself: POST /driver/documents with type profile_photo is 409 invalid_transition reason profile_photo_locked and nothing is saved (no renewal); the driver app hides the change entry and says to contact support. Only an admin (Movera support) changes it. Older renewals already waiting are kept (Rule 21)."
+    },
+    "address": {
+      "owner": "Owner 2026-11-26 \"Oui, ajouter l'adresse (Recommandé)\": the home address on \"Vos informations\" for FR and SE, under the date of birth (SE: under Personnummer), required to send the registration. Reason: EU DAC7 reporting (name, address, date of birth, tax id, bank) and invoices.",
+      "shape": "DriverAddress { street 1-200, postalCode 1-20, city 1-100 } (trimmed). Sent as DriverOnboardingRequest.address, stored drivers.address_street / address_postal_code / address_city (migration 0139), returned as Driver.address to the driver himself; an admin without drivers.viewSensitive gets street masked as the first character and •••, postalCode and city as they are, sensitiveMasked true (adminMasking).",
+      "autocomplete": "While typing the street the app may suggest addresses with the places provider it already uses for ride addresses (no new provider, no new cost line); picking one fills street, postal code and city. Without suggestions the three plain fields are filled by hand.",
+      "required": "signUpFields.address (defaults SE and FR: on, required). Missing when required: 400 invalid_request reason field_required with details [address]; a field out of range: 400 invalid_request reason invalid_address.",
+      "adminEdit": "POST /admin/drivers/{driverId}/address { expectedVersion, address, reason } (drivers.activate, own-country scope as the country change; 409 version_mismatch with the Driver). Audit action driver.address, target the driver, detail { reason } (no address text in the audit). Returns the Driver. The admin driver page shows the address under Details with an Edit button."
+    }
   }
 }
