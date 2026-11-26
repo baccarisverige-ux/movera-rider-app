@@ -33,7 +33,12 @@ class QuotedRoutes {
   static List<LatLng>? of(List<LatLng> waypoints) =>
       waypoints.length < 2 ? null : _routes[_key(waypoints)];
 
-  /// Tests only.
+  /// Drops the kept line of the trip [waypoints]: a newer quote of the
+  /// same trip came back without a Google line (an estimate), so its maps
+  /// draw the straight line again (follow-up 2026-11-26).
+  static void forget(List<LatLng> waypoints) => _routes.remove(_key(waypoints));
+
+  /// Forgets every kept line (sign-out wipe, follow-up 2026-11-26; tests).
   static void clear() => _routes.clear();
 
   static String _key(List<LatLng> waypoints) => waypoints

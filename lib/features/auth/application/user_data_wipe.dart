@@ -6,6 +6,7 @@ import 'package:movera_rider/core/api/safety_mock_api.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/maps/quoted_route.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/core/web/web_search_interrupted.dart';
 import 'package:movera_rider/features/auth/application/fresh_install_reset.dart';
@@ -213,6 +214,8 @@ abstract final class UserDataWipe {
     // v0.18.5 G2-D3: no driver photo stays after sign-out.
     DriverPhotos.clear();
     LastCompletedRide.clear();
+    // Follow-up 2026-11-26: no trip line of the last rider stays.
+    QuotedRoutes.clear();
   }
 
   /// Who the session belongs to: the token's `sub` when the backend sends
