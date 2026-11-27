@@ -17,6 +17,7 @@ import 'package:movera_rider/features/messages/data/messages_repository.dart';
 import 'package:movera_rider/features/notifications/data/notifications_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
+import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/application/safety_recorder.dart';
 import 'package:movera_rider/features/safety/data/secure_ride_pin_store.dart';
@@ -216,6 +217,10 @@ abstract final class UserDataWipe {
     LastCompletedRide.clear();
     // Follow-up 2026-11-26: no trip line of the last rider stays.
     QuotedRoutes.clear();
+    // Review of #706: nor its priced routes or quote answers.
+    ApiQuoteRepository.forgetSignedOut();
+    final quotes = scope.quotes;
+    if (quotes is ApiQuoteRepository) quotes.forgetAnswers();
   }
 
   /// Who the session belongs to: the token's `sub` when the backend sends

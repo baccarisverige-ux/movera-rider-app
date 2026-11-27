@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -11,6 +12,7 @@ import 'package:movera_rider/core/maps/quoted_route.dart';
 import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/features/ride_booking/application/trip_route_line.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 
 /// v0.18.167 (contract.json#googleRouteLine, owner 2026-11-26 "Oui,
 /// corriger"): the booking maps draw the Google route the quote was priced
@@ -160,5 +162,43 @@ void main() {
     repository.forgetAnswers();
     await ask();
     expect(QuotedRoutes.of([_pickup, _dropoff]), isNull);
+  });
+
+  test('review of #706: the sign-out wipe forgets the priced routes and '
+      'answers', () async {
+    var asked = 0;
+    final api = ApiClient(
+      env: _staging,
+      client: MockClient((request) async {
+        asked++;
+        return http.Response(
+          jsonEncode({
+            'quotes': [_quote(line: _line)],
+            'zoneId': 'Z001',
+            'serverTime': '2026-11-26T08:00:00Z',
+          }),
+          201,
+        );
+      }),
+    );
+    final repository = ApiQuoteRepository(api: api);
+    Future<RideQuote> ask() => repository.quote(
+      rideType: 'economy',
+      distanceMeters: 3000,
+      pickupPoint: GeoPoint(_pickup.latitude, _pickup.longitude),
+      destinationPoint: GeoPoint(_dropoff.latitude, _dropoff.longitude),
+    );
+    final quote = await ask();
+    expect(ApiQuoteRepository.routeOf(quote.id), isNotNull);
+    ApiQuoteRepository.forgetSignedOut();
+    repository.forgetAnswers();
+    expect(ApiQuoteRepository.routeOf(quote.id), isNull);
+    await ask();
+    expect(asked, 2, reason: 'the next rider asks the server again');
+    final wipe = File(
+      'lib/features/auth/application/user_data_wipe.dart',
+    ).readAsStringSync();
+    expect(wipe, contains('ApiQuoteRepository.forgetSignedOut();'));
+    expect(wipe, contains('quotes.forgetAnswers();'));
   });
 }

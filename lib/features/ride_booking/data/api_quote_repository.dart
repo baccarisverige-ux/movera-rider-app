@@ -41,6 +41,12 @@ class ApiQuoteRepository implements QuoteRepository {
   static QuotedRoute? routeOf(String? quoteId) =>
       quoteId == null ? null : _routes[quoteId];
 
+  /// Sign-out (review of #706): no priced route (pickup, stops, drop-off)
+  /// of the last rider stays in memory. Booked quotes are kept: the
+  /// server takes a quote once, so a batch holding one must still not be
+  /// reused.
+  static void forgetSignedOut() => _routes.clear();
+
   /// [quoteId] went into a trip; it is never offered again.
   static void markBooked(String quoteId) {
     _booked.add(quoteId);
