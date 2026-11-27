@@ -519,6 +519,8 @@ class RideRestoreCoordinator {
           stops: snapshot.stops,
           searchStartedAt: snapshot.searchStart,
           createdAt: snapshot.createdAt,
+          // v0.18.169: the kept line draws at once after a reopen.
+          routePolyline: snapshot.routePolyline,
         );
       case RestoredSurface.waiting:
         return WaitingForDriver(
@@ -717,6 +719,7 @@ class RideRestoreCoordinator {
       stops: snapshot.stops,
       searchStartedAt: snapshot.searchStart,
       createdAt: snapshot.createdAt,
+      routePolyline: snapshot.routePolyline,
       realtime: realtime,
     );
 

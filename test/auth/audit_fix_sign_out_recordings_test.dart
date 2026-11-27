@@ -1,10 +1,17 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/quoted_route.dart';
 import 'package:movera_rider/features/auth/application/user_data_wipe.dart';
+import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/safety/application/safety_recorder_native.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -68,4 +75,42 @@ void main() {
     await UserDataWipe.run();
     expect(QuotedRoutes.of([a, b]), isNull);
   });
+
+  test(
+    'v0.18.169: the wipe forgets the places every quote was priced for',
+    () async {
+      final api = ApiClient(
+        env: const AppEnv(
+          flavor: AppFlavor.staging,
+          apiBaseUrl: 'https://api.example.test',
+        ),
+        client: MockClient(
+          (request) async => http.Response(
+            jsonEncode({
+              'quotes': [
+                {
+                  'quoteId': 'qte_wipe169',
+                  'categoryId': 'economy',
+                  'total': {'amountMinor': 21700, 'currency': 'SEK'},
+                  'fareLines': <Object>[],
+                  'expiresAt': '2099-01-01T00:00:00Z',
+                  'routeSource': 'estimate',
+                },
+              ],
+            }),
+            201,
+          ),
+        ),
+      );
+      await ApiQuoteRepository(api: api).quote(
+        rideType: 'economy',
+        distanceMeters: 3000,
+        pickupPoint: const GeoPoint(59.3326, 18.0649),
+        destinationPoint: const GeoPoint(59.3143, 18.0735),
+      );
+      expect(ApiQuoteRepository.routeOf('qte_wipe169'), isNotNull);
+      await UserDataWipe.run();
+      expect(ApiQuoteRepository.routeOf('qte_wipe169'), isNull);
+    },
+  );
 }

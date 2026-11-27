@@ -47,6 +47,7 @@ class RideSnapshot {
     this.currency = Money.defaultCurrency,
     this.arrivalAnnounced = false,
     this.completedAt,
+    this.routePolyline,
   }) : createdAt = createdAt ?? savedAt;
 
   final RideStatus status;
@@ -133,6 +134,13 @@ class RideSnapshot {
   /// Null for older snapshots and before completion.
   final DateTime? completedAt;
 
+  /// v0.18.169 (contract.json#riderTripRouteLine): the trip's Google
+  /// encoded line (pickup, every stop, drop-off), from the trip view
+  /// (`TripProjection.routePolyline`) or the quote it was booked on. Kept
+  /// with the saved ride so a reopen draws it at once; a copy that moves
+  /// the pickup, a stop or the drop-off drops it. Null: none.
+  final String? routePolyline;
+
   DateTime get searchStart => searchStartedAt ?? createdAt;
 
   /// [price] as contract Money, with [currency]'s exponent.
@@ -185,7 +193,15 @@ class RideSnapshot {
     String? currency,
     bool? arrivalAnnounced,
     DateTime? completedAt,
+    String? routePolyline,
   }) {
+    // v0.18.169: the line belongs to these places; another route drops it.
+    final sameRoute =
+        (pickupLat ?? this.pickupLat) == this.pickupLat &&
+        (pickupLng ?? this.pickupLng) == this.pickupLng &&
+        (destinationLat ?? this.destinationLat) == this.destinationLat &&
+        (destinationLng ?? this.destinationLng) == this.destinationLng &&
+        (stops == null || _samePlaces(stops, this.stops));
     return RideSnapshot(
       status: status ?? this.status,
       savedAt: savedAt ?? this.savedAt,
@@ -216,7 +232,18 @@ class RideSnapshot {
       currency: currency ?? this.currency,
       arrivalAnnounced: arrivalAnnounced ?? this.arrivalAnnounced,
       completedAt: completedAt ?? this.completedAt,
+      routePolyline: routePolyline ?? (sameRoute ? this.routePolyline : null),
     );
+  }
+
+  static bool _samePlaces(List<RouteStop> a, List<RouteStop> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].latitude != b[i].latitude || a[i].longitude != b[i].longitude) {
+        return false;
+      }
+    }
+    return true;
   }
 
   Map<String, dynamic> toJson() => {
@@ -252,6 +279,7 @@ class RideSnapshot {
     if (arrivalAnnounced) 'arrivalAnnounced': true,
     if (completedAt != null)
       'completedAt': completedAt!.toUtc().toIso8601String(),
+    if (routePolyline != null) 'routePolyline': routePolyline,
   };
 
   static RideSnapshot? fromJson(Map<String, dynamic> json) {
@@ -343,6 +371,7 @@ class RideSnapshot {
       currency:
           Money.normalizeCurrency(json['currency']) ?? Money.defaultCurrency,
       completedAt: _utcOrNull(json['completedAt']),
+      routePolyline: _nonEmpty(json['routePolyline']),
     );
   }
 }

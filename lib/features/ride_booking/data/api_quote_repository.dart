@@ -274,6 +274,24 @@ class ApiQuoteRepository implements QuoteRepository {
   /// answer of the last [batchReuse] (the server did not book at it).
   void forgetAnswers() => _batches.clear();
 
+  /// v0.18.169 (contract.json#riderTripRouteLine): sign-out forgets the
+  /// quote batches of this repository and the places every quote was
+  /// priced for, and a request still on its way keeps none of them.
+  void forgetAll() {
+    _batches.clear();
+    forgetPricedRoutes();
+  }
+
+  /// The places every quote was priced for (all repositories share them).
+  static void forgetPricedRoutes() {
+    _generation += 1;
+    _routes.clear();
+  }
+
+  /// Bumped by [forgetPricedRoutes]; an answer of an older one keeps no
+  /// priced places.
+  static int _generation = 0;
+
   _QuoteBatch _batchFor(String key, Map<String, dynamic> body) {
     final now = _clock();
     _batches.removeWhere((_, batch) => now.difference(batch.at) > batchReuse);
@@ -281,6 +299,10 @@ class ApiQuoteRepository implements QuoteRepository {
   }
 
   Future<Map<String, RideQuote>> _fetchBatch(Map<String, dynamic> body) async {
+    // v0.18.169 (SHOULD): taken before the request, so an older answer
+    // that lands after a newer one never brings its line back.
+    final ticket = QuotedRoutes.nextTicket();
+    final generation = _generation;
     final json = await api.post(
       '/api/v1/quotes',
       body: body,
@@ -291,6 +313,9 @@ class ApiQuoteRepository implements QuoteRepository {
     if (raw is! List) throw const FormatException('malformed quote list');
     final quotes = <String, RideQuote>{};
     final warning = SamePointWarning.fromQuoteList(json['warnings']);
+    // v0.18.169: an answer to a request sent before sign-out keeps
+    // nothing for the next rider.
+    final keep = generation == _generation;
     // Routes of quotes that ran out are of no use to a booking any more.
     final now = DateTime.now();
     _routes.removeWhere((_, route) => route.expiresAt.isBefore(now));
@@ -304,9 +329,11 @@ class ApiQuoteRepository implements QuoteRepository {
       quotes[quote.rideType] = quote;
       // v0.18.167: the booking maps of this trip draw the priced Google line.
       if (quote.routePolyline case final line?) {
-        QuotedRoutes.remember(waypoints, line);
-        googleLine = true;
+        if (QuotedRoutes.remember(waypoints, line, ticket: ticket)) {
+          googleLine = true;
+        }
       }
+      if (!keep) continue;
       _routes[quote.id] = QuotedRoute(
         expiresAt: quote.expiresAt.add(const Duration(minutes: 1)),
         pickup:
@@ -323,7 +350,8 @@ class ApiQuoteRepository implements QuoteRepository {
     }
     // Follow-up 2026-11-26: a re-quote priced as an estimate (no Google
     // line) must not keep drawing an older Google line of the same trip.
-    if (!googleLine) QuotedRoutes.forget(waypoints);
+    // v0.18.169: a line that does not decode is dropped the same way.
+    if (!googleLine) QuotedRoutes.forget(waypoints, ticket: ticket);
     return quotes;
   }
 

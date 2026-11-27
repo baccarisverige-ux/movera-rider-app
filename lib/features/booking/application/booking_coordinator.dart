@@ -29,6 +29,9 @@ import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/core/contracts/server_clock.dart';
+import 'package:movera_rider/core/maps/quoted_route.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
+import 'package:movera_rider/features/ride_booking/data/ride_projection.dart';
 
 class BookingCoordinator {
   BookingCoordinator({ApiClient? api, ActiveTripRepository? activeTrips})
@@ -925,6 +928,17 @@ class BookingCoordinator {
         rideId: id,
         notes: notes,
         walletAmountMinor: _walletMinorFrom(json) ?? walletAmountMinor,
+        // v0.18.169 (contract.json#riderTripRouteLine): the trip view's
+        // line, else the Google line of the quote it was booked on.
+        routePolyline:
+            (createdRide == null
+                ? null
+                : RideProjection.routePolylineOf(createdRide)) ??
+            QuotedRoutes.encodedOf([
+              LatLng(pickupLat, pickupLng),
+              for (final stop in stops) LatLng(stop.latitude, stop.longitude),
+              LatLng(destinationLat, destinationLng),
+            ]),
       ),
     );
 

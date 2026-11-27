@@ -23,12 +23,24 @@ List<LatLng> straightTripLine(LatLng from, List<RouteStop> stops, LatLng to) =>
 /// shared routing seam ([roadRoutePolylineVia]). [approximate] is true
 /// when any leg had no road. Null when routing threw: the caller keeps
 /// what it draws.
+///
+/// v0.18.169 (contract.json#riderTripRouteLine): the order is the trip
+/// view's line ([tripLine], `TripProjection.routePolyline` of this very
+/// route), then the quote's kept Google line, then the road request. A
+/// [tripLine] that does not decode is skipped, never drawn.
 Future<TripRouteLine?> roadTripLine({
   required LatLng from,
   required List<RouteStop> stops,
   required LatLng to,
   RoutingService? routing,
+  String? tripLine,
 }) async {
+  if (tripLine != null) {
+    final points = decodeGooglePolyline(tripLine);
+    if (points != null && points.length >= 2) {
+      return (points: List<LatLng>.unmodifiable(points), approximate: false);
+    }
+  }
   // v0.18.167 (contract.json#googleRouteLine): the Google route the quote
   // was priced on, when the server sent one; no route call, not approximate.
   final quoted = QuotedRoutes.of(straightTripLine(from, stops, to));

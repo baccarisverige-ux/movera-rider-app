@@ -4,6 +4,7 @@ import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/raise_limit.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
+import 'package:movera_rider/core/maps/quoted_route.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
@@ -98,7 +99,20 @@ abstract final class RideProjection {
       serverUpdatedAt: updatedAt,
       searchStartedAt: WireTime.tryParse(ride['searchStartedAt']),
       cancellationReason: _string(ride['cancellationReason']),
+      // v0.18.169 (contract.json#riderTripRouteLine): the trip's stored
+      // Google line; one that does not decode is no line (the map never
+      // keeps an older one for it).
+      routePolyline: routePolylineOf(ride),
     );
+  }
+
+  /// v0.18.169: `TripProjection.routePolyline` when it decodes to a line,
+  /// else null (absent, empty, broken; a terminal trip never has one).
+  static String? routePolylineOf(Map<String, dynamic> ride) {
+    final line = _string(ride['routePolyline']);
+    if (line == null) return null;
+    final points = decodeGooglePolyline(line);
+    return points != null && points.length >= 2 ? line : null;
   }
 
   /// The built-in catalog's name for [categoryId], or null.

@@ -23,7 +23,9 @@ import 'package:movera_rider/core/contracts/trip_projection_wire.dart';
 import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/contracts/trip_transitions.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/maps/quoted_route.dart';
 import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
@@ -422,6 +424,7 @@ class FindingDriverController {
     DateTime? createdAt,
     int? maxOfferMinor,
     int? bookedFareMinor,
+    String? routePolyline,
     required void Function(int elapsed) onTick,
     required void Function() onMatched,
     void Function(RideStatus status)? onTerminal,
@@ -470,6 +473,16 @@ class FindingDriverController {
         rideId: ride.rideId,
         notes: notes,
         walletAmountMinor: walletAmountMinor,
+        // v0.18.169 (contract.json#riderTripRouteLine): the trip view's
+        // line, else the Google line of the quote this trip was booked on,
+        // so every save keeps it for a reopen.
+        routePolyline:
+            routePolyline ??
+            QuotedRoutes.encodedOf([
+              LatLng(pickupLat, pickupLng),
+              for (final stop in stops) LatLng(stop.latitude, stop.longitude),
+              LatLng(destinationLat, destinationLng),
+            ]),
       ),
       onTick: onTick,
       onMatched: onMatched,

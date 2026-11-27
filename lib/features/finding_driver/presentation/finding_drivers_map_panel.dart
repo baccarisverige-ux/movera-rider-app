@@ -4,6 +4,17 @@ part of 'finding_drivers.dart';
 
 // The map bits and the search panel body of [FindingDrivers] (Rule 25
 // split, no behaviour change).
+/// v0.18.169: the same stops at the same places, in the same order.
+bool _sameStopPlaces(List<RouteStop> a, List<RouteStop> b) {
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i].latitude != b[i].latitude || a[i].longitude != b[i].longitude) {
+      return false;
+    }
+  }
+  return true;
+}
+
 extension _FindingDriversMapPanel on _FindingDriversState {
   /// rider-u61: on the web the car bitmap comes turned (the plugin ignores
   /// rotation there).
@@ -57,14 +68,17 @@ extension _FindingDriversMapPanel on _FindingDriversState {
       ?adjust,
     };
     // A14: the road through every stop, straight through them until then.
+    // v0.18.169: in the Movera colours only (#12201C, #2FBF5B).
     _polylines = styledRoute(
       resolvedRoutePolyline(
         id: 'route',
         points: routePoints != null && routePoints.length >= 2
             ? routePoints
             : straightTripLine(_pickupPosition, _stops, _destinationPosition),
-        color: RiderRouteStyle.color,
+        color: RiderRouteStyle.moveraGreen,
       ),
+      casing: RiderRouteStyle.moveraInk,
+      colorAt: RiderRouteStyle.moveraAt,
     );
   }
 
@@ -110,11 +124,33 @@ extension _FindingDriversMapPanel on _FindingDriversState {
     setState(() {});
   }
 
+  /// v0.18.169 (contract.json#riderTripRouteLine): the trip view's line
+  /// kept with this ride (RideSnapshot.routePolyline), while the map shows
+  /// the same pickup, stops and drop-off; null after any route change.
+  String? get _tripRouteLine {
+    final ride = _match.ownershipSnapshot;
+    final line = ride?.routePolyline;
+    if (ride == null || line == null) return null;
+    if (ride.pickupLat != _pickupPosition.latitude ||
+        ride.pickupLng != _pickupPosition.longitude ||
+        ride.destinationLat != _destinationPosition.latitude ||
+        ride.destinationLng != _destinationPosition.longitude ||
+        !_sameStopPlaces(ride.stops, _stops)) {
+      return null;
+    }
+    return line;
+  }
+
   Future<void> _refreshRoadRoute() async {
     final from = _pickupPosition;
     final stops = _stops;
     final to = _destinationPosition;
-    final route = await roadTripLine(from: from, stops: stops, to: to);
+    final route = await roadTripLine(
+      from: from,
+      stops: stops,
+      to: to,
+      tripLine: _tripRouteLine,
+    );
     if (!mounted || route == null) return;
     // rider-35: the route changed while this answer was on its way; the
     // newer request draws the line.
