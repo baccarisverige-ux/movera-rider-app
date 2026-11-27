@@ -232,11 +232,12 @@ extension _SelectRideSheetControl on _SelectRideState {
   }
 
   /// Frames the route above the sheet. [force] flies an unchanged framing
-  /// too (a newly created map starts from its own camera). Only while this
-  /// screen owns the map: Confirm and search keeps Set pickup's map on top,
-  /// and a fit there moved its pin and re-geocoded the confirmed pickup.
+  /// too (a newly created map starts from its own camera). Never while
+  /// another screen owns the map: Confirm and search keeps Set pickup's map
+  /// on top, and a fit there moved its pin and re-geocoded the pickup.
   Future<void> _fitRoute({bool force = false}) async {
-    if (AppScope.instance.maps.activeOwner != MapOwners.selectRide) return;
+    final owner = AppScope.instance.maps.activeOwner;
+    if (owner != null && owner != MapOwners.selectRide) return;
     await _fits.fit(force: force);
   }
 
