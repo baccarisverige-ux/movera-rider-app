@@ -10,7 +10,10 @@ void main() {
   late String key;
   Completer<void>? landing;
 
+  var owned = true;
+
   RouteFitScheduler scheduler() => RouteFitScheduler(
+    mayMove: () => owned,
     plan: () {
       final at = key;
       return (
@@ -27,6 +30,7 @@ void main() {
     flown = [];
     key = 'mid';
     landing = null;
+    owned = true;
   });
 
   testWidgets('repeated settles at the same stop fly once', (tester) async {
@@ -115,5 +119,46 @@ void main() {
     fits.dispose();
     await tester.pump(const Duration(seconds: 1));
     expect(flown, isEmpty);
+  });
+
+  // Confirm and search: Set pickup's map is on top, so no path may fly.
+  testWidgets('another screen owns the map: a settle does not fly', (
+    tester,
+  ) async {
+    final fits = scheduler();
+    owned = false;
+    fits.settled();
+    await tester.pump(const Duration(seconds: 1));
+    expect(flown, isEmpty);
+    owned = true;
+    fits.settled();
+    await tester.pump(const Duration(seconds: 1));
+    expect(flown, ['mid'], reason: 'the same framing flies once it is back');
+    fits.dispose();
+  });
+
+  testWidgets('another screen takes the map mid-flight: the queued '
+      're-run does not fly', (tester) async {
+    final fits = scheduler();
+    landing = Completer<void>();
+    unawaited(fits.fit());
+    await tester.pump();
+    key = 'top';
+    unawaited(fits.fit());
+    owned = false;
+    landing!.complete();
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(flown, ['mid']);
+    fits.dispose();
+  });
+
+  testWidgets('another screen owns the map: a call does not fly', (
+    tester,
+  ) async {
+    final fits = scheduler();
+    owned = false;
+    await fits.fit(force: true);
+    expect(flown, isEmpty);
+    fits.dispose();
   });
 }

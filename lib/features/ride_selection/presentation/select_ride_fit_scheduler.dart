@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:movera_rider/features/ride_selection/presentation/select_ride_map_owner.dart';
+
 /// One camera move: [key] names the framing it produces, so the same
 /// framing is not flown twice.
 typedef RouteFitPlan = ({String key, Future<void> Function() move});
@@ -14,10 +16,16 @@ class RouteFitScheduler {
     required RouteFitPlan? Function() plan,
     this.settleDelay = const Duration(milliseconds: 150),
     this.flightLimit = const Duration(seconds: 4),
+    this.mayMove = selectRideMayMoveMap,
   }) : _plan = plan;
 
   final RouteFitPlan? Function() _plan;
   final Duration settleDelay;
+
+  /// Every path (a call, the settle timer, the queued re-run) flies only
+  /// while this says the map is Select ride's; otherwise nothing is flown
+  /// and the framing is not remembered, so the next request flies it.
+  final bool Function() mayMove;
 
   /// A flight that never reports back must not block later fits.
   final Duration flightLimit;
@@ -47,6 +55,7 @@ class RouteFitScheduler {
       _againForced = _againForced || force;
       return;
     }
+    if (!mayMove()) return;
     final plan = _plan();
     if (plan == null || (!force && plan.key == _lastKey)) return;
     _lastKey = plan.key;
