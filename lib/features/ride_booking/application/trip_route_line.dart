@@ -4,6 +4,7 @@ import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/core/maps/straight_line.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
 
 /// A14 (owner 2026-11-05): the one line a booking map draws for a trip,
@@ -73,4 +74,12 @@ int tripStraightMeters(LatLng from, List<RouteStop> stops, LatLng to) {
     total += straightLineMeters(line[i - 1], line[i]);
   }
   return total;
+}
+
+/// v0.18.169 (contract.json#riderTripRouteLine, review SHOULD 1): the line
+/// the booking saved with ride [rideId] (`RideSnapshot.routePolyline`), so
+/// a fresh booking opens Finding drivers with it; null otherwise.
+Future<String?> savedTripRouteLine(String rideId) async {
+  final saved = await RideSnapshotStore.read();
+  return saved?.rideId == rideId ? saved?.routePolyline : null;
 }

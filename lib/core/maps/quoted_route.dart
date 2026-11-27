@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 /// v0.18.167 (contract.json#googleRouteLine, owner 2026-11-26 "Oui,
@@ -28,6 +29,10 @@ class QuotedRoutes {
   /// Tickets handed out before the last [clear] (sign-out) are stale.
   static int _floor = 0;
 
+  /// How many trips have a ticket kept (tests).
+  @visibleForTesting
+  static int get ticketCount => _tickets.length;
+
   /// A ticket for one quote request, taken before it is sent.
   static int nextTicket() => ++_ticket;
 
@@ -36,7 +41,17 @@ class QuotedRoutes {
   static bool _fresh(String key, int? ticket) {
     if (ticket == null) return true;
     if (ticket <= _floor || ticket < (_tickets[key] ?? 0)) return false;
+    // Newest last, so the trim below drops the oldest trips first.
+    _tickets.remove(key);
     _tickets[key] = ticket;
+    // v0.18.169 (review SHOULD 3): trimmed with the kept lines, so the
+    // map stays small; a trip trimmed here has no kept line to protect.
+    while (_tickets.length > limit * 2) {
+      final oldest = _tickets.keys.first;
+      _tickets.remove(oldest);
+      _routes.remove(oldest);
+      _encoded.remove(oldest);
+    }
     return true;
   }
 
@@ -58,8 +73,10 @@ class QuotedRoutes {
     _routes[key] = List<LatLng>.unmodifiable(points);
     _encoded[key] = encoded;
     while (_routes.length > limit) {
-      _encoded.remove(_routes.keys.first);
-      _routes.remove(_routes.keys.first);
+      final oldest = _routes.keys.first;
+      _encoded.remove(oldest);
+      _tickets.remove(oldest);
+      _routes.remove(oldest);
     }
     return true;
   }

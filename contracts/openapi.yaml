@@ -23331,18 +23331,22 @@ components:
           minLength: 1
           description: 'v0.18.169 (contract.json#riderTripRouteLine): TripProjection.routePolyline: the Google encoded polyline
             (precision 5) of the trip, pickup through every stop to the drop-off, as stored from its quote (trips.route_polyline).
-            Sent only in the rider''s own trip reads and command answers (GET /rides/{id}, GET /rider/trips/active) while
-            the trip has not ended; absent once the trip is in a terminal status, when the trip has no stored Google route
-            (estimate, a route change cleared it), to the driver and admin, in realtime events (they stay small; the app keeps
-            the line it read) and from an older server. No extra Google call: it is the polyline the quote''s one call stored.
-            POST /routes is unchanged. Finding driver draws TripProjection.routePolyline first, then the Quote.routePolyline
-            it kept from booking, then the road-route request (POST /routes); the line is kept with the saved ride so a reopen
-            draws it at once, and is forgotten at sign-out with the quote lines. Movera colours only (#12201C, #2FBF5B). The
-            rider''s Finding driver screen leaves on any status past searching, completed included: matched statuses open
-            Waiting for driver; a completed status (completed, payment processing or settled, rating pending) opens Ride completed,
-            the same screen a cold restore shows (never treated as the rider''s cancel, never kept in History as cancelled);
-            a terminal status shows its end sheet. A cancel the server refuses (409 invalid_transition) on a matched or completed
-            trip moves the rider on the same way and never starts the search again.'
+            Sent only in the rider''s own trip reads, GET /trips/{tripId} (rider caller; also its deprecated alias GET /rides/{rideId})
+            and GET /rider/trips/active, while the trip has not ended; never in command answers; absent once the trip is in
+            a terminal status (completed carries no line), when the trip has no stored Google route (estimate, a route change
+            cleared it), to the driver and admin, in realtime events (they stay small; the app keeps the line it read) and
+            from an older server. No extra Google call: it is the polyline the quote''s one call stored. POST /routes is unchanged.
+            Finding driver draws TripProjection.routePolyline first, then the Quote.routePolyline it kept from booking, then
+            the road-route request (POST /routes); the line is kept with the saved ride so a reopen draws it at once, and
+            is forgotten at sign-out with the quote lines. Movera colours only (#12201C, #2FBF5B). The rider''s Finding driver
+            screen leaves on any status past searching, completed included (offered is still searching and stays on Finding,
+            contract.json#bookedRideSeen.searchSeen): every tripStatus.driverAssigned status (accepted, driver_to_pickup,
+            arrived, rider_onboard, in_trip, approaching_dropoff) opens Waiting for driver, which then moves a rider_onboard,
+            in_trip or approaching_dropoff trip on to its restored on-trip view; a completed status (completed, payment processing
+            or settled, rating pending) opens Ride completed, the same screen a cold restore shows (never treated as the rider''s
+            cancel, never kept in History as cancelled); any other terminal status shows its end sheet. A cancel the server
+            refuses (409 invalid_transition) on a tripStatus.driverAssigned or completed trip moves the rider on the same
+            way and never starts the search again.'
     DriverSilentAlert:
       type: object
       description: 'v0.7.0: documents the server''s alert of 2026-10-26: no position for 30 min with the rider on board; the

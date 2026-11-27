@@ -161,4 +161,20 @@ void main() {
     await ask();
     expect(QuotedRoutes.of([_pickup, _dropoff]), isNull);
   });
+
+  test('v0.18.169 SHOULD 3: the tickets are trimmed with the kept lines', () {
+    for (var i = 0; i < QuotedRoutes.limit * 3; i++) {
+      final dropoff = LatLng(59.3 + i / 1000, 18.07);
+      QuotedRoutes.remember(
+        [_pickup, dropoff],
+        _line,
+        ticket: QuotedRoutes.nextTicket(),
+      );
+      QuotedRoutes.forget([
+        dropoff,
+        _pickup,
+      ], ticket: QuotedRoutes.nextTicket());
+    }
+    expect(QuotedRoutes.ticketCount, lessThanOrEqualTo(QuotedRoutes.limit * 2));
+  });
 }
