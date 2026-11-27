@@ -125,6 +125,62 @@ extension _FindingDriverOutcome on FindingDriverController {
     }
   }
 
+  /// 2026-11-27 (stuck Finding): the trip was accepted and finished while
+  /// the app was away, so the first status seen here is a completed one
+  /// (`RideStatusX.isCompletedSurface`). Finding stops, keeps the ride
+  /// saved with that status (the completion surface restores from it; it
+  /// is never archived as cancelled) and hands over to Ride completed.
+  Future<void> _completeCompleted(RideStatus status) async {
+    if (_terminated || _cancelled || _disposed || _assigned) return;
+    if (!status.isCompletedSurface) return;
+    _terminated = true;
+    _assignmentPending = false;
+    _cancelQueued = false;
+    if (identical(FindingDriverController.active, this)) {
+      FindingDriverController.active = null;
+    }
+    _editEpoch += 1;
+    _nearbyRequestEpoch += 1;
+    _pickupUpdateEpoch += 1;
+    _onMatched = null;
+    _tick?.cancel();
+    _tick = null;
+    unawaited(_sub?.cancel());
+    _sub = null;
+    final id = ownedRideId;
+    if (id != null) unawaited(PendingCancelStore.remove(id));
+    AppLog.info(
+      'ride.finding.completed_while_away',
+      extra: {'rideId': id, 'status': status.name},
+    );
+    final snapshot = _snapshot;
+    if (snapshot != null) {
+      try {
+        await _store.save(
+          _ordered(snapshot).copyWith(
+            status: status,
+            savedAt: DateTime.now(),
+            rideId: ride.rideId ?? snapshot.rideId,
+            driver: matchedDriver ?? snapshot.driver,
+          ),
+        );
+      } catch (error) {
+        AppLog.warning(
+          'ride.finding.completed_save_failed',
+          extra: {'rideId': id, 'error': error.toString()},
+        );
+      }
+    }
+    _reportQa();
+    if (_disposed) return;
+    final callback = _onCompleted;
+    if (callback != null) {
+      callback(status);
+    } else {
+      _onTerminal?.call(status);
+    }
+  }
+
   Future<void> _archiveTerminalRide(
     RideSnapshot snapshot,
     RideStatus status,

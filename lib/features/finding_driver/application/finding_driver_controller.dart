@@ -183,6 +183,7 @@ class FindingDriverController {
   double? _catalogPrice;
   void Function()? _onMatched;
   void Function(RideStatus status)? _onTerminal;
+  void Function(RideStatus status)? _onCompleted;
   void Function(int elapsed)? _onTick;
   int timeoutLogs = 0;
   int elapsedSeconds = 0;
@@ -424,6 +425,7 @@ class FindingDriverController {
     required void Function(int elapsed) onTick,
     required void Function() onMatched,
     void Function(RideStatus status)? onTerminal,
+    void Function(RideStatus status)? onCompleted,
     void Function()? onCancelRefused,
   }) {
     final now = DateTime.now();
@@ -472,6 +474,7 @@ class FindingDriverController {
       onTick: onTick,
       onMatched: onMatched,
       onTerminal: onTerminal,
+      onCompleted: onCompleted,
       onCancelRefused: onCancelRefused,
     );
   }
@@ -482,6 +485,7 @@ class FindingDriverController {
     required void Function(int elapsed) onTick,
     required void Function() onMatched,
     void Function(RideStatus status)? onTerminal,
+    void Function(RideStatus status)? onCompleted,
     void Function()? onCancelRefused,
   }) {
     if (_realtime is ApiRideRealtime &&
@@ -493,6 +497,7 @@ class FindingDriverController {
     _catalogPrice = snapshot.price;
     _onMatched = onMatched;
     _onTerminal = onTerminal;
+    _onCompleted = onCompleted;
     _onTick = onTick;
     _onCancelRefused = onCancelRefused;
     _assigned = false;
@@ -609,6 +614,13 @@ class FindingDriverController {
         unawaited(_completeTerminal(event.status));
         return;
       }
+      // 2026-11-27 (stuck Finding): a trip accepted and finished while the
+      // app was in the background shows up here already completed. Finding
+      // leaves for Ride completed; it is not a cancel.
+      if (event.status.isCompletedSurface) {
+        if (!_assigned) unawaited(_completeCompleted(event.status));
+        return;
+      }
       if (event.status == RideStatus.driverAssigned || event.status.isMatched) {
         _completeAssigned();
       }
@@ -720,6 +732,12 @@ class FindingDriverController {
       if (status.isTerminal) {
         _realtime.unsubscribe();
         await _completeTerminal(status);
+        return;
+      }
+      // 2026-11-27 (stuck Finding): completed while the app was away.
+      if (status.isCompletedSurface) {
+        _realtime.unsubscribe();
+        await _completeCompleted(status);
         return;
       }
       if (status.isMatched) {
@@ -955,13 +973,26 @@ class FindingDriverController {
       extra: {'rideId': id, 'result': result.name},
     );
     if (_disposed || _terminated) return result;
+    // 2026-11-27 (stuck Finding): the server refused because the trip is
+    // already completed or matched. Leave Finding for the right screen;
+    // never search again.
+    if (!_assigned && ride.status.isCompletedSurface) {
+      unawaited(_completeCompleted(ride.status));
+      _reportQa();
+      return result;
+    }
     if (_assignmentPending && !_editInFlight) {
       _assignmentPending = false;
+      _completeAssigned();
+    } else if (!_assigned && ride.status.isMatched) {
       _completeAssigned();
     } else if (!_assigned) {
       _startTick();
     }
     if (id != null && !_assigned && !_assignmentPending) {
+      // 2026-11-27: and ask the server directly, so a completed or matched
+      // trip the transport does not bring moves the rider on.
+      unawaited(checkServerSearchState());
       unawaited(
         _realtime.reconnectAndResync(id).catchError((Object error) {
           AppLog.warning(
