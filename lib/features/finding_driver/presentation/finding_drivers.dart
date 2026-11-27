@@ -43,6 +43,9 @@ import 'package:movera_rider/features/active_ride/presentation/waiting_for_drive
 import 'package:movera_rider/features/active_ride/presentation/cancel_preview_note.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
+import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
+import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/domain/nearby_vehicle.dart';
@@ -58,7 +61,6 @@ import 'package:movera_rider/features/finding_driver/presentation/still_looking_
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart'
     show RideSnapshot;
-import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/application/trip_route_line.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
@@ -224,6 +226,10 @@ class _FindingDriversState extends State<FindingDrivers>
   /// Tells an open "Cancel ride?" sheet that a driver accepted (RIDE-15).
   final ValueNotifier<bool> _driverMatched = ValueNotifier<bool>(false);
   RideStatus? _terminalPending;
+
+  /// 2026-11-27 (stuck Finding): a completed status seen while searching
+  /// (the trip was accepted and finished while the app was away).
+  RideStatus? _completedPending;
   bool _overlayOn = false;
 
   /// Whether the sheet is pulled up past its resting height; the collapse
@@ -362,6 +368,11 @@ class _FindingDriversState extends State<FindingDrivers>
         _terminalPending = status;
         _drainDeferredNavigation();
       },
+      onCompleted: (status) {
+        if (!mounted || _leaving) return;
+        _completedPending = status;
+        _drainDeferredNavigation();
+      },
       onCancelRefused: () {
         if (!mounted) return;
         setState(() {});
@@ -398,6 +409,15 @@ class _FindingDriversState extends State<FindingDrivers>
         _pickupEditOpen ||
         _shareSheetOpen ||
         _detailsSheetOpen) {
+      return;
+    }
+
+    final completed = _completedPending;
+    if (completed != null) {
+      _completedPending = null;
+      _terminalPending = null;
+      _matchedPending = false;
+      unawaited(_openCompleted(completed));
       return;
     }
 
@@ -638,6 +658,50 @@ class _FindingDriversState extends State<FindingDrivers>
     if (controller == null || _mapParked) return;
     AppScope.instance.maps.attach(controller, owner: MapOwners.finding);
     unawaited(_refreshRoadRoute());
+  }
+
+  /// 2026-11-27 (stuck Finding): the trip ended while the app was away.
+  /// Same Ride completed screen as a cold restore (RestoredSurface.complete),
+  /// never the cancel flow.
+  Future<void> _openCompleted(RideStatus status) async {
+    if (!mounted || _leaving) return;
+    _leaving = true;
+    _editingPickup = false;
+    final rideId = _match.ownedRideId ?? AppScope.instance.ride.rideId;
+    _match.dispose();
+    setWebOverlayOpen(false);
+    AppScope.instance.maps.detach(owner: MapOwners.finding);
+    try {
+      await ActiveRideController().markCompleted(status);
+    } catch (error) {
+      AppLog.warning(
+        'ride.finding.mark_completed_failed',
+        extra: {'rideId': rideId, 'error': error.toString()},
+      );
+    }
+    if (!mounted) return;
+    final completed = RideCompleted(
+      status: status,
+      rideId: rideId,
+      realtime: widget.realtime,
+      showConnectionBanner: widget.realtime == null,
+    );
+    final navigator = Navigator.of(context);
+    if (!navigator.canPop() &&
+        RideRestoreCoordinator.instance.replaceRootSurface(
+          completed,
+          RestoredSurface.complete,
+        )) {
+      return;
+    }
+    unawaited(
+      navigator.pushReplacement(
+        RideStageTransition(
+          completed,
+          settings: const RouteSettings(name: AppRoutes.rideCompleted),
+        ),
+      ),
+    );
   }
 
   Future<void> _openWaiting() async {
