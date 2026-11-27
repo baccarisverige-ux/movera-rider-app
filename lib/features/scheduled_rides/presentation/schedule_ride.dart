@@ -14,6 +14,8 @@ import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
+import 'package:movera_rider/features/destination_search/domain/place_suggestion.dart';
+import 'package:movera_rider/features/destination_search/presentation/address_suggestion_list.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/scheduled_category_gate.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -70,6 +72,35 @@ class _ScheduleRideState extends State<ScheduleRide> {
 
   final TextEditingController _dropoffController = TextEditingController();
   final List<TextEditingController> _stopControllers = [];
+
+  /// The address field being typed in; its suggestions show under the card.
+  TextEditingController? _typing;
+  final AddressSuggester _suggester = AddressSuggester();
+
+  /// Suggestions the rider picked, per field (address and point). Dropped
+  /// as soon as that field's text changes again.
+  final Map<TextEditingController, PlaceSuggestion> _picked = {};
+
+  /// The picked point for [controller], while its text is still the pick.
+  LatLng? _pickedPoint(TextEditingController controller) {
+    final picked = _picked[controller];
+    final point = picked?.point;
+    if (picked == null || point == null) return null;
+    if (controller.text.trim() != picked.address.trim()) return null;
+    return LatLng(point.latitude, point.longitude);
+  }
+
+  void _pickSuggestion(PlaceSuggestion suggestion) {
+    final controller = _typing;
+    if (controller == null) return;
+    setState(() {
+      controller.text = suggestion.address;
+      _picked[controller] = suggestion;
+      _typing = null;
+    });
+    _suggester.clear();
+    _syncRouteToSession();
+  }
 
   // ignore: unused_field
   GoogleMapController? _mapController;
@@ -129,6 +160,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
       controller.dispose();
     }
     sc.dispose();
+    _suggester.dispose();
     setWebOverlayOpen(false);
     AppScope.instance.maps.detach(owner: MapOwners.schedule);
     super.dispose();
@@ -198,7 +230,9 @@ class _ScheduleRideState extends State<ScheduleRide> {
     // Only the camera start for the pin screen: the rider confirms the real
     // spot there (CODE-5), so a missing fix just opens the default view.
     final start =
-        await resolveScheduledPoint(_pickupLabel) ?? _initialPosition.target;
+        _pickedPoint(_pickupController) ??
+        await resolveScheduledPoint(_pickupLabel) ??
+        _initialPosition.target;
     if (!mounted) return;
     final spot = await ConfirmPickupSpot.open(
       context,
@@ -213,7 +247,10 @@ class _ScheduleRideState extends State<ScheduleRide> {
     // gives the honest arrival estimate on the next screen.
     final LatLng? dropoff;
     try {
-      dropoff = await findScheduledPoint(_dropoffController.text);
+      // A picked suggestion already has its point; else geocode the text.
+      dropoff =
+          _pickedPoint(_dropoffController) ??
+          await findScheduledPoint(_dropoffController.text);
     } on ScheduledPointLookupFailed {
       // rider-r5-23: the lookup failed; the address may be fine.
       if (mounted) MoveraToast.show(context, context.l10n.apiUnreachable);
@@ -272,6 +309,11 @@ class _ScheduleRideState extends State<ScheduleRide> {
 
   void _removeStop(int index) {
     final controller = _stopControllers.removeAt(index);
+    if (_typing == controller) {
+      _typing = null;
+      _suggester.clear();
+    }
+    _picked.remove(controller);
     controller.removeListener(_syncRouteToSession);
     controller.dispose();
     setState(() {});
@@ -419,6 +461,11 @@ class _ScheduleRideState extends State<ScheduleRide> {
                         ],
                       ),
                     ),
+                    if (_typing != null)
+                      AddressSuggestionList(
+                        suggester: _suggester,
+                        onPick: _pickSuggestion,
+                      ),
                     const SizedBox(height: 13),
                     if (_stopsSupported && _stopControllers.length < 3)
                       Align(
@@ -538,7 +585,13 @@ class _ScheduleRideState extends State<ScheduleRide> {
         Expanded(
           child: TextField(
             controller: controller,
-            onChanged: (_) => setState(() {}),
+            onChanged: (value) {
+              setState(() {
+                _typing = controller;
+                _picked.remove(controller);
+              });
+              _suggester.type(value);
+            },
             textInputAction: controller == _dropoffController
                 ? TextInputAction.done
                 : TextInputAction.next,

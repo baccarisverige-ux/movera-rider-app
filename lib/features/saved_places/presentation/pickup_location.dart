@@ -7,6 +7,7 @@ import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/destination_search/presentation/address_suggestion_list.dart';
 import 'package:movera_rider/features/saved_places/application/current_address.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
@@ -47,6 +48,7 @@ class RiderSearchPickupLocation extends StatefulWidget {
 class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
   late final SavedPlacesController _places;
   final TextEditingController _query = TextEditingController();
+  final AddressSuggester _suggester = AddressSuggester();
   bool _searching = false;
   bool _locating = false;
   String? _searchError;
@@ -69,6 +71,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
   @override
   void dispose() {
     _query.dispose();
+    _suggester.dispose();
     super.dispose();
   }
 
@@ -200,6 +203,11 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                       controller: _query,
                       textInputAction: TextInputAction.search,
                       onFieldSubmitted: (_) => unawaited(_submitQuery()),
+                      onChangedbool: true,
+                      onChanged: (value) {
+                        setState(() => _searchError = null);
+                        _suggester.type(value);
+                      },
                       borderColor: Colors.transparent,
                       borderWidth: 0,
                       borderRadius: 0,
@@ -344,11 +352,19 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                 ),
                 10.height,
               ],
-              _buildEmptyState(
-                icon: Icons.search_off_rounded,
-                title: context.l10n.spNoSearchResults,
-                subtitle: context.l10n.spNoSuggestionsBody,
-                backgroundColor: const Color(0xffF5F4F1),
+              // The same suggestions "Where to?" shows while typing; tapping
+              // one returns its address. Enter / search still geocodes the
+              // typed text (D-023) as the fallback.
+              AddressSuggestionList(
+                key: const ValueKey('saved-place-suggestions'),
+                suggester: _suggester,
+                onPick: (s) => _finish(s.address),
+                empty: _buildEmptyState(
+                  icon: Icons.search_off_rounded,
+                  title: context.l10n.spNoSearchResults,
+                  subtitle: context.l10n.spNoSuggestionsBody,
+                  backgroundColor: const Color(0xffF5F4F1),
+                ),
               ),
               20.height,
             ],
