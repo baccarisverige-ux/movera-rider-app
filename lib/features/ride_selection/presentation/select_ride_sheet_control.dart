@@ -232,8 +232,13 @@ extension _SelectRideSheetControl on _SelectRideState {
   }
 
   /// Frames the route above the sheet. [force] flies an unchanged framing
-  /// too (a newly created map starts from its own camera).
-  Future<void> _fitRoute({bool force = false}) => _fits.fit(force: force);
+  /// too (a newly created map starts from its own camera). Only while this
+  /// screen owns the map: Confirm and search keeps Set pickup's map on top,
+  /// and a fit there moved its pin and re-geocoded the confirmed pickup.
+  Future<void> _fitRoute({bool force = false}) async {
+    if (AppScope.instance.maps.activeOwner != MapOwners.selectRide) return;
+    await _fits.fit(force: force);
+  }
 
   /// rider-74: the wallet alone cannot pay a fare above its balance. Says
   /// so and returns true when the wallet is the chosen method for it.
