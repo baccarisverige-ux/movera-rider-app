@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/core/constants/appcolors.dart';
-import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
+import 'package:movera_rider/features/home/application/home_places_controller.dart';
 import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
+import 'package:movera_rider/features/saved_places/presentation/place_save_sheet.dart';
+import 'package:movera_rider/features/saved_places/presentation/saved_places_style.dart';
 import 'package:movera_rider/shared/design_system/movera_confirm_sheet.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
-import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
-import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
@@ -84,175 +82,142 @@ class _SavedPlacesState extends State<SavedPlaces> {
     await _reload();
   }
 
+  /// Home's limit (homeMaxCustomPlaces, home_route_flow.dart
+  /// `_openAddPlacePicker`) holds when adding from the Menu too.
+  void _addPlace() {
+    final custom = _places
+        .shortcuts()
+        .where((p) => p.kind != 'home' && p.kind != 'office')
+        .length;
+    if (custom >= HomePlacesController.maxCustom) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.homeMaxCustomPlaces)));
+      return;
+    }
+    _openEditor();
+  }
+
   @override
   Widget build(BuildContext context) {
     final shortcuts = _places.shortcuts();
+    PlaceShortcut? slot(String kind) =>
+        shortcuts.where((p) => p.kind == kind).firstOrNull;
+    final home = slot('home');
+    final work = slot('office');
+    final others = shortcuts
+        .where((p) => p.kind != 'home' && p.kind != 'office')
+        .toList();
+    // Saved places v4 (owner 2026-11-27): white, FAVORITER (Home, Work),
+    // ANDRA PLATSER (the rest), then "Lägg till plats".
     return Scaffold(
-      body: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            55.height,
-            // UI-11: a 44 px tap area and a name for screen readers; the
-            // 30 px circle looks the same.
-            MoveraHitArea(
-              label: context.l10n.back,
-              alignment: Alignment.centerLeft,
-              onTap: () => Navigator.pop(context),
-              child: InkWell(
-                excludeFromSemantics: true,
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  height: ResSize.h * 30,
-                  width: ResSize.w * 30,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColor.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xff999999).withValues(alpha: 0.4),
-                        blurRadius: 40,
-                        offset: const Offset(0, 4),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // UI-11: a 44 px named tap area.
+              SpStyle.back(context, context.l10n.back, () {
+                Navigator.pop(context);
+              }),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: SpStyle.side),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    8.height,
+                    SpStyle.title(context.l10n.menuSavedPlaces),
+                    6.height,
+                    Text(
+                      context.l10n.spQuickTagline,
+                      style: SpStyle.text(size: 14, color: SpStyle.muted),
+                    ),
+                    if (_loading) ...[
+                      24.height,
+                      const Center(
+                        child: CircularProgressIndicator(color: SpStyle.ink),
+                      ),
+                    ] else if (_loadError != null) ...[
+                      24.height,
+                      Text(
+                        _loadError!,
+                        style: SpStyle.text(size: 14, color: SpStyle.muted),
+                      ),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: SpStyle.ink,
+                        ),
+                        onPressed: () {
+                          setState(() => _loading = true);
+                          _reload();
+                        },
+                        child: Text(context.l10n.tryAgain),
+                      ),
+                    ] else ...[
+                      SpStyle.section(context.l10n.spFavoritesHeader),
+                      home == null
+                          ? _addRow(context.l10n.spAddHome, 'home')
+                          : _savedRow(home),
+                      work == null
+                          ? _addRow(context.l10n.spAddWork, 'office')
+                          : _savedRow(work),
+                      if (others.isNotEmpty) ...[
+                        SpStyle.section(context.l10n.spOtherPlacesHeader),
+                        for (final place in others) _savedRow(place),
+                      ],
+                      SpStyle.row(
+                        key: const ValueKey('saved-places-add'),
+                        icon: Icons.add,
+                        name: context.l10n.spAddLocation,
+                        divider: false,
+                        onTap: _addPlace,
                       ),
                     ],
-                  ),
-                  child: Center(
-                    child: Icon(
-                      Icons.arrow_back_ios_rounded,
-                      color: AppColor.title,
-                      size: ResSize.h * 16,
-                    ),
-                  ),
+                  ],
                 ),
-              ),
-            ),
-            16.height,
-            TextWidget(
-              text: context.l10n.menuSavedPlaces,
-              color: AppColor.title,
-              fontSize: 20,
-              fontWeight: fwMedium,
-            ),
-            TextWidget(
-              text: context.l10n.spTagline,
-              color: AppColor.subtitle,
-              fontSize: 14,
-              fontWeight: fwMedium,
-            ),
-            24.height,
-            if (_loading)
-              const Center(child: CircularProgressIndicator())
-            else if (_loadError != null) ...[
-              Text(_loadError!, style: TextStyle(color: AppColor.subtitle)),
-              TextButton(
-                onPressed: () {
-                  setState(() => _loading = true);
-                  _reload();
-                },
-                child: Text(context.l10n.tryAgain),
-              ),
-            ] else ...[
-              for (final place in shortcuts) _savedRow(place),
-              if (!shortcuts.any((item) => item.kind == 'home'))
-                _addRow(context.l10n.spAddHome, 'home', Icons.house_rounded),
-              if (!shortcuts.any((item) => item.kind == 'office'))
-                _addRow(
-                  context.l10n.spAddWork,
-                  'office',
-                  Icons.work_outline_rounded,
-                ),
-              if (!shortcuts.any((item) => item.kind == 'school'))
-                _addRow(
-                  context.l10n.spAddSchool,
-                  'school',
-                  Icons.bookmark_outline_rounded,
-                ),
-              if (!shortcuts.any((item) => item.kind == 'gym'))
-                _addRow(
-                  context.l10n.spAddGym,
-                  'gym',
-                  Icons.fitness_center_rounded,
-                ),
-              _addRow(
-                context.l10n.spAddAnother,
-                null,
-                Icons.add_location_alt_outlined,
               ),
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _savedRow(PlaceShortcut place) {
-    return Column(
-      children: [
-        10.height,
-        Row(
-          children: [
-            const Icon(Icons.place_outlined),
-            10.width,
-            Expanded(
-              child: InkWell(
-                onTap: () => _openEditor(place: place),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(place.title),
-                    Text(
-                      place.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: AppColor.subtitle, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
+    return SpStyle.row(
+      icon: placeTypeIcon(place.kind),
+      name: place.title,
+      address: place.subtitle,
+      onTap: () => _openEditor(place: place),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: context.l10n.spEditPlace(place.title),
+            onPressed: () => _openEditor(place: place),
+            icon: const Icon(Icons.edit_outlined, color: SpStyle.ink, size: 20),
+          ),
+          IconButton(
+            tooltip: context.l10n.spDeletePlace(place.title),
+            onPressed: () => _delete(place),
+            icon: const Icon(
+              Icons.delete_outline,
+              color: SpStyle.ink,
+              size: 20,
             ),
-            IconButton(
-              tooltip: context.l10n.spEditPlace(place.title),
-              onPressed: () => _openEditor(place: place),
-              icon: const Icon(Icons.edit_outlined),
-            ),
-            IconButton(
-              tooltip: context.l10n.spDeletePlace(place.title),
-              onPressed: () => _delete(place),
-              icon: const Icon(Icons.delete_outline),
-            ),
-          ],
-        ),
-        Divider(color: AppColor.border, thickness: 0.5),
-      ],
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _addRow(String title, String? kind, IconData icon) {
-    return InkWell(
+  Widget _addRow(String title, String kind) {
+    return SpStyle.row(
+      icon: placeTypeIcon(kind),
+      name: title,
       onTap: () => _openEditor(kind: kind),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        child: Row(
-          children: [
-            Icon(icon, color: AppColor.subtitle, size: ResSize.h * 24),
-            10.width,
-            Expanded(
-              child: TextWidget(
-                text: title,
-                color: AppColor.subtitle,
-                fontSize: 14,
-                fontWeight: fwMedium,
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios_rounded,
-              color: AppColor.subtitle,
-              size: ResSize.h * 18,
-            ),
-          ],
-        ),
-      ),
+      trailing: const Icon(Icons.chevron_right, color: SpStyle.muted, size: 20),
     );
   }
 }

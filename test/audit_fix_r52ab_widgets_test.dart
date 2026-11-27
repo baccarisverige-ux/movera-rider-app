@@ -395,7 +395,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextFormField).first, 'Kungsgatan 4');
+    await tester.enterText(find.byType(TextField).first, 'Kungsgatan 4');
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pumpAndSettle();
 

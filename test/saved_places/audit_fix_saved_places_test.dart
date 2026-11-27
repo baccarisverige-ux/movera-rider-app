@@ -44,9 +44,9 @@ void main() {
     (tester) async {
       await _pump(tester, const AddPlace(kind: 'home'));
       await tester.enterText(find.byType(TextField).first, 'Home');
-      await tester.tap(find.text('Add location'));
+      await tester.tap(find.byKey(const ValueKey('add-place-address')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('CURRENT'));
+      await tester.tap(find.text('Use current location'));
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 200)),
       );
@@ -54,8 +54,8 @@ void main() {
       // No location in the test host: the picker explains, nothing is chosen.
       expect(find.text('Pickup location'), findsOneWidget);
       expect(find.textContaining('for the address'), findsOneWidget);
-      if (find.text('Save').evaluate().isNotEmpty) {
-        await tester.tap(find.text('Save'));
+      if (find.text('Save place').evaluate().isNotEmpty) {
+        await tester.tap(find.text('Save place'));
         await tester.pumpAndSettle();
       }
       final values = (await tester.runAsync(_savedValues))!;
@@ -74,11 +74,11 @@ void main() {
       ),
     );
     await tester.enterText(find.byType(TextField).first, 'Home');
-    await tester.tap(find.text('Add location'));
+    await tester.tap(find.byKey(const ValueKey('add-place-address')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('CURRENT'));
+    await tester.tap(find.text('Use current location'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.text('Save place'));
     await tester.pumpAndSettle();
     final prefs = (await tester.runAsync(SharedPreferences.getInstance))!;
     expect(
@@ -110,11 +110,11 @@ void main() {
     // "Add another place": no kind, no initial place.
     await _pump(tester, AddPlace(controller: places));
     await tester.enterText(find.byType(TextField).first, 'Home');
-    await tester.tap(find.text('Add location'));
+    await tester.tap(find.byKey(const ValueKey('add-place-address')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Kungsgatan 5'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.text('Save place'));
     await tester.pumpAndSettle();
 
     expect(find.text('Replace your saved Home?'), findsOneWidget);

@@ -143,12 +143,12 @@ void main() {
         ),
         'Saved places': (
           () async => const SavedPlaces(),
-          (l) => l.spAddAnother,
+          (l) => l.spQuickTagline,
         ),
-        'Add place': (() async => const AddPlace(), (l) => l.spAddNewAddress),
+        'Add place': (() async => const AddPlace(), (l) => l.spSavePlace),
         'Pickup location': (
           () async => const RiderSearchPickupLocation(),
-          (l) => l.spYourLastTrip,
+          (l) => l.useCurrentLocation,
         ),
         'Chat': (() async => const Chat(), (l) => l.chatNoMessages),
         'Schedule a ride': (

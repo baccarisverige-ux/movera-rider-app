@@ -38,7 +38,7 @@ void main() {
     await tester.enterText(find.byType(TextField), 'Odenplan');
     await tester.tap(find.byKey(const ValueKey('saved-place-search')));
     await tester.pump();
-    await tester.tap(find.byIcon(Icons.close));
+    await tester.tap(find.byIcon(Icons.chevron_left));
     await tester.pump(const Duration(milliseconds: 50));
     answer.complete(
       const PlaceResult(address: 'Odenplan', point: GeoPoint(59.34, 18.05)),

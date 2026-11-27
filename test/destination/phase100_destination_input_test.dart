@@ -223,7 +223,7 @@ void main() {
       );
 
       await tester.enterText(
-        find.byType(TextFormField).first,
+        find.byType(TextField).first,
         ' drottning 10 ',
       );
       await tester.testTextInput.receiveAction(TextInputAction.search);
@@ -244,7 +244,7 @@ void main() {
         onResult: (value) => result = value,
       );
 
-      await tester.enterText(find.byType(TextFormField).first, 'nowhere');
+      await tester.enterText(find.byType(TextField).first, 'nowhere');
       await tester.tap(find.byKey(const ValueKey('saved-place-search')));
       await tester.pumpAndSettle();
 

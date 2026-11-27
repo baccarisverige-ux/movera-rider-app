@@ -1637,6 +1637,10 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'placesNoThanks': l.placesNoThanks,
   'placesChangeCategory': l.placesChangeCategory,
   'placesCategoryNotHere': l.placesCategoryNotHere('<category>'),
+  'spQuickTagline': l.spQuickTagline,
+  'spFavoritesHeader': l.spFavoritesHeader,
+  'spOtherPlacesHeader': l.spOtherPlacesHeader,
+  'spSavePlace': l.spSavePlace,
   'whereTo': l.whereTo,
   'currentLocation': l.currentLocation,
   'homeSearchInterrupted': l.homeSearchInterrupted,
@@ -5429,6 +5433,14 @@ class _Exhaustive implements AppLocalizations {
   String get placesChangeCategory => '';
   @override
   String placesCategoryNotHere(String category) => '';
+  @override
+  String get spQuickTagline => '';
+  @override
+  String get spFavoritesHeader => '';
+  @override
+  String get spOtherPlacesHeader => '';
+  @override
+  String get spSavePlace => '';
   @override
   String get whereTo => '';
   @override

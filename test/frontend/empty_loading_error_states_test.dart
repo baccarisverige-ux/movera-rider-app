@@ -295,14 +295,14 @@ void main() {
 
     await tester.tap(find.text('Home'));
     await tester.pumpAndSettle();
-    expect(find.text('Add new address'), findsOneWidget);
+    expect(find.text('New place'), findsOneWidget);
     expect(find.text('Add location'), findsOneWidget);
 
-    Navigator.of(tester.element(find.text('Add new address'))).pop();
+    Navigator.of(tester.element(find.text('New place'))).pop();
     await tester.pumpAndSettle();
     await tester.tap(find.text('Work'));
     await tester.pumpAndSettle();
-    expect(find.text('Add new address'), findsOneWidget);
+    expect(find.text('New place'), findsOneWidget);
   });
 
   testWidgets('saved Home shortcut selects the stored address', (tester) async {
@@ -345,7 +345,7 @@ void main() {
     await tester.tap(find.text('Home'));
     await tester.pumpAndSettle();
     expect(selected, 'Klockarvägen 37');
-    expect(find.text('Add new address'), findsNothing);
+    expect(find.text('New place'), findsNothing);
     expect(find.text('Open pickup'), findsOneWidget);
   });
 
@@ -657,10 +657,13 @@ void main() {
       'Schedule a ride',
     ),
     (
+      // Saved places v4 (owner 2026-11-27): the picker shows Home and Work
+      // (not saved yet) and "Use current location"; the dead "Your last
+      // trip" box is gone.
       'Saved places',
-      'No recent trips yet',
-      'Completed trips will appear here when real ride history is available.',
       'Not saved yet',
+      'Use current location',
+      null,
     ),
     (
       'Emergency contacts',

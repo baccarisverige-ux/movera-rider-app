@@ -1,22 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/location/geocoding_repository.dart';
-import 'package:movera_rider/core/constants/appassets.dart';
-import 'package:movera_rider/core/constants/appcolors.dart';
-import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/destination_search/presentation/address_suggestion_list.dart';
 import 'package:movera_rider/features/saved_places/application/current_address.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
 import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
-import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
+import 'package:movera_rider/features/saved_places/presentation/place_save_sheet.dart';
+import 'package:movera_rider/features/saved_places/presentation/saved_places_style.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
-import 'package:movera_rider/shared/widgets/custom_textfield.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
-import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
@@ -148,231 +143,157 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
   @override
   Widget build(BuildContext context) {
     final shortcuts = _places.shortcuts();
-    final homeSubtitle = _shortcutSubtitle(
-      shortcuts,
-      'home',
-      fallback: context.l10n.spNotSavedYet,
-    );
-    final workSubtitle = _shortcutSubtitle(
-      shortcuts,
-      'office',
-      fallback: context.l10n.spNotSavedYet,
-    );
-
+    final typed = _query.text.trim().isNotEmpty;
+    // Saved places v4 (owner 2026-11-27): white page, back chevron, an
+    // underline search field, then "Use current location" and the real
+    // suggestions with the typed part in bold.
     return Scaffold(
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              50.height,
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  // rider-u224: a named 44 px target around the 26 px circle.
-                  MoveraHitArea(
-                    label: context.l10n.close,
-                    onTap: _leave,
-                    child: Container(
-                      height: ResSize.h * 26,
-                      width: ResSize.w * 26,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColor.black,
-                      ),
-                      child: Icon(Icons.close, color: AppColor.white, size: 19),
-                    ),
-                  ),
-                ],
-              ),
-              22.height,
-              Container(
-                padding: EdgeInsets.symmetric(vertical: ResSize.h * 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xffF3F6FB),
-                  border: Border.all(color: AppColor.border, width: 0.5),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(10),
-                    topRight: Radius.circular(10),
-                  ),
-                ),
-                child: Stack(
+              // rider-u224: a named 44 px target (Close leaves without an
+              // address, as before).
+              SpStyle.back(context, context.l10n.close, _leave),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: SpStyle.side),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    customTextfield(
+                    8.height,
+                    SpStyle.title(context.l10n.spSearchAddress),
+                    20.height,
+                    TextField(
                       controller: _query,
+                      autofocus: true,
                       textInputAction: TextInputAction.search,
-                      onFieldSubmitted: (_) => unawaited(_submitQuery()),
-                      onChangedbool: true,
+                      onSubmitted: (_) => unawaited(_submitQuery()),
                       onChanged: (value) {
                         setState(() => _searchError = null);
                         _suggester.type(value);
                       },
-                      borderColor: Colors.transparent,
-                      borderWidth: 0,
-                      borderRadius: 0,
-                      contentHorizPadding: 10,
-                      hint: context.l10n.spPickupLocation,
-                      contentVertPadding: 0,
-                      fontSize: 16,
-                      textColor: AppColor.black,
-                      fillColor: Colors.transparent,
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          IconButton(
-                            key: const ValueKey('saved-place-search'),
-                            tooltip: context.l10n.spSearchAddress,
-                            onPressed: _searching || _locating
-                                ? null
-                                : () => unawaited(_submitQuery()),
-                            icon: _searching
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.search_rounded, size: 20),
-                          ),
-                          TextButton(
-                            // Returns the address of the device position.
-                            onPressed: _locating || _searching
-                                ? null
-                                : () => unawaited(_useCurrentLocation()),
-                            child: SizedBox(
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  Image.asset(
-                                    AppAssets.gps,
-                                    height: ResSize.h * 18,
-                                    color: AppColor.black,
+                      style: SpStyle.text(),
+                      cursorColor: SpStyle.ink,
+                      decoration: SpStyle.underline(
+                        hint: context.l10n.spPickupLocation,
+                        prefix: const Icon(
+                          Icons.search,
+                          color: SpStyle.ink,
+                          size: 20,
+                        ),
+                        suffix: IconButton(
+                          key: const ValueKey('saved-place-search'),
+                          tooltip: context.l10n.spSearchAddress,
+                          onPressed: _searching || _locating
+                              ? null
+                              : () => unawaited(_submitQuery()),
+                          icon: _searching
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: SpStyle.ink,
                                   ),
-                                  4.width,
-                                  TextWidget(
-                                    text: context.l10n.pickupCurrentUpper,
-                                    fontSize: 8,
-                                    fontWeight: fwBold,
-                                    color: AppColor.black,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
+                                )
+                              : const Icon(
+                                  Icons.arrow_forward,
+                                  color: SpStyle.ink,
+                                  size: 20,
+                                ),
+                        ),
                       ),
                     ),
+                    8.height,
+                    if (_searchError != null) ...[
+                      Semantics(
+                        liveRegion: true,
+                        child: TextWidget(
+                          key: const ValueKey('saved-place-search-error'),
+                          text: _searchError!,
+                          color: const Color(0xFF9A3412),
+                          fontSize: 12.5,
+                        ),
+                      ),
+                      8.height,
+                    ],
+                    // The same suggestions "Where to?" shows while typing;
+                    // tapping one returns its address. Enter / search still
+                    // geocodes the typed text (D-023) as the fallback.
+                    AddressSuggestionList(
+                      key: const ValueKey('saved-place-suggestions'),
+                      suggester: _suggester,
+                      style: AddressSuggestionStyle.plain,
+                      currentLocationLabel: _locating
+                          ? context.l10n.findingYourAddress
+                          : context.l10n.useCurrentLocation,
+                      onUseCurrentLocation: _locating || _searching
+                          ? () {}
+                          : () => unawaited(_useCurrentLocation()),
+                      onPick: (s) => _finish(s.address),
+                      empty: typed ? _noResults() : _savedShortcuts(shortcuts),
+                    ),
+                    20.height,
                   ],
                 ),
               ),
-              2.height,
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildSavedPlace(
-                      icon: AppAssets.home,
-                      title: context.l10n.placeHome,
-                      subtitle: homeSubtitle,
-                      isLeftRounded: true,
-                      onTap: _shortcutTap(homeSubtitle),
-                    ),
-                  ),
-                  2.width,
-                  Expanded(
-                    child: _buildSavedPlace(
-                      icon: AppAssets.office,
-                      title: context.l10n.placeWork,
-                      subtitle: workSubtitle,
-                      onTap: _shortcutTap(workSubtitle),
-                    ),
-                  ),
-                  // rider-r4-46: Favorite only adds a place; a picker that
-                  // cannot (Add place's own) does not show a dead chip.
-                  if (widget.allowCreateShortcut) ...[
-                    2.width,
-                    InkWell(
-                      onTap: () =>
-                          _onShortcutTap(subtitle: context.l10n.spNotSavedYet),
-                      child: _buildFavorite(),
-                    ),
-                  ],
-                ],
-              ),
-              10.height,
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: ResSize.w * 10,
-                  vertical: ResSize.h * 14,
-                ),
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: AppColor.liteBlue,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextWidget(
-                      text: context.l10n.spYourLastTrip,
-                      color: AppColor.black,
-                      fontSize: 16,
-                      fontWeight: fwSemiBold,
-                    ),
-                    10.height,
-                    _buildEmptyState(
-                      icon: Icons.history_rounded,
-                      title: context.l10n.spNoRecentTrips,
-                      subtitle: context.l10n.spNoRecentTripsBody,
-                    ),
-                  ],
-                ),
-              ),
-              24.height,
-              TextWidget(
-                text: context.l10n.spSearchResults,
-                color: AppColor.black,
-                fontSize: 16,
-                fontWeight: fwSemiBold,
-              ),
-              10.height,
-              if (_searchError != null) ...[
-                Semantics(
-                  liveRegion: true,
-                  child: TextWidget(
-                    key: const ValueKey('saved-place-search-error'),
-                    text: _searchError!,
-                    color: const Color(0xFF9A3412),
-                    fontSize: 12.5,
-                  ),
-                ),
-                10.height,
-              ],
-              // The same suggestions "Where to?" shows while typing; tapping
-              // one returns its address. Enter / search still geocodes the
-              // typed text (D-023) as the fallback.
-              AddressSuggestionList(
-                key: const ValueKey('saved-place-suggestions'),
-                suggester: _suggester,
-                onPick: (s) => _finish(s.address),
-                empty: _buildEmptyState(
-                  icon: Icons.search_off_rounded,
-                  title: context.l10n.spNoSearchResults,
-                  subtitle: context.l10n.spNoSuggestionsBody,
-                  backgroundColor: const Color(0xffF5F4F1),
-                ),
-              ),
-              20.height,
             ],
           ),
         ),
       ),
     );
   }
+
+  /// Nothing typed: Home and Work (a saved one returns its address).
+  Widget _savedShortcuts(List<PlaceShortcut> shortcuts) {
+    Widget slot(String kind, String name, IconData icon) {
+      final subtitle = _shortcutSubtitle(
+        shortcuts,
+        kind,
+        fallback: context.l10n.spNotSavedYet,
+      );
+      return SpStyle.row(
+        icon: icon,
+        name: name,
+        address: subtitle,
+        onTap: _shortcutTap(subtitle),
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        slot('home', context.l10n.placeHome, placeTypeIcon('home')),
+        slot('office', context.l10n.placeWork, placeTypeIcon('office')),
+        // rider-r4-46: Favorite only adds a place; a picker that cannot
+        // (Add place's own) does not show a dead row.
+        if (widget.allowCreateShortcut)
+          SpStyle.row(
+            icon: Icons.star_outline,
+            name: context.l10n.spFavorite,
+            divider: false,
+            onTap: () => _onShortcutTap(subtitle: context.l10n.spNotSavedYet),
+          ),
+      ],
+    );
+  }
+
+  Widget _noResults() => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(context.l10n.spNoSearchResults, style: SpStyle.text(size: 14)),
+        2.height,
+        Text(
+          context.l10n.spNoSuggestionsBody,
+          style: SpStyle.text(size: 13, color: SpStyle.muted),
+        ),
+      ],
+    ),
+  );
 
   bool _isSaved(String subtitle) =>
       subtitle.trim().isNotEmpty && subtitle != context.l10n.spNotSavedYet;
@@ -399,102 +320,6 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
     });
   }
 
-  double _chipHeight() {
-    final scaled = ResSize.h * 57;
-    return scaled < 56 ? 56 : scaled;
-  }
-
-  Widget _buildSavedPlace({
-    required String icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback? onTap,
-    bool isLeftRounded = false,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: isLeftRounded
-            ? const BorderRadius.only(bottomLeft: Radius.circular(10))
-            : BorderRadius.zero,
-        child: Container(
-          constraints: BoxConstraints(minHeight: _chipHeight()),
-          decoration: BoxDecoration(
-            borderRadius: isLeftRounded
-                ? const BorderRadius.only(bottomLeft: Radius.circular(10))
-                : null,
-            color: AppColor.liteBlue,
-            border: Border.all(color: AppColor.border, width: 0.5),
-          ),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: ResSize.w * 10),
-            child: Row(
-              children: [
-                Image.asset(icon, height: ResSize.h * 20),
-                10.width,
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextWidget(
-                        text: title,
-                        fontSize: 12,
-                        fontWeight: fwSemiBold,
-                        color: const Color(0xff5E5E5E),
-                      ),
-                      2.height,
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.poppins(
-                          fontSize: 10,
-                          fontWeight: fwNormal,
-                          color: const Color(0xff5E5E5E),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFavorite() {
-    return Container(
-      constraints: BoxConstraints(minHeight: _chipHeight()),
-      decoration: BoxDecoration(
-        borderRadius: const BorderRadius.only(bottomRight: Radius.circular(10)),
-        color: AppColor.liteBlue,
-        border: Border.all(color: AppColor.border, width: 0.5),
-      ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: ResSize.w * 10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(AppAssets.star, height: ResSize.h * 18),
-            4.height,
-            TextWidget(
-              text: context.l10n.spFavorite,
-              fontSize: 12,
-              fontWeight: fwSemiBold,
-              color: const Color(0xff5E5E5E),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   String _shortcutSubtitle(
     List<PlaceShortcut> shortcuts,
     String kind, {
@@ -507,52 +332,5 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
       }
     }
     return fallback;
-  }
-
-  Widget _buildEmptyState({
-    required String title,
-    required String subtitle,
-    IconData icon = Icons.info_outline_rounded,
-    Color? backgroundColor,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(
-        horizontal: ResSize.w * 10,
-        vertical: ResSize.h * 12,
-      ),
-      decoration: BoxDecoration(
-        color: backgroundColor ?? AppColor.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColor.border, width: 0.5),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: ResSize.h * 18, color: AppColor.subtitle),
-          8.width,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextWidget(
-                  text: title,
-                  color: AppColor.black,
-                  fontSize: 12,
-                  fontWeight: fwSemiBold,
-                ),
-                2.height,
-                TextWidget(
-                  text: subtitle,
-                  color: const Color(0xff5E5E5E),
-                  fontSize: 10,
-                  fontWeight: fwNormal,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

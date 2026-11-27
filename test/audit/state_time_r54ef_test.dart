@@ -597,7 +597,7 @@ void main() {
     );
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('CURRENT'));
+    await tester.tap(find.text('Use current location'));
     await tester.pump();
     await tester.enterText(find.byType(TextField), 'Odenplan');
     await tester.tap(find.byKey(const ValueKey('saved-place-search')));

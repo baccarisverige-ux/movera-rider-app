@@ -61,6 +61,8 @@ import 'package:movera_rider/features/home/presentation/widgets/premium_top_acti
 import 'package:movera_rider/features/home/presentation/widgets/places_popup.dart';
 import 'package:movera_rider/features/saved_places/application/quick_save.dart';
 import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
+import 'package:movera_rider/features/destination_search/presentation/address_suggestion_list.dart';
+import 'package:movera_rider/features/saved_places/presentation/saved_places_style.dart';
 import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
 import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
@@ -292,7 +294,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   static const Color _premiumMuted = Color(0xFF5C656C);
   static const Color _premiumLine = Color(0xFFE7EBEE);
   static const Color _premiumAccent = Color(0xFF2D5878);
-  static const Color _premiumAccentSoft = Color(0xFFEAF2F8);
 
   @override
   void initState() {

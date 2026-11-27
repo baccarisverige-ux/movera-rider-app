@@ -57,11 +57,11 @@ void main() {
     await tester.tap(find.text('Open AddPlace'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Gym');
-    await tester.tap(find.text('Add location'));
+    await tester.tap(find.byKey(const ValueKey('add-place-address')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('CURRENT'));
+    await tester.tap(find.text('Use current location'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.text('Save place'));
     await tester.pumpAndSettle();
 
     expect(returned, isNotNull);
