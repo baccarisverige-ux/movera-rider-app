@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
+import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/saved_places/presentation/pickup_location.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
@@ -148,4 +149,36 @@ void main() {
       expect(geocodes, 0, reason: 'a picked suggestion needs no geocode');
     },
   );
+
+  final booked = Reservation.tryParse({
+    'reservationId': 'rsv_1',
+    'createdAt': '2026-10-20T10:00:00Z',
+    'scheduledPickupAt': '2026-12-22T08:00:00Z',
+    'pickup': {'label': 'Klockarvägen 37', 'lat': 59.3, 'lng': 18.0},
+    'destination': {'label': 'Arlanda Airport', 'lat': 59.6, 'lng': 17.9},
+  })!;
+  for (final (field, name) in [(0, 'pickup'), (1, 'dropoff')]) {
+    testWidgets('Changing a booked ride: $name field shows suggestions', (
+      t,
+    ) async {
+      size(t);
+      await t.pumpWidget(
+        ScreenUtilInit(
+          designSize: const Size(390, 844),
+          builder: (_, _) => MaterialApp(home: ScheduleRide(editing: booked)),
+        ),
+      );
+      await t.pumpAndSettle();
+      await t.enterText(find.byType(TextField).at(field), 'Friend');
+      await t.pump(const Duration(seconds: 1));
+      await t.pumpAndSettle();
+      expect(find.byKey(const ValueKey('address-suggestions')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('address-suggestion-0')),
+        findsOneWidget,
+      );
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 10));
+    });
+  }
 }
