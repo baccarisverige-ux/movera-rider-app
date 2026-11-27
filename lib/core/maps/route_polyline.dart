@@ -134,8 +134,14 @@ const int _routeGradientSteps = 12;
 
 /// Draws [route] the Rider way: a white casing under a line that fades from
 /// the green pickup to the blue destination. google_maps_flutter has no
-/// gradient polylines, so the line is split into short pieces.
-Set<Polyline> styledRoute(Polyline route) {
+/// gradient polylines, so the line is split into short pieces. [casing] and
+/// [colorAt] change the colours (v0.18.169: Finding driver draws the
+/// Movera colours, RiderRouteStyle.moveraInk / moveraAt).
+Set<Polyline> styledRoute(
+  Polyline route, {
+  Color casing = RiderRouteStyle.casing,
+  Color Function(double t) colorAt = RiderRouteStyle.at,
+}) {
   final points = route.points;
   final id = route.polylineId.value;
   if (points.length < 2) return {route};
@@ -144,7 +150,7 @@ Set<Polyline> styledRoute(Polyline route) {
     Polyline(
       polylineId: PolylineId('$id-casing'),
       points: points,
-      color: RiderRouteStyle.casing,
+      color: casing,
       width: width + 4,
       zIndex: 1,
     ),
@@ -188,7 +194,7 @@ Set<Polyline> styledRoute(Polyline route) {
       Polyline(
         polylineId: PolylineId('$id-$s'),
         points: piece,
-        color: RiderRouteStyle.at((s + 0.5) / _routeGradientSteps),
+        color: colorAt((s + 0.5) / _routeGradientSteps),
         width: width,
         zIndex: 2,
       ),

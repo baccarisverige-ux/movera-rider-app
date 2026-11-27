@@ -259,6 +259,16 @@ extension _SelectRideBookNow on _SelectRideState {
       }
     }
 
+    // v0.18.169 (contract.json#riderTripRouteLine): the line the booking
+    // saved with this ride, so Finding drivers keeps it.
+    final routeLine = await savedTripRouteLine(rideId);
+    if (!mounted) {
+      await RideRestoreCoordinator.instance.recoverCreatedFinding(
+        rideId,
+        realtime: widget.realtime,
+      );
+      return;
+    }
     SheetCoordinator.instance.open(RideSheet.finding);
     try {
       final navigator = Navigator.of(context);
@@ -278,6 +288,7 @@ extension _SelectRideBookNow on _SelectRideState {
           realtime: widget.realtime,
           etaMinutes: selected.etaMin,
           tripMinutes: quote.tripMinutes,
+          routePolyline: routeLine,
         ),
         settings: const RouteSettings(name: AppRoutes.findingDriver),
       );

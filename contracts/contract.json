@@ -1,6 +1,6 @@
 {
   "contract": "movera",
-  "version": "0.18.167",
+  "version": "0.18.169",
   "note": "Canonical cross-app contract for Rider, Driver and Admin. Frontend-only today; a future single backend implements it. Every app ships an identical copy under contracts/ and runs contract tests against it.",
   "wire": {
     "ids": {
@@ -12115,5 +12115,24 @@
     "rider": "Select ride and the search screen (Finding drivers) draw the decoded Quote.routePolyline as the trip line and hide the \"Approximate route\" badge. Without it (estimate, an older server, an empty or broken line) they keep the straight line through the stops and the badge (fallback). The waiting-for-driver and on-trip maps are unchanged.",
     "driver": "Driver app: no change. GET /routes/driving already answers the stored Google route of his active trip (contract.json#liveTraffic.navigation).",
     "admin": "Admin: not affected (no new setting; live traffic stays Admin > Dispatch > Rides > Live traffic (Google), contract.json#liveTraffic.setting)."
+  },
+  "offerRouteLine": {
+    "since": "0.18.168",
+    "note": "v0.18.168 (the driver's offer card draws the real Google route; owner 2026-11-26 \"Route in driver !!\" (an Exclusive offer Södertälje -> Arlanda drew a straight line); owner rule about 2 Google calls per trip; Rule 0; X-Api-Version stays `0.5`; additive, optional; no migration; follows v0.18.167): the trip already holds the Google route of its quote (trips.route_polyline, contract.json#liveTraffic.calls.quote); the offer now carries it and the driver app draws it. No new Google call.",
+    "offer": "Offer.routePolyline: the Google encoded polyline (precision 5) of the trip, pickup through every stop to the drop-off, as stored from its quote (trips.route_polyline). Sent only on an open offer (offer_created / offer_updated and GET reads of an open offer); absent on a closed offer (withdrawn, expired, declined, accepted, claimed elsewhere), when the trip has no stored Google route (estimate, a route change cleared it) and from an older server. Not in the offer push (the push carries ids only).",
+    "calls": "No extra Google call: it is the polyline the quote's one call stored. GET /routes/driving is unchanged.",
+    "driver": "The Home offer preview (Exclusive, Radar and reservation offers) draws the decoded Offer.routePolyline as the trip line, with no route request; without it the app asks GET /routes/driving per leg as before (the straight line when the server has no stored route). After accept the trip map keeps GET /routes/driving (the stored Google route of the active trip, contract.json#liveTraffic.navigation).",
+    "rider": "Rider app: not affected (no Offer). Its waiting-for-driver and on-trip maps are unchanged.",
+    "admin": "Admin: not affected (the admin offer list may show the field; no screen reads it; no setting)."
+  },
+  "riderTripRouteLine": {
+    "since": "0.18.169",
+    "note": "v0.18.169 (the rider's route line and the Finding screen after a reopen; owner 2026-11-27 \"App rider blocked here\", \"J ai essayer marche pas ! Le chauffeur a fini la course mais rider reste bloquee\", \"Oui, corriger\" (a trip accepted and completed in 46 s while the rider app was in the background left the rider on Finding driver, and the reopened map drew a straight line); Rule 0; X-Api-Version stays `0.5`; additive, optional; no migration; follows v0.18.168): the trip already holds the Google route of its quote (trips.route_polyline, contract.json#liveTraffic.calls.quote); the rider's trip view now carries it, so the line survives an app reopen. No new Google call.",
+    "trip": "TripProjection.routePolyline: the Google encoded polyline (precision 5) of the trip, pickup through every stop to the drop-off, as stored from its quote (trips.route_polyline). Sent only in the rider's own trip reads, GET /trips/{tripId} (rider caller; also its deprecated alias GET /rides/{rideId}) and GET /rider/trips/active, while the trip has not ended; never in command answers; absent once the trip is in a terminal status (completed carries no line), when the trip has no stored Google route (estimate, a route change cleared it), to the driver and admin, in realtime events (they stay small; the app keeps the line it read) and from an older server.",
+    "calls": "No extra Google call: it is the polyline the quote's one call stored. POST /routes is unchanged.",
+    "findingExit": "The rider's Finding driver screen leaves on any status past searching, completed included (offered is still searching and stays on Finding, contract.json#bookedRideSeen.searchSeen): every tripStatus.driverAssigned status (accepted, driver_to_pickup, arrived, rider_onboard, in_trip, approaching_dropoff) opens Waiting for driver, which then moves a rider_onboard, in_trip or approaching_dropoff trip on to its restored on-trip view; a completed status (completed, payment processing or settled, rating pending) opens Ride completed, the same screen a cold restore shows (never treated as the rider's cancel, never kept in History as cancelled); any other terminal status shows its end sheet. A cancel the server refuses (409 invalid_transition) on a tripStatus.driverAssigned or completed trip moves the rider on the same way and never starts the search again.",
+    "rider": "Finding driver draws TripProjection.routePolyline first, then the Quote.routePolyline it kept from booking, then the road-route request (POST /routes); the line is kept with the saved ride so a reopen draws it at once, and is forgotten at sign-out with the quote lines. Movera colours only (#12201C, #2FBF5B).",
+    "driver": "Driver app: not affected (Offer.routePolyline, contract.json#offerRouteLine, is unchanged; the driver projection never carries this field).",
+    "admin": "Admin: not affected (no setting; the admin projection never carries this field)."
   }
 }

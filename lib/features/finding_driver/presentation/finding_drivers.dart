@@ -109,6 +109,7 @@ class FindingDrivers extends StatefulWidget {
     this.tripMinutes,
     this.searchStartedAt,
     this.createdAt,
+    this.routePolyline,
     @visibleForTesting this.controller,
     @visibleForTesting this.booking,
     @visibleForTesting this.riderLocation,
@@ -132,6 +133,12 @@ class FindingDrivers extends StatefulWidget {
 
   /// When the ride was created, for a restored search. Null: now.
   final DateTime? createdAt;
+
+  /// v0.18.169 (contract.json#riderTripRouteLine): the trip's Google line
+  /// kept with the saved ride (`TripProjection.routePolyline`), drawn
+  /// first after a reopen. Null: the quote's kept line, then the road
+  /// request.
+  final String? routePolyline;
 
   /// Test seam for "Try again" after no driver was found (RIDE-19).
   final BookingController? booking;
@@ -344,6 +351,13 @@ class _FindingDriversState extends State<FindingDrivers>
       createdAt: createdAt,
       maxOfferMinor: maxOfferMinor,
       bookedFareMinor: bookedFareMinor,
+      // v0.18.169: only while the places are the ones it was read for.
+      routePolyline:
+          _pickupPosition == widget.pickupPosition &&
+              _destinationPosition == widget.destinationPosition &&
+              _sameStopPlaces(_stops, widget.stops)
+          ? widget.routePolyline
+          : null,
       onTick: (_) {
         if (!mounted) return;
         final nearbyKey = Object.hashAll(

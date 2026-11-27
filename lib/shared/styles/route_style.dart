@@ -15,4 +15,13 @@ abstract final class RiderRouteStyle {
 
   /// The route colour at [t] (0 = pickup, 1 = destination).
   static Color at(double t) => Color.lerp(pickup, destination, t.clamp(0, 1))!;
+
+  /// v0.18.169 (contract.json#riderTripRouteLine): the Movera colours of
+  /// the Finding driver trip line, never blue: the dark edge and the green
+  /// line on it.
+  static const Color moveraInk = Color(0xFF12201C);
+  static const Color moveraGreen = Color(0xFF2FBF5B);
+
+  /// The Finding driver line is one green along its whole length.
+  static Color moveraAt(double t) => moveraGreen;
 }
