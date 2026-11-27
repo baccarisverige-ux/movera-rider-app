@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
@@ -99,13 +101,35 @@ class SafetyController extends ChangeNotifier {
   static Future<void> stopShareForRideEnd(String? rideId) async {
     final controller = _shared;
     if (controller == null || rideId == null || rideId.isEmpty) return;
-    if (controller._session.shareFor(rideId)?.isActive != true) return;
+    if (controller._session.shareFor(rideId)?.isActive == true) {
+      try {
+        await controller.stopShare(rideId);
+      } catch (error) {
+        AppLog.warning(
+          'safety.share.stop_failed',
+          extra: {'rideId': rideId, 'error': '$error'},
+        );
+      }
+    }
+    await dropShareForRideEnd(rideId);
+  }
+
+  /// Share my trip: the link is on the phone only while the trip is live.
+  /// When the trip ends (drop-off, a cancel, any other end) the share kept
+  /// for it is dropped; no request is made (the server ends the link
+  /// itself). Only a controller that already exists.
+  static Future<void> dropShareForRideEnd(String? rideId) async {
+    final controller = _shared;
+    final id = rideId?.trim() ?? '';
+    if (controller == null || id.isEmpty) return;
     try {
-      await controller.stopShare(rideId);
+      await controller._session.dropShare(id);
+      controller._shareEnded.add(id);
+      controller.notifyListeners();
     } catch (error) {
       AppLog.warning(
-        'safety.share.stop_failed',
-        extra: {'rideId': rideId, 'error': '$error'},
+        'safety.share.drop_failed',
+        extra: {'rideId': id, 'error': '$error'},
       );
     }
   }
@@ -420,6 +444,66 @@ class SafetyController extends ChangeNotifier {
     return share;
   }
 
+  /// Share my trip (contract v0.18.116 `contract.json#shareTrip.setting`):
+  /// the zone's "Riders can share a live trip link" switch as the server
+  /// serves it (`shareTrip.on` = `features.shareTrip`; on until it says
+  /// otherwise). Off hides Share trip. The phone's own Trip share setting
+  /// ([SafetyPreferences.tripShareEnabled]) does not gate the button any
+  /// more: it only chooses "share every ride" and the ticked contacts.
+  bool get shareTripOn => const FeatureFlags().safetyShareTrip;
+
+  /// Trips whose share the server refused with 403 `share_trip_off` (the
+  /// switch went off mid-trip): the button hides and the sheet says so.
+  final Set<String> _shareRefused = {};
+
+  bool shareRefusedFor(String rideId) => _shareRefused.contains(rideId);
+
+  /// Trips whose link ended by itself (drop-off, 410 `share_ended`).
+  final Set<String> _shareEnded = {};
+
+  /// True when the trip's link ended by itself (not by "Stop sharing").
+  bool shareEndedFor(String rideId) => _shareEnded.contains(rideId);
+
+  /// The trip's share ([TripShare.url] while live), if this phone has one.
+  TripShare? shareFor(String rideId) => _session.shareFor(rideId);
+
+  /// Asks the server whether [rideId] still has a live link (best effort).
+  /// A link this phone held that the server no longer lists ended by
+  /// itself (drop-off) unless the rider stopped it.
+  Future<void> refreshShare(String rideId) async {
+    if (rideId.trim().isEmpty) return;
+    final before = _session.shareFor(rideId);
+    final after = await _session.getShare(rideId);
+    if (before != null && before.canSend && after?.isActive != true) {
+      _shareEnded.add(rideId);
+    }
+    notifyListeners();
+  }
+
+  /// The link to send for [rideId]: the one this phone holds while it is
+  /// live, else the server's (`POST /rider/trips/{tripId}/share`, the same
+  /// Idempotency-Key until sharing stops). So a second tap, or sending to
+  /// three contacts, reuses one link.
+  Future<String> shareLink(String rideId) async {
+    final kept = _session.shareFor(rideId);
+    if (kept != null && kept.canSend) return kept.url!;
+    try {
+      final share = await startShare(rideId);
+      final url = share.url ?? '';
+      if (url.isEmpty) {
+        throw SafetyException('NO_LINK', L10n.current.tripSharingFailed);
+      }
+      _shareRefused.remove(rideId);
+      _shareEnded.remove(rideId);
+      return url;
+    } on ApiError catch (error) {
+      if (error.reason == 'share_trip_off') _shareRefused.add(rideId);
+      if (error.statusCode == 410) _shareEnded.add(rideId);
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   /// Rides already shared automatically (one share per ride).
   final Set<String> _autoShared = {};
 
@@ -432,7 +516,12 @@ class SafetyController extends ChangeNotifier {
     if (id.isEmpty || !_autoShared.add(id)) return null;
     try {
       if (!hasLoaded) await load();
-      if (!preferences.tripShareEnabled ||
+      // Share my trip: on movera-server a link goes out only from the
+      // rider's own tap (the server sends nothing to a contact), so no
+      // link is made here; the trip screen's button shares it.
+      if (!shareTripOn ||
+          _session.sharesByLink ||
+          !preferences.tripShareEnabled ||
           preferences.tripShareMode != TripShareMode.auto ||
           tripShareRecipients.isEmpty) {
         return null;
@@ -456,6 +545,7 @@ class SafetyController extends ChangeNotifier {
 
   Future<void> stopShare(String rideId) async {
     await _session.stopShare(rideId);
+    _shareEnded.remove(rideId);
     notifyListeners();
   }
 

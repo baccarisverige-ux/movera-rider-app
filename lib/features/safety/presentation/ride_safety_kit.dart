@@ -9,7 +9,7 @@ import 'package:movera_rider/features/safety/application/safety_audio_service.da
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/presentation/safety_audio_option.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
-import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
+import 'package:movera_rider/features/safety/presentation/share_trip_sheet.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
@@ -292,32 +292,15 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
     }
   }
 
+  /// Share my trip: the Safety sheet's "Share trip" opens the one Share
+  /// trip sheet; the phone's Trip share setting no longer gates it.
   Future<void> _shareTrip() async {
-    if (!_ctl.preferences.tripShareEnabled ||
-        !_ctl.contacts.any(
-          (contact) =>
-              contact.isEnabled &&
-              (_ctl.preferences.tripShareContactIds.contains(contact.id) ||
-                  contact.shareTrips),
-        )) {
-      final nav = Navigator.of(context);
-      await popCurrentRouteAndWaitForExit(context);
-      if (!nav.mounted) return;
-      await nav.push(RightToLeftTransition(TripSharePage(controller: _ctl)));
-      return;
-    }
-    try {
-      final share = await _ctl.startShare(widget.rideId ?? '');
-      if (!mounted) return;
-      setState(() {
-        _audioNote = share.isActive && share.contactIds.isNotEmpty
-            ? context.l10n.tripSharingStarted(share.contactIds.length)
-            : context.l10n.tripSharingNotStarted;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _audioNote = context.l10n.tripSharingFailed);
-    }
+    final nav = Navigator.of(context);
+    final ctl = _ctl;
+    final rideId = widget.rideId;
+    await popCurrentRouteAndWaitForExit(context);
+    if (!nav.mounted) return;
+    await showShareTripSheet(nav.context, rideId: rideId, controller: ctl);
   }
 
   Future<void> _openHub() async {
@@ -421,14 +404,20 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
                         ),
                       ),
                     ],
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _Tool(
-                        icon: Icons.ios_share_outlined,
-                        label: context.l10n.shareTrip,
-                        onTap: _shareTrip,
+                    // Share my trip: not shown while the zone's switch is
+                    // off or after a 403 share_trip_off.
+                    if (_ctl.shareTripOn &&
+                        !_ctl.shareRefusedFor(widget.rideId ?? '')) ...[
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _Tool(
+                          key: const ValueKey('safety-share-trip'),
+                          icon: Icons.ios_share_outlined,
+                          label: context.l10n.shareTrip,
+                          onTap: _shareTrip,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               if (_duringTrip && _sosSent)

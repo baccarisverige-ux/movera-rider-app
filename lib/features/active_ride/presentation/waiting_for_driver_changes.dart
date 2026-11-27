@@ -205,6 +205,10 @@ extension _WaitingChanges on _WaitingForDriverState {
       unawaited(SafetyController.shared.autoShareRide(rideId));
     }
     if (status.isCompletedSurface) {
+      // Share my trip: the trip is over, so its live link leaves the phone
+      // (the server ends it at drop-off; the sheet says "ended"). A booked
+      // ride's trip screen has no other end hook.
+      unawaited(SafetyController.dropShareForRideEnd(rideId));
       _rideCheckTripEnded(rideId);
       return;
     }

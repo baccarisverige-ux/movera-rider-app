@@ -7,7 +7,8 @@ import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_selection/presentation/ride_labels.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
-import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
+import 'package:movera_rider/core/contracts/ride_status.dart';
+import 'package:movera_rider/features/safety/presentation/share_trip_sheet.dart';
 import 'package:movera_rider/features/messages/application/messages_controller.dart';
 import 'package:movera_rider/app/deferred_screens.dart';
 import 'package:movera_rider/shared/accessibility/a11y.dart';
@@ -58,24 +59,39 @@ TextStyle waitingText(
 }
 
 class WaitingShareButton extends StatelessWidget {
-  const WaitingShareButton({super.key, this.rideId});
+  const WaitingShareButton({
+    super.key,
+    this.rideId,
+    this.status,
+    this.driverShown = true,
+  });
 
   final String? rideId;
 
-  void _share(BuildContext context) {
-    final safety = SafetyController.shared;
-    if (safety.preferences.tripShareEnabled) {
-      showRideSafetyKit(context, rideId: rideId);
-      return;
-    }
-    Navigator.push(
-      context,
-      RightToLeftTransition(TripSharePage(controller: safety)),
-    );
-  }
+  /// The trip's status and whether the rider is shown a driver, where the
+  /// screen knows them.
+  final RideStatus? status;
+  final bool driverShown;
+
+  /// Contract `shareTrip.notLive`: a booked ride held in `accepted`, whose
+  /// driver the rider is not shown yet, cannot be shared (409
+  /// trip_not_live), so the button waits until the driver is on the way.
+  static bool canShare(RideStatus? status, {required bool driverShown}) =>
+      status != RideStatus.driverAssigned || driverShown;
 
   @override
   Widget build(BuildContext context) {
+    // Share my trip (contract v0.18.116 contract.json#shareTrip.setting):
+    // the zone's switch decides (shareTrip.on = features.shareTrip, on by
+    // default; hidden after a 403 share_trip_off). The phone's own Trip
+    // share setting no longer gates it. The button opens the Share trip
+    // sheet straight away.
+    final safety = SafetyController.shared;
+    if (!safety.shareTripOn ||
+        safety.shareRefusedFor(rideId ?? '') ||
+        !canShare(status, driverShown: driverShown)) {
+      return const SizedBox.shrink();
+    }
     return Semantics(
       button: true,
       label: context.l10n.shareTrip,
@@ -84,7 +100,7 @@ class WaitingShareButton extends StatelessWidget {
         shape: const CircleBorder(),
         child: InkWell(
           customBorder: const CircleBorder(),
-          onTap: () => _share(context),
+          onTap: () => showShareTripSheet(context, rideId: rideId),
           // rider-u64 / D5 (V39-7): the 48 px Android floor (the 20 px icon
           // was a 40 px target, then 44).
           child: const SizedBox.square(
