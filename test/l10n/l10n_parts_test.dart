@@ -110,18 +110,19 @@ void main() {
     // Owner 2026-11-23 (raise card R2): + bumpSubtitle, bumpSliderHint.
     // Owner 2026-11-23 (games): + the games area (quiz and puzzle texts).
     // Owner 2026-11-23 (screen 2): + dpFromDriver (inline driver message).
+    // Share my trip (2026-11-27): + 10 shareTrip* texts (safety area).
     const before = {
       'en': (
-        '0a81f0646f35dde15bc75631471618decab1998362361b15e3306955ec145555',
-        2430,
+        '1e69f4baa677e65a41284fd80d9f9aaac62ae549ffd19ab762aa3a9ceac68bc6',
+        2450,
       ),
       'fr': (
-        'd3de1905a3fd4582bdeb8a638986adaf134b62d6d815a4ec60d0ace0a2b092f6',
-        1871,
+        '87fdb4e388e23a2373bcf57c06b3ae2100f1910f5ab9bebd21d839e8d175e398',
+        1881,
       ),
       'sv': (
-        '653d490a417aa0b069774667d716125ff2c44e5dc4b401aa9b333e6b4b0e391c',
-        1871,
+        '7c1914b94fd692501c209fbbbd4d62964c8d66f563c5e0468508a4ca6d0283b6',
+        1881,
       ),
     };
     for (final lang in _langs) {

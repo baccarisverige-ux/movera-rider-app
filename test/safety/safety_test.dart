@@ -2,6 +2,8 @@ import 'dart:ui' show SemanticsAction;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/features/safety/application/share_trip_actions.dart';
+import 'package:movera_rider/features/safety/presentation/share_trip_sheet.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
@@ -610,7 +612,9 @@ void main() {
     expect(EmergencyContact.fromJson({}).name, '');
   });
 
-  testWidgets('Safety Kit finishes closing before Trip Share page opens', (
+  // Share my trip: the kit's Share trip opens the Share trip sheet (it used
+  // to open the Trip share settings page while the phone's setting was off).
+  testWidgets('Safety Kit finishes closing before the Share trip sheet opens', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -634,8 +638,8 @@ void main() {
     await tester.tap(find.text('Share trip'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Share trip status'), findsOneWidget);
-    expect(find.text('Trip sharing'), findsOneWidget);
+    expect(find.byType(ShareTripSheet), findsOneWidget);
+    expect(find.text('Share with…'), findsOneWidget);
     expect(find.text('Safety tools'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -671,15 +675,24 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Share trip'));
     await tester.pumpAndSettle();
+    // The Share trip sheet: Send to the trusted contact makes the link.
+    final sms = <Uri>[];
+    ShareTripActions.launcher = (uri) async {
+      sms.add(uri);
+      return true;
+    };
+    addTearDown(ShareTripActions.reset);
+    await tester.runAsync(() async {
+      await tester.tap(find.byKey(const ValueKey('share-trip-send-0')));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pumpAndSettle();
 
     final share = await session.getShare('ride_share_action');
     expect(share, isNotNull);
     expect(share!.isActive, isTrue);
     expect(share.contactIds, contains(ctl.contacts.single.id));
-    expect(
-      find.text('Trip sharing started for 1 trusted contact.'),
-      findsOneWidget,
-    );
+    expect(sms, hasLength(1));
   });
 
   testWidgets('Safety Kit finishes closing before Safety Hub opens', (
