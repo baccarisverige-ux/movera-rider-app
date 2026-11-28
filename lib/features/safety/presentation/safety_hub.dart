@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/presentation/emergency_contacts_page.dart';
 import 'package:movera_rider/features/safety/presentation/how_movera_protects_page.dart';
@@ -115,13 +116,16 @@ class _SafetyHubState extends State<SafetyHub> {
             decoration: SafetyUi.cardDecoration(),
             child: Column(
               children: [
-                SafetyRow(
-                  mark: SafetyMarks.pin,
-                  title: context.l10n.safetyPinTitle,
-                  subtitle: context.l10n.safetyPinSubtitle,
-                  status: _ctl.pinStatusLabel(),
-                  onTap: () => _open(PinVerificationPage(controller: _ctl)),
-                ),
+                // G1 (trip-pin-check 2026-11-27): on live the row shows only
+                // while the zone's PIN switch is on (features.pin).
+                if (_ctl.serverKeepsSettings || FeatureFlags.current.ridePin)
+                  SafetyRow(
+                    mark: SafetyMarks.pin,
+                    title: context.l10n.safetyPinTitle,
+                    subtitle: context.l10n.safetyPinSubtitle,
+                    status: _ctl.pinStatusLabel(),
+                    onTap: () => _open(PinVerificationPage(controller: _ctl)),
+                  ),
                 SafetyRow(
                   mark: SafetyMarks.contacts,
                   title: context.l10n.safetyContactsTitle,
