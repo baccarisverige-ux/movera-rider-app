@@ -58,5 +58,9 @@
   "placesAskFixCategory": "Toujours choisir une catégorie pour ce lieu ?",
   "placesNoThanks": "Non merci",
   "placesChangeCategory": "Changer de catégorie",
-  "placesCategoryNotHere": "{category} n’est pas disponible ici pour le moment"
+  "placesCategoryNotHere": "{category} n’est pas disponible ici pour le moment",
+  "spQuickTagline": "Réservez plus vite vers vos lieux habituels",
+  "spFavoritesHeader": "FAVORIS",
+  "spOtherPlacesHeader": "AUTRES LIEUX",
+  "spSavePlace": "Enregistrer le lieu"
 }

@@ -111,18 +111,20 @@ void main() {
     // Owner 2026-11-23 (games): + the games area (quiz and puzzle texts).
     // Owner 2026-11-23 (screen 2): + dpFromDriver (inline driver message).
     // Share my trip (2026-11-27): + 10 shareTrip* texts (safety area).
+    // Owner 2026-11-27 (saved places v4): + spQuickTagline,
+    // spFavoritesHeader, spOtherPlacesHeader, spSavePlace (saved_places).
     const before = {
       'en': (
-        '1e69f4baa677e65a41284fd80d9f9aaac62ae549ffd19ab762aa3a9ceac68bc6',
-        2450,
+        '1664e7a77850121b883cb201c00e4996a50025cedc3528878ac53dfc457b075d',
+        2458,
       ),
       'fr': (
-        '87fdb4e388e23a2373bcf57c06b3ae2100f1910f5ab9bebd21d839e8d175e398',
-        1881,
+        '0fca80eef056449165c9bd562c24cedfdfa60f5a95de716a742c5c27bc8ff8fb',
+        1885,
       ),
       'sv': (
-        '7c1914b94fd692501c209fbbbd4d62964c8d66f563c5e0468508a4ca6d0283b6',
-        1881,
+        'd447bbf9e11752f5ccb0f8a07ff9c56573b1202b52451e33a0d2cdbbe691d764',
+        1885,
       ),
     };
     for (final lang in _langs) {

@@ -440,14 +440,16 @@ void main() {
       size: const Size(320, 568),
       textScale: 1.3,
     );
-    await tester.tap(find.text('Save'));
+    await tester.ensureVisible(find.text('Save place'));
+    await tester.pump();
+    await tester.tap(find.text('Save place'));
     await tester.pump();
     expect(find.text('Add both a name and a location.'), findsOneWidget);
     expect(tester.takeException(), isNull, reason: 'no RenderFlex overflow');
-    await tester.ensureVisible(find.text('Save'));
+    await tester.ensureVisible(find.text('Save place'));
     await tester.pump();
     expect(
-      tester.getRect(find.text('Save')).bottom,
+      tester.getRect(find.text('Save place')).bottom,
       lessThanOrEqualTo(568 - 260),
     );
   });

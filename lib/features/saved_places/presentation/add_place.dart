@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/core/constants/appcolors.dart';
-import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/saved_places/application/current_address.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
+import 'package:movera_rider/features/home/application/home_places_controller.dart';
+import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
 import 'package:movera_rider/features/saved_places/presentation/pickup_location.dart';
+import 'package:movera_rider/features/saved_places/presentation/place_save_sheet.dart';
+import 'package:movera_rider/features/saved_places/presentation/saved_places_style.dart';
 import 'package:movera_rider/shared/design_system/movera_confirm_sheet.dart';
-import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
-import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/widgets/keyboard_anchor.dart';
@@ -43,6 +41,9 @@ class _AddPlaceState extends State<AddPlace> {
   String? _error;
   bool _saving = false;
 
+  /// The place type chosen with the chips; null = from the name, as before.
+  String? _type;
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +57,8 @@ class _AddPlaceState extends State<AddPlace> {
             _ => '',
           },
     );
+    final initialKind = widget.initial?.kind.trim() ?? widget.kind?.trim();
+    if (placeTypes.contains(initialKind)) _type = initialKind;
     _locationController = TextEditingController(
       text: widget.initial?.subtitle ?? '',
     );
@@ -95,7 +98,9 @@ class _AddPlaceState extends State<AddPlace> {
       return;
     }
 
-    final kind = _kindFor(name);
+    // Saved places v4: a chosen type is the kind (stored as `type`, sent as
+    // kind other + that key, as Home's picker saves it).
+    final kind = _slot ?? _type ?? _kindFor(name);
     setState(() {
       _saving = true;
       _error = null;
@@ -122,6 +127,23 @@ class _AddPlaceState extends State<AddPlace> {
             setState(() => _saving = false);
             return;
           }
+        }
+      }
+      // Home's limit (homeMaxCustomPlaces) holds here too: a new custom
+      // place is refused once the rider has the most Home can show.
+      if (widget.initial?.id == null && kind != 'home' && kind != 'office') {
+        await _places.hydrate();
+        final custom = _places
+            .shortcuts()
+            .where((p) => p.kind != 'home' && p.kind != 'office')
+            .length;
+        if (custom >= HomePlacesController.maxCustom) {
+          if (!mounted) return;
+          setState(() {
+            _saving = false;
+            _error = context.l10n.homeMaxCustomPlaces;
+          });
+          return;
         }
       }
       final saved = await _places.save(
@@ -176,146 +198,179 @@ class _AddPlaceState extends State<AddPlace> {
     return slug.isEmpty ? 'other' : slug;
   }
 
+  /// Saved places v4 (owner 2026-11-27): Home's 7 place types
+  /// (home_route_flow.dart `_openAddPlacePicker`), in the same order.
+  static const placeTypes = <String>[
+    'gym',
+    'mall',
+    'school',
+    'airport',
+    'family',
+    'restaurant',
+    'other',
+  ];
+
+  void _pickType(String type) {
+    final name = _nameController.text.trim();
+    final before = _type;
+    setState(() {
+      _type = type;
+      _error = null;
+      // The type's name fills an empty name, or replaces the last type's.
+      if (name.isEmpty || (before != null && name == placeLabelFor(before))) {
+        _nameController.text = placeLabelFor(type);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final slot = _slot;
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leadingWidth: 64,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 16),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            // UI-11: a 44 px tap area and a name for screen readers; the
-            // 30 px circle looks the same.
-            child: MoveraHitArea(
-              label: context.l10n.back,
-              alignment: Alignment.centerLeft,
-              onTap: () => Navigator.pop(context),
-              child: InkWell(
-                excludeFromSemantics: true,
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  height: ResSize.h * 30,
-                  width: ResSize.w * 30,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColor.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xff999999).withValues(alpha: 0.4),
-                        blurRadius: 40,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Icon(
-                      Icons.arrow_back_ios_rounded,
-                      color: AppColor.title,
-                      size: ResSize.h * 16,
+      backgroundColor: Colors.white,
+      // rider-u221: a small phone with the keyboard up scrolls the form
+      // (the error line included) instead of overflowing it; the Save
+      // button still sits at the bottom when there is room.
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // UI-11: a 44 px named tap area.
+                    SpStyle.back(
+                      context,
+                      context.l10n.back,
+                      () => Navigator.pop(context),
                     ),
-                  ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: SpStyle.side,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            8.height,
+                            SpStyle.title(
+                              widget.initial == null
+                                  ? (slot == null
+                                        ? context.l10n.placeNew
+                                        : _nameController.text)
+                                  : context.l10n.spEditSavedPlace,
+                            ),
+                            if (slot == null) ...[
+                              20.height,
+                              SpStyle.label(context.l10n.homeWhatPlaceToSave),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  for (final type in placeTypes) _chip(type),
+                                ],
+                              ),
+                            ],
+                            20.height,
+                            SpStyle.label(context.l10n.spName),
+                            TextField(
+                              controller: _nameController,
+                              enabled: slot == null,
+                              style: SpStyle.text(),
+                              cursorColor: SpStyle.ink,
+                              decoration: SpStyle.underline(),
+                            ),
+                            20.height,
+                            SpStyle.label(context.l10n.spAddLocation),
+                            InkWell(
+                              key: const ValueKey('add-place-address'),
+                              onTap: _pickLocation,
+                              child: IgnorePointer(
+                                child: TextField(
+                                  controller: _locationController,
+                                  style: SpStyle.text(),
+                                  decoration: SpStyle.underline(
+                                    hint: context.l10n.spSearchAddress,
+                                    prefix: const Icon(
+                                      Icons.search,
+                                      color: SpStyle.muted,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (_error != null) ...[
+                              12.height,
+                              Text(
+                                _error!,
+                                style: SpStyle.text(
+                                  size: 12,
+                                  weight: FontWeight.w500,
+                                  color: Colors.red.shade700,
+                                ),
+                              ),
+                            ],
+                            const Spacer(),
+                            16.height,
+                            KeyboardAnchor(
+                              child: SpStyle.pill(
+                                key: const ValueKey('add-place-save'),
+                                label: _saving
+                                    ? context.l10n.saving
+                                    : context.l10n.spSavePlace,
+                                onPressed: _saving ? null : _save,
+                              ),
+                            ),
+                            16.height,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
         ),
-        title: TextWidget(
-          text: widget.initial == null
-              ? context.l10n.spAddNewAddress
-              : context.l10n.spEditSavedPlace,
-          color: AppColor.title,
-          fontSize: 16,
-          fontWeight: fwSemiBold,
-        ),
-        centerTitle: true,
       ),
-      // rider-u221: a small phone with the keyboard up scrolls the form
-      // (the error line included) instead of overflowing it; the Save
-      // button still sits at the bottom when there is room.
-      body: LayoutBuilder(
-        builder: (context, constraints) => SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: IntrinsicHeight(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    16.height,
-                    TextField(
-                      controller: _nameController,
-                      enabled: _slot == null,
-                      style: GoogleFonts.poppins(
-                        color: AppColor.title,
-                        fontSize: 16,
-                        fontWeight: fwNormal,
-                      ),
-                      decoration: InputDecoration(
-                        labelText: context.l10n.spName,
-                        labelStyle: GoogleFonts.poppins(
-                          color: AppColor.subtitle,
-                          fontSize: 14,
-                          fontWeight: fwNormal,
-                        ),
-                      ),
-                    ),
-                    16.height,
-                    InkWell(
-                      onTap: _pickLocation,
-                      child: IgnorePointer(
-                        child: TextField(
-                          controller: _locationController,
-                          style: GoogleFonts.poppins(
-                            color: AppColor.title,
-                            fontSize: 16,
-                            fontWeight: fwNormal,
-                          ),
-                          decoration: InputDecoration(
-                            labelText: context.l10n.spAddLocation,
-                            labelStyle: GoogleFonts.poppins(
-                              color: AppColor.subtitle,
-                              fontSize: 12,
-                              fontWeight: fwNormal,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (_error != null) ...[
-                      12.height,
-                      Text(
-                        _error!,
-                        style: GoogleFonts.poppins(
-                          color: Colors.red.shade700,
-                          fontSize: 12,
-                          fontWeight: fwMedium,
-                        ),
-                      ),
-                    ],
-                    const Spacer(),
-                    KeyboardAnchor(
-                      child: SafeArea(
-                        top: false,
-                        child: SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: ElevatedButton(
-                            onPressed: _saving ? null : _save,
-                            child: Text(
-                              _saving ? context.l10n.saving : context.l10n.save,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    16.height,
-                  ],
+    );
+  }
+
+  Widget _chip(String type) {
+    final on = _type == type;
+    final fg = on ? Colors.white : SpStyle.ink;
+    return Semantics(
+      selected: on,
+      button: true,
+      child: Material(
+        color: on ? SpStyle.ink : Colors.white,
+        shape: StadiumBorder(
+          side: BorderSide(color: on ? SpStyle.ink : SpStyle.chipBorder),
+        ),
+        child: InkWell(
+          key: ValueKey('place-type-$type'),
+          customBorder: const StadiumBorder(),
+          onTap: () => _pickType(type),
+          child: Container(
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(placeTypeIcon(type), size: 20, color: fg),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    placeLabelFor(type),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: SpStyle.text(size: 14, color: fg),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),

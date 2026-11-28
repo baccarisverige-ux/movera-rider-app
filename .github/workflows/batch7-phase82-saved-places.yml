@@ -57,11 +57,12 @@ jobs:
           # Round 4: the labels come from l10n; check the code still shows
           # Saving…/Save and an Edit action, and that English reads so.
           # dart format may wrap the Text( argument, so the check reads the
-          # file with whitespace collapsed.
+          # file with whitespace collapsed. Saved places v4 (owner
+          # 2026-11-27): the button reads Saving…/Save place (spSavePlace).
           tr -s ' \n' ' ' < lib/features/saved_places/presentation/add_place.dart \
-            | grep -qF "child: Text( _saving ? context.l10n.saving : context.l10n.save, )"
+            | grep -qF "label: _saving ? context.l10n.saving : context.l10n.spSavePlace,"
           grep -q '"saving": "Saving…"' lib/l10n/app_en.arb
-          grep -q '"save": "Save"' lib/l10n/app_en.arb
+          grep -q '"spSavePlace": "Save place"' lib/l10n/app_en.arb
           grep -q "_places.remove(" lib/features/saved_places/presentation/saved_places.dart
           grep -q "context.l10n.spEditPlace(place.title)" lib/features/saved_places/presentation/saved_places.dart
           grep -q '"spEditPlace": "Edit {place}"' lib/l10n/app_en.arb

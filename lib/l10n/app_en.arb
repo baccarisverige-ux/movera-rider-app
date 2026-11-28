@@ -3855,6 +3855,22 @@
       }
     }
   },
+  "spQuickTagline": "Book faster to the places you go often",
+  "@spQuickTagline": {
+    "description": "Saved places v4 (owner 2026-11-27): the line under the Saved places title."
+  },
+  "spFavoritesHeader": "FAVOURITES",
+  "@spFavoritesHeader": {
+    "description": "Saved places v4: section over Home and Work, in capitals."
+  },
+  "spOtherPlacesHeader": "OTHER PLACES",
+  "@spOtherPlacesHeader": {
+    "description": "Saved places v4: section over the other saved places, in capitals."
+  },
+  "spSavePlace": "Save place",
+  "@spSavePlace": {
+    "description": "Saved places v4: the main button on Add / edit place."
+  },
   "whereTo": "Where to?",
   "currentLocation": "Current location",
   "homeSearchInterrupted": "Your ride search was interrupted. Book again when you are ready.",

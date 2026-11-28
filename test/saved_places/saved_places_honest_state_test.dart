@@ -75,25 +75,13 @@ void main() {
   ) async {
     await pumpPickup(tester);
 
-    expect(find.text('Your last trip'), findsOneWidget);
-    expect(find.text('No recent trips yet'), findsOneWidget);
-    expect(
-      find.text(
-        'Completed trips will appear here when real ride history is available.',
-      ),
-      findsOneWidget,
-    );
+    // Saved places v4 (owner 2026-11-27): nothing typed shows Home and
+    // Work and "Use current location"; typed with no answer says so.
+    expect(find.text('Your last trip'), findsNothing);
+    expect(find.text('Use current location'), findsOneWidget);
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Work'), findsOneWidget);
     expect(find.text('Not saved yet'), findsNWidgets(2));
-    expect(find.text('Search results'), findsOneWidget);
-    expect(find.text('No search results'), findsOneWidget);
-    expect(
-      find.text(
-        'Suggestions aren’t available yet. Type a full address and press Search.',
-      ),
-      findsOneWidget,
-    );
 
     expect(find.text('30 Main Street'), findsNothing);
     expect(find.text('5.9km|30 Main Street, London'), findsNothing);
@@ -107,7 +95,7 @@ void main() {
     await pumpPickup(tester);
     await tester.tap(find.text('Home'));
     await tester.pumpAndSettle();
-    expect(find.text('Add new address'), findsOneWidget);
+    expect(find.text('New place'), findsOneWidget);
     expect(find.text('Add location'), findsOneWidget);
   });
 
@@ -134,14 +122,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Add location'));
+      await tester.tap(find.byKey(const ValueKey('add-place-address')));
       await tester.pumpAndSettle();
       expect(find.text('Pickup location'), findsOneWidget);
 
-      await tester.tap(find.text('CURRENT'));
+      await tester.tap(find.text('Use current location'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Add new address'), findsOneWidget);
+      expect(find.text('New place'), findsOneWidget);
       expect(find.text('Drottninggatan 10, Stockholm'), findsOneWidget);
       expect(find.text('Current location'), findsNothing);
       expect(find.text('Pickup location'), findsNothing);
@@ -165,14 +153,14 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add location'));
+      await tester.tap(find.byKey(const ValueKey('add-place-address')));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Home'));
       await tester.pumpAndSettle();
 
       expect(find.text('Pickup location'), findsOneWidget);
-      expect(find.text('Add new address'), findsNothing);
+      expect(find.text('New place'), findsNothing);
     },
   );
 
@@ -219,7 +207,7 @@ void main() {
       await tester.tap(find.text('Home'));
       await tester.pumpAndSettle();
       expect(selected, 'Klockarvägen 37');
-      expect(find.text('Add new address'), findsNothing);
+      expect(find.text('New place'), findsNothing);
     },
   );
 
