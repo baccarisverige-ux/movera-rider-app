@@ -203,38 +203,23 @@ extension _SelectRideQuotes on _SelectRideState {
     return _bookableQuote(ride.id);
   }
 
-  /// The price to book differs from the one Set pickup showed: the rider
-  /// agrees to the new one first.
-  Future<bool> _acceptNewPrice(double shown, double next) async {
-    // rider-r4-33: the dialog opens on any öre difference, so it shows the
-    // öre ("254,20 kr, was 254,40 kr"), never two equal whole kronor.
+  /// The price to book is HIGHER than the one Set pickup showed: the rider
+  /// agrees to the new one first (v0.18.174: callers ask only when
+  /// [priceChangeNeedsAsk]; a drop books silently). The shared v8 popup
+  /// [PriceUpdatedDialog] names [ride] and shows only the new price.
+  Future<bool> _acceptNewPrice(
+    double shown,
+    double next,
+    _RideOption ride,
+  ) async {
+    // rider-r4-33: the exact öre / cents ("81,50 €", "815 kr").
     String exact(double value) => formatMoney(_selection.moneyOf(value));
-    final accepted = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        key: const ValueKey('select-ride-price-updated'),
-        title: Text(
-          context.l10n.priceUpdated,
-          style: _text(18, weight: FontWeight.w600),
-        ),
-        content: Text(
-          context.l10n.priceUpdatedBody(exact(next), exact(shown)),
-          style: _text(14.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(context.l10n.notNow),
-          ),
-          FilledButton(
-            key: const ValueKey('select-ride-price-accept'),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(context.l10n.bookForPrice(exact(next))),
-          ),
-        ],
-      ),
+    return PriceUpdatedDialog.show(
+      context,
+      categoryName: rideNameFor(ride.name),
+      price: exact(next),
+      keyPrefix: 'select-ride',
     );
-    return accepted == true;
   }
 
   /// The cars are asked for while the live map shows this screen, the app is

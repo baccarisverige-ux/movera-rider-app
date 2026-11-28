@@ -80,8 +80,14 @@ extension _WaitingStages on _WaitingForDriverState {
       );
       final next = Money(quote.totalMinor, quote.currency);
       if (!mounted) return false;
-      if (next != trip.fare &&
-          !await showRebookPriceDialog(context, shown: trip.fare, next: next)) {
+      // v0.18.174: only a rise is asked; a drop searches at the lower price.
+      if (priceChangeNeedsAsk(trip.fare, next) &&
+          !await showRebookPriceDialog(
+            context,
+            shown: trip.fare,
+            next: next,
+            categoryName: rebookCategoryName(widget.rideType, trip.categoryId),
+          )) {
         return false;
       }
       await booking.submitFinding(

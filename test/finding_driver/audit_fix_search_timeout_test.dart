@@ -317,7 +317,9 @@ void main() {
             pickupPosition: const LatLng(59.33, 18.059),
             destinationPosition: const LatLng(59.6519, 17.9186),
             rideType: 'Movera',
-            price: 349,
+            // v0.18.174: below the fresh Arlanda price, so Try again is a
+            // RISE (only a rise asks; a drop books silently).
+            price: 149,
             paymentMethod: 'Apple Pay',
             realtime: realtime,
             searchStartedAt: searchStartedAt,
@@ -423,13 +425,13 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
     }
 
-    /// rider-u107: Try again prices the route again; the fare differs from
-    /// the 349 kr this search showed, so the rider is asked first.
+    /// rider-u107: Try again prices the route again; the fare is higher than
+    /// the 149 kr this search showed, so the rider is asked first (v8 popup).
     Future<void> tryAgainAtNewPrice(WidgetTester tester) async {
       await tester.tap(find.text('Search again'));
       final accept = find.byKey(const ValueKey('rebook-price-accept'));
       await pumpUntil(tester, () => accept.evaluate().isNotEmpty);
-      expect(find.text('Price updated'), findsOneWidget);
+      expect(find.text('Price recalculated'), findsOneWidget);
       await tester.tap(accept);
       await tester.pump();
     }
@@ -483,9 +485,10 @@ void main() {
       await noDriverFound(tester, 'to-new-price');
       server.rides.clear();
       await tester.tap(find.text('Search again'));
-      final notNow = find.text('Not now');
+      // v0.18.174: the v8 popup's ✕ does what Not now did.
+      final notNow = find.byKey(const ValueKey('rebook-price-close'));
       await pumpUntil(tester, () => notNow.evaluate().isNotEmpty);
-      expect(find.text('Price updated'), findsOneWidget);
+      expect(find.text('Price recalculated'), findsOneWidget);
 
       await tester.tap(notNow);
       await pumpUntil(

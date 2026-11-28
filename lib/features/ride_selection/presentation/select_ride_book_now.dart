@@ -115,10 +115,15 @@ extension _SelectRideBookNow on _SelectRideState {
     var bookable = await _quoteAfterPickup(selected);
     if (!mounted) return;
     var shown = spot.fareTotalKr;
+    // v0.18.174 (owner 2026-11-28): only a RISE is asked; a drop or the
+    // same price books silently at the fresh (lower) price.
     while (bookable != null &&
         shown != null &&
-        _selection.moneyOf(shown).amountMinor != bookable.quote.totalMinor) {
-      if (!await _acceptNewPrice(shown, bookable.price)) {
+        priceChangeNeedsAsk(
+          _selection.moneyOf(shown),
+          Money(bookable.quote.totalMinor, bookable.quote.currency),
+        )) {
+      if (!await _acceptNewPrice(shown, bookable.price, selected)) {
         if (!mounted) return;
         // ignore: invalid_use_of_protected_member
         setState(() {});

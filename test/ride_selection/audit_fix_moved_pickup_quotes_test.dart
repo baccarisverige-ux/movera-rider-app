@@ -207,7 +207,7 @@ void main() {
       find.byKey(const ValueKey('select-ride-price-updated')),
       findsOneWidget,
     );
-    await tester.tap(find.text('Not now'));
+    await tester.tap(find.byKey(const ValueKey('select-ride-price-close')));
     await settle(tester, 20);
     expect(booking.bookings, isEmpty);
 

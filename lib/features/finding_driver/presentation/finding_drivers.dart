@@ -55,8 +55,11 @@ import 'package:movera_rider/features/finding_driver/presentation/ride_details_s
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/price_bump_card.dart';
 import 'package:movera_rider/features/finding_driver/presentation/rebook_price_dialog.dart';
+import 'package:movera_rider/core/widgets/price_updated_dialog.dart';
 export 'package:movera_rider/features/finding_driver/presentation/rebook_price_dialog.dart'
-    show showRebookPriceDialog;
+    show showRebookPriceDialog, rebookCategoryName;
+export 'package:movera_rider/core/widgets/price_updated_dialog.dart'
+    show PriceUpdatedDialog, priceChangeNeedsAsk;
 import 'package:movera_rider/features/finding_driver/presentation/still_looking_card.dart';
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart'
@@ -566,7 +569,9 @@ class _FindingDriversState extends State<FindingDrivers>
       }
       if (!mounted) return _Rebook.failed;
       final next = Money(quote.totalMinor, quote.currency);
-      if (next != ended.fare && !await _acceptNewPrice(ended.fare, next)) {
+      // v0.18.174: only a rise is asked; a drop searches at the lower price.
+      if (priceChangeNeedsAsk(ended.fare, next) &&
+          !await _acceptNewPrice(ended.fare, next, ended.categoryId)) {
         return _Rebook.declined;
       }
       if (!mounted) return _Rebook.failed;
@@ -640,8 +645,13 @@ class _FindingDriversState extends State<FindingDrivers>
   }
 
   /// rider-u107: the same "Price updated" question Select Ride asks.
-  Future<bool> _acceptNewPrice(Money shown, Money next) =>
-      showRebookPriceDialog(context, shown: shown, next: next);
+  Future<bool> _acceptNewPrice(Money shown, Money next, String? categoryId) =>
+      showRebookPriceDialog(
+        context,
+        shown: shown,
+        next: next,
+        categoryName: rebookCategoryName(widget.rideType, categoryId),
+      );
 
   /// Takes over [ride]'s route on this screen (without telling the server,
   /// which already has it).

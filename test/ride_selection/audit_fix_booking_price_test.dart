@@ -258,21 +258,23 @@ void main() {
 
   testWidgets('rider-r4-33: "Price updated" shows the öre when the whole '
       'kronor are the same', (tester) async {
+    // v0.18.174: only a rise opens the popup (254,20 -> 254,40 kr); the v8
+    // popup shows only the new price, with its öre, in the button.
     await priceLandsAfterConfirm(
       tester,
-      _SlowPinQuotes(baseMinor: 25440, movedMinor: 25420),
+      _SlowPinQuotes(baseMinor: 25420, movedMinor: 25440),
       _CaptureBooking(),
     );
     final dialog = find.byKey(const ValueKey('select-ride-price-updated'));
     expect(
-      find.descendant(of: dialog, matching: find.textContaining('254,20 kr')),
-      findsWidgets,
-    );
-    expect(
       find.descendant(of: dialog, matching: find.textContaining('254,40 kr')),
       findsOneWidget,
     );
-    await tester.tap(find.text('Not now'));
+    expect(
+      find.descendant(of: dialog, matching: find.textContaining('254,20 kr')),
+      findsNothing,
+    );
+    await tester.tap(find.byKey(const ValueKey('select-ride-price-close')));
     for (var i = 0; i < 5; i++) {
       await tester.pump(const Duration(seconds: 2));
     }

@@ -105,10 +105,13 @@ extension _SelectRideBookScheduled on _SelectRideState {
           return;
         }
         final shown = spot?.fareTotalKr;
+        // v0.18.174: only a rise is asked; a drop books the lower price.
         if (shown != null &&
-            _selection.moneyOf(shown).amountMinor !=
-                bookable.quote.totalMinor &&
-            !await _acceptNewPrice(shown, bookable.price)) {
+            priceChangeNeedsAsk(
+              _selection.moneyOf(shown),
+              Money(bookable.quote.totalMinor, bookable.quote.currency),
+            ) &&
+            !await _acceptNewPrice(shown, bookable.price, booked)) {
           if (!mounted) return;
           // ignore: invalid_use_of_protected_member
           setState(() {});
@@ -188,8 +191,12 @@ extension _SelectRideBookScheduled on _SelectRideState {
               unawaited(_loadQuotes());
               return;
             }
-            if (_selection.moneyOf(fresh.price) != _selection.moneyOf(agreed) &&
-                !await _acceptNewPrice(agreed, fresh.price)) {
+            // v0.18.174: only a rise is asked; a drop books the lower price.
+            if (priceChangeNeedsAsk(
+                  _selection.moneyOf(agreed),
+                  _selection.moneyOf(fresh.price),
+                ) &&
+                !await _acceptNewPrice(agreed, fresh.price, booked)) {
               if (!mounted) return;
               // ignore: invalid_use_of_protected_member
               setState(() {});
