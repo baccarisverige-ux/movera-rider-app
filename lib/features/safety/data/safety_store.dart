@@ -443,8 +443,9 @@ class SafetyStore {
   /// The Idempotency-Key of the trip's current link (see [startShare]).
   final Map<String, String> _shareKeys = {};
 
-  /// Counts the links asked for per trip: a GET answer older than a POST
-  /// made after it was sent is ignored (it would wipe the new link).
+  /// Counts the links asked for or stopped per trip: a GET answer older
+  /// than a POST or a stop made after it was sent is ignored (it would wipe
+  /// the new link, or bring the stopped one back).
   final Map<String, int> _shareEpoch = {};
 
   Future<TripShare?> getShare(String rideId) async {
@@ -528,6 +529,9 @@ class SafetyStore {
     // link with a new Idempotency-Key.
     final current = previous?.ended();
     if (current != null) _cache.shares[rideId] = current;
+    // A GET sent before this stop and answered after it is stale: it must
+    // not bring the stopped link back as live (#717 NO-GO).
+    _shareEpoch[rideId] = (_shareEpoch[rideId] ?? 0) + 1;
     final key = _shareKeys.remove(rideId);
     await _local.save(_cache);
     try {

@@ -300,6 +300,26 @@ void main() {
     expect((await local.load()).shares['t1']?.url, _url);
   });
 
+  // 3b (#717 NO-GO): a GET sent before "Stop sharing" and answered after
+  // it must not bring the stopped link back as live.
+  test('3b: a late GET answer does not revive a link stopped after it was '
+      'sent', () async {
+    await safety.load();
+    expect(await safety.shareLink('t1'), _url);
+    final hold = Completer<void>();
+    server.holdGet = hold;
+    final refresh = safety.refreshShare('t1');
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    server.holdGet = null;
+    await safety.stopShare('t1');
+    expect(server.calls, contains('DELETE $_sharePath'));
+    hold.complete();
+    await refresh;
+    expect(safety.shareFor('t1')?.canSend, isNot(isTrue));
+    expect(safety.shareEndedFor('t1'), isTrue);
+    expect((await local.load()).shares['t1']?.canSend, isNot(isTrue));
+  });
+
   // 4: no off-palette grey in the sheet.
   testWidgets('4: every text in the sheet is Movera ink #12201C', (
     tester,
