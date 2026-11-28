@@ -41,8 +41,13 @@ class InProcessMockClient extends http.BaseClient {
     this.searchExpiresAfter = const Duration(minutes: 3),
     this.persistSafety = false,
     this.persistRides = false,
+    this.legRouteSample = false,
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now;
+
+  /// v0.18.171 demo: trip reads carry a sample `legRoute` (the app's demo
+  /// transport turns it on; tests leave it off).
+  final bool legRouteSample;
 
   /// The time the cancel-fee windows are measured with (tests move it).
   final DateTime Function() _clock;
@@ -1164,9 +1169,10 @@ class InProcessMockClient extends http.BaseClient {
         payload = _error('not_found', requestId);
       } else {
         _expireSearchIfDue(ride);
+        final sample = legRouteSample ? _legRouteSample(ride) : null;
         payload = {
           'code': 'OK',
-          'ride': ride,
+          'ride': sample == null ? ride : {...ride, 'legRoute': sample},
           // The last committed event, envelope-style (contract §4).
           'eventId': ride['eventId'],
           'sequence': ride['sequence'],

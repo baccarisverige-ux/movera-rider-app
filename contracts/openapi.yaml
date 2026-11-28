@@ -1,11 +1,11 @@
-# Movera API v0.18.169 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
+# Movera API v0.18.171 — generated from contract.json (+ CONTRACT.md §7). PROPOSED; no backend exists.
 openapi: 3.1.0
 info:
   title: Movera API
-  version: 0.18.169
+  version: 0.18.171
   description: '**Proposed contract — no backend exists yet.** One future backend serves the Rider (Flutter), Driver (Flutter)
     and Admin (React/TS) apps. Source of truth for names, enums, transitions, realtime and errors is `contract.json` + `CONTRACT.md`
-    v0.18.169 in this folder; this file must agree with them.
+    v0.18.171 in this folder; this file must agree with them.
 
 
     Wire rules: ids match `^[A-Za-z0-9_-]{1,64}$`; times are RFC 3339 UTC with `Z`; durations are integer seconds; money is
@@ -84,7 +84,7 @@ tags:
 - name: Admin · Finance
 x-contract:
   name: movera
-  version: 0.18.169
+  version: 0.18.171
   source: contract.json
 paths:
   /auth/otp/request:
@@ -10917,7 +10917,28 @@ paths:
         route of the current leg (trips.eta_route, else the booked quote route to the drop-off), in the same OSRM-shaped JSON
         the driver app reads (code Ok, routes[0].distance / duration / geometry.coordinates; legs empty, so no turn-by-turn
         steps); with no trip or no stored route, the straight line through the asked points. Only the ETA tick asks Google
-        again, under the off-route / late rule (recall), so a trip stays at about 2 calls.'
+        again, under the off-route / late rule (recall), so a trip stays at about 2 calls. v0.18.171 (contract.json#googleRoadLines):
+        GET /routes/driving/{coordinates} (replaces liveTraffic.navigation from v0.18.171; that text is kept as it was, Rule
+        21): on the caller''s own active trip leg (to the pickup, or to the drop-off) the server answers the stored Google
+        route (trips.eta_route, else the booked quote route to the drop-off) cut from the point nearest the car (source stored,
+        no Google call) while the car is within offRouteMeters of it. With no stored route, or the car more than offRouteMeters
+        off it, it asks Google once (car to the leg''s target through the stops still ahead) and stores the answer as trips.eta_route,
+        so the ETA tick follows it and does not ask again (source google). With no active trip, roadLines off, the cap or
+        the daily budget reached, or Google failing: the stored line cut at the car (source stored), else the straight line
+        through the asked points (source estimate). Always code Ok and status 200, never an error for these. A fixed 50 m,
+        the same as the driver app''s own off-route rule; it is not the ETA re-call setting (liveTraffic.offRouteMeters, 200
+        m by default), which stays for the ETA tick. Only the caller''s own active trip leg is routed and written. The origin
+        is the first asked point only when it is within 150 m of the driver''s last stored position (driver_locations, at
+        most 120 s old); otherwise the stored position. No active leg or no stored position: no Google call and nothing written
+        (source estimate). At most maxCallsPerTrip Google Routes calls per trip (default 4), the quote call INCLUDED: the
+        trip''s counter starts at 1 when its quote was answered by Google (quote route source google), else at 0; then 1 for
+        the drive to the pickup (made by GET /routes/driving or by the first ETA tick, whichever comes first; the other follows
+        the stored route) and the rest for re-routes and ETA re-calls (off the route, behind). The rider''s maps add 0 calls.
+        POST /routes is unchanged (estimate). At the cap (or with the road-line budget used): no Google call. The ETA tick
+        keeps following the stored Google route (remaining distance along it, source google), never jumps to the straight-line
+        estimate while a stored route exists; GET /routes/driving answers source stored, else estimate. At most one road-line
+        Google call per trip leg per 60 s, checked against the stored route''s time (trips.eta_route.at) in the database,
+        so it holds across server copies. Any in-memory cache is best effort per copy.'
       tags:
       - Maps
       x-actor:
@@ -21526,6 +21547,112 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /admin/maps/google-budget:
+    get:
+      operationId: adminGetGoogleRoutesBudget
+      summary: The daily Google Routes budget and today's use
+      description: 'v0.18.171 (contract.json#googleRoadLines): GET /admin/maps/google-budget (settings.read) answers GoogleRoutesBudget
+        { dailyLimit, quotesPerDay, roadLinesPerDay, today { day, quotes, roadLines } }; with nothing saved it answers the
+        defaults (dailyLimit 2000, quotesPerDay 1400, roadLinesPerDay 600) and today''s counts (0 when no call was made).
+        PUT /admin/maps/google-budget (settings.publish, an admin who covers every country) { dailyLimit, quotesPerDay } with
+        dailyLimit 100..100000 (owner: "we can add more limit later", so a higher Google quota is an admin change only, never
+        a new contract version) and quotesPerDay 0..dailyLimit. Errors: quotesPerDay above dailyLimit = 400 invalid_budget;
+        an admin who does not cover every country = 403 not_all_countries. Audited like a config publish. GET is open to any
+        settings.read admin on purpose: the numbers are global counts with no personal data. New admin alert system_health:google_routes_budget:<CC>,
+        raised in every country''s alert book (kind system_health; each country''s system_health on/level applies) with the
+        same condition for all countries, because the budget is global: warning when today''s road-line calls (all countries
+        together) reach roadLinesPerDay, critical when all calls reach dailyLimit. The existing system_health:live_traffic:<CC>
+        alert is unchanged: it comes from the quotes (3 or more quotes in 10 min, none from Google), so a road-line refusal
+        alone does not raise it.'
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.read
+      parameters:
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleRoutesBudget'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    put:
+      operationId: adminPutGoogleRoutesBudget
+      summary: Change the daily Google Routes budget split
+      description: 'v0.18.171 (contract.json#googleRoadLines): GET /admin/maps/google-budget (settings.read) answers GoogleRoutesBudget
+        { dailyLimit, quotesPerDay, roadLinesPerDay, today { day, quotes, roadLines } }; with nothing saved it answers the
+        defaults (dailyLimit 2000, quotesPerDay 1400, roadLinesPerDay 600) and today''s counts (0 when no call was made).
+        PUT /admin/maps/google-budget (settings.publish, an admin who covers every country) { dailyLimit, quotesPerDay } with
+        dailyLimit 100..100000 (owner: "we can add more limit later", so a higher Google quota is an admin change only, never
+        a new contract version) and quotesPerDay 0..dailyLimit. Errors: quotesPerDay above dailyLimit = 400 invalid_budget;
+        an admin who does not cover every country = 403 not_all_countries. Audited like a config publish. GET is open to any
+        settings.read admin on purpose: the numbers are global counts with no personal data. One daily budget for all countries
+        together (Google''s quota is per project): dailyLimit (default 2000, the owner''s Google Cloud quota) split into quotesPerDay
+        (default 1400) for prices and the rest (default 600) for road lines. The limits are checked against the SUM over all
+        countries; per-country counts are for reporting only. Quotes may use the whole limit. Road-line calls stop first:
+        re-routes and ETA re-calls at 80% of the road-line share, the drive to the pickup at 100%. Over it: source stored
+        / estimate as above.'
+      tags:
+      - Admin · Config
+      x-actor:
+      - admin
+      x-permission: settings.publish
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/RequestId'
+      - $ref: '#/components/parameters/ApiVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleRoutesBudgetCommand'
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Request-Id:
+              description: Echo of the request id (server-generated if absent).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleRoutesBudget'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -23347,6 +23474,39 @@ components:
             cancel, never kept in History as cancelled); any other terminal status shows its end sheet. A cancel the server
             refuses (409 invalid_transition) on a tripStatus.driverAssigned or completed trip moves the rider on the same
             way and never starts the search again.'
+        legRoute:
+          type: object
+          description: 'v0.18.170 (contract.json#riderLegRouteLine): TripProjection.legRoute {target, polyline}: the stored
+            Google route of the trip''s current leg, the same one the live ETA follows and the driver''s GET /routes/driving/{coordinates}
+            draws (trips.eta_route). target is pickup (driver position to the pickup, while the driver is coming: accepted,
+            driver_to_pickup; none while he waits at the pickup (arrived)) or dropoff (on trip: rider_onboard, in_trip, approaching_dropoff,
+            after a re-route from the driver''s position through the stops still ahead); polyline is the Google encoded polyline
+            (precision 5). Sent only in the rider''s own trip reads, GET /trips/{tripId} (rider caller; also its deprecated
+            alias GET /rides/{rideId}) and GET /rider/trips/active, and only when its target is the trip''s current leg; never
+            in command answers; absent while no driver holds the trip, once the trip is in a terminal status (completed carries
+            no line), when the ETA has no stored Google route yet (live traffic off, Google did not answer, the first tick
+            has not run), to the driver and admin, in realtime events as a projection field and from an older server. From
+            v0.18.171 the same route also rides on the rider''s location events as TripEta.legRoute when it changes (contract.json#googleRoadLines.riderEvent);
+            never for the driver or admin. No extra Google call: it is the route the live ETA''s own calls stored (about 2
+            per trip, contract.json#liveTraffic.calls). POST /routes is unchanged. Waiting for driver draws legRoute (target
+            pickup) as the driver-to-pickup line; the on-trip map draws legRoute (target dropoff) when sent, else TripProjection.routePolyline,
+            else the road-route request (POST /routes) as before. A legRoute whose target is not the screen''s leg is not
+            drawn. Movera colours only (#12201C, #2FBF5B).'
+          required:
+          - target
+          - polyline
+          properties:
+            target:
+              type: string
+              enum:
+              - pickup
+              - dropoff
+              description: 'pickup: driver position to the pickup; dropoff: to the drop-off through the stops still ahead.'
+            polyline:
+              type: string
+              minLength: 1
+              description: Google encoded polyline (precision 5).
+          additionalProperties: false
     DriverSilentAlert:
       type: object
       description: 'v0.7.0: documents the server''s alert of 2026-10-26: no position for 30 min with the rider on board; the
@@ -30708,6 +30868,27 @@ components:
               maximum: 60
               description: 'v0.18.163 (contract.json#liveTraffic): minutes behind the route''s planned arrival before Google
                 is asked again, 1 to 60, default 5.'
+            roadLines:
+              type: object
+              description: 'v0.18.171 (contract.json#googleRoadLines): DispatchDocument.liveTraffic.roadLines { on, maxCallsPerTrip
+                } per zone or country standard: on (default: follows liveTraffic.on) and maxCallsPerTrip 1..4, default 4.
+                The owner allows only lowering it: 4 is the maximum. Missing or out of range reads its default.'
+              properties:
+                'on':
+                  type: boolean
+                  description: 'v0.18.171 (contract.json#googleRoadLines): true: GET /routes/driving may ask Google for the
+                    driver''s road line; default follows liveTraffic.on.'
+                maxCallsPerTrip:
+                  type: integer
+                  minimum: 1
+                  maximum: 4
+                  description: 'v0.18.171 (contract.json#googleRoadLines): At most maxCallsPerTrip Google Routes calls per
+                    trip (default 4), the quote call INCLUDED: the trip''s counter starts at 1 when its quote was answered
+                    by Google (quote route source google), else at 0; then 1 for the drive to the pickup (made by GET /routes/driving
+                    or by the first ETA tick, whichever comes first; the other follows the stored route) and the rest for
+                    re-routes and ETA re-calls (off the route, behind). The rider''s maps add 0 calls. POST /routes is unchanged
+                    (estimate). 1 to 4, default 4.'
+              additionalProperties: false
           additionalProperties: false
       x-server-only: true
       x-ranges:
@@ -31627,6 +31808,17 @@ components:
           type: array
           items:
             type: object
+        source:
+          type: string
+          enum:
+          - google
+          - stored
+          - estimate
+          description: 'v0.18.171 (contract.json#googleRoadLines): OsrmRouteResponse.source: google (Google answered now),
+            stored (the stored Google route, cut at the car), estimate (the straight line). Absent from an older server: the
+            apps treat the answer as before. Owner 2026-11-27 (Q1): code stays Ok on every 200 answer, also the straight line,
+            so driver builds from before v0.18.171 (which treat any other code as no route) still draw a line; source estimate
+            marks it.'
     TelemetryLog:
       type: object
       required:
@@ -32111,7 +32303,11 @@ components:
         version change, like the waiting alerts; a route change request and its answer (TripProjection.routeChange) are trip_projection
         events with version + 1. No new event kinds.; v0.18.38 §62: call_ringing, call_answered, call_signal, call_ended and
         call_missed carry no projection and no version change; they pass the gate also after a terminal status (the call window
-        runs callWindowAfterTripMin after drop-off)..'
+        runs callWindowAfterTripMin after drop-off).. v0.18.171 (contract.json#googleRoadLines): a rider''s location event
+        may carry eta.legRoute (TripEta.legRoute {target, polyline}: on a kind=location event of the rider''s stream (and
+        the rider''s GET /trips/{tripId}/events) only, and only on the tick where the leg''s stored route changed (the first
+        route after accept, a re-route, the leg switch at boarding, a route change). Never on the driver''s or admin''s copy
+        of the event, never in TripProjection.eta, never in command answers.)'
       required:
       - eventId
       - tripId
@@ -37851,6 +38047,27 @@ components:
             from the driver''s position, times the route''s average speed (Google duration / distance). To the drop-off the
             trip''s quote polyline is used from boarding (no call).); osrm is no longer sent (Owner 2026-11-25 "We cannot
             use data for open street map"). Apps treat an unknown value like estimate.'
+        legRoute:
+          type: object
+          description: 'v0.18.171 (contract.json#googleRoadLines): TripEta.legRoute {target, polyline}: on a kind=location
+            event of the rider''s stream (and the rider''s GET /trips/{tripId}/events) only, and only on the tick where the
+            leg''s stored route changed (the first route after accept, a re-route, the leg switch at boarding, a route change).
+            Never on the driver''s or admin''s copy of the event, never in TripProjection.eta, never in command answers.'
+          required:
+          - target
+          - polyline
+          properties:
+            target:
+              type: string
+              enum:
+              - pickup
+              - dropoff
+              description: 'pickup or dropoff: the leg this route goes to.'
+            polyline:
+              type: string
+              minLength: 1
+              description: Google encoded polyline (precision 5).
+          additionalProperties: false
     WaitingRuleOverride:
       type: object
       description: 'v0.18.8: DriverAppConfig.waiting (Admin › Dispatch › Waiting at pickup, per zone): farPickup { on, km,
@@ -43641,4 +43858,77 @@ components:
           type: string
           minLength: 1
           maxLength: 500
+      additionalProperties: false
+    GoogleRoutesBudget:
+      type: object
+      description: 'v0.18.171 (contract.json#googleRoadLines): One daily budget for all countries together (Google''s quota
+        is per project): dailyLimit (default 2000, the owner''s Google Cloud quota) split into quotesPerDay (default 1400)
+        for prices and the rest (default 600) for road lines. The limits are checked against the SUM over all countries; per-country
+        counts are for reporting only. Quotes may use the whole limit. Road-line calls stop first: re-routes and ETA re-calls
+        at 80% of the road-line share, the drive to the pickup at 100%. Over it: source stored / estimate as above.'
+      required:
+      - dailyLimit
+      - quotesPerDay
+      - roadLinesPerDay
+      - today
+      properties:
+        dailyLimit:
+          type: integer
+          minimum: 100
+          maximum: 100000
+          description: All Google Routes calls per day, all countries together (default 2000).
+        quotesPerDay:
+          type: integer
+          minimum: 0
+          maximum: 100000
+          description: The part kept for prices (quotes), default 1400.
+        roadLinesPerDay:
+          type: integer
+          minimum: 0
+          maximum: 100000
+          description: 'dailyLimit - quotesPerDay: the part for road lines, default 600.'
+        today:
+          type: object
+          required:
+          - day
+          - quotes
+          - roadLines
+          properties:
+            day:
+              type: string
+              format: date
+              description: The America/Los_Angeles calendar day (YYYY-MM-DD). A day is the America/Los_Angeles calendar day,
+                because Google's per-day quota resets at midnight Pacific time; a UTC day would disagree with Google for several
+                hours each day.
+            quotes:
+              type: integer
+              minimum: 0
+            roadLines:
+              type: integer
+              minimum: 0
+          additionalProperties: false
+      additionalProperties: false
+    GoogleRoutesBudgetCommand:
+      type: object
+      description: 'v0.18.171 (contract.json#googleRoadLines): GET /admin/maps/google-budget (settings.read) answers GoogleRoutesBudget
+        { dailyLimit, quotesPerDay, roadLinesPerDay, today { day, quotes, roadLines } }; with nothing saved it answers the
+        defaults (dailyLimit 2000, quotesPerDay 1400, roadLinesPerDay 600) and today''s counts (0 when no call was made).
+        PUT /admin/maps/google-budget (settings.publish, an admin who covers every country) { dailyLimit, quotesPerDay } with
+        dailyLimit 100..100000 (owner: "we can add more limit later", so a higher Google quota is an admin change only, never
+        a new contract version) and quotesPerDay 0..dailyLimit. Errors: quotesPerDay above dailyLimit = 400 invalid_budget;
+        an admin who does not cover every country = 403 not_all_countries. Audited like a config publish. GET is open to any
+        settings.read admin on purpose: the numbers are global counts with no personal data.'
+      required:
+      - dailyLimit
+      - quotesPerDay
+      properties:
+        dailyLimit:
+          type: integer
+          minimum: 100
+          maximum: 100000
+        quotesPerDay:
+          type: integer
+          minimum: 0
+          maximum: 100000
+          description: At most dailyLimit.
       additionalProperties: false

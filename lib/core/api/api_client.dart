@@ -61,7 +61,11 @@ class ApiClient {
 
   static http.Client _defaultClient(AppEnv env) {
     return env.allowsMockTransport
-        ? InProcessMockClient(persistSafety: true, persistRides: true)
+        ? InProcessMockClient(
+            persistSafety: true,
+            persistRides: true,
+            legRouteSample: true,
+          )
         : http.Client();
   }
 
