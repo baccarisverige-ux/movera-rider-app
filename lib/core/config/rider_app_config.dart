@@ -402,7 +402,15 @@ class RiderAppConfig {
           _string(raw['timeZone']) ?? fallback?.timeZone ?? defaultTimeZone,
       categories:
           _categories(raw['catalog']) ?? fallback?.categories ?? const [],
-      features: _features(raw['features']) ?? fallback?.features ?? const {},
+      // Contract v0.18.116 `shareTrip.on` (Admin Dispatch › Safety) is the
+      // zone's Share trip switch; it wins over the older features.shareTrip.
+      features: switch (raw['shareTrip']) {
+        {'on': final bool on} => {
+          ...?_features(raw['features']) ?? fallback?.features,
+          'shareTrip': on,
+        },
+        _ => _features(raw['features']) ?? fallback?.features ?? const {},
+      },
       paymentMethods:
           readZonePaymentMethods(raw['paymentMethods']) ??
           fallback?.paymentMethods ??

@@ -52,6 +52,9 @@ dependencies:
   flutter_secure_storage: ^9.2.4
   intl: ^0.20.2
   url_launcher: ^6.3.2
+  # Share my trip (contract v0.18.116 contract.json#shareTrip): "Share with…"
+  # opens the phone's own share sheet; the same version as the driver app.
+  share_plus: ^12.0.2
   record: ^7.1.1
   path_provider: ^2.1.6
   firebase_core: ^4.15.0

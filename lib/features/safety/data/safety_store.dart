@@ -1,5 +1,7 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/features/safety/data/ride_check_reporter.dart';
@@ -104,6 +106,10 @@ class SafetyStore {
       ? ContractContactsRemoteDataSource(api)
       : ApiSafetyRemoteDataSource(api);
 
+  /// True on movera-server: Share my trip is a live link the rider's own
+  /// phone sends (`/rider/trips/{tripId}/share`).
+  bool get sharesByLink => _remote is ContractContactsRemoteDataSource;
+
   /// False when the server keeps no Safety settings (the contract wire).
   bool get served => _remote is! UnservedSafetyRemoteDataSource;
 
@@ -125,6 +131,11 @@ class SafetyStore {
 
   Future<void> load() async {
     _cache = await _local.load();
+    // Share my trip: a kept share past its end (the link's 6 h cap) is not
+    // kept; its URL is dead.
+    final kept = _cache.shares.length;
+    _cache.shares.removeWhere((_, share) => share.expired);
+    if (_cache.shares.length != kept) await _local.save(_cache);
     // A cached per-user PIN cannot prove that the current ride still uses it.
     // Never display cached digits after a network failure or while refreshing.
     _cache.pin = RidePin.unavailable;
@@ -401,28 +412,74 @@ class SafetyStore {
       shareToken: token,
       isActive: true,
     );
-    return _write(
-      () => _remote.startShare(rideId, contactIds: ids),
-      optimistic,
-      (value) => _cache.shares[rideId] = value,
-      keep: () {
-        final previous = _cache.shares[rideId];
-        return () => previous == null
-            ? _cache.shares.remove(rideId)
-            : _cache.shares[rideId] = previous;
-      },
-    );
+    // Share my trip: one Idempotency-Key per link of the trip, kept until
+    // sharing stops, so a second tap (or a retry after a lost answer) gets
+    // the same link back from the server instead of a new one.
+    final key = _shareKeys[rideId] ??= newIdempotencyKey('share-trip');
+    try {
+      return await _write(
+        () => _remote.startShare(rideId, contactIds: ids, idempotencyKey: key),
+        optimistic,
+        (value) => _cache.shares[rideId] = value,
+        keep: () {
+          final previous = _cache.shares[rideId];
+          return () => previous == null
+              ? _cache.shares.remove(rideId)
+              : _cache.shares[rideId] = previous;
+        },
+      );
+    } on ApiError catch (error) {
+      // A refusal (403 share_trip_off, 409 trip_not_live, 410 ended) is
+      // final for this key: the next tap asks afresh. A lost answer or a
+      // server error keeps the key, so the retry gets the same link.
+      final status = error.statusCode ?? 0;
+      if (status >= 400 && status < 500) _shareKeys.remove(rideId);
+      if (status == 410) await endShare(rideId);
+      rethrow;
+    }
   }
+
+  /// The Idempotency-Key of the trip's current link (see [startShare]).
+  final Map<String, String> _shareKeys = {};
 
   Future<TripShare?> getShare(String rideId) async {
     await _ensure();
     try {
       final live = await _remote.getShare(rideId);
       if (live != null) {
-        _cache.shares[rideId] = live;
+        // The server lists live links without their URL (it keeps only a
+        // hash), so a link this phone still holds stays, but only while the
+        // server lists THAT link (the same shareId): a link stopped from
+        // another phone is never sent again. A trip with no live link (it
+        // ended at drop-off) keeps the share as ended, without its link.
+        final kept = _cache.shares[rideId];
+        final remote = _remote;
+        final listed = remote is ContractContactsRemoteDataSource
+            ? remote.liveShareIds
+            : {live.shareId};
+        _cache.shares[rideId] = !live.isActive
+            ? (kept ?? live).ended()
+            : (live.url == null &&
+                      kept != null &&
+                      kept.canSend &&
+                      listed.contains(kept.shareId)
+                  ? kept
+                  : live);
+        if (_cache.shares[rideId]?.canSend != true) _shareKeys.remove(rideId);
         await _local.save(_cache);
       }
-      return live ?? _cache.shares[rideId];
+      return _cache.shares[rideId];
+    } on ApiError catch (error) {
+      // 410: the link ended by itself (drop-off). Not an error: ended.
+      if (error.statusCode == 410) {
+        final kept = _cache.shares[rideId];
+        if (kept != null) _cache.shares[rideId] = kept.ended();
+        _shareKeys.remove(rideId);
+        await _local.save(_cache);
+        return _cache.shares[rideId];
+      }
+      AppLog.error('safety.share_refresh_failed', error: error);
+      return _cache.shares[rideId];
     } catch (error, stackTrace) {
       AppLog.error(
         'safety.share_refresh_failed',
@@ -434,18 +491,41 @@ class SafetyStore {
     }
   }
 
+  /// The trip is over, so the share kept for [rideId] (its link) leaves
+  /// the phone. No request: the server ends the link itself at drop-off.
+  Future<void> dropShare(String rideId) async {
+    await _ensure();
+    _shareKeys.remove(rideId);
+    if (_cache.shares.remove(rideId) == null) return;
+    await _local.save(_cache);
+  }
+
+  /// Marks the share of [rideId] as ended (the server answered 410).
+  Future<void> endShare(String rideId) async {
+    await _ensure();
+    _shareKeys.remove(rideId);
+    final kept = _cache.shares[rideId];
+    _cache.shares[rideId] =
+        (kept ?? TripShare(shareId: '', rideId: rideId, userId: '')).ended();
+    await _local.save(_cache);
+  }
+
   /// The share kept for [rideId], if any.
   TripShare? shareFor(String rideId) => _cache.shares[rideId];
 
   Future<void> stopShare(String rideId) async {
     await _ensure();
     final previous = _cache.shares[rideId];
-    final current = previous?.copyWith(isActive: false);
+    // The link is not kept after sharing stops; the next share is a new
+    // link with a new Idempotency-Key.
+    final current = previous?.ended();
     if (current != null) _cache.shares[rideId] = current;
+    final key = _shareKeys.remove(rideId);
     await _local.save(_cache);
     try {
       await _remote.stopShare(rideId);
     } catch (_) {
+      if (key != null) _shareKeys[rideId] = key;
       if (previous != null) _cache.shares[rideId] = previous;
       await _local.save(_cache);
       rethrow;
@@ -1020,6 +1100,69 @@ class ContractContactsRemoteDataSource extends UnservedSafetyRemoteDataSource {
     'phone': c.phoneE164.replaceAll(RegExp(r'[\s()-]'), ''),
     if (c.relationship.trim().isNotEmpty) 'relation': c.relationship.trim(),
   };
+
+  static String _sharePath(String tripId) =>
+      '/api/v1/rider/trips/${Uri.encodeComponent(tripId)}/share';
+
+  /// `TripShareLink` / `TripShareItem` as the app's share.
+  static TripShare _shareOf(Map<String, dynamic> json, String tripId) =>
+      TripShare(
+        shareId: json['shareId'] is String ? json['shareId'] as String : '',
+        rideId: tripId,
+        userId: '',
+        startedAt: DateTime.tryParse('${json['createdAt'] ?? ''}'),
+        expiresAt: DateTime.tryParse('${json['expiresAt'] ?? ''}'),
+        url: json['url'] is String ? json['url'] as String : null,
+        isActive: true,
+      );
+
+  /// Share my trip (contract v0.18.116 `contract.json#shareTrip`;
+  /// movera-server shareRoutes.ts): makes the trip's live link (201
+  /// `TripShareLink`). The same Idempotency-Key answers the same link.
+  /// 403 `share_trip_off`, 409 `trip_not_live` / `too_many_shares` come
+  /// back as [ApiError].
+  @override
+  Future<TripShare> startShare(
+    String rideId, {
+    List<String>? contactIds,
+    String? idempotencyKey,
+  }) async {
+    final json = await _api.post(
+      _sharePath(rideId),
+      body: const <String, dynamic>{},
+      idempotencyKey: idempotencyKey ?? newIdempotencyKey('share-trip'),
+    );
+    return _shareOf(json, rideId).copyWith(contactIds: contactIds);
+  }
+
+  /// The shareIds of the live links the last [getShare] listed.
+  Set<String> liveShareIds = const {};
+
+  /// The trip's live links (`TripShareList`, without their URLs): the
+  /// newest one, or a share that is not live when there is none (the trip
+  /// ended, or sharing stopped).
+  @override
+  Future<TripShare?> getShare(String rideId) async {
+    final items = (await _api.get(_sharePath(rideId)))['items'];
+    final live = items is List ? items.whereType<Map>().toList() : const [];
+    liveShareIds = {
+      for (final item in live)
+        if (item['shareId'] is String) item['shareId'] as String,
+    };
+    if (live.isEmpty) {
+      return TripShare(shareId: '', rideId: rideId, userId: '');
+    }
+    return _shareOf(Map<String, dynamic>.from(live.last), rideId);
+  }
+
+  /// "Stop sharing": every live link of the trip ends at once (204).
+  @override
+  Future<void> stopShare(String rideId) async {
+    await _api.delete(
+      _sharePath(rideId),
+      idempotencyKey: newIdempotencyKey('share-trip-stop'),
+    );
+  }
 
   Future<void> _put(List<EmergencyContact> list) async {
     await _api.put(_path, body: {'items': list.map(itemOf).toList()});
