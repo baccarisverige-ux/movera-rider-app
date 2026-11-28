@@ -382,5 +382,13 @@
         "type": "String"
       }
     }
-  }
+  },
+  "priceRecalculatedTitle": "Price recalculated",
+  "@priceRecalculatedTitle": {"description": "v0.18.174 (owner v8 2026-11-28): title of the shared price popup, shown only when the price at booking is higher than the one seen."},
+  "priceUpdatedRecalculated": "Updated for your pickup point and current traffic.",
+  "@priceUpdatedRecalculated": {"description": "v0.18.174 (owner v8): the one grey line of the price popup."},
+  "bookCategoryForPrice": "Book {category} · {price}",
+  "@bookCategoryForPrice": {"description": "v0.18.174 (owner v8): the black button of the price popup; {category} is the ride name, {price} the new price with its exact cents or öre.", "placeholders": {"category": {"type": "String"}, "price": {"type": "String"}}},
+  "priceUpdatedClose": "Close",
+  "@priceUpdatedClose": {"description": "v0.18.174 (owner v8): screen-reader label of the ✕ that closes the price popup (does what Not now did)."}
 }

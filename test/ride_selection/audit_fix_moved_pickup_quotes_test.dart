@@ -107,6 +107,8 @@ class _CaptureBooking extends BookingController {
     List<RouteStop> stops = const <RouteStop>[],
     bool useWalletFirst = false,
     int walletAmountMinor = 0,
+    String? agreedQuoteId,
+    bool priceAccepted = false,
   }) async {
     bookings.add('$rideType $quoteId $price');
     throw StateError('stop here');
@@ -207,7 +209,7 @@ void main() {
       find.byKey(const ValueKey('select-ride-price-updated')),
       findsOneWidget,
     );
-    await tester.tap(find.text('Not now'));
+    await tester.tap(find.byKey(const ValueKey('select-ride-price-close')));
     await settle(tester, 20);
     expect(booking.bookings, isEmpty);
 

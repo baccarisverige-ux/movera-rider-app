@@ -166,11 +166,20 @@ class ReservationDraft {
     this.timeZone,
     this.stops = const <ReservationPlace>[],
     this.walletFirst = true,
+    this.agreedQuoteId,
+    this.priceAccepted = false,
   });
 
   /// Fix job 5 (contract v0.18.33, owner Q6): the rider's per-ride wallet
   /// switch, sent as `walletFirst` (starts on).
   final bool walletFirst;
+
+  /// v0.18.174 (contract.json#priceChangeAsk): the quote whose price the
+  /// rider saw, sent as `agreedQuoteId`; null sends none (older behaviour).
+  final String? agreedQuoteId;
+
+  /// v0.18.174: the rider said yes to a higher price (`priceAccepted`).
+  final bool priceAccepted;
 
   /// The pickup instant. With a [timeZone] it is the instant of the
   /// rider's pick in that zone's wall-clock time (rider-63).
@@ -257,7 +266,16 @@ class ReservationPatch {
     this.previousDriver,
     this.timeZone,
     this.stops,
+    this.agreedQuoteId,
+    this.priceAccepted = false,
   });
+
+  /// v0.18.174 (contract.json#priceChangeAsk): the quote whose price the
+  /// rider saw, sent as `agreedQuoteId`; null sends none (older behaviour).
+  final String? agreedQuoteId;
+
+  /// v0.18.174: the rider said yes to a higher price (`priceAccepted`).
+  final bool priceAccepted;
 
   final DateTime? scheduledPickupAt;
   final DateTime? estimatedDropoffAt;

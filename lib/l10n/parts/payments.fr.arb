@@ -128,5 +128,9 @@
   "riderDebtAboveMax": "Vous devez {amount} pour des trajets précédents. Les trajets payés à bord sont suspendus jusqu’au paiement. Contactez le support pour payer.",
   "walletFee": "Frais impayés",
   "walletDebtPaid": "Frais impayés réglés",
-  "walletYouOwe": "Vous devez {amount}"
+  "walletYouOwe": "Vous devez {amount}",
+  "priceRecalculatedTitle": "Prix recalculé",
+  "priceUpdatedRecalculated": "Mis à jour selon votre point de prise en charge et le trafic actuel.",
+  "bookCategoryForPrice": "Réserver {category} · {price}",
+  "priceUpdatedClose": "Fermer"
 }

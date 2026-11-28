@@ -114,6 +114,16 @@ class ApiReservationRepository
     throw ScheduledQuoteRequiredException(categoryId);
   }
 
+  /// v0.18.174 (contract.json#priceChangeAsk): `agreedQuoteId` (the quote
+  /// the rider saw) and, when they accepted a higher price, `priceAccepted`.
+  static Map<String, dynamic> priceChangeAskBody(
+    String? agreedQuoteId,
+    bool priceAccepted,
+  ) => {
+    if (agreedQuoteId != null) 'agreedQuoteId': agreedQuoteId,
+    if (agreedQuoteId != null && priceAccepted) 'priceAccepted': true,
+  };
+
   /// `POST /quotes` for a booked ride (kind scheduled, its pickup instant).
   static Map<String, dynamic> scheduledQuoteBody({
     required String categoryId,
@@ -179,6 +189,7 @@ class ApiReservationRepository
           'walletFirst': draft.walletFirst,
           if (draft.note != null && draft.note!.trim().isNotEmpty)
             'notes': draft.note!.trim(),
+          ...priceChangeAskBody(draft.agreedQuoteId, draft.priceAccepted),
         },
       ),
     );
@@ -207,7 +218,11 @@ class ApiReservationRepository
         reservationId,
         (version) => _api.post(
           '$tripsPath/${Uri.encodeComponent(reservationId)}/reschedule',
-          body: {'quoteId': quoted['quoteId'], 'expectedVersion': version},
+          body: {
+            'quoteId': quoted['quoteId'],
+            'expectedVersion': version,
+            ...priceChangeAskBody(patch.agreedQuoteId, patch.priceAccepted),
+          },
         ),
       ),
     );

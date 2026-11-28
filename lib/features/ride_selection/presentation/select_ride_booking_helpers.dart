@@ -12,8 +12,12 @@ extension _SelectRideBookingHelpers on _SelectRideState {
       );
       return null;
     }
-    if (_selection.moneyOf(reviewed).amountMinor != bookable.quote.totalMinor &&
-        !await _acceptNewPrice(reviewed, bookable.price)) {
+    // v0.18.174: only a rise is asked; a drop saves the lower price.
+    if (priceChangeNeedsAsk(
+          _selection.moneyOf(reviewed),
+          Money(bookable.quote.totalMinor, bookable.quote.currency),
+        ) &&
+        !await _acceptNewPrice(reviewed, bookable.price, ride)) {
       return null;
     }
     return mounted ? bookable.price : null;

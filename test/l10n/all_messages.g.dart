@@ -973,6 +973,10 @@ Map<String, String> allMessages(AppLocalizations l) => {
   'walletFee': l.walletFee,
   'walletDebtPaid': l.walletDebtPaid,
   'walletYouOwe': l.walletYouOwe('<amount>'),
+  'priceRecalculatedTitle': l.priceRecalculatedTitle,
+  'priceUpdatedRecalculated': l.priceUpdatedRecalculated,
+  'bookCategoryForPrice': l.bookCategoryForPrice('<category>', '<price>'),
+  'priceUpdatedClose': l.priceUpdatedClose,
   'scheduleForLater': l.scheduleForLater,
   'later': l.later,
   'scheduleARide': l.scheduleARide,
@@ -2038,6 +2042,7 @@ const messagePlaceholders = <String, List<String>>{
   'quoteDebtLine': ['amount'],
   'riderDebtAboveMax': ['amount'],
   'walletYouOwe': ['amount'],
+  'bookCategoryForPrice': ['category', 'price'],
   'bookForPrice': ['price'],
   'resCancelledFee': ['amount'],
   'resReservedFor': ['date', 'time'],
@@ -4105,6 +4110,14 @@ class _Exhaustive implements AppLocalizations {
   String get walletDebtPaid => '';
   @override
   String walletYouOwe(String amount) => '';
+  @override
+  String get priceRecalculatedTitle => '';
+  @override
+  String get priceUpdatedRecalculated => '';
+  @override
+  String bookCategoryForPrice(String category, String price) => '';
+  @override
+  String get priceUpdatedClose => '';
   @override
   String get scheduleForLater => '';
   @override

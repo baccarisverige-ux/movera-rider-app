@@ -80,43 +80,76 @@ extension _WaitingStages on _WaitingForDriverState {
       );
       final next = Money(quote.totalMinor, quote.currency);
       if (!mounted) return false;
-      if (next != trip.fare &&
-          !await showRebookPriceDialog(context, shown: trip.fare, next: next)) {
+      // v0.18.174: only a rise is asked; a drop searches at the lower price.
+      final categoryName = rebookCategoryName(widget.rideType, trip.categoryId);
+      var priceAccepted = priceChangeNeedsAsk(trip.fare, next);
+      if (priceAccepted &&
+          !await showRebookPriceDialog(
+            context,
+            shown: trip.fare,
+            next: next,
+            categoryName: categoryName,
+          )) {
         return false;
       }
-      await booking.submitFinding(
-        pickupAddress: pickupAddress,
-        destinationAddress: trip.destinationAddress,
-        pickupLat: trip.pickup.latitude,
-        pickupLng: trip.pickup.longitude,
-        destinationLat: trip.destination.latitude,
-        destinationLng: trip.destination.longitude,
-        rideType: trip.categoryId,
-        price: next.major,
-        quoteId: quote.id,
-        quoteSignedPayload: quote.signedPayload,
-        quoteExpiresAt: quote.expiresAt,
-        quoteTotalMinor: quote.totalMinor,
-        quoteCurrency: quote.currency,
-        paymentMethod: trip.paymentMethodId,
-        rideTypeLabel: widget.rideType,
-        paymentMethodLabel: widget.paymentMethod,
-        notes: widget.notes,
-        stops: trip.stops,
-        // J10 (v0.18.84 debtModel.walletSwitch): on while the rider owes.
-        useWalletFirst:
-            widget.walletAmountMinor > 0 ||
-            RiderOutstanding.current.value.inCurrency(quote.currency) != null,
-        walletAmountMinor: widget.walletAmountMinor,
-      );
+      // v0.18.174 (contract.json#priceChangeAsk): the booking names the
+      // quote the rider saw; a 409 price_changed_ask shows the server's
+      // price in the v8 popup and a yes sends it again with priceAccepted.
+      var searchPrice = next;
+      for (var priceAsk = 0; ; priceAsk++) {
+        try {
+          await booking.submitFinding(
+            pickupAddress: pickupAddress,
+            destinationAddress: trip.destinationAddress,
+            pickupLat: trip.pickup.latitude,
+            pickupLng: trip.pickup.longitude,
+            destinationLat: trip.destination.latitude,
+            destinationLng: trip.destination.longitude,
+            rideType: trip.categoryId,
+            price: next.major,
+            quoteId: quote.id,
+            quoteSignedPayload: quote.signedPayload,
+            quoteExpiresAt: quote.expiresAt,
+            quoteTotalMinor: quote.totalMinor,
+            quoteCurrency: quote.currency,
+            paymentMethod: trip.paymentMethodId,
+            rideTypeLabel: widget.rideType,
+            paymentMethodLabel: widget.paymentMethod,
+            notes: widget.notes,
+            stops: trip.stops,
+            // J10 (v0.18.84 debtModel.walletSwitch): on while the rider owes.
+            useWalletFirst:
+                widget.walletAmountMinor > 0 ||
+                RiderOutstanding.current.value.inCurrency(quote.currency) !=
+                    null,
+            walletAmountMinor: widget.walletAmountMinor,
+            agreedQuoteId: quote.id,
+            priceAccepted: priceAccepted,
+          );
+          break;
+        } catch (error) {
+          if (priceAsk > 0 || !isPriceChangedAsk(error) || !mounted) rethrow;
+          final fresh = priceChangedAskFresh(error) ?? next;
+          if (!await showRebookPriceDialog(
+            context,
+            shown: next,
+            next: fresh,
+            categoryName: categoryName,
+          )) {
+            return false;
+          }
+          priceAccepted = true;
+          searchPrice = fresh;
+        }
+      }
       final finding = FindingDrivers(
         pickupAddress: pickupAddress,
         destinationAddress: trip.destinationAddress,
         pickupPosition: trip.pickup,
         destinationPosition: trip.destination,
         rideType: widget.rideType,
-        price: next.major,
-        currency: quote.currency,
+        price: searchPrice.major,
+        currency: searchPrice.currency,
         paymentMethod: widget.paymentMethod,
         walletAmountMinor: widget.walletAmountMinor,
         notes: widget.notes,

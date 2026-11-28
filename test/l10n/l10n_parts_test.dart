@@ -113,18 +113,20 @@ void main() {
     // Share my trip (2026-11-27): + 10 shareTrip* texts (safety area).
     // Owner 2026-11-27 (saved places v4): + spQuickTagline,
     // spFavoritesHeader, spOtherPlacesHeader, spSavePlace (saved_places).
+    // v0.18.174 (owner v8 price popup): + priceRecalculatedTitle,
+    // priceUpdatedRecalculated, bookCategoryForPrice, priceUpdatedClose.
     const before = {
       'en': (
-        '1664e7a77850121b883cb201c00e4996a50025cedc3528878ac53dfc457b075d',
-        2458,
+        '09a03cbdfea48a65a9f59ed9cdd58bf62a12a6732db98ae4f87268eba1608966',
+        2466,
       ),
       'fr': (
-        '0fca80eef056449165c9bd562c24cedfdfa60f5a95de716a742c5c27bc8ff8fb',
-        1885,
+        '43fccb40ab0b7f98e3991826435d30574d390c1f0dfd8db5dce0111e3ba91907',
+        1889,
       ),
       'sv': (
-        'd447bbf9e11752f5ccb0f8a07ff9c56573b1202b52451e33a0d2cdbbe691d764',
-        1885,
+        '4e6911e42b04f9e5f8f93e27933b9b83d9a960a833b6b7938ccdc95c3fce51b1',
+        1889,
       ),
     };
     for (final lang in _langs) {

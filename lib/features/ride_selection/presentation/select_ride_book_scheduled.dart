@@ -105,10 +105,15 @@ extension _SelectRideBookScheduled on _SelectRideState {
           return;
         }
         final shown = spot?.fareTotalKr;
-        if (shown != null &&
-            _selection.moneyOf(shown).amountMinor !=
-                bookable.quote.totalMinor &&
-            !await _acceptNewPrice(shown, bookable.price)) {
+        // v0.18.174: only a rise is asked; a drop books the lower price.
+        var priceAccepted =
+            shown != null &&
+            priceChangeNeedsAsk(
+              _selection.moneyOf(shown),
+              Money(bookable.quote.totalMinor, bookable.quote.currency),
+            );
+        if (priceAccepted &&
+            !await _acceptNewPrice(shown, bookable.price, booked)) {
           if (!mounted) return;
           // ignore: invalid_use_of_protected_member
           setState(() {});
@@ -171,8 +176,28 @@ extension _SelectRideBookScheduled on _SelectRideState {
               ],
               // rider-r4-35: the quote ran out on Review changes.
               requote: (reviewed) => _requoteReviewed(booked, reviewed),
+              priceAccepted: priceAccepted,
             );
             break;
+          } on ApiError catch (error, stack) {
+            // v0.18.174 (contract.json#priceChangeAsk): the server booked a
+            // higher price than the one agreed: the v8 popup shows the
+            // server's price; a yes sends it again with priceAccepted.
+            if (!isPriceChangedAsk(error) || priceAccepted || !mounted) {
+              failed(error, stack);
+              return;
+            }
+            final fresh = priceChangedAskFresh(error);
+            final next = fresh?.major ?? agreed;
+            if (!await _acceptNewPrice(agreed, next, booked)) {
+              if (!mounted) return;
+              // ignore: invalid_use_of_protected_member
+              setState(() {});
+              unawaited(_loadQuotes());
+              return;
+            }
+            if (!mounted) return;
+            priceAccepted = true;
           } on ScheduledQuoteRequiredException catch (error, stack) {
             // R2 (owner 2026-11-20): the server's price for the booked
             // ride is not the one held here. Before, nothing was booked,
@@ -188,8 +213,12 @@ extension _SelectRideBookScheduled on _SelectRideState {
               unawaited(_loadQuotes());
               return;
             }
-            if (_selection.moneyOf(fresh.price) != _selection.moneyOf(agreed) &&
-                !await _acceptNewPrice(agreed, fresh.price)) {
+            // v0.18.174: only a rise is asked; a drop books the lower price.
+            if (priceChangeNeedsAsk(
+                  _selection.moneyOf(agreed),
+                  _selection.moneyOf(fresh.price),
+                ) &&
+                !await _acceptNewPrice(agreed, fresh.price, booked)) {
               if (!mounted) return;
               // ignore: invalid_use_of_protected_member
               setState(() {});
@@ -198,6 +227,7 @@ extension _SelectRideBookScheduled on _SelectRideState {
             }
             if (!mounted) return;
             if (_walletCannotPay(fresh.price)) return;
+            if (fresh.price > agreed) priceAccepted = true;
             agreed = fresh.price;
           } catch (error, stack) {
             failed(error, stack);

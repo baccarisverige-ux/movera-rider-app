@@ -55,8 +55,15 @@ import 'package:movera_rider/features/finding_driver/presentation/ride_details_s
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/price_bump_card.dart';
 import 'package:movera_rider/features/finding_driver/presentation/rebook_price_dialog.dart';
+import 'package:movera_rider/core/widgets/price_updated_dialog.dart';
 export 'package:movera_rider/features/finding_driver/presentation/rebook_price_dialog.dart'
-    show showRebookPriceDialog;
+    show showRebookPriceDialog, rebookCategoryName;
+export 'package:movera_rider/core/widgets/price_updated_dialog.dart'
+    show
+        PriceUpdatedDialog,
+        priceChangeNeedsAsk,
+        isPriceChangedAsk,
+        priceChangedAskFresh;
 import 'package:movera_rider/features/finding_driver/presentation/still_looking_card.dart';
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart'
@@ -225,6 +232,9 @@ class _FindingDriversState extends State<FindingDrivers>
   /// rider-u107: the quote the rider confirmed for "Try again", kept while
   /// an uncertain booking is retried so it is not asked again.
   RideQuote? _rebookQuote;
+
+  /// v0.18.174: the rider said yes to [_rebookQuote]'s higher price.
+  bool _rebookPriceAccepted = false;
   bool _cancelSheetOpen = false;
   bool _pickupEditOpen = false;
   final bool _detailsSheetOpen = false;
@@ -566,52 +576,82 @@ class _FindingDriversState extends State<FindingDrivers>
       }
       if (!mounted) return _Rebook.failed;
       final next = Money(quote.totalMinor, quote.currency);
-      if (next != ended.fare && !await _acceptNewPrice(ended.fare, next)) {
+      // v0.18.174: only a rise is asked; a drop searches at the lower price.
+      final rise = priceChangeNeedsAsk(ended.fare, next);
+      if (rise && !await _acceptNewPrice(ended.fare, next, ended.categoryId)) {
         return _Rebook.declined;
       }
       if (!mounted) return _Rebook.failed;
       _rebookQuote = quote;
+      _rebookPriceAccepted = rise;
     }
     setState(() => _rebooking = true);
-    try {
-      rideId = await booking.submitFinding(
-        pickupAddress: ended.pickupAddress,
-        destinationAddress: ended.destinationAddress,
-        pickupLat: ended.pickupLat,
-        pickupLng: ended.pickupLng,
-        destinationLat: ended.destinationLat,
-        destinationLng: ended.destinationLng,
-        rideType: ended.categoryId!,
-        price: Money(quote.totalMinor, quote.currency).major,
-        quoteId: quote.id,
-        quoteSignedPayload: quote.signedPayload,
-        quoteExpiresAt: quote.expiresAt,
-        quoteTotalMinor: quote.totalMinor,
-        quoteCurrency: quote.currency,
-        paymentMethod: ended.paymentMethodId!,
-        rideTypeLabel: widget.rideType,
-        paymentMethodLabel: widget.paymentMethod,
-        notes: widget.notes,
-        stops: ended.stops,
-        // J10 (v0.18.84 debtModel.walletSwitch): on while the rider owes.
-        useWalletFirst:
-            widget.walletAmountMinor > 0 ||
-            RiderOutstanding.current.value.inCurrency(quote.currency) != null,
-        walletAmountMinor: widget.walletAmountMinor,
-      );
-    } catch (error) {
-      // RC-09: a timeout or dropped connection may still have booked it.
-      if (BookingController.mayHaveBooked(error)) return _Rebook.uncertain;
-      _rebookQuote = null;
-      // J10 (v0.18.84): 409 rider_debt_above_max says what is owed.
-      _showCancelNotice(
-        RiderDebtRefusal.messageOf(error) ?? L10n.current.rebookFailed,
-      );
-      return _Rebook.failed;
-    } finally {
-      if (mounted) setState(() => _rebooking = false);
+    // v0.18.174 (contract.json#priceChangeAsk): the booking names the quote
+    // the rider saw; a 409 price_changed_ask shows the server's price in the
+    // v8 popup and a yes sends it again with priceAccepted (asked once).
+    for (var priceAsk = 0; ; priceAsk++) {
+      try {
+        rideId = await booking.submitFinding(
+          pickupAddress: ended.pickupAddress,
+          destinationAddress: ended.destinationAddress,
+          pickupLat: ended.pickupLat,
+          pickupLng: ended.pickupLng,
+          destinationLat: ended.destinationLat,
+          destinationLng: ended.destinationLng,
+          rideType: ended.categoryId!,
+          price: Money(quote.totalMinor, quote.currency).major,
+          quoteId: quote.id,
+          quoteSignedPayload: quote.signedPayload,
+          quoteExpiresAt: quote.expiresAt,
+          quoteTotalMinor: quote.totalMinor,
+          quoteCurrency: quote.currency,
+          paymentMethod: ended.paymentMethodId!,
+          rideTypeLabel: widget.rideType,
+          paymentMethodLabel: widget.paymentMethod,
+          notes: widget.notes,
+          stops: ended.stops,
+          // J10 (v0.18.84 debtModel.walletSwitch): on while the rider owes.
+          useWalletFirst:
+              widget.walletAmountMinor > 0 ||
+              RiderOutstanding.current.value.inCurrency(quote.currency) != null,
+          walletAmountMinor: widget.walletAmountMinor,
+          agreedQuoteId: quote.id,
+          priceAccepted: _rebookPriceAccepted,
+        );
+        break;
+      } catch (error) {
+        if (priceAsk == 0 && isPriceChangedAsk(error) && mounted) {
+          setState(() => _rebooking = false);
+          final shown = Money(quote.totalMinor, quote.currency);
+          final yes = await _acceptNewPrice(
+            shown,
+            priceChangedAskFresh(error) ?? shown,
+            ended.categoryId,
+          );
+          if (!mounted) return _Rebook.failed;
+          if (!yes) {
+            _rebookQuote = null;
+            _rebookPriceAccepted = false;
+            return _Rebook.declined;
+          }
+          _rebookPriceAccepted = true;
+          setState(() => _rebooking = true);
+          continue;
+        }
+        // RC-09: a timeout or dropped connection may still have booked it.
+        if (BookingController.mayHaveBooked(error)) return _Rebook.uncertain;
+        _rebookQuote = null;
+        // J10 (v0.18.84): 409 rider_debt_above_max says what is owed.
+        _showCancelNotice(
+          RiderDebtRefusal.messageOf(error) ?? L10n.current.rebookFailed,
+        );
+        return _Rebook.failed;
+      } finally {
+        if (mounted) setState(() => _rebooking = false);
+      }
     }
     _rebookQuote = null;
+    _rebookPriceAccepted = false;
     if (rideId.trim().isEmpty) return _Rebook.failed;
     if (!mounted) {
       // The new ride exists on the server: it gets a screen now.
@@ -640,8 +680,13 @@ class _FindingDriversState extends State<FindingDrivers>
   }
 
   /// rider-u107: the same "Price updated" question Select Ride asks.
-  Future<bool> _acceptNewPrice(Money shown, Money next) =>
-      showRebookPriceDialog(context, shown: shown, next: next);
+  Future<bool> _acceptNewPrice(Money shown, Money next, String? categoryId) =>
+      showRebookPriceDialog(
+        context,
+        shown: shown,
+        next: next,
+        categoryName: rebookCategoryName(widget.rideType, categoryId),
+      );
 
   /// Takes over [ride]'s route on this screen (without telling the server,
   /// which already has it).

@@ -335,7 +335,7 @@ void main() {
       server.extra = 500;
       await tester.tap(find.text('Confirm and schedule'));
       await settle(tester, 40);
-      await tester.tap(find.text('Not now'));
+      await tester.tap(find.byKey(const ValueKey('select-ride-price-close')));
       await settle(tester, 30);
 
       expect(app.booked.all, isEmpty);
