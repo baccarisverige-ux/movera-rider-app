@@ -9,6 +9,7 @@ import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
+import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
@@ -120,12 +121,51 @@ void main() {
   testWidgets('live server: the Safety list says "Set per area", not Off', (
     tester,
   ) async {
+    // G1 (trip-pin-check 2026-11-27): the row shows on live only while the
+    // zone's PIN switch is on (features.pin).
+    ServerFeatures.apply({'pin': true});
+    addTearDown(ServerFeatures.clear);
     final ctl = liveController(<String>[]);
     await ctl.load();
     expect(ctl.pinStatusLabel(), 'Set per area');
     await tester.pumpWidget(app(SafetyHub(controller: ctl)));
     await tester.pumpAndSettle();
     expect(find.text('Set per area'), findsOneWidget);
+  });
+
+  testWidgets('G1 live server, PIN switch off (default): no Safety > PIN row', (
+    tester,
+  ) async {
+    ServerFeatures.clear();
+    final ctl = liveController(<String>[]);
+    await ctl.load();
+    await tester.pumpWidget(app(SafetyHub(controller: ctl)));
+    await tester.pumpAndSettle();
+    expect(find.text('Set per area'), findsNothing);
+    expect(find.text('PIN verification'), findsNothing);
+    // The other rows stay.
+    expect(find.text('Emergency contacts'), findsOneWidget);
+  });
+
+  testWidgets('G1 live server, features.pin false: no Safety > PIN row', (
+    tester,
+  ) async {
+    ServerFeatures.apply({'pin': false});
+    addTearDown(ServerFeatures.clear);
+    final ctl = liveController(<String>[]);
+    await ctl.load();
+    await tester.pumpWidget(app(SafetyHub(controller: ctl)));
+    await tester.pumpAndSettle();
+    expect(find.text('Set per area'), findsNothing);
+  });
+
+  testWidgets('G1 demo wire: the PIN row stays', (tester) async {
+    ServerFeatures.clear();
+    final ctl = demoController();
+    await ctl.load();
+    await tester.pumpWidget(app(SafetyHub(controller: ctl)));
+    await tester.pumpAndSettle();
+    expect(find.text('PIN verification'), findsOneWidget);
   });
 
   testWidgets('demo wire: the switch stays and turns on', (tester) async {
