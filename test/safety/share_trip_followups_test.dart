@@ -316,8 +316,45 @@ void main() {
     hold.complete();
     await refresh;
     expect(safety.shareFor('t1')?.canSend, isNot(isTrue));
-    expect(safety.shareEndedFor('t1'), isTrue);
+    expect(safety.shareFor('t1')?.isActive, isNot(isTrue));
+    // A manual stop is not "ended": the trip is still live and can be
+    // shared again.
+    expect(safety.shareEndedFor('t1'), isFalse);
     expect((await local.load()).shares['t1']?.canSend, isNot(isTrue));
+  });
+
+  // 3c (#717 NO-GO 2): after Stop and a late GET the sheet still offers
+  // Share, and a new share makes a new link.
+  testWidgets('3c: after Stop and a late GET the rider can share the trip '
+      'again with a new link', (tester) async {
+    await tester.runAsync(safety.load);
+    await tester.runAsync(() async {
+      expect(await safety.shareLink('t1'), _url);
+      final hold = Completer<void>();
+      server.holdGet = hold;
+      final refresh = safety.refreshShare('t1');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      server.holdGet = null;
+      await safety.stopShare('t1');
+      hold.complete();
+      await refresh;
+    });
+    expect(safety.shareEndedFor('t1'), isFalse);
+    await pumpSheet(tester);
+    await settle(tester);
+    expect(find.byKey(const ValueKey('share-trip-ended')), findsNothing);
+    expect(find.byKey(const ValueKey('share-trip-stop')), findsNothing);
+    expect(find.byKey(const ValueKey('share-trip-with')), findsOneWidget);
+    final posts = server.keys.length;
+    await tester.runAsync(() async {
+      expect(await safety.shareLink('t1'), _url);
+    });
+    expect(server.keys.length, posts + 1);
+    expect(server.keys.last, isNot(server.keys.first));
+    expect(server.byKey.length, 2);
+    expect(server.links, hasLength(1));
+    expect(safety.shareFor('t1')?.canSend, isTrue);
+    expect(safety.shareEndedFor('t1'), isFalse);
   });
 
   // 4: no off-palette grey in the sheet.

@@ -482,7 +482,15 @@ class SafetyController extends ChangeNotifier {
     // Another trip: an old trip's "ended" does not follow the rider.
     _shareEnded.removeWhere((id) => id != rideId);
     final before = _session.shareFor(rideId);
+    final epoch = _session.shareEpoch(rideId);
     final after = await _session.getShare(rideId);
+    // A new link or a "Stop sharing" made while the GET was out: its answer
+    // is stale and changes nothing. A manual stop is not "ended", so the
+    // rider can share the live trip again.
+    if (_session.shareEpoch(rideId) != epoch) {
+      notifyListeners();
+      return;
+    }
     if (after?.isActive == true) {
       _shareEnded.remove(rideId);
     } else if (before != null && before.canSend) {

@@ -448,6 +448,12 @@ class SafetyStore {
   /// the new link, or bring the stopped one back).
   final Map<String, int> _shareEpoch = {};
 
+  /// The trip's share epoch now: a caller that reads it before [getShare]
+  /// and again after can tell that a POST or a "Stop sharing" happened in
+  /// between, so the GET answer is stale and must change nothing (a manual
+  /// stop is never "ended by itself", #717 NO-GO).
+  int shareEpoch(String rideId) => _shareEpoch[rideId] ?? 0;
+
   Future<TripShare?> getShare(String rideId) async {
     await _ensure();
     final epoch = _shareEpoch[rideId] ?? 0;
