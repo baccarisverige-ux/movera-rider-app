@@ -32,6 +32,7 @@ void main() {
     String status = 'driver_to_pickup',
     String driverId = 'drv_1',
     Map<String, Object?>? legRoute,
+    double dropoffLat = 59.3143,
   }) => {
     'tripId': 'trp_171',
     'status': status,
@@ -39,7 +40,11 @@ void main() {
     'sequence': sequence,
     'updatedAt': t0.add(Duration(seconds: version)).toIso8601String(),
     'pickup': {'address': 'Sergels torg', 'lat': 59.3326, 'lng': 18.0649},
-    'dropoff': {'address': 'Medborgarplatsen', 'lat': 59.3143, 'lng': 18.0735},
+    'dropoff': {
+      'address': 'Medborgarplatsen',
+      'lat': dropoffLat,
+      'lng': 18.0735,
+    },
     'driver': {'driverId': driverId, 'firstName': 'Ali'},
     'driverLocation': {
       'lat': 59.34,
@@ -239,6 +244,39 @@ void main() {
       expect(LegRouteHub.legOf('trp_171'), isNull, reason: status);
       await sub.cancel();
     }
+  });
+
+  test('a route change drops the old route\'s line and keeps the new one '
+      'the same read carries', () async {
+    final f = follow(read: () => projection(legRoute: pickupLegJson()));
+    final sub = f.rt.subscribe('trp_171').listen((_) {});
+    addTearDown(sub.cancel);
+    await settle();
+    final old = LegRouteHub.legOf('trp_171');
+    expect(old, isNotNull);
+    void send(int seq, Map<String, Object?>? leg) => f.streams.single.add(
+      utf8.encode(
+        sse({
+          'eventId': 'ev-route-$seq',
+          'tripId': 'trp_171',
+          'sequence': seq,
+          'version': seq,
+          'kind': 'trip_projection',
+          'projection': projection(
+            version: seq,
+            sequence: seq,
+            dropoffLat: 59.30 + seq / 1000,
+            legRoute: leg,
+          ),
+        }),
+      ),
+    );
+    send(2, null);
+    await settle();
+    expect(LegRouteHub.legOf('trp_171'), isNull, reason: 'old route dropped');
+    send(3, dropoffLegJson());
+    await settle();
+    expect(LegRouteHub.legOf('trp_171')?.target, 'dropoff', reason: 'kept');
   });
 
   test('a legRoute with fewer than 2 points or a bad string is ignored', () {

@@ -207,7 +207,10 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
       if (leg != null && leg.toPickup == _inTrip) LegRouteHub.dropLeg(id);
     }
     final current = LegRouteHub.legOf(id);
-    final legLine = current != null && current.toPickup != _inTrip
+    final legLine =
+        current != null &&
+            current.toPickup != _inTrip &&
+            _endsAtTarget(current.points)
         ? current.points
         : null;
     if (legLine != null) {
@@ -216,7 +219,23 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     }
     if (!_inTrip) return null;
     final tripLine = LegRouteHub.tripLineOf(id);
-    return tripLine == null ? null : cutLineAtCar(tripLine, car);
+    if (tripLine == null || !_endsAtTarget(tripLine)) return null;
+    return cutLineAtCar(tripLine, car);
+  }
+
+  /// A stored line is this route's only when it ends at the screen's
+  /// target (the pickup, or on trip the destination); after a route
+  /// change the old route's line is never drawn.
+  bool _endsAtTarget(List<LatLng> line) {
+    final target = _inTrip ? widget.destinationPosition : widget.pickupPosition;
+    final end = line.last;
+    return GeoDistance.metersBetween(
+          end.latitude,
+          end.longitude,
+          target.latitude,
+          target.longitude,
+        ) <=
+        legRouteMaxOffMeters;
   }
 
   @override
@@ -243,12 +262,11 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
       if (oldId != _tripId) {
         // A different trip: the old trip's line is not this one's.
         LegRouteHub.dropTrip(oldId);
-      } else if (oldWidget.pickupPosition != widget.pickupPosition ||
-          oldWidget.destinationPosition != widget.destinationPosition ||
-          !_sameStops(oldWidget.stops, widget.stops)) {
-        // A route change: the stored lines were the old route's.
-        LegRouteHub.dropTrip(oldId);
       }
+      // A route change drops nothing here: a line that does not end at
+      // this screen's target is never drawn ([_storedLine]), and the trip
+      // reads drop the old route's lines (ApiRideRealtime), so a line
+      // received for the new route right before this rebuild is kept.
     }
     _markers = _buildMarkers();
     _polylines = const <Polyline>{};
@@ -655,7 +673,10 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
         ? _storedLine(endpoints.from)
         : null;
     if (stored != null) {
-      // The stored Google line: no POST /routes, not approximate.
+      // The stored Google line: no POST /routes, not approximate. A POST
+      // /routes answer still on its way is for an older key and is
+      // dropped when it lands (it must never replace the Google line).
+      _routeKey = 'stored:$requestKey';
       if (_inTrip) {
         widget.onTripRoute?.call([
           for (final point in stored) GeoPoint(point.latitude, point.longitude),

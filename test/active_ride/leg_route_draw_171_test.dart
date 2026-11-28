@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -42,6 +44,7 @@ void main() {
 
   late GoogleMapsFlutterPlatform previousMaps;
   late int routeCalls;
+  Completer<void>? postGate;
 
   setUp(() {
     LegRouteHub.clear();
@@ -49,6 +52,7 @@ void main() {
     GoogleMapsFlutterPlatform.instance = FakeMapsPlatform();
     CustomGoogleMap.debugWaitForMaps = false;
     routeCalls = 0;
+    postGate = null;
     final routing = RoutingService(
       api: ApiClient(
         env: staging,
@@ -56,6 +60,8 @@ void main() {
           if (request.method == 'POST' &&
               request.url.path.endsWith('/routes')) {
             routeCalls++;
+            final gate = postGate;
+            if (gate != null) await gate.future;
           }
           return http.Response('{}', 500);
         }),
@@ -147,9 +153,11 @@ void main() {
     expect(drawn(tester), pickupLegPoints);
     expect(find.text('Approximate route'), findsNothing);
     final map = tester.widget<CustomGoogleMap>(find.byType(CustomGoogleMap));
-    expect({
-      for (final line in map.polylines!) line.color.toARGB32(),
-    }, everyElement(anyOf(0xFF12201C, 0xFF2FBF5B)), reason: 'no blue');
+    expect(
+      {for (final line in map.polylines!) line.color.toARGB32()},
+      everyElement(anyOf(0xFF12201C, 0xFF2FBF5B)),
+      reason: 'no blue',
+    );
     // More redraws while the line is shown: still no route request.
     LegRouteHub.offerLeg(tripId, LegRoute.tryParse(pickupLegJson())!);
     await settle(tester);
@@ -173,7 +181,74 @@ void main() {
     LegRouteHub.offerLeg(tripId, LegRoute.tryParse(dropoffLegJson())!);
     await pumpMap(tester, tracking(RideStatus.driverArriving, carPoint));
     expect(routeCalls, greaterThan(0));
-    expect(drawn(tester), isNot(dropoffLegPoints));
+    // The old path's line (the POST /routes fallback), not the other leg.
+    expect(drawn(tester), [carPoint, pickupPoint]);
+    await unmount(tester);
+    // On trip, a pickup line is not drawn either.
+    LegRouteHub.clear();
+    LegRouteHub.offerLeg(tripId, LegRoute.tryParse(pickupLegJson())!);
+    routeCalls = 0;
+    await pumpMap(tester, tracking(RideStatus.tripInProgress, pickupPoint));
+    expect(routeCalls, greaterThan(0));
+    expect(drawn(tester), [pickupPoint, dropoffPoint]);
+    await unmount(tester);
+  });
+
+  testWidgets('a late POST /routes answer never replaces the stored line', (
+    tester,
+  ) async {
+    postGate = Completer<void>();
+    await pumpMap(tester, tracking(RideStatus.driverArriving, carPoint));
+    expect(routeCalls, 1, reason: 'the POST is on its way');
+    LegRouteHub.offerLeg(tripId, LegRoute.tryParse(pickupLegJson())!);
+    await settle(tester);
+    expect(drawn(tester), pickupLegPoints);
+    // The delayed answer lands after the Google line was drawn.
+    postGate!.complete();
+    await settle(tester);
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await settle(tester);
+    expect(drawn(tester), pickupLegPoints, reason: 'the line stays');
+    await unmount(tester);
+  });
+
+  testWidgets('on trip the order is legRoute drop-off, then routePolyline, '
+      'then POST /routes', (tester) async {
+    const otherShape = <LatLng>[
+      pickupPoint,
+      LatLng(59.3250, 18.0600),
+      LatLng(59.3180, 18.0650),
+      dropoffPoint,
+    ];
+    LegRouteHub.offerTripLine(tripId, otherShape);
+    LegRouteHub.offerLeg(tripId, LegRoute.tryParse(dropoffLegJson())!);
+    await pumpMap(tester, tracking(RideStatus.tripInProgress, pickupPoint));
+    expect(drawn(tester), dropoffLegPoints, reason: '1: legRoute drop-off');
+    LegRouteHub.dropLeg(tripId);
+    await settle(tester);
+    expect(drawn(tester), otherShape, reason: '2: routePolyline');
+    expect(routeCalls, 0);
+    LegRouteHub.dropTrip(tripId);
+    await settle(tester);
+    await unmount(tester);
+    await pumpMap(tester, tracking(RideStatus.tripInProgress, pickupPoint));
+    expect(routeCalls, greaterThan(0), reason: '3: POST /routes');
+    expect(drawn(tester), [pickupPoint, dropoffPoint]);
+    await unmount(tester);
+  });
+
+  testWidgets('the map shows the line cut at the car', (tester) async {
+    LegRouteHub.offerLeg(tripId, LegRoute.tryParse(pickupLegJson())!);
+    // Between the 2nd and 3rd points of the line.
+    const car = LatLng(59.3380, 18.0580);
+    await pumpMap(tester, tracking(RideStatus.driverArriving, car));
+    final line = drawn(tester);
+    expect(line.first, car);
+    expect(line.last, pickupPoint);
+    expect(line, isNot(contains(carPoint)), reason: 'the part behind is gone');
+    expect(line, isNot(contains(pickupLegPoints[1])));
+    expect(line, containsAllInOrder(pickupLegPoints.sublist(2)));
+    expect(routeCalls, 0);
     await unmount(tester);
   });
 
@@ -233,24 +308,45 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a route change and a different trip drop the lines', (
-    tester,
-  ) async {
+  testWidgets('a route change keeps a freshly received line and never '
+      'draws the old route\'s line', (tester) async {
+    const newDropoff = LatLng(59.3080, 18.0800);
+    final newLine = <LatLng>[
+      pickupPoint,
+      const LatLng(59.3200, 18.0760),
+      newDropoff,
+    ];
+    final t = tracking(RideStatus.tripInProgress, pickupPoint);
+    LegRouteHub.offerLeg(tripId, LegRoute.tryParse(dropoffLegJson())!);
+    await pumpMap(tester, t);
+    expect(drawn(tester), dropoffLegPoints);
+    // The new route's line arrives just before the screen rebuilds.
+    LegRouteHub.offerLeg(
+      tripId,
+      LegRoute.tryParse({
+        'target': 'dropoff',
+        'polyline': encodeLine(newLine),
+      })!,
+    );
+    await pumpMap(tester, t, destination: newDropoff);
+    expect(LegRouteHub.legOf(tripId), isNotNull, reason: 'kept');
+    expect(drawn(tester), newLine);
+    await unmount(tester);
+
+    // The old route's line (ends at the old drop-off) is not drawn.
+    LegRouteHub.offerLeg(tripId, LegRoute.tryParse(dropoffLegJson())!);
+    await pumpMap(tester, t, destination: newDropoff);
+    expect(drawn(tester), isNot(dropoffLegPoints));
+    expect(routeCalls, greaterThan(0));
+    await unmount(tester);
+  });
+
+  testWidgets('a different trip drops the old trip\'s lines', (tester) async {
     LegRouteHub.offerLeg(tripId, LegRoute.tryParse(pickupLegJson())!);
     final t = tracking(RideStatus.driverArriving, carPoint);
     await pumpMap(tester, t);
-    await pumpMap(tester, t, destination: const LatLng(59.30, 18.08));
-    expect(LegRouteHub.legOf(tripId), isNull, reason: 'route change');
-
-    LegRouteHub.offerLeg(tripId, LegRoute.tryParse(pickupLegJson())!);
-    await pumpMap(tester, t, destination: const LatLng(59.30, 18.08));
-    await pumpMap(
-      tester,
-      t,
-      rideId: 'trp_other',
-      destination: const LatLng(59.30, 18.08),
-    );
-    expect(LegRouteHub.legOf(tripId), isNull, reason: 'a different trip');
+    await pumpMap(tester, t, rideId: 'trp_other');
+    expect(LegRouteHub.legOf(tripId), isNull);
     await unmount(tester);
   });
 

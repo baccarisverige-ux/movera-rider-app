@@ -508,6 +508,19 @@ class ApiRideRealtime implements RideRealtime {
   static Map<String, Object?> _etaWithoutLine(Map eta) =>
       Map<String, Object?>.from(eta)..remove('legRoute');
 
+  /// The trip's places (pickup, stops, drop-off) as one string; null when
+  /// the read carries none of them.
+  static String? _routeSignature(Map ride) {
+    String place(Object? p) => p is Map ? '${p['lat']},${p['lng']}' : '';
+    final stops = ride['stops'];
+    final parts = [
+      place(ride['pickup']),
+      if (stops is List) ...stops.map(place),
+      place(ride['dropoff']),
+    ];
+    return parts.every((p) => p.isEmpty) ? null : parts.join('|');
+  }
+
   /// TripProjection.routePolyline (the on-trip fallback line).
   static void _offerTripLine(String tripId, Object? encoded) {
     if (encoded is! String || encoded.isEmpty) return;
@@ -635,9 +648,25 @@ class ApiRideRealtime implements RideRealtime {
     // same-version re-read (a reconnect) is dropped below, yet it may be the
     // one that carries the line. In memory only (LegRouteHub).
     final readLeg = LegRoute.tryParse(ride['legRoute']);
-    _offerTripLine(poll.id, ride['routePolyline']);
-    if (readLeg != null && _legStillHolds(poll.id, status, ride)) {
-      LegRouteHub.offerLeg(poll.id, readLeg);
+    final readVersion = _version(ride['version'] ?? envelope['version']);
+    final older =
+        poll.version != null &&
+        readVersion != null &&
+        readVersion < poll.version!;
+    if (!older) {
+      // A route change: the old route's lines go first, then this read's
+      // own (new) lines are offered.
+      final route = _routeSignature(ride);
+      if (route != null) {
+        if (poll.routeSignature != null && poll.routeSignature != route) {
+          LegRouteHub.dropTrip(poll.id);
+        }
+        poll.routeSignature = route;
+      }
+      _offerTripLine(poll.id, ride['routePolyline']);
+      if (readLeg != null && _legStillHolds(poll.id, status, ride)) {
+        LegRouteHub.offerLeg(poll.id, readLeg);
+      }
     }
     if (serverSequence != null) {
       final disposition = poll.gate.admit(
@@ -1151,6 +1180,9 @@ class _RidePoll {
 
   /// The admin search step last passed on (it fires without a version).
   String? lastSearchStepId;
+
+  /// v0.18.171: the trip's places last read (a change drops the lines).
+  String? routeSignature;
 
   /// `headingCheck.freeCancel` last passed on (no version change either).
   Object? lastHeadingFree;
