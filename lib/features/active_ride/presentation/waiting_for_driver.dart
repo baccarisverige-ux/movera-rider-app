@@ -99,6 +99,7 @@ import 'package:movera_rider/shared/widgets/parkable_map.dart';
 import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 import 'package:movera_rider/shared/widgets/ride_stage_map.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
+import 'package:movera_rider/features/safety/presentation/share_trip_sheet.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
 import 'package:movera_rider/l10n/l10n.dart';

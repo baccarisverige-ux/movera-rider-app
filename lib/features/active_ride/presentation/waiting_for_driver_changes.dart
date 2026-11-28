@@ -202,7 +202,15 @@ extension _WaitingChanges on _WaitingForDriverState {
     if (DriverEta.isInTrip(status) && !_autoShareAsked) {
       // rider-u217: "Automatically share every ride".
       _autoShareAsked = true;
-      unawaited(SafetyController.shared.autoShareRide(rideId));
+      // On movera-server it opens the Share trip sheet once (owner Q4).
+      unawaited(
+        SafetyController.shared.autoShareRide(
+          rideId,
+          openSheet: () async {
+            if (mounted) await showShareTripSheet(context, rideId: rideId);
+          },
+        ),
+      );
     }
     if (status.isCompletedSurface) {
       // Share my trip: the trip is over, so its live link leaves the phone

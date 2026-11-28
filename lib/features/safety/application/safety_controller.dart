@@ -425,7 +425,12 @@ class SafetyController extends ChangeNotifier {
   /// the Trip share page shows as ticked), never to a stored id of a
   /// contact that was deleted or disabled.
   List<String> get tripShareRecipients {
-    final selected = preferences.tripShareContactIds;
+    // Contract `shareTrip.rider`: the sheet lists the contacts with
+    // shareTrips on. The Trip share page's own ticks are the rider's Trip
+    // share setting, so they count only while that setting is on.
+    final selected = preferences.tripShareEnabled
+        ? preferences.tripShareContactIds
+        : const <String>[];
     return [
       for (final contact in contacts)
         if (contact.isEnabled &&
@@ -462,7 +467,9 @@ class SafetyController extends ChangeNotifier {
   final Set<String> _shareEnded = {};
 
   /// True when the trip's link ended by itself (not by "Stop sharing").
-  bool shareEndedFor(String rideId) => _shareEnded.contains(rideId);
+  /// A live link of the trip (a new one, or one the server lists) clears it.
+  bool shareEndedFor(String rideId) =>
+      _shareEnded.contains(rideId) && shareFor(rideId)?.isActive != true;
 
   /// The trip's share ([TripShare.url] while live), if this phone has one.
   TripShare? shareFor(String rideId) => _session.shareFor(rideId);
@@ -472,9 +479,21 @@ class SafetyController extends ChangeNotifier {
   /// itself (drop-off) unless the rider stopped it.
   Future<void> refreshShare(String rideId) async {
     if (rideId.trim().isEmpty) return;
+    // Another trip: an old trip's "ended" does not follow the rider.
+    _shareEnded.removeWhere((id) => id != rideId);
     final before = _session.shareFor(rideId);
+    final epoch = _session.shareEpoch(rideId);
     final after = await _session.getShare(rideId);
-    if (before != null && before.canSend && after?.isActive != true) {
+    // A new link or a "Stop sharing" made while the GET was out: its answer
+    // is stale and changes nothing. A manual stop is not "ended", so the
+    // rider can share the live trip again.
+    if (_session.shareEpoch(rideId) != epoch) {
+      notifyListeners();
+      return;
+    }
+    if (after?.isActive == true) {
+      _shareEnded.remove(rideId);
+    } else if (before != null && before.canSend) {
       _shareEnded.add(rideId);
     }
     notifyListeners();
@@ -510,15 +529,27 @@ class SafetyController extends ChangeNotifier {
   /// rider-u217: with Trip share on and "Automatically share every ride"
   /// chosen, the trip screen calls this when the trip starts. It shares the
   /// ride once with the trip-share contacts; with no such contact, or the
-  /// mode off, it does nothing.
-  Future<TripShare?> autoShareRide(String rideId) async {
+  /// mode off, it does nothing. On movera-server (contract
+  /// `shareTrip.autoShare`, owner Q4) it makes no link itself: it calls
+  /// [openSheet] once, so the Share trip sheet opens at trip start.
+  Future<TripShare?> autoShareRide(
+    String rideId, {
+    Future<void> Function()? openSheet,
+  }) async {
     final id = rideId.trim();
     if (id.isEmpty || !_autoShared.add(id)) return null;
     try {
       if (!hasLoaded) await load();
       // Share my trip: on movera-server a link goes out only from the
       // rider's own tap (the server sends nothing to a contact), so no
-      // link is made here; the trip screen's button shares it.
+      // link is made here: the Share trip sheet opens once instead.
+      if (shareTripOn &&
+          _session.sharesByLink &&
+          preferences.tripShareEnabled &&
+          preferences.tripShareMode == TripShareMode.auto) {
+        if (openSheet != null) await openSheet();
+        return null;
+      }
       if (!shareTripOn ||
           _session.sharesByLink ||
           !preferences.tripShareEnabled ||

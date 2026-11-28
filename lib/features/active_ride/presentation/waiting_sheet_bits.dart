@@ -76,17 +76,41 @@ class WaitingShareButton extends StatelessWidget {
   /// Contract `shareTrip.notLive`: a booked ride held in `accepted`, whose
   /// driver the rider is not shown yet, cannot be shared (409
   /// trip_not_live), so the button waits until the driver is on the way.
-  static bool canShare(RideStatus? status, {required bool driverShown}) =>
-      status != RideStatus.driverAssigned || driverShown;
+  ///
+  /// Contract `shareTrip.statuses` / `shareTrip.rider`: hidden outside the
+  /// live statuses (searching, before a driver, after the end), so a tap
+  /// can never meet 409 trip_not_live. No status known = the in-trip panel.
+  static bool canShare(RideStatus? status, {required bool driverShown}) {
+    if (status == null) return true;
+    if (status == RideStatus.driverAssigned) return driverShown;
+    return _liveStatuses.contains(status);
+  }
+
+  static const Set<RideStatus> _liveStatuses = {
+    RideStatus.driverArriving,
+    RideStatus.driverWaiting,
+    RideStatus.tripStarted,
+    RideStatus.tripInProgress,
+    RideStatus.approachingDropoff,
+  };
 
   @override
   Widget build(BuildContext context) {
+    // Listens, so a 403 share_trip_off hides it at once, not on the next
+    // rebuild of the trip screen.
+    final safety = SafetyController.shared;
+    return ListenableBuilder(
+      listenable: safety,
+      builder: (context, _) => _button(context, safety),
+    );
+  }
+
+  Widget _button(BuildContext context, SafetyController safety) {
     // Share my trip (contract v0.18.116 contract.json#shareTrip.setting):
     // the zone's switch decides (shareTrip.on = features.shareTrip, on by
     // default; hidden after a 403 share_trip_off). The phone's own Trip
     // share setting no longer gates it. The button opens the Share trip
     // sheet straight away.
-    final safety = SafetyController.shared;
     if (!safety.shareTripOn ||
         safety.shareRefusedFor(rideId ?? '') ||
         !canShare(status, driverShown: driverShown)) {
