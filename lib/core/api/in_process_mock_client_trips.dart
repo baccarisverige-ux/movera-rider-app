@@ -684,3 +684,71 @@ extension _MockTrips on InProcessMockClient {
     return (ceiling ~/ unit) * unit;
   }
 }
+
+/// v0.18.171 demo (contract.json#googleRoadLines.rider): a sample stored
+/// road line for the trip's current leg, so the demo map draws one without
+/// POST /routes. To the pickup once a driver holds the trip (not while he
+/// waits there), to the drop-off on trip; null otherwise. Only when the
+/// demo client asks for it ([InProcessMockClient.legRouteSample]); tests
+/// never rely on it.
+Map<String, Object?>? _legRouteSample(Map<String, dynamic> ride) {
+  double? at(String key) => (ride[key] as num?)?.toDouble();
+  final status = _statusOf(ride);
+  final String target;
+  final double? fromLat, fromLng, toLat, toLng;
+  switch (status) {
+    case TripStatus.accepted || TripStatus.driverToPickup:
+      target = 'pickup';
+      fromLat = at('driverLat');
+      fromLng = at('driverLng');
+      toLat = at('pickupLat');
+      toLng = at('pickupLng');
+    case TripStatus.riderOnboard ||
+        TripStatus.inTrip ||
+        TripStatus.approachingDropoff:
+      target = 'dropoff';
+      fromLat = at('pickupLat');
+      fromLng = at('pickupLng');
+      toLat = at('destinationLat');
+      toLng = at('destinationLng');
+    default:
+      return null;
+  }
+  if (fromLat == null || fromLng == null || toLat == null || toLng == null) {
+    return null;
+  }
+  // A road-like dog-leg: along the latitude first, then the longitude.
+  final points = <(double, double)>[
+    (fromLat, fromLng),
+    (fromLat + (toLat - fromLat) * 0.5, fromLng),
+    (fromLat + (toLat - fromLat) * 0.5, fromLng + (toLng - fromLng) * 0.6),
+    (toLat, fromLng + (toLng - fromLng) * 0.6),
+    (toLat, toLng),
+  ];
+  return {'target': target, 'polyline': _encodePolyline(points)};
+}
+
+/// Google encoded polyline, precision 5.
+String _encodePolyline(List<(double, double)> points) {
+  final out = StringBuffer();
+  var lastLat = 0;
+  var lastLng = 0;
+  void write(int value) {
+    var v = value < 0 ? ~(value << 1) : value << 1;
+    while (v >= 0x20) {
+      out.writeCharCode((0x20 | (v & 0x1f)) + 63);
+      v >>= 5;
+    }
+    out.writeCharCode(v + 63);
+  }
+
+  for (final (lat, lng) in points) {
+    final la = (lat * 1e5).round();
+    final ln = (lng * 1e5).round();
+    write(la - lastLat);
+    write(ln - lastLng);
+    lastLat = la;
+    lastLng = ln;
+  }
+  return out.toString();
+}

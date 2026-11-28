@@ -53,6 +53,7 @@ import 'package:movera_rider/features/active_ride/presentation/trip_terms_note.d
 import 'package:movera_rider/features/active_ride/presentation/cancel_preview_note.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
+import 'package:movera_rider/core/realtime/leg_route_hub.dart';
 import 'package:movera_rider/core/contracts/cancel_fee.dart';
 import 'package:movera_rider/core/contracts/trip_terms.dart';
 import 'package:movera_rider/core/api/rider_error_kind.dart';
@@ -493,6 +494,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
                   destinationAddress: _destinationAddress,
                   stops: _stops,
                   tracking: _tracking,
+                  rideId: _rideId,
                   cameraBottomPadding: _cameraClearance(media),
                   onTripRoute: (points) {
                     final rideId = _rideId?.trim();

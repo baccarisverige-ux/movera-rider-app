@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:movera_rider/core/realtime/leg_route_hub.dart';
 import 'package:movera_rider/core/realtime/live_location_frames.dart';
+import 'package:movera_rider/core/maps/quoted_route.dart';
 import 'package:movera_rider/core/realtime/call_events.dart';
 import 'package:movera_rider/core/realtime/sos_availability.dart';
 import 'package:movera_rider/core/api/api_client.dart';
@@ -463,6 +465,14 @@ class ApiRideRealtime implements RideRealtime {
     final etaSeconds =
         _seconds(event['etaSeconds']) ??
         (eta is Map ? _seconds(eta['etaSeconds']) : null);
+    // v0.18.171 (contract.json#googleRoadLines.riderEvent): the leg's
+    // stored road line rides on the tick where it changed.
+    if (eta is Map) {
+      final leg = LegRoute.tryParse(eta['legRoute']);
+      if (leg != null && !status.isSearching && !status.tripStatus.isTerminal) {
+        LegRouteHub.offerLeg(poll.id, leg);
+      }
+    }
     if (lat != null && lng != null) {
       poll.lastLat = lat;
       poll.lastLng = lng;
@@ -486,11 +496,49 @@ class ApiRideRealtime implements RideRealtime {
           if (locationAt != null)
             'serverLocationAt': WireTime.format(locationAt),
           if (poll.lastWireStatus is String) 'tripStatus': poll.lastWireStatus,
-          if (eta is Map) etaKey: Map<String, Object?>.from(eta),
+          if (eta is Map) etaKey: _etaWithoutLine(eta),
         },
       ),
     );
     connection.markConnected();
+  }
+
+  /// The ETA as the screens get it: the road line goes to [LegRouteHub]
+  /// only, so it can never land in a saved ride.
+  static Map<String, Object?> _etaWithoutLine(Map eta) =>
+      Map<String, Object?>.from(eta)..remove('legRoute');
+
+  /// The trip's places (pickup, stops, drop-off) as one string; null when
+  /// the read carries none of them.
+  static String? _routeSignature(Map ride) {
+    String place(Object? p) => p is Map ? '${p['lat']},${p['lng']}' : '';
+    final stops = ride['stops'];
+    final parts = [
+      place(ride['pickup']),
+      if (stops is List) ...stops.map(place),
+      place(ride['dropoff']),
+    ];
+    return parts.every((p) => p.isEmpty) ? null : parts.join('|');
+  }
+
+  /// TripProjection.routePolyline (the on-trip fallback line).
+  static void _offerTripLine(String tripId, Object? encoded) {
+    if (encoded is! String || encoded.isEmpty) return;
+    final points = decodeGooglePolyline(encoded);
+    if (points != null) LegRouteHub.offerTripLine(tripId, points);
+  }
+
+  /// Whether a read's legRoute belongs to the trip as shown: the same
+  /// driver (a new driver's line waits for the drop above), not searching,
+  /// not ended.
+  bool _legStillHolds(String tripId, RideStatus status, Map ride) {
+    if (status.isSearching || status.tripStatus.isTerminal) return false;
+    final shownDriver = _shown[tripId]?.driverId;
+    final rawDriver = ride['driver'];
+    final driverId = rawDriver is Map
+        ? (rawDriver['driverId'] ?? rawDriver['id'])
+        : null;
+    return shownDriver == null || driverId == null || driverId == shownDriver;
   }
 
   Future<void> _poll(_RidePoll poll, {bool force = false}) async {
@@ -594,6 +642,32 @@ class ApiRideRealtime implements RideRealtime {
       envelope['kind'] ?? ride['eventKind'],
     );
     final kind = explicitKind ?? _projectionKind(poll, ride);
+    // v0.18.170 / v0.18.171 (contract.json#googleRoadLines.rider): the
+    // trip's road lines are read from EVERY trip read, before the gate and
+    // the version checks: the first read after accept has no legRoute and a
+    // same-version re-read (a reconnect) is dropped below, yet it may be the
+    // one that carries the line. In memory only (LegRouteHub).
+    final readLeg = LegRoute.tryParse(ride['legRoute']);
+    final readVersion = _version(ride['version'] ?? envelope['version']);
+    final older =
+        poll.version != null &&
+        readVersion != null &&
+        readVersion < poll.version!;
+    if (!older) {
+      // A route change: the old route's lines go first, then this read's
+      // own (new) lines are offered.
+      final route = _routeSignature(ride);
+      if (route != null) {
+        if (poll.routeSignature != null && poll.routeSignature != route) {
+          LegRouteHub.dropTrip(poll.id);
+        }
+        poll.routeSignature = route;
+      }
+      _offerTripLine(poll.id, ride['routePolyline']);
+      if (readLeg != null && _legStillHolds(poll.id, status, ride)) {
+        LegRouteHub.offerLeg(poll.id, readLeg);
+      }
+    }
     if (serverSequence != null) {
       final disposition = poll.gate.admit(
         eventId: eventId ?? '${poll.id}:$serverSequence',
@@ -665,6 +739,17 @@ class ApiRideRealtime implements RideRealtime {
         (reassigned || swapped) && _reassignedByAdmin(ride, explicitKind);
     final dropped = (reassigned || swapped) && !byAdmin;
     if (reassigned) status = RideStatus.cancelledByDriver;
+    // A driver change, back to searching or a terminal status: the leg's
+    // line is no longer this trip's. A new driver's own line comes after.
+    if (reassigned ||
+        swapped ||
+        status.isSearching ||
+        status.tripStatus.isTerminal) {
+      LegRouteHub.dropLeg(poll.id);
+      if (readLeg != null && !status.isSearching && swapped) {
+        LegRouteHub.offerLeg(poll.id, readLeg);
+      }
+    }
     final location = _location(ride);
     final eta = ride['eta'];
     final etaAt = eta is Map ? _date(eta['at']) : null;
@@ -773,7 +858,7 @@ class ApiRideRealtime implements RideRealtime {
             bookedPickupAtKey: ride['scheduledAt'],
           // v0.18.7: the server ETA, the trip's terms, the waiting cost so
           // far, the cancel fee and kind, and the pickup (a move).
-          if (eta is Map) etaKey: Map<String, Object?>.from(eta),
+          if (eta is Map) etaKey: _etaWithoutLine(eta),
           if (ride['terms'] is Map) termsKey: ride['terms'],
           // v0.18.92 (BQ-M22): the server's cancel preview; a whole
           // projection says so, so a missing preview clears the old one.
@@ -1095,6 +1180,9 @@ class _RidePoll {
 
   /// The admin search step last passed on (it fires without a version).
   String? lastSearchStepId;
+
+  /// v0.18.171: the trip's places last read (a change drops the lines).
+  String? routeSignature;
 
   /// `headingCheck.freeCancel` last passed on (no version change either).
   Object? lastHeadingFree;

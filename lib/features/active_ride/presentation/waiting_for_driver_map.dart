@@ -12,7 +12,11 @@ class _WaitingRideMap extends StatefulWidget {
     required this.tracking,
     this.cameraBottomPadding = 140,
     this.onTripRoute,
+    this.rideId,
   });
+
+  /// The trip whose stored road line ([LegRouteHub]) this map draws.
+  final String? rideId;
 
   final CameraPosition initialPosition;
   final LatLng pickupPosition;
@@ -33,6 +37,30 @@ class _WaitingRideMap extends StatefulWidget {
   @override
   State<_WaitingRideMap> createState() => _WaitingRideMapState();
 }
+
+/// v0.18.171 test seam: the trip map alone (Waiting for driver and the
+/// on-trip map), so its line choice can be pinned without the whole screen.
+@visibleForTesting
+Widget debugWaitingRideMap({
+  Key? key,
+  required DriverTrackingController tracking,
+  required String? rideId,
+  required LatLng pickup,
+  required LatLng destination,
+  List<RouteStop> stops = const <RouteStop>[],
+  ValueChanged<List<GeoPoint>>? onTripRoute,
+}) => _WaitingRideMap(
+  key: key,
+  initialPosition: CameraPosition(target: pickup, zoom: 13),
+  pickupPosition: pickup,
+  destinationPosition: destination,
+  pickupAddress: 'pickup',
+  destinationAddress: 'destination',
+  stops: stops,
+  tracking: tracking,
+  rideId: rideId,
+  onTripRoute: onTripRoute,
+);
 
 /// G5 live test: the "1 min" ETA bubble over the pickup is the driver's
 /// way there; once the driver has arrived it is gone (the plain pickup pin).
@@ -145,7 +173,69 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     // which a driver standing at the pickup may not send for a while.
     _updateDriverAnimation();
     _markers = _buildMarkers();
+    _lastLegInTrip = _inTrip;
+    LegRouteHub.changes.addListener(_onStoredLine);
     unawaited(_prepareMapVisuals());
+  }
+
+  /// v0.18.171: a new stored line for this trip (a read or a location
+  /// event): redraw now, no route request.
+  void _onStoredLine() {
+    if (!mounted || !_mapReady || _paused) return;
+    unawaited(_refreshRoadRoute(force: true));
+  }
+
+  String? get _tripId {
+    final id = widget.rideId?.trim();
+    return id == null || id.isEmpty ? null : id;
+  }
+
+  bool _lastLegInTrip = false;
+
+  /// v0.18.171 (contract.json#googleRoadLines.rider): the stored line of
+  /// this screen's leg, cut from the point nearest the car: on the way to
+  /// the pickup the pickup legRoute; on trip the drop-off legRoute, else
+  /// TripProjection.routePolyline. Null (the old path) when there is none
+  /// or the car is more than 200 m from it.
+  List<LatLng>? _storedLine(GeoPoint car) {
+    final id = _tripId;
+    if (id == null) return null;
+    final leg = LegRouteHub.legOf(id);
+    if (_lastLegInTrip != _inTrip) {
+      // Leg switch: the other leg's line is gone.
+      _lastLegInTrip = _inTrip;
+      if (leg != null && leg.toPickup == _inTrip) LegRouteHub.dropLeg(id);
+    }
+    final current = LegRouteHub.legOf(id);
+    final legLine =
+        current != null &&
+            current.toPickup != _inTrip &&
+            _endsAtTarget(current.points)
+        ? current.points
+        : null;
+    if (legLine != null) {
+      final cut = cutLineAtCar(legLine, car);
+      if (cut != null) return cut;
+    }
+    if (!_inTrip) return null;
+    final tripLine = LegRouteHub.tripLineOf(id);
+    if (tripLine == null || !_endsAtTarget(tripLine)) return null;
+    return cutLineAtCar(tripLine, car);
+  }
+
+  /// A stored line is this route's only when it ends at the screen's
+  /// target (the pickup, or on trip the destination); after a route
+  /// change the old route's line is never drawn.
+  bool _endsAtTarget(List<LatLng> line) {
+    final target = _inTrip ? widget.destinationPosition : widget.pickupPosition;
+    final end = line.last;
+    return GeoDistance.metersBetween(
+          end.latitude,
+          end.longitude,
+          target.latitude,
+          target.longitude,
+        ) <=
+        legRouteMaxOffMeters;
   }
 
   @override
@@ -163,8 +253,20 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
         oldWidget.pickupAddress == widget.pickupAddress &&
         oldWidget.destinationAddress == widget.destinationAddress &&
         _sameStops(oldWidget.stops, widget.stops) &&
-        identical(oldWidget.tracking, widget.tracking)) {
+        identical(oldWidget.tracking, widget.tracking) &&
+        oldWidget.rideId == widget.rideId) {
       return;
+    }
+    final oldId = oldWidget.rideId?.trim();
+    if (oldId != null && oldId.isNotEmpty) {
+      if (oldId != _tripId) {
+        // A different trip: the old trip's line is not this one's.
+        LegRouteHub.dropTrip(oldId);
+      }
+      // A route change drops nothing here: a line that does not end at
+      // this screen's target is never drawn ([_storedLine]), and the trip
+      // reads drop the old route's lines (ApiRideRealtime), so a line
+      // received for the new route right before this rebuild is kept.
     }
     _markers = _buildMarkers();
     _polylines = const <Polyline>{};
@@ -177,6 +279,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
 
   @override
   void dispose() {
+    LegRouteHub.changes.removeListener(_onStoredLine);
     _pendingRepaint?.cancel();
     _driverAnim.dispose();
     _markerSet.dispose();
@@ -566,6 +669,32 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
 
     _routeKey = requestKey;
     _lastRouteRefresh = DateTime.now();
+    final stored = widget.tracking.eta?.latitude != null
+        ? _storedLine(endpoints.from)
+        : null;
+    if (stored != null) {
+      // The stored Google line: no POST /routes, not approximate. A POST
+      // /routes answer still on its way is for an older key and is
+      // dropped when it lands (it must never replace the Google line).
+      _routeKey = 'stored:$requestKey';
+      if (_inTrip) {
+        widget.onTripRoute?.call([
+          for (final point in stored) GeoPoint(point.latitude, point.longitude),
+        ]);
+      }
+      setState(() {
+        _polylines = _moveraLine(
+          resolvedRoutePolyline(
+            id: 'active-road-route',
+            points: stored,
+            color: RiderRouteStyle.moveraGreen,
+          ),
+        );
+        _approximateRoute = false;
+        _leaf = null;
+      });
+      return;
+    }
     final resolved = await roadRoutePolylineVia(
       id: 'active-road-route',
       from: LatLng(endpoints.from.latitude, endpoints.from.longitude),
@@ -573,7 +702,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
         for (final stop in endpoints.via) LatLng(stop.latitude, stop.longitude),
       ],
       to: LatLng(endpoints.to.latitude, endpoints.to.longitude),
-      color: RiderRouteStyle.color,
+      color: RiderRouteStyle.moveraGreen,
     );
     final route = resolved.route;
     if (!mounted || _routeKey != requestKey || route.points.length < 2) return;
@@ -591,11 +720,19 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
       ]);
     }
     setState(() {
-      _polylines = styledRoute(route);
+      _polylines = _moveraLine(route);
       _approximateRoute = approximate;
       _leaf = null;
     });
   }
+
+  /// v0.18.171 (contract.json#googleRoadLines.rider): Movera colours only
+  /// (#12201C edge, #2FBF5B line), never blue.
+  static Set<Polyline> _moveraLine(Polyline route) => styledRoute(
+    route,
+    casing: RiderRouteStyle.moveraInk,
+    colorAt: RiderRouteStyle.moveraAt,
+  );
 
   /// The map is ready on this screen: its owner, then the trip's road.
   void _takeMap(GoogleMapController controller) {
