@@ -400,6 +400,7 @@ class SafetyStore {
             .where((c) => c.shareTrips && c.isEnabled)
             .map((c) => c.id)
             .toList();
+    _shareEpoch[rideId] = (_shareEpoch[rideId] ?? 0) + 1;
     final token = 'tok_${newRequestId()}';
     final now = DateTime.now().toUtc();
     final optimistic = TripShare(
@@ -442,10 +443,17 @@ class SafetyStore {
   /// The Idempotency-Key of the trip's current link (see [startShare]).
   final Map<String, String> _shareKeys = {};
 
+  /// Counts the links asked for per trip: a GET answer older than a POST
+  /// made after it was sent is ignored (it would wipe the new link).
+  final Map<String, int> _shareEpoch = {};
+
   Future<TripShare?> getShare(String rideId) async {
     await _ensure();
+    final epoch = _shareEpoch[rideId] ?? 0;
+    bool stale() => (_shareEpoch[rideId] ?? 0) != epoch;
     try {
       final live = await _remote.getShare(rideId);
+      if (stale()) return _cache.shares[rideId];
       if (live != null) {
         // The server lists live links without their URL (it keeps only a
         // hash), so a link this phone still holds stays, but only while the
@@ -471,7 +479,7 @@ class SafetyStore {
       return _cache.shares[rideId];
     } on ApiError catch (error) {
       // 410: the link ended by itself (drop-off). Not an error: ended.
-      if (error.statusCode == 410) {
+      if (error.statusCode == 410 && !stale()) {
         final kept = _cache.shares[rideId];
         if (kept != null) _cache.shares[rideId] = kept.ended();
         _shareKeys.remove(rideId);

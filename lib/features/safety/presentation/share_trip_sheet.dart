@@ -16,6 +16,10 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 const Color _ink = Color(0xFF12201C);
 const Color _green = Color(0xFF2FBF5B);
 
+/// The sheet's quieter lines: the same Movera ink, softer (not the shared
+/// SafetyUi grey, which stays for the other Safety screens).
+const Color _inkSoft = Color(0xB812201C);
+
 /// Share my trip (contract v0.18.116 `contract.json#shareTrip`; owner
 /// 2026-11-02 "Build it for real"): the one Share trip sheet of a live
 /// trip, opened from the trip screen's share button and from the Safety
@@ -158,7 +162,9 @@ class _ShareTripSheetState extends State<ShareTripSheet> {
     final l10n = context.l10n;
     final off = _ctl.shareRefusedFor(widget.rideId) || !_ctl.shareTripOn;
     final ended = !off && _ctl.shareEndedFor(widget.rideId);
-    final sharing = _ctl.shareFor(widget.rideId)?.canSend ?? false;
+    // "Stop sharing" shows while the server lists a live link, also one
+    // this phone holds no URL for (after a reinstall).
+    final sharing = _ctl.shareFor(widget.rideId)?.isActive ?? false;
     final contacts = _contacts;
     final inset = MediaQuery.paddingOf(context).bottom;
     return Material(
@@ -181,7 +187,11 @@ class _ShareTripSheetState extends State<ShareTripSheet> {
                     child: Text(
                       l10n.shareTrip,
                       textAlign: TextAlign.center,
-                      style: SafetyUi.text(17, weight: FontWeight.w600),
+                      style: SafetyUi.text(
+                        17,
+                        weight: FontWeight.w600,
+                        color: _ink,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 48),
@@ -211,7 +221,7 @@ class _ShareTripSheetState extends State<ShareTripSheet> {
               else ...[
                 Text(
                   l10n.shareTripWhatTheySee,
-                  style: SafetyUi.text(14, color: SafetyUi.muted, height: 1.4),
+                  style: SafetyUi.text(14, color: _inkSoft, height: 1.4),
                 ),
                 const SizedBox(height: 14),
                 for (var i = 0; i < contacts.length; i++)
@@ -224,7 +234,11 @@ class _ShareTripSheetState extends State<ShareTripSheet> {
                             contacts[i].name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: SafetyUi.text(16, weight: FontWeight.w500),
+                            style: SafetyUi.text(
+                              16,
+                              weight: FontWeight.w500,
+                              color: _ink,
+                            ),
                           ),
                         ),
                         FilledButton(
@@ -278,7 +292,7 @@ class _ShareTripSheetState extends State<ShareTripSheet> {
                 Text(
                   l10n.shareTripEndsAtDropoff,
                   textAlign: TextAlign.center,
-                  style: SafetyUi.text(12.5, color: SafetyUi.muted),
+                  style: SafetyUi.text(12.5, color: _inkSoft),
                 ),
               ],
               if (_note != null) ...[
@@ -289,7 +303,11 @@ class _ShareTripSheetState extends State<ShareTripSheet> {
                     _note!,
                     key: const ValueKey('share-trip-note'),
                     textAlign: TextAlign.center,
-                    style: SafetyUi.text(13.5, weight: FontWeight.w500),
+                    style: SafetyUi.text(
+                      13.5,
+                      weight: FontWeight.w500,
+                      color: _ink,
+                    ),
                   ),
                 ),
               ],
