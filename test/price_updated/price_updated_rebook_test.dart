@@ -5,6 +5,7 @@
 // ("Réserver Movera · 81,50 €"); a drop starts the new search silently at the
 // lower price; ✕ = the old "Pas maintenant".
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -80,9 +81,33 @@ class _Backend extends http.BaseClient {
   final List<String> rideBookings = [];
   final List<int> quoteTotals = [];
 
+  /// v0.18.174: the first booking answers 409 price_changed_ask with this
+  /// fresh total.
+  int? askFirst;
+  int asked = 0;
+
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     if (request.method == 'POST' && request.url.path == '/api/v1/rides') {
+      final ask = askFirst;
+      if (ask != null) {
+        askFirst = null;
+        asked++;
+        return http.StreamedResponse(
+          Stream.value(
+            utf8.encode(
+              jsonEncode({
+                'code': 'conflict',
+                'message': 'The price went up.',
+                'reason': 'price_changed_ask',
+                'details': ['fresh:$ask EUR', 'agreed:$first EUR'],
+              }),
+            ),
+          ),
+          409,
+          headers: {'content-type': 'application/json'},
+        );
+      }
       rideBookings.add(request.url.path);
     }
     return inner.send(request);
@@ -155,6 +180,7 @@ void main() {
       WidgetTester tester,
       int fresh, {
       int shown = first,
+      void Function()? beforeSearchAgain,
     }) async {
       phone(tester);
       server = InProcessMockClient(searchExpiresAfter: Duration.zero);
@@ -221,6 +247,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.text(L10n.current.searchAgain), findsOneWidget);
       server.rides.clear();
+      beforeSearchAgain?.call();
       await tester.tap(find.text(L10n.current.searchAgain));
       await pumpUntil(
         tester,
@@ -263,6 +290,22 @@ void main() {
       expect(_dialog, findsNothing);
       expect(backend.rideBookings, isEmpty);
       expect(find.text(L10n.current.searchAgain), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    });
+    testWidgets('case5: a 409 price_changed_ask opens the v8 popup with the '
+        "server's fresh price; yes books the new search", (tester) async {
+      await noDriverFound(
+        tester,
+        drop,
+        beforeSearchAgain: () => backend.askFirst = 8200,
+      );
+      // The drop books silently; the server answers 409 with 82,00 €.
+      await pumpUntil(tester, () => _dialog.evaluate().isNotEmpty);
+      expect(backend.asked, 1);
+      expectPopup(drop, 8200);
+      await tester.tap(_accept);
+      await pumpUntil(tester, () => backend.rideBookings.isNotEmpty);
+      expect(backend.rideBookings, hasLength(1));
       await tester.pumpWidget(const SizedBox());
     });
     testWidgets('case5: a drop 79,30 -> 79,20 € opens no popup and starts the '

@@ -17,6 +17,7 @@ import 'package:http/testing.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/theme/app_theme.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/widgets/price_updated_dialog.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
@@ -59,6 +60,11 @@ class _Server {
 
   /// Quotes asked by the reservation repository at booking time (they
   /// carry the payment method), as opposed to list / pin quotes.
+  /// v0.18.174: the first POST /trips answers 409 price_changed_ask with
+  /// this fresh total (the server booked a higher quote than the agreed).
+  int? askFirstTrip;
+  final List<Map<String, dynamic>> askedTripBodies = [];
+
   int get bookingQuotes =>
       quoteBodies.where((b) => b.containsKey('paymentMethod')).length;
 
@@ -94,6 +100,17 @@ class _Server {
     }
     if (request.method == 'POST' && path == '/api/v1/trips') {
       final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final ask = askFirstTrip;
+      if (ask != null) {
+        askFirstTrip = null;
+        askedTripBodies.add(body);
+        return _json({
+          'code': 'conflict',
+          'message': 'The price went up. Check the new price and book again.',
+          'reason': 'price_changed_ask',
+          'details': ['fresh:$ask EUR', 'agreed:$first EUR'],
+        }, 409);
+      }
       tripBodies.add(body);
       return _json({
         'tripId': 'trp_${tripBodies.length}',
@@ -126,6 +143,13 @@ class _Booking extends BookingController {
   int submits = 0;
   double? price;
   int? quoteTotalMinor;
+  String? quoteId;
+  // v0.18.174: what each booking said about the agreed price.
+  final List<String?> agreedQuoteIds = [];
+  final List<bool> pricesAccepted = [];
+
+  /// The first booking answers 409 price_changed_ask with this total.
+  int? askFirst;
 
   @override
   Future<String> submitFinding({
@@ -149,10 +173,26 @@ class _Booking extends BookingController {
     List<RouteStop> stops = const <RouteStop>[],
     bool useWalletFirst = false,
     int walletAmountMinor = 0,
+    String? agreedQuoteId,
+    bool priceAccepted = false,
   }) async {
+    agreedQuoteIds.add(agreedQuoteId);
+    pricesAccepted.add(priceAccepted);
+    final ask = askFirst;
+    if (ask != null) {
+      askFirst = null;
+      throw ApiError(
+        code: 'conflict',
+        message: 'The price went up.',
+        statusCode: 409,
+        reason: 'price_changed_ask',
+        details: ['fresh:$ask EUR', 'agreed:$first EUR'],
+      );
+    }
     submits++;
     this.price = price;
     this.quoteTotalMinor = quoteTotalMinor;
+    this.quoteId = quoteId;
     throw StateError('stop here');
   }
 }
@@ -306,6 +346,11 @@ void main() {
       await settle(tester, 60);
       expect(app.booking.submits, 1);
       expect(app.booking.quoteTotalMinor, fresh);
+      // v0.18.174: the booking names the quote shown in the popup and says
+      // the rider accepted its higher price.
+      expect(app.booking.agreedQuoteIds.last, app.booking.quoteId);
+      expect(app.booking.agreedQuoteIds.last, isNotNull);
+      expect(app.booking.pricesAccepted.last, isTrue);
       await close(tester);
     });
   }
@@ -331,6 +376,9 @@ void main() {
     expect(find.byType(PriceUpdatedDialog), findsNothing);
     expect(app.booking.submits, 1);
     expect(app.booking.quoteTotalMinor, drop);
+    // v0.18.174: the agreed quote travels; nothing was accepted.
+    expect(app.booking.agreedQuoteIds.single, app.booking.quoteId);
+    expect(app.booking.pricesAccepted.single, isFalse);
     await close(tester);
   });
   testWidgets('case1 control: the same price books with no popup', (
@@ -561,6 +609,92 @@ void main() {
     final (app, _, booked) = await case4(tester, drop);
     expect(find.byType(PriceUpdatedDialog), findsNothing);
     expect(app.reservations.byId(booked.reservationId)!.price, drop / 100);
+    await close(tester);
+  });
+
+  // ------------------------------------------------- v0.18.174 409 handling
+  testWidgets('case1: a 409 price_changed_ask opens the v8 popup with the '
+      "server's fresh price; yes sends it again with priceAccepted", (
+    tester,
+  ) async {
+    final server = _Server();
+    final app = await _pumpSelect(tester, server);
+    app.booking.askFirst = 8200;
+    await tester.tap(find.text(L10n.current.ctaSelect('Movera')));
+    await settle(tester, 30);
+    await tester.tap(find.byKey(const ValueKey('set-pickup-confirm')));
+    await settle(tester, 60);
+    // Same price at Confirm: no popup before booking; the server asks.
+    expect(app.booking.pricesAccepted, [false]);
+    expect(app.booking.agreedQuoteIds.single, isNotNull);
+    expectPopup(first, 8200);
+    await tester.tap(_accept);
+    await settle(tester, 60);
+    expect(app.booking.pricesAccepted, [false, true]);
+    expect(app.booking.submits, 1);
+    await close(tester);
+  });
+
+  testWidgets('case1: ✕ on the 409 popup books nothing', (tester) async {
+    final server = _Server();
+    final app = await _pumpSelect(tester, server);
+    app.booking.askFirst = 8200;
+    await tester.tap(find.text(L10n.current.ctaSelect('Movera')));
+    await settle(tester, 30);
+    await tester.tap(find.byKey(const ValueKey('set-pickup-confirm')));
+    await settle(tester, 60);
+    expectPopup(first, 8200);
+    await tester.tap(_close);
+    await settle(tester, 60);
+    expect(app.booking.submits, 0);
+    expect(app.booking.pricesAccepted, [false]);
+    expect(find.byType(PriceUpdatedDialog), findsNothing);
+    await close(tester);
+  });
+
+  testWidgets('case2: POST /trips carries agreedQuoteId; after a rise is '
+      'accepted it carries priceAccepted true', (tester) async {
+    final (_, server) = await case2(tester, rise);
+    expectPopup(first, rise);
+    await tester.tap(_accept);
+    await settle(tester, 60);
+    final body = server.tripBodies.single;
+    expect(body['agreedQuoteId'], isA<String>());
+    expect(body['priceAccepted'], isTrue);
+    expect(body.keys, isNot(contains('total')));
+    await close(tester);
+  });
+
+  testWidgets('case2: a drop books with agreedQuoteId and no priceAccepted', (
+    tester,
+  ) async {
+    final (_, server) = await case2(tester, drop);
+    final body = server.tripBodies.single;
+    expect(body['agreedQuoteId'], isA<String>());
+    expect(body.containsKey('priceAccepted'), isFalse);
+    await close(tester);
+  });
+
+  testWidgets('case2: a 409 price_changed_ask from POST /trips opens the v8 '
+      "popup with the server's fresh price; yes books with priceAccepted", (
+    tester,
+  ) async {
+    final server = _Server();
+    final app = await _pumpSelect(tester, server, scheduledFor: tomorrow());
+    server.askFirstTrip = 8200;
+    await tester.tap(find.text(L10n.current.ctaSchedule('Movera')));
+    await settle(tester, 30);
+    await tester.tap(find.text(L10n.current.confirmAndSchedule));
+    await settle(tester, 60);
+    expect(server.askedTripBodies.single['agreedQuoteId'], isA<String>());
+    expect(server.askedTripBodies.single.containsKey('priceAccepted'), isFalse);
+    expectPopup(first, 8200);
+    expect(server.tripBodies, isEmpty);
+    await tester.tap(_accept);
+    await settle(tester, 60);
+    expect(server.tripBodies, hasLength(1));
+    expect(server.tripBodies.single['priceAccepted'], isTrue);
+    expect(app.reservations.all, hasLength(1));
     await close(tester);
   });
 }

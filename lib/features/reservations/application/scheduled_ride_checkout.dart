@@ -68,6 +68,8 @@ class ScheduledRideCheckout {
     String? timeZone,
     List<ReservationPlace> stops = const <ReservationPlace>[],
     Future<double?> Function(double reviewedPrice)? requote,
+    // v0.18.174: the rider already said yes to a higher price.
+    bool priceAccepted = false,
   }) async {
     if (selection.entersFindingDriver || !selection.createsReservation) {
       throw StateError('scheduled checkout cannot enter Finding Driver');
@@ -109,6 +111,8 @@ class ScheduledRideCheckout {
       if (requote != null && selection.authoritativePriceFor(ride) == null) {
         final next = await requote(price);
         if (next == null || !context.mounted) return null;
+        // v0.18.174: only a rise is asked, so a higher price was accepted.
+        if (next > price) priceAccepted = true;
         price = next;
       }
       return ScheduledRideBooking.confirm(
@@ -121,6 +125,7 @@ class ScheduledRideCheckout {
         price: price,
         timeZone: timeZone,
         stops: stops,
+        priceAccepted: priceAccepted,
       );
     }
 
@@ -134,6 +139,7 @@ class ScheduledRideCheckout {
       price: draft.price,
       timeZone: timeZone,
       stops: stops,
+      priceAccepted: priceAccepted,
     );
     if (context.mounted) {
       await showReservationBookedPopup(context);

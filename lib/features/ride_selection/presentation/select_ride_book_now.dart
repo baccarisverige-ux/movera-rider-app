@@ -115,6 +115,8 @@ extension _SelectRideBookNow on _SelectRideState {
     var bookable = await _quoteAfterPickup(selected);
     if (!mounted) return;
     var shown = spot.fareTotalKr;
+    // v0.18.174: the rider said yes to a higher price in the popup.
+    var priceAccepted = false;
     // v0.18.174 (owner 2026-11-28): only a RISE is asked; a drop or the
     // same price books silently at the fresh (lower) price.
     while (bookable != null &&
@@ -133,6 +135,7 @@ extension _SelectRideBookNow on _SelectRideState {
         return;
       }
       if (!mounted) return;
+      priceAccepted = true;
       // rider-u190: the dialog has no time limit. A quote that ran out
       // while it was open is priced again; a new price is asked again.
       shown = bookable.price;
@@ -157,82 +160,109 @@ extension _SelectRideBookNow on _SelectRideState {
     final stops = await _routeStops();
     if (!mounted) return;
 
-    String rideId;
-    try {
-      rideId = await (widget.booking ?? BookingController()).submitFinding(
-        stops: stops,
-        pickupAddress: _pickupAddress,
-        destinationAddress: widget.destinationAddress,
-        pickupLat: _pickupPosition.latitude,
-        pickupLng: _pickupPosition.longitude,
-        destinationLat: widget.destinationPosition.latitude,
-        destinationLng: widget.destinationPosition.longitude,
-        rideType: selected.id,
-        price: authoritativePrice,
-        paymentMethod: payment.brand,
-        quoteId: quote.id,
-        quoteSignedPayload: quote.signedPayload,
-        quoteExpiresAt: quote.expiresAt,
-        quoteTotalMinor: quote.totalMinor,
-        quoteCurrency: quote.currency,
-        rideTypeLabel: selected.name,
-        paymentMethodLabel: payment.name,
-        notes: _notes,
-        useWalletFirst: _selection.useWalletFirst,
-        walletAmountMinor: walletSplit.walletMinor,
-      );
-      if (rideId.trim().isEmpty) {
-        throw StateError('Booking response did not contain a ride id.');
-      }
-    } catch (error) {
-      // Refused or unsure: back on Choose your ride, as before.
-      await hold?.close();
-      if (!mounted) return;
-      if (error is ApiError && error.detail == 'active_trip_exists') {
-        await _openRideAlreadyGoing();
-        return;
-      }
-      // v0.18.10 (owner G8 item 2): a payment method the server does
-      // not take is said plainly, then back to the payment choice;
-      // never a silent return to Select Ride.
-      // G16-1: a paused account cannot book; it is said plainly.
-      if (error is ApiError && error.detail == 'account_suspended') {
-        // v0.18.43 §64: the projection is Rider.moderation; a paused or
-        // banned rider gets the level screen.
-        final level = RiderModeration.fromRider(error.projection);
-        if (level.blocksRiding) RiderModeration.current.value = level;
+    late String rideId;
+    // v0.18.174 (contract.json#priceChangeAsk): the booking names the quote
+    // the rider saw; a server that books a higher one answers 409
+    // price_changed_ask, the v8 popup shows the server's price and a yes
+    // sends it again with priceAccepted (asked once; a second 409 fails).
+    for (var priceAsk = 0; ; priceAsk++) {
+      try {
+        rideId = await (widget.booking ?? BookingController()).submitFinding(
+          stops: stops,
+          pickupAddress: _pickupAddress,
+          destinationAddress: widget.destinationAddress,
+          pickupLat: _pickupPosition.latitude,
+          pickupLng: _pickupPosition.longitude,
+          destinationLat: widget.destinationPosition.latitude,
+          destinationLng: widget.destinationPosition.longitude,
+          rideType: selected.id,
+          price: authoritativePrice,
+          paymentMethod: payment.brand,
+          quoteId: quote.id,
+          quoteSignedPayload: quote.signedPayload,
+          quoteExpiresAt: quote.expiresAt,
+          quoteTotalMinor: quote.totalMinor,
+          quoteCurrency: quote.currency,
+          rideTypeLabel: selected.name,
+          paymentMethodLabel: payment.name,
+          notes: _notes,
+          useWalletFirst: _selection.useWalletFirst,
+          walletAmountMinor: walletSplit.walletMinor,
+          agreedQuoteId: quote.id,
+          priceAccepted: priceAccepted,
+        );
+        if (rideId.trim().isEmpty) {
+          throw StateError('Booking response did not contain a ride id.');
+        }
+        break;
+      } catch (error) {
+        if (priceAsk == 0 && isPriceChangedAsk(error) && mounted) {
+          final fresh = priceChangedAskFresh(error);
+          if (await _acceptNewPrice(
+            authoritativePrice,
+            fresh?.major ?? authoritativePrice,
+            selected,
+          )) {
+            if (!mounted) return;
+            priceAccepted = true;
+            continue;
+          }
+          await hold?.close();
+          if (!mounted) return;
+          // ignore: invalid_use_of_protected_member
+          setState(() {});
+          unawaited(_loadQuotes());
+          return;
+        }
+        // Refused or unsure: back on Choose your ride, as before.
+        await hold?.close();
+        if (!mounted) return;
+        if (error is ApiError && error.detail == 'active_trip_exists') {
+          await _openRideAlreadyGoing();
+          return;
+        }
+        // v0.18.10 (owner G8 item 2): a payment method the server does
+        // not take is said plainly, then back to the payment choice;
+        // never a silent return to Select Ride.
+        // G16-1: a paused account cannot book; it is said plainly.
+        if (error is ApiError && error.detail == 'account_suspended') {
+          // v0.18.43 §64: the projection is Rider.moderation; a paused or
+          // banned rider gets the level screen.
+          final level = RiderModeration.fromRider(error.projection);
+          if (level.blocksRiding) RiderModeration.current.value = level;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              key: const ValueKey('booking-account-suspended'),
+              content: Text(context.l10n.accountSuspended),
+            ),
+          );
+          return;
+        }
+        if (error is ApiError && error.detail.startsWith('payment_method_')) {
+          await _paymentMethodRefused(error.detail);
+          return;
+        }
+        // J10 (v0.18.84 debtModel.maxRiderDebt): pay in car is paused while
+        // the rider owes at or above the max; said plainly, then the
+        // payment choice (card, Apple Pay and wallet stay allowed).
+        if (RiderDebtRefusal.messageOf(error) case final text?) {
+          await _riderDebtAboveMax(text);
+          return;
+        }
+        // RC-09: a booking that may exist on the server is not "refused".
+        final uncertain = BookingController.mayHaveBooked(error);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            key: const ValueKey('booking-account-suspended'),
-            content: Text(context.l10n.accountSuspended),
+            content: Text(
+              uncertain
+                  ? context.l10n.bookingUncertain
+                  : context.l10n.bookingFailed,
+            ),
           ),
         );
+        unawaited(_loadQuotes());
         return;
       }
-      if (error is ApiError && error.detail.startsWith('payment_method_')) {
-        await _paymentMethodRefused(error.detail);
-        return;
-      }
-      // J10 (v0.18.84 debtModel.maxRiderDebt): pay in car is paused while
-      // the rider owes at or above the max; said plainly, then the
-      // payment choice (card, Apple Pay and wallet stay allowed).
-      if (RiderDebtRefusal.messageOf(error) case final text?) {
-        await _riderDebtAboveMax(text);
-        return;
-      }
-      // RC-09: a booking that may exist on the server is not "refused".
-      final uncertain = BookingController.mayHaveBooked(error);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            uncertain
-                ? context.l10n.bookingUncertain
-                : context.l10n.bookingFailed,
-          ),
-        ),
-      );
-      unawaited(_loadQuotes());
-      return;
     }
 
     if (!mounted) {

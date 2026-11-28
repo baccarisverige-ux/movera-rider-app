@@ -107,6 +107,8 @@ class _CaptureBooking extends BookingController {
     List<RouteStop> stops = const <RouteStop>[],
     bool useWalletFirst = false,
     int walletAmountMinor = 0,
+    String? agreedQuoteId,
+    bool priceAccepted = false,
   }) async {
     bookings.add('$rideType $quoteId $price');
     throw StateError('stop here');

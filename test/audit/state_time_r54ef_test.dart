@@ -134,6 +134,8 @@ class _Booking extends BookingController {
     List<RouteStop> stops = const <RouteStop>[],
     bool useWalletFirst = false,
     int walletAmountMinor = 0,
+    String? agreedQuoteId,
+    bool priceAccepted = false,
   }) async {
     booked.add((
       ride: rideType,

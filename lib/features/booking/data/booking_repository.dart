@@ -32,6 +32,10 @@ class BookingRepository {
     List<RouteStop> stops = const <RouteStop>[],
     bool useWalletFirst = false,
     int walletAmountMinor = 0,
+    // v0.18.174 (contract.json#priceChangeAsk): the quote whose price the
+    // rider saw, and whether they accepted a higher price in the popup.
+    String? agreedQuoteId,
+    bool priceAccepted = false,
   }) {
     return _coordinator.submitFinding(
       pickupAddress: pickupAddress,
@@ -54,6 +58,8 @@ class BookingRepository {
       stops: stops,
       useWalletFirst: useWalletFirst,
       walletAmountMinor: walletAmountMinor,
+      agreedQuoteId: agreedQuoteId,
+      priceAccepted: priceAccepted,
     );
   }
 

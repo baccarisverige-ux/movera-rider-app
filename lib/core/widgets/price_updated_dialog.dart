@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 
@@ -10,6 +11,24 @@ import 'package:movera_rider/l10n/l10n.dart';
 /// Compared on minor units; another currency always asks.
 bool priceChangeNeedsAsk(Money agreed, Money fresh) =>
     fresh.currency != agreed.currency || fresh.amountMinor > agreed.amountMinor;
+
+/// v0.18.174: the server's `409 price_changed_ask` (the booked quote is
+/// higher than the agreed one and the rider has not accepted it).
+bool isPriceChangedAsk(Object error) =>
+    error is ApiError && error.reason == 'price_changed_ask';
+
+/// The server's fresh price from a `price_changed_ask` answer (its details
+/// line `fresh:<minor> <currency>`), or null when it is not there.
+Money? priceChangedAskFresh(Object error) {
+  if (!isPriceChangedAsk(error)) return null;
+  for (final line in (error as ApiError).details ?? const <String>[]) {
+    final match = RegExp(r'^fresh:(\d+) ([A-Z]{3})$').firstMatch(line);
+    if (match != null) {
+      return Money(int.parse(match.group(1)!), match.group(2)!);
+    }
+  }
+  return null;
+}
 
 /// The one "price recalculated" popup of the rider app (owner FINAL design
 /// v8, 2026-11-28; Rules plan/screens-2026-11-28/price-updated/

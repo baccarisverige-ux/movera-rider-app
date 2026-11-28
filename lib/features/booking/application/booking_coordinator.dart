@@ -164,6 +164,8 @@ class BookingCoordinator {
     List<RouteStop> stops = const <RouteStop>[],
     RideNotes notes = RideNotes.empty,
     bool walletFirst = false,
+    String? agreedQuoteId,
+    bool priceAccepted = false,
   }) {
     final route = ApiQuoteRepository.routeOf(quoteId);
     final note = notes.selected.join(', ');
@@ -204,6 +206,10 @@ class BookingCoordinator {
       'walletFirst': walletFirst || paymentMethod == 'wallet',
       // Bags, pet, baby and child: the driver reads them before accepting.
       if (note.isNotEmpty) 'notes': note,
+      // v0.18.174 (contract.json#priceChangeAsk): the quote the rider saw;
+      // the server asks again (409 price_changed_ask) on any rise above it.
+      if (agreedQuoteId != null) 'agreedQuoteId': agreedQuoteId,
+      if (agreedQuoteId != null && priceAccepted) 'priceAccepted': true,
     };
   }
 
@@ -381,6 +387,10 @@ class BookingCoordinator {
     List<RouteStop> stops = const <RouteStop>[],
     bool useWalletFirst = false,
     int walletAmountMinor = 0,
+    // v0.18.174 (contract.json#priceChangeAsk): the quote whose price the
+    // rider saw, and whether they accepted a higher price in the popup.
+    String? agreedQuoteId,
+    bool priceAccepted = false,
   }) {
     if (_inflight != null) return _inflight!;
     if (_findingAlreadyActive) {
@@ -408,6 +418,8 @@ class BookingCoordinator {
       stops: stops,
       useWalletFirst: useWalletFirst,
       walletAmountMinor: walletAmountMinor,
+      agreedQuoteId: agreedQuoteId,
+      priceAccepted: priceAccepted,
     );
     _inflight = started;
     started.then<void>(
@@ -442,6 +454,10 @@ class BookingCoordinator {
     List<RouteStop> stops = const <RouteStop>[],
     bool useWalletFirst = false,
     int walletAmountMinor = 0,
+    // v0.18.174 (contract.json#priceChangeAsk): the quote whose price the
+    // rider saw, and whether they accepted a higher price in the popup.
+    String? agreedQuoteId,
+    bool priceAccepted = false,
   }) async {
     final baseIntent = jsonEncode(<String, Object?>{
       'pickupAddress': pickupAddress,
@@ -475,6 +491,8 @@ class BookingCoordinator {
       ],
       'notes': notes.toJson(),
       'useWalletFirst': useWalletFirst,
+      // v0.18.174: a resend that accepts a higher price is another body.
+      'priceAccepted': priceAccepted,
     });
     // rider-u80: the last attempt was sent and never answered (it may have
     // created the ride) and this one would get a new key: a moved pin, or
@@ -550,6 +568,8 @@ class BookingCoordinator {
           stops: stops,
           useWalletFirst: useWalletFirst,
           walletAmountMinor: walletMinor,
+          agreedQuoteId: agreedQuoteId,
+          priceAccepted: priceAccepted,
           attempt: attempt,
           isReplay: isReplay,
           onSending: () => attempt.replay ??= () => send(isReplay: true),
@@ -781,6 +801,10 @@ class BookingCoordinator {
     List<RouteStop> stops = const <RouteStop>[],
     bool useWalletFirst = false,
     int walletAmountMinor = 0,
+    // v0.18.174 (contract.json#priceChangeAsk): the quote whose price the
+    // rider saw, and whether they accepted a higher price in the popup.
+    String? agreedQuoteId,
+    bool priceAccepted = false,
     required BookingAttempt attempt,
     bool isReplay = false,
     void Function()? onSending,
@@ -817,6 +841,8 @@ class BookingCoordinator {
               stops: stops,
               notes: notes,
               walletFirst: useWalletFirst,
+              agreedQuoteId: agreedQuoteId,
+              priceAccepted: priceAccepted,
             ),
             idempotencyKey: key,
             client: _client,

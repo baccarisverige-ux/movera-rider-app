@@ -4,7 +4,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
+import 'package:movera_rider/features/reservations/data/api_reservation_repository.dart';
 import 'package:movera_rider/core/widgets/price_updated_dialog.dart';
 import 'package:movera_rider/l10n/l10n.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
@@ -30,6 +33,60 @@ void main() {
     });
     test('another currency always asks', () {
       expect(priceChangeNeedsAsk(agreed, const Money(100, 'SEK')), isTrue);
+    });
+  });
+
+  group('v0.18.174 request fields and the 409 answer', () {
+    Map<String, dynamic> body({String? agreed, bool accepted = false}) =>
+        BookingCoordinator.contractTripBody(
+          quoteId: 'qte_1',
+          categoryId: 'economy',
+          paymentMethod: 'cash',
+          pickupLat: 48.85,
+          pickupLng: 2.35,
+          destinationLat: 49.31,
+          destinationLng: 2.35,
+          agreedQuoteId: agreed,
+          priceAccepted: accepted,
+        );
+    test('POST /trips carries agreedQuoteId, and priceAccepted only when '
+        'the rider accepted a higher price', () {
+      expect(body(agreed: 'qte_0')['agreedQuoteId'], 'qte_0');
+      expect(body(agreed: 'qte_0').containsKey('priceAccepted'), isFalse);
+      expect(body(agreed: 'qte_0', accepted: true)['priceAccepted'], isTrue);
+      expect(body().containsKey('agreedQuoteId'), isFalse);
+      expect(body(accepted: true).containsKey('priceAccepted'), isFalse);
+      for (final money in ['total', 'fareMinor', 'price', 'totalMinor']) {
+        expect(body(agreed: 'qte_0').containsKey(money), isFalse);
+      }
+    });
+    test('booked rides (POST /trips, /reschedule) carry the same fields', () {
+      expect(ApiReservationRepository.priceChangeAskBody('qte_0', true), {
+        'agreedQuoteId': 'qte_0',
+        'priceAccepted': true,
+      });
+      expect(ApiReservationRepository.priceChangeAskBody('qte_0', false), {
+        'agreedQuoteId': 'qte_0',
+      });
+      expect(ApiReservationRepository.priceChangeAskBody(null, true), isEmpty);
+    });
+    test("409 price_changed_ask gives the server's fresh price", () {
+      const ask = ApiError(
+        code: 'conflict',
+        message: 'up',
+        statusCode: 409,
+        reason: 'price_changed_ask',
+        details: ['fresh:8150 EUR', 'agreed:7930 EUR'],
+      );
+      expect(isPriceChangedAsk(ask), isTrue);
+      expect(priceChangedAskFresh(ask), const Money(8150, 'EUR'));
+      const other = ApiError(
+        code: 'conflict',
+        message: 'x',
+        reason: 'quote_used',
+      );
+      expect(isPriceChangedAsk(other), isFalse);
+      expect(priceChangedAskFresh(other), isNull);
     });
   });
 

@@ -58,6 +58,7 @@ class ScheduledRideBooking {
     double? price,
     String? timeZone,
     List<ReservationPlace> stops = const <ReservationPlace>[],
+    bool priceAccepted = false,
   }) {
     if (selection.entersFindingDriver || !selection.createsReservation) {
       throw StateError('scheduled booking cannot enter Finding Driver');
@@ -83,6 +84,9 @@ class ScheduledRideBooking {
       throw ScheduledQuoteRequiredException(ride.id);
     }
     final nextPrice = quoted;
+    // v0.18.174 (contract.json#priceChangeAsk): the quote whose price the
+    // rider saw (the one [quoted] comes from).
+    final agreedQuoteId = selection.quoteIdFor(ride.id);
     if (editingReservationId != null) {
       return reservations.update(
         editingReservationId,
@@ -102,6 +106,8 @@ class ScheduledRideBooking {
           timeZone: zone,
           // rider-r4-28: the stops [quoted] priced.
           stops: stops,
+          agreedQuoteId: agreedQuoteId,
+          priceAccepted: priceAccepted,
         ),
       );
     }
@@ -123,6 +129,8 @@ class ScheduledRideBooking {
         timeZone: zone,
         stops: stops,
         walletFirst: selection.useWalletFirst,
+        agreedQuoteId: agreedQuoteId,
+        priceAccepted: priceAccepted,
       ),
     );
   }
